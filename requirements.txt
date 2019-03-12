@@ -1,0 +1,9 @@
+requests
+wheel
+#doc
+sphinx
+sphinx-automodapi
+sphinx-rtd_theme
+# testing
+rsa
+numpy

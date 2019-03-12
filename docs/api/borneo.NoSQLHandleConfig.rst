@@ -1,0 +1,91 @@
+NoSQLHandleConfig
+=================
+
+.. currentmodule:: borneo
+
+.. autoclass:: NoSQLHandleConfig
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~NoSQLHandleConfig.clone
+      ~NoSQLHandleConfig.configure_default_retry_handler
+      ~NoSQLHandleConfig.get_authorization_provider
+      ~NoSQLHandleConfig.get_consistency
+      ~NoSQLHandleConfig.get_default_consistency
+      ~NoSQLHandleConfig.get_default_table_request_timeout
+      ~NoSQLHandleConfig.get_default_timeout
+      ~NoSQLHandleConfig.get_host
+      ~NoSQLHandleConfig.get_logger
+      ~NoSQLHandleConfig.get_max_content_length
+      ~NoSQLHandleConfig.get_pool_connections
+      ~NoSQLHandleConfig.get_pool_maxsize
+      ~NoSQLHandleConfig.get_port
+      ~NoSQLHandleConfig.get_protocol
+      ~NoSQLHandleConfig.get_proxy_host
+      ~NoSQLHandleConfig.get_proxy_password
+      ~NoSQLHandleConfig.get_proxy_port
+      ~NoSQLHandleConfig.get_proxy_username
+      ~NoSQLHandleConfig.get_retry_handler
+      ~NoSQLHandleConfig.get_sec_info_timeout
+      ~NoSQLHandleConfig.get_table_request_timeout
+      ~NoSQLHandleConfig.get_timeout
+      ~NoSQLHandleConfig.set_authorization_provider
+      ~NoSQLHandleConfig.set_consistency
+      ~NoSQLHandleConfig.set_host
+      ~NoSQLHandleConfig.set_logger
+      ~NoSQLHandleConfig.set_pool_connections
+      ~NoSQLHandleConfig.set_pool_maxsize
+      ~NoSQLHandleConfig.set_port
+      ~NoSQLHandleConfig.set_protocol
+      ~NoSQLHandleConfig.set_proxy_host
+      ~NoSQLHandleConfig.set_proxy_password
+      ~NoSQLHandleConfig.set_proxy_port
+      ~NoSQLHandleConfig.set_proxy_username
+      ~NoSQLHandleConfig.set_retry_handler
+      ~NoSQLHandleConfig.set_sec_info_timeout
+      ~NoSQLHandleConfig.set_table_request_timeout
+      ~NoSQLHandleConfig.set_timeout
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: clone
+   .. automethod:: configure_default_retry_handler
+   .. automethod:: get_authorization_provider
+   .. automethod:: get_consistency
+   .. automethod:: get_default_consistency
+   .. automethod:: get_default_table_request_timeout
+   .. automethod:: get_default_timeout
+   .. automethod:: get_host
+   .. automethod:: get_logger
+   .. automethod:: get_max_content_length
+   .. automethod:: get_pool_connections
+   .. automethod:: get_pool_maxsize
+   .. automethod:: get_port
+   .. automethod:: get_protocol
+   .. automethod:: get_proxy_host
+   .. automethod:: get_proxy_password
+   .. automethod:: get_proxy_port
+   .. automethod:: get_proxy_username
+   .. automethod:: get_retry_handler
+   .. automethod:: get_sec_info_timeout
+   .. automethod:: get_table_request_timeout
+   .. automethod:: get_timeout
+   .. automethod:: set_authorization_provider
+   .. automethod:: set_consistency
+   .. automethod:: set_host
+   .. automethod:: set_logger
+   .. automethod:: set_pool_connections
+   .. automethod:: set_pool_maxsize
+   .. automethod:: set_port
+   .. automethod:: set_protocol
+   .. automethod:: set_proxy_host
+   .. automethod:: set_proxy_password
+   .. automethod:: set_proxy_port
+   .. automethod:: set_proxy_username
+   .. automethod:: set_retry_handler
+   .. automethod:: set_sec_info_timeout
+   .. automethod:: set_table_request_timeout
+   .. automethod:: set_timeout
