@@ -4,12 +4,16 @@ Setup script for the Python driver for Oracle NoSQL Database
 
 import os
 import io
-from datetime import datetime
 from setuptools import setup, find_packages
 
-# used only if patching a specific release. This should be of the
-# format year.dayOfYear.patchVersion, e.g. 19.30.1
-patch_version = None
+#
+# Version format is major.minor.patch
+#
+major_version = '5'
+minor_version = '0'
+patch_version = '0'
+dot = '.'
+release_version = major_version + dot + minor_version + dot + patch_version
 
 
 def open_relative(*path):
@@ -25,12 +29,6 @@ def open_relative(*path):
 
 with open_relative("README.rst") as f:
     readme = f.read()
-
-if patch_version is not None:
-    release_version = patch_version
-else:
-    release_version = (str(datetime.today().timetuple().tm_year - 2000) + '.' +
-                       str(datetime.today().timetuple().tm_yday)) + '.0'
 
 requires = [
     "requests"
