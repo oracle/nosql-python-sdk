@@ -686,15 +686,19 @@ class NoSQLHandleConfig:
 
     def clone(self):
         """
-        All the configurations will be copied except for the logger, you need
-        to set the logger if needed.
+        All the configurations will be copied.
 
-        :returns: the copy of the instance, the logger will not be copied.
+        :returns: the copy of the instance.
         """
+        auth_provider = self.__auth_provider
         logger = self.__logger
+        self.__auth_provider = None
         self.__logger = None
         clone_config = deepcopy(self)
+        clone_config.set_authorization_provider(
+            auth_provider).set_logger(logger)
         self.__logger = logger
+        self.__auth_provider = auth_provider
         return clone_config
 
     def __check_protocol(self, protocol):

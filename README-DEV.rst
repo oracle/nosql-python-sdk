@@ -38,7 +38,7 @@ Test settings are in test/parameters.py. Refer to the comments in the tests and
 examples for details.
 
 All tests require that your PYTHONPATH be set to the development tree:
- $ export PYTHONPATH=<path-to-sk.python>/sk.python/src:$PYTHONPATH
+ $ export PYTHONPATH=<path-to-nosql-python-sdk>/nosql-python-sdk/src:$PYTHONPATH
 
 Run Unit Tests
 --------------
@@ -61,27 +61,11 @@ Run Unit Tests
             e.g.
             $ python -m unittest put.TestPut.testPutNoVersionWithMatchVersion
 
-Run Stress Test
----------------
-
-The stress test is a multi-threaded test that exercises concurrent operation in
-the driver. It also assumes a running CloudSim instance on the default endpoint,
-localhost:8080.
-
-    1. Modify <path-to-repo>/stresstest/parameters.py to suit your environment.
-       The comments in that file tells you how to modify the settings.
-    2. With CloudSim running, start the test.
-
-      .. code-block::
-
-         $ cd <path-to-repo>/stresstest
-         $ python start.py (Start a multiprocess stress test)
-
 Run Examples
 ------------
 
     1. Set PYTHONPATH to point to the development tree.
-       $ export PYTHONPATH=<path-to-sk.python>/sk.python/src:$PYTHONPATH
+       $ export PYTHONPATH=<path-to-nosql-python-sdk>/nosql-python-sdk/src:$PYTHONPATH
     2. Modify <path-to-repo>/examples/parameters.py to suit your environment.
        The comments in that file tells you how to modify the settings.
     3. With the CloudSim running, run a test

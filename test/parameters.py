@@ -28,17 +28,20 @@ from borneo import Consistency, DefaultRetryHandler
 # server has been started on the endpoint, localhost:8080, which is its
 # default. If not, you can change parameters in this file as needed.
 #
-# To run with the Oracle NoSQL Cloud Service, you need to set the
-# following parameters, leaving the others defaulted:
+# To run with the Oracle NoSQL Cloud Service, you need to generate the
+# credentials file template credentials.tmp using the OAuthClient tool first.
+# Then create a new file in specified path set by parameter "credentials_file",
+# and copy content of credentials.tmp to the file. Open the file in your text
+# editor, add only the following information and save the file.
+#
+#     andc_client_id=<application_client_id from credential file>
+#     andc_client_secret=<application_client_secret from credential file>
+#
+# Then set the following parameters, leaving the others defaulted:
 #     protocol = 'https',
 #     http_host = 'ans.uscom-east-1.oraclecloud.com'
 #     http_port = 443,
 #     idcs_url = 'your_idcs_url'
-#     entitlement_id = 'your_entitlement_id'
-#     andc_client_id = 'your_andc_client_id',
-#     andc_client_secret = 'your_andc_client_secret'
-#     andc_username = 'your_andc_username'
-#     andc_user_pwd = 'your_andc_user_pwd'
 #
 
 # A test tenant_id, only used for the Cloud Simulator
@@ -99,19 +102,9 @@ proxy_password = None
 #
 
 # Credentials file path.
-credentials_file = environ['HOME'] + sep + '.andc' + sep + 'test_credentials'
+credentials_file = environ['HOME'] + sep + '.andc' + sep + 'credentials'
 # Properties file path
-properties_file = environ['HOME'] + sep + '.andc' + sep + 'test_properties'
-# Your client id
-andc_client_id = 'test-client'
-# Your client secret
-andc_client_secret = 'test-client-secret'
-# Your user name
-andc_username = 'test-user'
-# Your password
-andc_user_pwd = 'test-user-pwd'
-# Your entitlement id
-entitlement_id = '123456789'
+properties_file = environ['HOME'] + sep + '.andc' + sep + 'properties'
 # Your IDCS server url
 idcs_url = None
 
@@ -127,6 +120,7 @@ keystore = path.abspath(path.dirname(argv[0])) + sep + 'tenant.pem'
 tier_name = None
 # The sc port for setting the tier.
 sc_port = 13600
+
 
 def not_cloudsim():
     # Can be used by tests to determine the environment. Returns False if

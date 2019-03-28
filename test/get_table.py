@@ -14,13 +14,17 @@ from borneo import (
     GetTableRequest, IllegalArgumentException, State, TableLimits,
     TableNotFoundException, TableRequest)
 from parameters import (
-    not_cloudsim, protocol, table_name, tenant_id, timeout, wait_timeout)
+    idcs_url, not_cloudsim, protocol, table_name, tenant_id, timeout,
+    wait_timeout)
 from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
 
 
 class TestGetTable(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if idcs_url is not None:
+            global tenant_id
+            tenant_id = idcs_url[idcs_url.find('i'):idcs_url.find('.')]
         add_test_tier_tenant(tenant_id)
         cls._handle = get_handle(tenant_id)
         if protocol == 'https':

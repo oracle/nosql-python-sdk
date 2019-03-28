@@ -14,8 +14,8 @@ from borneo import (
     IllegalArgumentException, State, TableLimits, TableNotFoundException,
     TableRequest, TableResult)
 from parameters import (
-    not_cloudsim, protocol, table_name, table_request_timeout, tenant_id,
-    wait_timeout)
+    idcs_url, not_cloudsim, protocol, table_name, table_request_timeout,
+    tenant_id, wait_timeout)
 from testutils import (
     add_test_tier_tenant, delete_test_tier_tenant, get_handle,
     get_handle_config)
@@ -24,6 +24,9 @@ from testutils import (
 class TestTableRequest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if idcs_url is not None:
+            global tenant_id
+            tenant_id = idcs_url[idcs_url.find('i'):idcs_url.find('.')]
         add_test_tier_tenant(tenant_id)
 
     @classmethod

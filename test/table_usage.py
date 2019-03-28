@@ -17,13 +17,17 @@ from borneo import (
     GetRequest, IllegalArgumentException, PutRequest, State, TableLimits,
     TableNotFoundException, TableRequest, TableUsageRequest)
 from parameters import (
-    not_cloudsim, protocol, table_name, tenant_id, timeout, wait_timeout)
+    idcs_url, not_cloudsim, protocol, table_name, tenant_id, timeout,
+    wait_timeout)
 from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
 
 
 class TestTableUsage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if idcs_url is not None:
+            global tenant_id
+            tenant_id = idcs_url[idcs_url.find('i'):idcs_url.find('.')]
         add_test_tier_tenant(tenant_id)
         cls._handle = get_handle(tenant_id)
         if protocol == 'https':
@@ -166,7 +170,8 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             self.assertGreaterEqual(usage_record.get_write_units(), 0)
             if not_cloudsim():
                 # the record is generated in 1 min
-                self.assertGreater(start_time_res, current - 60000)
+                # self.assertGreater(start_time_res, current - 60000)
+                self.assertGreater(start_time_res, current - 60000 * 2)
                 self.assertLess(start_time_res, current)
                 self.assertLessEqual(usage_record.get_seconds_in_period(), 60)
                 self.assertLessEqual(usage_record.get_storage_gb(), 0)
@@ -307,7 +312,8 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             self.assertGreater(usage_record.get_write_units(), 0)
             if not_cloudsim():
                 # the record is generated in 1 min
-                self.assertGreater(start_time_res, current - 60000)
+                # self.assertGreater(start_time_res, current - 60000)
+                self.assertGreater(start_time_res, current - 60000 * 2)
                 self.assertLess(start_time_res, current)
                 self.assertLessEqual(usage_record.get_seconds_in_period(), 60)
                 self.assertLessEqual(usage_record.get_storage_gb(), 0)

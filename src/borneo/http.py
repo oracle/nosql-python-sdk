@@ -54,11 +54,11 @@ class RequestUtils:
         self.__lock = Lock()
         self.__max_request_id = 1
 
-    def do_get_request(self, uri, headers, timeout_ms):
+    def do_delete_request(self, uri, headers, timeout_ms):
         """
-        Issue HTTP GET request with retires and general error handling.
+        Issue HTTP DELETE request with retries and general error handling.
 
-        It retires upon the exceptions and response code for following cases:
+        It retries upon seeing following exceptions and response codes:
 
             IOException\n
             HTTP response with status code larger than 500\n
@@ -70,15 +70,34 @@ class RequestUtils:
         :param timeout_ms: request timeout in milliseconds.
         :returns: HTTP response, a object encapsulate status code and response.
         """
-        return self.__do_request(uri, headers, None, timeout_ms,
+        return self.__do_request('DELETE', uri, headers, None, timeout_ms,
+                                 sec_timeout_ms=0)
+
+    def do_get_request(self, uri, headers, timeout_ms):
+        """
+        Issue HTTP GET request with retries and general error handling.
+
+        It retries upon seeing following exceptions and response codes:
+
+            IOException\n
+            HTTP response with status code larger than 500\n
+            Other throwable excluding RuntimeException, InterruptedException,
+            ExecutionException and TimeoutException.
+
+        :param uri: the request URI.
+        :param headers: HTTP headers of this request.
+        :param timeout_ms: request timeout in milliseconds.
+        :returns: HTTP response, a object encapsulate status code and response.
+        """
+        return self.__do_request('GET', uri, headers, None, timeout_ms,
                                  sec_timeout_ms=0)
 
     def do_post_request(self, uri, headers, payload, timeout_ms,
                         sec_timeout_ms=0):
         """
-        Issue HTTP POST request with retires and general error handling.
+        Issue HTTP POST request with retries and general error handling.
 
-        It retires upon the exceptions and response code for following cases:
+        It retries upon seeing following exceptions and response codes:
 
             IOException\n
             HTTP response with status code larger than 500\n
@@ -93,10 +112,34 @@ class RequestUtils:
             available in milliseconds.
         :returns: HTTP response, a object encapsulate status code and response.
         """
-        return self.__do_request(uri, headers, payload, timeout_ms,
+        return self.__do_request('POST', uri, headers, payload, timeout_ms,
                                  sec_timeout_ms)
 
-    def __do_request(self, uri, headers, payload, timeout_ms, sec_timeout_ms):
+    def do_put_request(self, uri, headers, payload, timeout_ms,
+                       sec_timeout_ms=0):
+        """
+        Issue HTTP PUT request with retries and general error handling.
+
+        It retries upon seeing following exceptions and response codes:
+
+            IOException\n
+            HTTP response with status code larger than 500\n
+            Other throwable excluding RuntimeException, InterruptedException,
+            ExecutionException and TimeoutException
+
+        :param uri: the request URI.
+        :param headers: HTTP headers of this request.
+        :param payload: payload in string.
+        :param timeout_ms: request timeout in milliseconds.
+        :param sec_timeout_ms: the timeout of waiting security information to be
+            available in milliseconds.
+        :returns: HTTP response, a object encapsulate status code and response.
+        """
+        return self.__do_request('PUT', uri, headers, payload, timeout_ms,
+                                 sec_timeout_ms)
+
+    def __do_request(self, method, uri, headers, payload, timeout_ms,
+                     sec_timeout_ms):
         start_ms = int(time() * 1000)
         timeout_s = timeout_ms // 1000
         if timeout_s == 0:
@@ -112,15 +155,17 @@ class RequestUtils:
                 if self.__request is not None:
                     request_id = str(self.__next_request_id())
                     headers['x-nosql-request-id'] = request_id
-                if payload is not None:
+                elif payload is not None:
+                    payload = payload.encode()
+                if payload is None:
+                    response = self.__sess.request(
+                        method, uri, headers=headers, timeout=timeout_s)
+                else:
                     # wrap the payload to make it compatible with pyOpenSSL,
                     # there maybe small cost to wrap it.
-                    response = self.__sess.post(
-                        uri, headers=headers, data=memoryview(payload),
-                        timeout=timeout_s)
-                else:
-                    response = self.__sess.get(
-                        uri, headers=headers, timeout=timeout_s)
+                    response = self.__sess.request(
+                        method, uri, headers=headers,
+                        data=memoryview(payload), timeout=timeout_s)
                 if self.__logutils.is_enabled_for(DEBUG):
                     self.__logutils.log_trace(
                         'Response: ' + self.__request.__class__.__name__ +
@@ -129,7 +174,8 @@ class RequestUtils:
                     return self.__process_response(
                         self.__request, response.content, response.status_code)
                 else:
-                    res = HttpResponse(response.content, response.status_code)
+                    res = HttpResponse(response.content.decode(),
+                                       response.status_code)
                     """
                     Retry upon status code larger than 500, in general, this
                     indicates server internal error.

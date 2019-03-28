@@ -46,7 +46,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         cls._result = cls._handle.table_request(create_request)
         cls._result.wait_for_state(cls._handle, table_name, State.ACTIVE,
                                    wait_timeout, 1000)
-        global row, version, tb_expect_expiration, hour_in_milliseconds
+        global row, tb_expect_expiration, hour_in_milliseconds
         row = {'fld_sid': 1, 'fld_id': 1, 'fld_long': 2147483648,
                'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
                'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
@@ -57,7 +57,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
                'fld_map': {'a': '1', 'b': '2', 'c': '3'},
                'fld_rec': {'fld_id': 1, 'fld_bool': False, 'fld_str': None}}
         put_request = PutRequest().set_value(row).set_table_name(table_name)
-        version = cls._handle.put(put_request).get_version()
+        cls._handle.put(put_request)
         tb_expect_expiration = table_ttl.to_expiration_time(
             int(round(time() * 1000)))
         hour_in_milliseconds = 60 * 60 * 1000
@@ -146,7 +146,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         self.get_request.set_consistency(Consistency.EVENTUAL)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), row)
-        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
+        self.assertIsNotNone(result.get_version())
         actual_expiration = result.get_expiration_time()
         actual_expect_diff = actual_expiration - tb_expect_expiration
         self.assertGreater(actual_expiration, 0)

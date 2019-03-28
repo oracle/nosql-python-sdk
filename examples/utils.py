@@ -13,8 +13,7 @@ from borneo.idcs import (
     PropertiesCredentialsProvider)
 
 from parameters import (
-    credentials_file, entitlement_id, host, idcs_url, port, protocol,
-    using_cloud_sim)
+    credentials_file, host, idcs_url, port, protocol, using_cloud_sim)
 
 
 class NoSecurityAccessTokenProvider(AccessTokenProvider):
@@ -40,8 +39,7 @@ def create_access_token_provider(tenant_id):
         return NoSecurityAccessTokenProvider(tenant_id)
 
     provider = DefaultAccessTokenProvider(
-        entitlement_id=entitlement_id, idcs_url=idcs_url,
-        use_refresh_token=False)
+        idcs_url=idcs_url, use_refresh_token=False)
     provider.set_credentials_provider(
         PropertiesCredentialsProvider()
         .set_properties_file(credentials_file))

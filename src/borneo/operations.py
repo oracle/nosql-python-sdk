@@ -291,7 +291,7 @@ class DeleteRequest(WriteRequest):
 
     def set_return_row(self, return_row):
         """
-        Sets whether information about the exist row should be returned on
+        Sets whether information about the existing row should be returned on
         failure because of a version mismatch. If a match version has not been
         set via :py:meth:`set_match_version` this parameter is ignored and there
         will be no return information. This parameter is optional and defaults
@@ -308,7 +308,7 @@ class DeleteRequest(WriteRequest):
 
     def get_return_row(self):
         """
-        Returns whether information about the exist row should be returned on
+        Returns whether information about the existing row should be returned on
         failure because of a version mismatch.
 
         :return: True if information should be returned.

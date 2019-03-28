@@ -16,21 +16,27 @@ from rsa import PrivateKey, sign
 from sys import argv
 
 from borneo import (
-    IllegalArgumentException, IllegalStateException, NoSQLHandle, NoSQLHandleConfig)
+    IllegalArgumentException, IllegalStateException, NoSQLHandle,
+    NoSQLHandleConfig)
 from borneo.idcs import (
-    AccessTokenProvider, DefaultAccessTokenProvider, PropertiesCredentialsProvider)
+    AccessTokenProvider, DefaultAccessTokenProvider,
+    PropertiesCredentialsProvider)
 from parameters import (
-    andc_client_id, andc_client_secret, andc_username, andc_user_pwd,
-    consistency, credentials_file, properties_file, entitlement_id, http_host,
-    http_port, idcs_url, keystore, logger_level, pool_connections, pool_maxsize,
-    protocol, proxy_host, proxy_password, proxy_port, proxy_username,
-    retry_handler, sc_port, security, sec_info_timeout, tier_name,
-    table_request_timeout, timeout)
+    consistency, credentials_file, properties_file, http_host, http_port,
+    idcs_url, keystore, logger_level, pool_connections, pool_maxsize, protocol,
+    proxy_host, proxy_password, proxy_port, proxy_username, retry_handler,
+    sc_port, security, sec_info_timeout, tier_name, table_request_timeout,
+    timeout)
 
 sc_url_base = ('http://' + http_host + ':' + str(sc_port) + '/V0/service/')
 sc_tier_base = sc_url_base + 'tier/'
 sc_nd_tenant_base = sc_url_base + 'tenant/nondefault/'
 logger = None
+
+andc_client_id = 'test-user'
+andc_client_secret = 'test-client-secret'
+andc_username = 'test-user'
+andc_user_pwd = 'test-user-pwd%%'
 
 
 def get_simple_handle_config(tenant_id):
@@ -77,16 +83,14 @@ def set_access_token_provider(config, tenant_id):
             config.set_authorization_provider(
                 NonSecurityAccessTokenProvider(tenant_id))
     else:
-        generate_credentials_file()
-        authorization_provider = DefaultAccessTokenProvider(
-            entitlement_id=entitlement_id, idcs_url=idcs_url,
-            use_refresh_token=True, timeout_ms=timeout)
         if credentials_file is None:
             raise IllegalArgumentException(
-                'Must specify idcs.creds.')
-        authorization_provider.set_credentials_provider(
-            PropertiesCredentialsProvider().set_properties_file(
-                credentials_file))
+                'Must specify the credentials file path.')
+        creds_provider = PropertiesCredentialsProvider().set_properties_file(
+            credentials_file)
+        authorization_provider = DefaultAccessTokenProvider(
+            idcs_url=idcs_url, use_refresh_token=True,
+            creds_provider=creds_provider, timeout_ms=timeout)
         config.set_authorization_provider(authorization_provider)
 
 
@@ -142,11 +146,11 @@ def delete_tenant(tenant_id):
             raise IllegalStateException('Delete tenant failed.')
 
 
-def generate_credentials_file():
+def generate_credentials_file(credentials_file_test):
     # Generate credentials file
-    if path.exists(credentials_file):
-        remove(credentials_file)
-    with open(credentials_file, 'w') as cred_file:
+    if path.exists(credentials_file_test):
+        remove(credentials_file_test)
+    with open(credentials_file_test, 'w') as cred_file:
         cred_file.write('andc_client_id=' + andc_client_id + '\n')
         cred_file.write('andc_client_secret=' + andc_client_secret + '\n')
         cred_file.write('andc_username=' + andc_username + '\n')
@@ -159,7 +163,6 @@ def generate_properties_file(test_idcs_url):
         remove(properties_file)
     with open(properties_file, 'w') as prop_file:
         prop_file.write('idcs_url=' + test_idcs_url + '\n')
-        prop_file.write('entitlement_id=' + entitlement_id + '\n')
         prop_file.write('creds_file=' + credentials_file + '\n')
 
 

@@ -46,6 +46,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         handle = NoSQLHandle(config)
         self.assertRaises(ConnectionError, handle.table_request,
                           self.table_request)
+        handle.close()
 
     def testNoSQLHandleConfigSetIllegalTimeout(self):
         self.assertRaises(IllegalArgumentException, self.config.set_timeout,
@@ -171,7 +172,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertEqual(clone_config.get_proxy_port(), proxy_port)
         self.assertEqual(clone_config.get_proxy_username(), proxy_username)
         self.assertEqual(clone_config.get_proxy_password(), proxy_password)
-        self.assertIsNone(clone_config.get_logger())
+        self.assertIsNotNone(clone_config.get_logger())
 
     def testNoSQLHandleConfigRetryHandler(self):
         self.assertEqual(retry_handler.get_num_retries(), 10)
