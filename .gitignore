@@ -3,3 +3,7 @@ data/
 dist/
 *.pyc
 *.egg-info/
+*.diff
+__pycache__/
+docs/_build/
+logs/
