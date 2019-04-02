@@ -11,11 +11,9 @@ TableUsageResult
    .. autosummary::
 
       ~TableUsageResult.get_table_name
-      ~TableUsageResult.get_tenant_id
       ~TableUsageResult.get_usage_records
 
    .. rubric:: Methods Documentation
 
    .. automethod:: get_table_name
-   .. automethod:: get_tenant_id
    .. automethod:: get_usage_records

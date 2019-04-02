@@ -8,21 +8,18 @@
 #
 
 import unittest
-from time import sleep
 
 from borneo import (
     GetIndexesRequest, IllegalArgumentException, IndexNotFoundException, State,
     TableLimits, TableNotFoundException, TableRequest)
-from parameters import (
-    index_name, protocol, table_name, tenant_id, timeout, wait_timeout)
-from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
+from parameters import index_name, table_name, timeout
+from test_base import TestBase
 
 
-class TestGetIndexes(unittest.TestCase):
+class TestGetIndexes(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        add_test_tier_tenant(tenant_id)
-        cls._handle = get_handle(tenant_id)
+        TestBase.set_up_class()
         cls._drop_requests = list()
         global table_names, index_names, num_indexes, index_fields
         table_names = list()
@@ -37,15 +34,6 @@ class TestGetIndexes(unittest.TestCase):
         for table in range(num_tables):
             tb_name = table_name + str(table)
             table_names.append(tb_name)
-            if protocol == 'https':
-                # sleep a while to avoid the OperationThrottlingException
-                sleep(60)
-            drop_statement = ('DROP TABLE IF EXISTS ' + tb_name)
-            drop_request = TableRequest().set_statement(drop_statement)
-            cls._drop_requests.append(drop_request)
-            cls._result = cls._handle.table_request(drop_request)
-            cls._result.wait_for_state(cls._handle, tb_name, State.DROPPED,
-                                       wait_timeout, 1000)
             create_statement = ('CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
 fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(0), fld_num NUMBER, \
@@ -55,9 +43,8 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
             limits = TableLimits(5000, 5000, 50)
             create_request = TableRequest().set_statement(
                 create_statement).set_table_limits(limits)
-            cls._result = cls._handle.table_request(create_request)
-            cls._result.wait_for_state(cls._handle, tb_name, State.ACTIVE,
-                                       wait_timeout, 1000)
+            cls._result = TestBase.table_request(create_request, State.ACTIVE)
+
             index_names.append(list())
             for index in range(table + num_indexes):
                 idx_name = index_name + str(index)
@@ -67,31 +54,19 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                     '(' + ','.join(index_fields[index]) + ')')
                 create_index_request = TableRequest().set_statement(
                     create_index_statement)
-                cls._result = cls._handle.table_request(create_index_request)
-                cls._result.wait_for_state(cls._handle, tb_name, State.ACTIVE,
-                                           wait_timeout, 1000)
+                cls._result = TestBase.table_request(create_index_request,
+                                                     State.ACTIVE)
 
     @classmethod
     def tearDownClass(cls):
-        if protocol == 'https':
-            # sleep a while to avoid the OperationThrottlingException
-            sleep(60)
-        try:
-            for table in range(len(table_names)):
-                cls._result = cls._handle.table_request(
-                    cls._drop_requests[table])
-                cls._result.wait_for_state(cls._handle, table_names[table],
-                                           State.DROPPED, wait_timeout, 1000)
-        finally:
-            cls._handle.close()
-            delete_test_tier_tenant(tenant_id)
+        TestBase.tear_down_class()
 
     def setUp(self):
-        self.handle = get_handle(tenant_id)
+        TestBase.set_up(self)
         self.get_indexes_request = GetIndexesRequest().set_timeout(timeout)
 
     def tearDown(self):
-        self.handle.close()
+        TestBase.tear_down(self)
 
     def testGetIndexesSetIllegalTableName(self):
         self.assertRaises(IllegalArgumentException,

@@ -16,28 +16,14 @@ from time import mktime, sleep, time
 from borneo import (
     GetRequest, IllegalArgumentException, PutRequest, State, TableLimits,
     TableNotFoundException, TableRequest, TableUsageRequest)
-from parameters import (
-    idcs_url, not_cloudsim, protocol, table_name, tenant_id, timeout,
-    wait_timeout)
-from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
+from parameters import not_cloudsim, table_name, timeout
+from test_base import TestBase
 
 
-class TestTableUsage(unittest.TestCase):
+class TestTableUsage(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        if idcs_url is not None:
-            global tenant_id
-            tenant_id = idcs_url[idcs_url.find('i'):idcs_url.find('.')]
-        add_test_tier_tenant(tenant_id)
-        cls._handle = get_handle(tenant_id)
-        if protocol == 'https':
-            # sleep a while to avoid the OperationThrottlingException
-            sleep(60)
-        drop_statement = 'DROP TABLE IF EXISTS ' + table_name
-        cls._drop_request = TableRequest().set_statement(drop_statement)
-        cls._result = cls._handle.table_request(cls._drop_request)
-        cls._result.wait_for_state(cls._handle, table_name, State.DROPPED,
-                                   wait_timeout, 1000)
+        TestBase.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
@@ -48,9 +34,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = cls._handle.table_request(create_request)
-        cls._result.wait_for_state(cls._handle, table_name, State.ACTIVE,
-                                   wait_timeout, 1000)
+        cls._result = TestBase.table_request(create_request, State.ACTIVE)
         # put and get some data, read_units = 100, write_units = 199
         row = {'fld_id': 1, 'fld_long': 2147483648,
                'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
@@ -69,25 +53,25 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             cls._handle.put(put_request)
             cls._handle.get(get_request)
             count += 1
-            sleep(2)
-        sleep(40)
+            # sleep to allow records to accumulate over time, but not if
+            # using Cloudsim.
+            if not_cloudsim():
+                sleep(2)
+        # need to sleep to allow usage records to accumulate but not if
+        # using CloudSim, which doesn't generate usage records.
+        if not_cloudsim():
+            sleep(40)
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            cls._result = cls._handle.table_request(cls._drop_request)
-            cls._result.wait_for_state(cls._handle, table_name, State.DROPPED,
-                                       wait_timeout, 1000)
-        finally:
-            cls._handle.close()
-            delete_test_tier_tenant(tenant_id)
+        TestBase.tear_down_class()
 
     def setUp(self):
-        self.handle = get_handle(tenant_id)
+        TestBase.set_up(self)
         self.table_usage_request = TableUsageRequest().set_timeout(timeout)
 
     def tearDown(self):
-        self.handle.close()
+        TestBase.tear_down(self)
 
     def testTableUsageSetIllegalTableName(self):
         self.assertRaises(IllegalArgumentException,
@@ -155,7 +139,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
     def testTableUsageNormal(self):
         self.table_usage_request.set_table_name(table_name)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()), 1)
         current = int(round(time() * 1000))
@@ -185,7 +168,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start_time)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()), 1)
         for usage_record in result.get_usage_records():
@@ -210,7 +192,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             start_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
         self.table_usage_request.set_start_time(start_str)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()), 1)
         for usage_record in result.get_usage_records():
@@ -239,14 +220,12 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start_time).set_end_time(end_time)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()),
                          0 if not_cloudsim() else 1)
         # set current time as end time
         self.table_usage_request.set_end_time(current)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()), 1)
         for usage_record in result.get_usage_records():
@@ -272,7 +251,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             end_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
         self.table_usage_request.set_end_time(end_str)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()), 1)
         for usage_record in result.get_usage_records():
@@ -297,7 +275,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         # set the limit
         self.table_usage_request.set_table_name(table_name).set_limit(3)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()), 1)
         current = int(round(time() * 1000))
@@ -328,7 +305,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start_time).set_limit(limit)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()),
                          limit if not_cloudsim() else 1)
@@ -356,7 +332,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             start_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
         self.table_usage_request.set_start_time(start_str)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()),
                          limit if not_cloudsim() else 1)
@@ -387,7 +362,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start_time).set_end_time(end_time).set_limit(5)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()),
                          2 if not_cloudsim() else 1)
@@ -421,7 +395,6 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_start_time(
             start_str).set_end_time(end_str)
         result = self.handle.get_table_usage(self.table_usage_request)
-        self.assertEqual(result.get_tenant_id(), tenant_id)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(len(result.get_usage_records()),
                          2 if not_cloudsim() else 1)

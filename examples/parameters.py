@@ -58,20 +58,9 @@ index_name = 'pythonindex'
 # using_cloud_sim = False
 using_cloud_sim = True
 
-# Cloud Simulator: 'localhost' or the host running Cloud Simulator
-# Service: 'ans.uscom-east-1.oraclecloud.com' or appropriate region host
-# host = 'ans.uscom-east-1.oraclecloud.com'
-host = 'localhost'
-
-# Cloud Simulator: 'http'
-# Service: 'https'
-# protocol = 'https'
-protocol = 'http'
-
-# Cloud Simulator: 8080, or the http port specified during startup
-# Service: 443
-# port = 443
-port = 8080
+# Cloud Simulator: 'localhost:8080' or the host running Cloud Simulator
+# Service: 'ndcs.uscom-east-1.oraclecloud.com' or appropriate region host
+endpoint = 'localhost:8080'
 
 # Cloud Simulator: not used
 # Service: url for reaching IDCS

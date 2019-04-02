@@ -11,29 +11,19 @@ import unittest
 from datetime import datetime
 from decimal import Decimal
 from struct import pack
-from time import sleep
 
 from borneo import (
     FieldRange, IllegalArgumentException, MultiDeleteRequest, PrepareRequest,
     PutRequest, QueryRequest, State, TableLimits, TableNotFoundException,
     TableRequest, WriteMultipleRequest)
-from parameters import protocol, table_name, tenant_id, timeout, wait_timeout
-from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
+from parameters import table_name, timeout
+from test_base import TestBase
 
 
-class TestMultiDelete(unittest.TestCase):
+class TestMultiDelete(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        add_test_tier_tenant(tenant_id)
-        cls._handle = get_handle(tenant_id)
-        if protocol == 'https':
-            # sleep a while to avoid the OperationThrottlingException
-            sleep(60)
-        drop_statement = 'DROP TABLE IF EXISTS ' + table_name
-        cls._drop_request = TableRequest().set_statement(drop_statement)
-        cls._result = cls._handle.table_request(cls._drop_request)
-        cls._result.wait_for_state(cls._handle, table_name, State.DROPPED,
-                                   wait_timeout, 1000)
+        TestBase.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
@@ -44,22 +34,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = cls._handle.table_request(create_request)
-        cls._result.wait_for_state(cls._handle, table_name, State.ACTIVE,
-                                   wait_timeout, 1000)
+        cls._result = TestBase.table_request(create_request, State.ACTIVE)
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            cls._result = cls._handle.table_request(cls._drop_request)
-            cls._result.wait_for_state(cls._handle, table_name, State.DROPPED,
-                                       wait_timeout, 1000)
-        finally:
-            cls._handle.close()
-            delete_test_tier_tenant(tenant_id)
+        TestBase.tear_down_class()
 
     def setUp(self):
-        self.handle = get_handle(tenant_id)
+        TestBase.set_up(self)
         self.shardkeys = [0, 1]
         ids = [0, 1, 2, 3, 4, 5]
         write_multiple_request = WriteMultipleRequest()
@@ -93,7 +75,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         for sk in self.shardkeys:
             key = {'fld_sid': sk}
             self.handle.multi_delete(self.multi_delete_request.set_key(key))
-        self.handle.close()
+        TestBase.tear_down(self)
 
     def testMultiDeleteSetIllegalTableName(self):
         self.assertRaises(IllegalArgumentException,

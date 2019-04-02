@@ -14,44 +14,62 @@ from os import mkdir, path, remove, sep
 from requests import codes, delete, post
 from rsa import PrivateKey, sign
 from sys import argv
+from time import sleep
 
 from borneo import (
-    IllegalArgumentException, IllegalStateException, NoSQLHandle,
-    NoSQLHandleConfig)
+    DefaultRetryHandler, IllegalArgumentException, IllegalStateException,
+    NoSQLHandle, NoSQLHandleConfig)
 from borneo.idcs import (
     AccessTokenProvider, DefaultAccessTokenProvider,
     PropertiesCredentialsProvider)
 from parameters import (
-    consistency, credentials_file, properties_file, http_host, http_port,
-    idcs_url, keystore, logger_level, pool_connections, pool_maxsize, protocol,
-    proxy_host, proxy_password, proxy_port, proxy_username, retry_handler,
-    sc_port, security, sec_info_timeout, tier_name, table_request_timeout,
-    timeout)
+    consistency, endpoint, idcs_url, is_cloudsim, is_dev_pod, is_minicloud,
+    logger_level, pool_connections, pool_maxsize, table_prefix,
+    table_request_timeout, timeout)
 
-sc_url_base = ('http://' + http_host + ':' + str(sc_port) + '/V0/service/')
+# The sc endpoint port for setting the tier.
+sc_endpoint = 'localhost:13600'
+sc_url_base = ('http://' + sc_endpoint + '/V0/service/')
 sc_tier_base = sc_url_base + 'tier/'
 sc_nd_tenant_base = sc_url_base + 'tenant/nondefault/'
+tier_name = 'test_tier'
+
 logger = None
+retry_handler = DefaultRetryHandler(10, 5)
+# The timeout for waiting security information is available.
+sec_info_timeout = 20000
 
 andc_client_id = 'test-user'
 andc_client_secret = 'test-client-secret'
 andc_username = 'test-user'
 andc_user_pwd = 'test-user-pwd%%'
 
+testdir = path.abspath(path.dirname(argv[0])) + sep
 
-def get_simple_handle_config(tenant_id):
-    # Creates a simple NoSQLHandleConfig
-    get_logger()
-    config = NoSQLHandleConfig(protocol, http_host, http_port).set_logger(
-        logger)
-    set_access_token_provider(config, tenant_id)
-    return config
+credentials_file = testdir + 'credentials'
+fake_credentials_file = testdir + 'testcreds'
+properties_file = testdir + 'testprops'
+keystore = testdir + 'tenant.pem'
+
+#
+# HTTP proxy settings are generally not required. If the server used for
+# testing is running behind an HTTP proxy server they may be needed.
+#
+
+# The proxy host.
+proxy_host = None
+# The proxy port.
+proxy_port = 0
+# The proxy username.
+proxy_username = None
+# The proxy password.
+proxy_password = None
 
 
 def get_handle_config(tenant_id):
     # Creates a NoSQLHandleConfig
     get_logger()
-    config = NoSQLHandleConfig(protocol, http_host, http_port).set_timeout(
+    config = NoSQLHandleConfig(endpoint).set_timeout(
         timeout).set_consistency(consistency).set_pool_connections(
         pool_connections).set_pool_maxsize(pool_maxsize).set_retry_handler(
         retry_handler).set_logger(logger).set_table_request_timeout(
@@ -68,20 +86,31 @@ def get_handle_config(tenant_id):
     return config
 
 
+def get_simple_handle_config(tenant_id, ep=endpoint):
+    # Creates a simple NoSQLHandleConfig
+    get_logger()
+    config = NoSQLHandleConfig(ep).set_logger(
+        logger)
+    set_access_token_provider(config, tenant_id)
+    return config
+
+
 def get_handle(tenant_id):
     # Returns a connection to the server
     config = get_handle_config(tenant_id)
+    if config.get_protocol() == 'https':
+        # sleep a while to avoid the OperationThrottlingException
+        sleep(60)
     return NoSQLHandle(config)
 
 
 def set_access_token_provider(config, tenant_id):
-    if idcs_url is None:
-        if security:
-            config.set_authorization_provider(
-                KeystoreAccessTokenProvider().set_tenant(tenant_id))
-        else:
-            config.set_authorization_provider(
-                NonSecurityAccessTokenProvider(tenant_id))
+    if is_cloudsim() or is_minicloud():
+        config.set_authorization_provider(
+            NoSecurityAccessTokenProvider(tenant_id))
+    elif is_dev_pod():
+        config.set_authorization_provider(
+            KeystoreAccessTokenProvider().set_tenant(tenant_id))
     else:
         if credentials_file is None:
             raise IllegalArgumentException(
@@ -89,7 +118,7 @@ def set_access_token_provider(config, tenant_id):
         creds_provider = PropertiesCredentialsProvider().set_properties_file(
             credentials_file)
         authorization_provider = DefaultAccessTokenProvider(
-            idcs_url=idcs_url, use_refresh_token=True,
+            idcs_url=idcs_url(), use_refresh_token=True,
             creds_provider=creds_provider, timeout_ms=timeout)
         config.set_authorization_provider(authorization_provider)
 
@@ -105,7 +134,7 @@ def delete_test_tier_tenant(tenant_id):
 
 
 def add_tier():
-    if tier_name is not None:
+    if is_minicloud():
         tier_url = sc_tier_base + tier_name
         limits = {"version": 1, "numTables": 10, "tenantSize": 5000,
                   "tenantReadUnits": 100000, "tenantWriteUnits": 40000,
@@ -119,7 +148,7 @@ def add_tier():
 
 
 def delete_tier():
-    if tier_name is not None:
+    if is_minicloud():
         tier_url = sc_tier_base + tier_name
         response = delete(tier_url, data=None)
         # allow 404 -- not found -- in this path
@@ -129,7 +158,7 @@ def delete_tier():
 
 
 def add_tenant(tenant_id):
-    if tier_name is not None:
+    if is_minicloud():
         tenant_url = sc_nd_tenant_base + tenant_id + '/' + tier_name
         response = post(tenant_url, data=None)
         if response.status_code != codes.ok:
@@ -137,7 +166,7 @@ def add_tenant(tenant_id):
 
 
 def delete_tenant(tenant_id):
-    if tier_name is not None:
+    if is_minicloud():
         tenant_url = sc_nd_tenant_base + tenant_id
         response = delete(tenant_url, data=None)
         # allow 404 -- not found -- in this path
@@ -146,24 +175,26 @@ def delete_tenant(tenant_id):
             raise IllegalStateException('Delete tenant failed.')
 
 
-def generate_credentials_file(credentials_file_test):
+def generate_credentials_file():
     # Generate credentials file
-    if path.exists(credentials_file_test):
-        remove(credentials_file_test)
-    with open(credentials_file_test, 'w') as cred_file:
+    if path.exists(fake_credentials_file):
+        remove(fake_credentials_file)
+
+    with open(fake_credentials_file, 'w') as cred_file:
         cred_file.write('andc_client_id=' + andc_client_id + '\n')
         cred_file.write('andc_client_secret=' + andc_client_secret + '\n')
         cred_file.write('andc_username=' + andc_username + '\n')
         cred_file.write('andc_user_pwd=' + andc_user_pwd + '\n')
 
 
-def generate_properties_file(test_idcs_url):
+def generate_properties_file(test_idcs_url, test_credentials_file):
     # Generate properties file
     if path.exists(properties_file):
         remove(properties_file)
+
     with open(properties_file, 'w') as prop_file:
         prop_file.write('idcs_url=' + test_idcs_url + '\n')
-        prop_file.write('creds_file=' + credentials_file + '\n')
+        prop_file.write('creds_file=' + test_credentials_file + '\n')
 
 
 def get_logger():
@@ -176,6 +207,9 @@ def get_logger():
             mkdir(log_dir)
         logger.addHandler(FileHandler(log_dir + sep + 'unittest.log'))
 
+
+def make_table_name(name):
+    return table_prefix + name
 
 class KeystoreAccessTokenProvider(AccessTokenProvider):
     # Static fields used to build AT
@@ -282,9 +316,9 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
             return urlsafe_b64encode(signature).decode()
 
 
-class NonSecurityAccessTokenProvider(AccessTokenProvider):
+class NoSecurityAccessTokenProvider(AccessTokenProvider):
     def __init__(self, ns_tenant_id):
-        super(NonSecurityAccessTokenProvider, self).__init__()
+        super(NoSecurityAccessTokenProvider, self).__init__()
         self.__ns_tenant_id = ns_tenant_id
 
     def get_account_access_token(self):

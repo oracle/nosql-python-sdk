@@ -15,24 +15,21 @@ except ImportError:
     from urllib.parse import quote
 
 from borneo import IllegalArgumentException, idcs
-from parameters import credentials_file
 from testutils import (
     andc_client_id, andc_client_secret, andc_username, andc_user_pwd,
-    generate_credentials_file)
+    fake_credentials_file, generate_credentials_file)
 
 
 class TestPropertiesCredentialsProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._credentials_file = credentials_file + '_test'
-        generate_credentials_file(cls._credentials_file)
+        generate_credentials_file()
 
     @classmethod
     def tearDownClass(cls):
-        remove(cls._credentials_file)
+        remove(fake_credentials_file)
 
     def setUp(self):
-        self.credentials_file = credentials_file + '_test'
         self.provider = idcs.PropertiesCredentialsProvider()
 
     def tearDown(self):
@@ -49,24 +46,24 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
                           self.provider.store_service_refresh_token, 0)
 
     def testCredentialsProviderGetOAuthClientCredentials(self):
-        self.provider.set_properties_file(self.credentials_file)
+        self.provider.set_properties_file(fake_credentials_file)
         creds = self.provider.get_oauth_client_credentials()
         self.assertEqual(creds.get_credential_alias(), andc_client_id)
         self.assertEqual(creds.get_secret(), andc_client_secret)
 
     def testCredentialsProviderGetUserCredentials(self):
-        self.provider.set_properties_file(self.credentials_file)
+        self.provider.set_properties_file(fake_credentials_file)
         creds = self.provider.get_user_credentials()
         self.assertEqual(creds.get_credential_alias(), andc_username)
         self.assertEqual(creds.get_secret(), quote(andc_user_pwd.encode()))
 
     def testCredentialsProviderGetServiceRefreshToken(self):
-        self.provider.set_properties_file(self.credentials_file)
+        self.provider.set_properties_file(fake_credentials_file)
         self.assertIsNone(self.provider.get_service_refresh_token())
 
     def testCredentialsProviderStoreServiceRefreshToken(self):
         test_refresh_token = 'test-refresh-token'
-        self.provider.set_properties_file(self.credentials_file)
+        self.provider.set_properties_file(fake_credentials_file)
         self.provider.store_service_refresh_token(test_refresh_token)
         creds = self.provider.get_oauth_client_credentials()
         self.assertEqual(creds.get_credential_alias(), andc_client_id)

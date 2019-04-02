@@ -27,8 +27,10 @@ from borneo import (
     InvalidAuthorizationException, ListTablesRequest, TableRequest)
 from borneo.idcs import (
     DefaultAccessTokenProvider, PropertiesCredentialsProvider)
-from parameters import credentials_file, idcs_url, properties_file
-from testutils import generate_credentials_file, generate_properties_file
+from parameters import idcs_url
+from testutils import (
+    credentials_file, fake_credentials_file, generate_credentials_file,
+    generate_properties_file, properties_file)
 
 
 class TestDefaultAccessTokenProvider(unittest.TestCase):
@@ -62,16 +64,15 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         TOKEN_ENDPOINT = '/oauth2/v1/token'
 
     def setUp(self):
-        self.credentials_file = credentials_file + '_test'
-        generate_credentials_file(self.credentials_file)
-        self.base = 'http://localhost:' + str(8000)
-        generate_properties_file(self.base)
+        generate_credentials_file()
         self.creds_provider = PropertiesCredentialsProvider(
-        ).set_properties_file(self.credentials_file)
+        ).set_properties_file(fake_credentials_file)
+        self.base = 'http://localhost:' + str(8080)
+        generate_properties_file(self.base, fake_credentials_file)
         self.token_provider = None
 
     def tearDown(self):
-        remove(self.credentials_file)
+        remove(fake_credentials_file)
         remove(properties_file)
         if self.token_provider is not None:
             self.token_provider.close()
@@ -207,7 +208,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
         # connect to illegal idcs url
         self.base = 'http://localhost:80'
-        generate_properties_file(self.base)
+        generate_properties_file(self.base, fake_credentials_file)
         self.token_provider = DefaultAccessTokenProvider(properties_file)
         self.assertRaises(ConnectionError,
                           self.token_provider.get_account_access_token)
@@ -215,7 +216,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
         self.base = 'http://localhost:' + str(port)
         # connect to legal idcs url, use_refresh_token = False
-        generate_properties_file(self.base)
+        generate_properties_file(self.base, fake_credentials_file)
         self.token_provider = DefaultAccessTokenProvider(properties_file)
         result = self.token_provider.get_account_access_token()
         self.assertIsNotNone(result)
@@ -270,7 +271,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
         self.base = 'http://localhost:' + str(port)
         # connect to legal idcs url, use_refresh_token = False
-        generate_properties_file(self.base)
+        generate_properties_file(self.base, fake_credentials_file)
         self.token_provider = DefaultAccessTokenProvider(properties_file)
         result = self.token_provider.get_service_access_token()
         self.assertIsNotNone(result)
@@ -368,9 +369,9 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 self.token_provider.get_service_access_token)
         self.__stop_server(httpd)
 
-    if idcs_url is not None:
+    if idcs_url() is not None:
         def testRealCloudGetAuthorizationStringAndToken(self):
-            generate_properties_file(idcs_url)
+            generate_properties_file(idcs_url(), credentials_file)
             self.token_provider = DefaultAccessTokenProvider(
                 idcs_props_file=properties_file)
             # get authorization string for ListTablesRequest

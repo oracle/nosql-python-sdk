@@ -2907,7 +2907,7 @@ class TableResult(Result):
                 str(self.__limits) + ' schema [' + str(self.__schema) + ']' +
                 ' operation_id = ' + str(self.__operation_id))
 
-    def set_tenant_id(self,  tenant_id):
+    def set_tenant_id(self, tenant_id):
         self.__tenant_id = tenant_id
         return self
 
@@ -2988,6 +2988,39 @@ class TableResult(Result):
         :rtype: int
         """
         return self.__operation_id
+
+    def wait_for_state_with_res(self, handle, state, wait_millis, delay_millis,
+                                operation_id=None):
+        """
+        Waits for the specified table to reach the desired state. This is a
+        blocking, polling style wait that delays for the specified number of
+        milliseconds between each polling operation. The state of State.DROPPED
+        is treated specially in that it will be returned as success, even if the
+        table does not exist. Other states will throw an exception if the table
+        is not found.
+
+        :param handle: the NoSQLHandle to use.
+        :type handle: NoSQLHandle
+        :param state: the desired state.
+        :type state: State
+        :param wait_millis: the total amount of time to wait, in milliseconds.
+            This value must be non-zero and greater than delay_millis.
+        :type wait_millis: int
+        :param delay_millis: the amount of time to wait between polling
+            attempts, in milliseconds. If 0 it will default to 500.
+        :type delay_millis: int
+        :param operation_id: optional operation id.
+        :type operation_id: int
+        :return: the TableResult representing the table at the desired state.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if the operation
+            times out or the parameters are not valid.
+        :raises NoSQLException: raises the exception if the operation id used is
+            not None that the operation has failed for some reason.
+        """
+        return self.wait_for_state(handle, self.get_table_name(), state,
+                                   wait_millis, delay_millis,
+                                   operation_id)
 
     @staticmethod
     def wait_for_state(handle, table_name, state, wait_millis, delay_millis,
@@ -3086,7 +3119,7 @@ class TableUsageResult(Result):
                 '] [table=' + str(self.__table_name) + '] [table_usage=[' +
                 records_s + ']]')
 
-    def set_tenant_id(self,  tenant_id):
+    def set_tenant_id(self, tenant_id):
         self.__tenant_id = tenant_id
         return self
 

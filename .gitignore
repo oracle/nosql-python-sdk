@@ -1,5 +1,9 @@
 build/
 data/
 dist/
+logs/
+docs/_build/
+__pycache__/
 *.pyc
 *.egg-info/
+*.diff

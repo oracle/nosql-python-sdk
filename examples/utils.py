@@ -13,7 +13,7 @@ from borneo.idcs import (
     PropertiesCredentialsProvider)
 
 from parameters import (
-    credentials_file, host, idcs_url, port, protocol, using_cloud_sim)
+    credentials_file, endpoint, idcs_url, using_cloud_sim)
 
 
 class NoSecurityAccessTokenProvider(AccessTokenProvider):
@@ -51,6 +51,6 @@ def get_handle(tenant_id):
     Constructs a NoSQLHandle. Additional configuration options can be added
     here.
     """
-    config = NoSQLHandleConfig(protocol, host, port).set_authorization_provider(
+    config = NoSQLHandleConfig(endpoint).set_authorization_provider(
         create_access_token_provider(tenant_id))
     return NoSQLHandle(config)

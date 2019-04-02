@@ -22,8 +22,7 @@ class Client:
     def __init__(self, config, logger):
         self.__logutils = LogUtils(logger)
         self.__config = config
-        self.__protocol = config.get_protocol().lower()
-        self.__check_protocol(self.__protocol)
+        self.__protocol = config.get_protocol()
         self.__host = config.get_host()
         self.__port = config.get_port()
         self.__request_uri = self.__generate_uri(self.__protocol, self.__host,
@@ -109,12 +108,6 @@ class Client:
             self.__auth_provider.close()
         if self.__sess is not None:
             self.__sess.close()
-
-    def __check_protocol(self, protocol):
-        # Check if protocol is http or https, other protocols are not
-        # supported.
-        if protocol != 'http' and protocol != 'https':
-            raise IllegalArgumentException('Unsupported protocol')
 
     def __check_and_set_proxy(self, sess):
         if (self.__proxy_host is not None and self.__proxy_port == 0 or

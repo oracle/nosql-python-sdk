@@ -195,14 +195,18 @@ class NoSQLHandleConfig:
     overridden in individual operations.
 
     Most of the configuration parameters are optional and have default values if
-    not specified. The only required configurations are the protocol, host and
-    port required by the constructor.
+    not specified. The only required configuration is the endpoint required by
+    the constructor. The endpoint is used to connect to the service. See the
+    online documentation for the complete set of available regions. For example:
 
-    :param protocol: The protocol that used to connect to the server.
-    :param host: The host on which the server is running. This parameter is
-        required.
-    :param port: The port that listening to the requests. This parameter is
-        required.
+     * ndcs.uscom-east-1.oracle.cloud.com
+     * localhost:8080 - used for connecting to a Cloud Simulator instance
+
+    When no port is specified the handle assumes port 443 and the https
+    protocol.
+
+    :param endpoint: The endpoint to use to connect to the service. Required.
+    :type endpoint: str
     """
 
     # The default value for request, and table request timeouts in milliseconds,
@@ -214,14 +218,11 @@ class NoSQLHandleConfig:
     _DEFAULT_SEC_INFO_TIMEOUT = 10000
     _DEFAULT_CONSISTENCY = Consistency.EVENTUAL
 
-    def __init__(self, protocol, host, port):
+    def __init__(self, endpoint):
         # Inits a NoSQLHandleConfig object.
-        self.__check_protocol(protocol)
-        CheckValue.check_str(host, 'host')
-        CheckValue.check_int_ge_zero(port, 'port')
-        self.__protocol = protocol
-        self.__host = host
-        self.__port = port
+        CheckValue.check_str(endpoint, 'endpoint')
+        self.__endpoint = endpoint
+        self.__parse_endpoint()
         self.__timeout = 0
         self.__table_request_timeout = 0
         self.__sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
@@ -237,66 +238,35 @@ class NoSQLHandleConfig:
         self.__proxy_password = None
         self.__logger = None
 
-    def set_protocol(self, protocol):
+    def get_endpoint(self):
         """
-        Sets the protocol that used to connect to the server.
+        Returns the endpoint string used to connect to the server
 
-        :param protocol: the protocol that used to connect to the server.
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if protocol is
-            not a string.
+        :returns: the endpoint.
         """
-        self.__check_protocol(protocol)
-        self.__protocol = protocol
-        return self
+        return self.__endpoint
 
     def get_protocol(self):
         """
-        Returns the protocol that used to connect to the server.
+        Returns the protocol that is used to connect to the server.
 
         :returns: the protocol that used to connect to the server.
         """
         return self.__protocol
 
-    def set_host(self, host):
-        """
-        Sets the host name on which the server is running.
-
-        :param host: the host on which the server is running.
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if host is not a
-            string.
-        """
-        CheckValue.check_str(host, 'host')
-        self.__host = host
-        return self
-
     def get_host(self):
         """
-        Returns the host name on which the server is running.
+        Returns the host string used to connect to the server.
 
-        :returns: the host name on which the server is running.
+        :returns: the host.
         """
         return self.__host
 
-    def set_port(self, port):
-        """
-        Sets the port that listening to the requests.
-
-        :param port: the port that listening to the requests.
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if port is a
-            negative number.
-        """
-        CheckValue.check_int_ge_zero(port, 'port')
-        self.__port = port
-        return self
-
     def get_port(self):
         """
-        Returns the port that listening to the requests.
+        Returns the port that is used to connect to the service.
 
-        :returns: the port that listening to the requests.
+        :returns: the port.
         """
         return self.__port
 
@@ -701,7 +671,67 @@ class NoSQLHandleConfig:
         self.__auth_provider = auth_provider
         return clone_config
 
-    def __check_protocol(self, protocol):
-        CheckValue.check_str(protocol, 'protocol')
-        if protocol.lower() != 'http' and protocol.lower() != 'https':
-            raise IllegalArgumentException('Unsupported protocol: ' + protocol)
+    #
+    # Parse the endpoint, which has the following format:
+    #   [proto:]host[:port]
+    def __parse_endpoint(self):
+        """
+        Parse the endpoint string into host, port, protocol
+        """
+
+        # defaults
+        self.__protocol = 'https'
+        self.__port = 443
+
+        parts = self.__endpoint.split(':')
+
+        if len(parts) > 3:
+            raise IllegalArgumentException(
+                'Invalid endpoint: ' + self.__endpoint)
+
+        if len(parts) == 1:
+            # 1 part means only host
+            self.__host = self.__endpoint
+
+        if len(parts) == 2:
+            # 2 parts:
+            #  proto:host (default port based on proto)
+            #  host:port (default proto)
+
+            if parts[0].startswith('http'):
+                # proto:host
+                self.__protocol = parts[0]
+                self.__host = parts[1]
+                # infer port
+                if self.__protocol == 'http':
+                    self.__port = 8080
+            else:
+                # host:port
+                self.__host = parts[0]
+                self.__port = self.__validate_port(parts[1])
+                # in this path infer proto from port
+                if self.__port != 443:
+                    self.__protocol = 'http'
+
+        if len(parts) == 3:
+            # 3 parts: proto:[//]host:port
+            self.__protocol = parts[0]
+            self.__host = parts[1]
+            self.__port = self.__validate_port(parts[2])
+            # strip '//' if present
+            if self.__host.startswith('//'):
+                self.__host = self.__host[2:]
+
+        if self.__protocol != 'http' and self.__protocol != 'https':
+            raise IllegalArgumentException(
+                'Invalid endpoint, protocol must be http or https: ' +
+                self.__endpoint)
+
+    def __validate_port(self, portstring):
+        try:
+            port = int(portstring)
+            CheckValue.check_int_ge_zero(port, 'port')
+        except ValueError:
+            raise IllegalArgumentException(
+                'Invalid endpoint: ' + self.__endpoint)
+        return port

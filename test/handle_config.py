@@ -15,11 +15,11 @@ from borneo import (
     DefaultRetryHandler, RetryableException, SecurityInfoNotReadyException,
     NoSQLHandle, NoSQLHandleConfig, TableRequest)
 from parameters import (
-    consistency, http_host, http_port, pool_connections, pool_maxsize, protocol,
-    proxy_host, proxy_password, proxy_port, proxy_username, retry_handler,
-    sec_info_timeout, table_name, tenant_id, timeout, table_request_timeout)
-from testutils import get_simple_handle_config, get_handle_config
-
+    consistency, pool_connections, pool_maxsize,
+    table_name, tenant_id, timeout, table_request_timeout)
+from testutils import (
+    get_handle_config, get_simple_handle_config, proxy_host, proxy_port,
+    proxy_username, proxy_password, retry_handler, sec_info_timeout)
 
 class TestNoSQLHandleConfig(unittest.TestCase):
     def setUp(self):
@@ -28,21 +28,31 @@ class TestNoSQLHandleConfig(unittest.TestCase):
             'DROP TABLE IF EXISTS ' + table_name)
         self.get_request = GetRequest()
 
-    def testNoSQLHandleConfigIllegalInit(self):
-        # illegal protocol
-        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, 12345,
-                          'localhost', 8080)
+    def testEndpointConfig(self):
+        # illegal endpoint
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
-                          'IllegalProtocol', 'localhost', 8080)
-        # illegal host
-        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, 'HTTP',
-                          12345, 8080)
-        # illegal port
-        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, 'HTTP',
-                          'localhost', 'IllegalPort')
-        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, 'HTTP',
-                          'localhost', -1)
-        config = get_simple_handle_config(tenant_id).set_port(80)
+                          'localhost:8080:foo')
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          'localhost:notanint')
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          'localhost:-1')
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          'http://localhost:-1:x')
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          'ttp://localhost:8080')
+
+        # check defaults and inferred values in endpoint
+        config = get_simple_handle_config(tenant_id, 'localhost:8080')
+        self.assertEqual(config.get_protocol(), 'http');
+        self.assertEqual(config.get_port(), 8080);
+        config = get_simple_handle_config(tenant_id, 'ndcs.com')
+        self.assertEqual(config.get_protocol(), 'https');
+        self.assertEqual(config.get_port(), 443);
+        config = get_simple_handle_config(tenant_id, 'http://ndcs.com')
+        self.assertEqual(config.get_port(), 8080);
+
+        # legal endpoint format but no service at the port
+        config = get_simple_handle_config(tenant_id, 'localhost:70')
         handle = NoSQLHandle(config)
         self.assertRaises(ConnectionError, handle.table_request,
                           self.table_request)
@@ -153,9 +163,9 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertEqual(clone_config.get_default_table_request_timeout(),
                          table_request_timeout)
         self.assertEqual(clone_config.get_default_consistency(), consistency)
-        self.assertEqual(clone_config.get_protocol(), protocol)
-        self.assertEqual(clone_config.get_host(), http_host)
-        self.assertEqual(clone_config.get_port(), http_port)
+        self.assertEqual(clone_config.get_protocol(), config.get_protocol())
+        self.assertEqual(clone_config.get_host(), config.get_host())
+        self.assertEqual(clone_config.get_port(), config.get_port())
         self.assertEqual(clone_config.get_timeout(), timeout)
         self.assertEqual(clone_config.get_table_request_timeout(),
                          table_request_timeout)
@@ -226,9 +236,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertEqual(config.get_default_table_request_timeout(),
                          table_request_timeout)
         self.assertEqual(config.get_default_consistency(), consistency)
-        self.assertEqual(config.get_protocol(), protocol)
-        self.assertEqual(config.get_host(), http_host)
-        self.assertEqual(config.get_port(), http_port)
         self.assertEqual(config.get_timeout(), timeout)
         self.assertEqual(config.get_table_request_timeout(),
                          table_request_timeout)
@@ -239,10 +246,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertEqual(config.get_max_content_length(), max_content_length)
         self.assertEqual(config.get_retry_handler(), retry_handler)
         self.assertIsNotNone(config.get_authorization_provider())
-        self.assertEqual(config.get_proxy_host(), proxy_host)
-        self.assertEqual(config.get_proxy_port(), proxy_port)
-        self.assertEqual(config.get_proxy_username(), proxy_username)
-        self.assertEqual(config.get_proxy_password(), proxy_password)
         self.assertIsNotNone(config.get_logger())
 
 

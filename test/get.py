@@ -11,28 +11,19 @@ import unittest
 from datetime import datetime
 from decimal import Decimal
 from struct import pack
-from time import sleep, time
+from time import time
 
 from borneo import (
     Consistency, GetRequest, IllegalArgumentException, PutRequest, State,
     TableLimits, TableNotFoundException, TableRequest, TimeToLive)
-from parameters import protocol, table_name, tenant_id, timeout, wait_timeout
-from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
+from parameters import table_name, timeout
+from test_base import TestBase
 
 
-class TestGet(unittest.TestCase):
+class TestGet(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        add_test_tier_tenant(tenant_id)
-        cls._handle = get_handle(tenant_id)
-        if protocol == 'https':
-            # sleep a while to avoid the OperationThrottlingException
-            sleep(60)
-        drop_statement = 'DROP TABLE IF EXISTS ' + table_name
-        cls._drop_request = TableRequest().set_statement(drop_statement)
-        cls._result = cls._handle.table_request(cls._drop_request)
-        cls._result.wait_for_state(cls._handle, table_name, State.DROPPED,
-                                   wait_timeout, 1000)
+        TestBase.set_up_class()
         table_ttl = TimeToLive.of_hours(16)
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
@@ -43,9 +34,7 @@ fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
-        cls._result = cls._handle.table_request(create_request)
-        cls._result.wait_for_state(cls._handle, table_name, State.ACTIVE,
-                                   wait_timeout, 1000)
+        cls._result = TestBase.table_request(create_request, State.ACTIVE)
         global row, tb_expect_expiration, hour_in_milliseconds
         row = {'fld_sid': 1, 'fld_id': 1, 'fld_long': 2147483648,
                'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
@@ -64,22 +53,16 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            cls._result = cls._handle.table_request(cls._drop_request)
-            cls._result.wait_for_state(cls._handle, table_name, State.DROPPED,
-                                       wait_timeout, 1000)
-        finally:
-            cls._handle.close()
-            delete_test_tier_tenant(tenant_id)
+        TestBase.tear_down_class()
 
     def setUp(self):
-        self.handle = get_handle(tenant_id)
+        TestBase.set_up(self)
         self.key = {'fld_sid': 1, 'fld_id': 1}
         self.get_request = GetRequest().set_key(self.key).set_table_name(
             table_name).set_timeout(timeout)
 
     def tearDown(self):
-        self.handle.close()
+        TestBase.tear_down(self)
 
     def testGetSetIllegalKey(self):
         self.assertRaises(IllegalArgumentException, self.get_request.set_key,

@@ -14,9 +14,10 @@ from borneo import (
     IllegalArgumentException, ListTablesRequest, State, TableLimits,
     TableRequest)
 from parameters import (
-    not_cloudsim, protocol, table_name, tenant_id, timeout, wait_timeout)
+    is_pod, not_cloudsim, table_name, tenant_id, timeout, wait_timeout)
 from testutils import (
-    add_tenant, add_tier, delete_tenant, delete_tier, get_handle)
+    add_tenant, add_tier, delete_tenant, delete_tier, get_handle,
+    make_table_name)
 
 
 class TestListTables(unittest.TestCase):
@@ -28,7 +29,11 @@ class TestListTables(unittest.TestCase):
         global table_names
         table_names = list()
         num_tables = 3
-        cls._num_handles = 2 if protocol == 'http' else 1
+        #
+        # In pod env create 1 handle, otherwise create 2 handles for additional
+        # testing
+        #
+        cls._num_handles = 1 if is_pod() else 2
         for handle in range(cls._num_handles):
             add_tenant(tenant_id + str(handle))
             table_names.append(list())
@@ -37,8 +42,10 @@ class TestListTables(unittest.TestCase):
             for table in range(handle + num_tables):
                 table_names[handle].append(table_name + str(table))
             for table in range(handle + num_tables):
-                if protocol == 'https':
-                    # sleep a while to avoid the OperationThrottlingException
+                #
+                # Add a sleep for a pod to let things happen
+                #
+                if is_pod():
                     sleep(60)
                 drop_statement = ('DROP TABLE IF EXISTS ' +
                                   table_names[handle][table])
@@ -81,7 +88,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def setUp(self):
         self.handles = list()
-        self.num_handles = 2 if protocol == 'http' else 1
+        self.num_handles = 1 if is_pod() else 2
         for handle in range(self.num_handles):
             self.handles.append(get_handle(tenant_id + str(handle)))
         self.list_tables_request = ListTablesRequest().set_timeout(timeout)
@@ -145,8 +152,11 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index[handle])
         # set start_index = 1
-        part_table_names = [['users1', 'users2'],
-                            ['users1', 'users2', 'users3']]
+        part_table_names = [[make_table_name('Users1'),
+                             make_table_name('Users2')],
+                            [make_table_name('Users1'),
+                             make_table_name('Users2'),
+                             make_table_name('Users3')]]
         self.list_tables_request.set_start_index(1)
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(self.list_tables_request)
@@ -156,10 +166,14 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index[handle])
 
+
     def testListTablesWithLimit(self):
         # set limit = 2
         last_returned_index = 2
-        part_table_names = [['users0', 'users1'], ['users0', 'users1']]
+        part_table_names = [[make_table_name('Users0'),
+                             make_table_name('Users1')],
+                            [make_table_name('Users0'),
+                             make_table_name('Users1')]]
         self.list_tables_request.set_limit(2)
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(self.list_tables_request)
@@ -168,7 +182,6 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 self.assertEqual(result.get_tables(), part_table_names[handle])
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index)
-
 
 if __name__ == '__main__':
     unittest.main()
