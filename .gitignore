@@ -7,3 +7,9 @@ __pycache__/
 *.pyc
 *.egg-info/
 *.diff
+<<<<<<< HEAD
+=======
+__pycache__/
+docs/_build/
+logs/
+>>>>>>> 8ecf15cc2ee8e9ea37dd55e7ee8d77dc98c4f8ae
