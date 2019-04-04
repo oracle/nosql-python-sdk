@@ -166,7 +166,6 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index[handle])
 
-
     def testListTablesWithLimit(self):
         # set limit = 2
         last_returned_index = 2
@@ -182,6 +181,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 self.assertEqual(result.get_tables(), part_table_names[handle])
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index)
+
 
 if __name__ == '__main__':
     unittest.main()

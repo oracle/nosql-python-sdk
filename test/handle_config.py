@@ -15,11 +15,12 @@ from borneo import (
     DefaultRetryHandler, RetryableException, SecurityInfoNotReadyException,
     NoSQLHandle, NoSQLHandleConfig, TableRequest)
 from parameters import (
-    consistency, pool_connections, pool_maxsize,
-    table_name, tenant_id, timeout, table_request_timeout)
+    consistency, endpoint, pool_connections, pool_maxsize, table_name,
+    tenant_id, timeout, table_request_timeout)
 from testutils import (
     get_handle_config, get_simple_handle_config, proxy_host, proxy_port,
     proxy_username, proxy_password, retry_handler, sec_info_timeout)
+
 
 class TestNoSQLHandleConfig(unittest.TestCase):
     def setUp(self):
@@ -28,7 +29,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
             'DROP TABLE IF EXISTS ' + table_name)
         self.get_request = GetRequest()
 
-    def testEndpointConfig(self):
+    def testNoSQLHandleConfigSetIllegalEndpoint(self):
         # illegal endpoint
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
                           'localhost:8080:foo')
@@ -40,16 +41,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
                           'http://localhost:-1:x')
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
                           'ttp://localhost:8080')
-
-        # check defaults and inferred values in endpoint
-        config = get_simple_handle_config(tenant_id, 'localhost:8080')
-        self.assertEqual(config.get_protocol(), 'http');
-        self.assertEqual(config.get_port(), 8080);
-        config = get_simple_handle_config(tenant_id, 'ndcs.com')
-        self.assertEqual(config.get_protocol(), 'https');
-        self.assertEqual(config.get_port(), 443);
-        config = get_simple_handle_config(tenant_id, 'http://ndcs.com')
-        self.assertEqual(config.get_port(), 8080);
 
         # legal endpoint format but no service at the port
         config = get_simple_handle_config(tenant_id, 'localhost:70')
@@ -155,10 +146,55 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_logger, 'IllegalLogger')
 
+    def testNoSQLHandleEndpointConfig(self):
+        # set only the host as endpoint
+        config = get_simple_handle_config(tenant_id, 'ndcs.com')
+        self.assertEqual(config.get_protocol(), 'https')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 443)
+        # set proto://host as endpoint
+        config = get_simple_handle_config(tenant_id, 'Http://ndcs.com')
+        self.assertEqual(config.get_protocol(), 'http')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 8080)
+        config = get_simple_handle_config(tenant_id, 'https://ndcs.com')
+        self.assertEqual(config.get_protocol(), 'https')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 443)
+        # set proto:host as endpoint
+        config = get_simple_handle_config(tenant_id, 'Http:ndcs.com')
+        self.assertEqual(config.get_protocol(), 'http')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 8080)
+        config = get_simple_handle_config(tenant_id, 'https:ndcs.com')
+        self.assertEqual(config.get_protocol(), 'https')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 443)
+        # set host:port as endpoint
+        config = get_simple_handle_config(tenant_id, 'localhost:8080')
+        self.assertEqual(config.get_protocol(), 'http')
+        self.assertEqual(config.get_host(), 'localhost')
+        self.assertEqual(config.get_port(), 8080)
+        config = get_simple_handle_config(tenant_id, 'localhost:443')
+        self.assertEqual(config.get_protocol(), 'https')
+        self.assertEqual(config.get_host(), 'localhost')
+        self.assertEqual(config.get_port(), 443)
+        # set proto://host:port as endpoint
+        config = get_simple_handle_config(tenant_id, 'HTTPS://ndcs.com:8080')
+        self.assertEqual(config.get_protocol(), 'https')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 8080)
+        # set proto:host:port as endpoint
+        config = get_simple_handle_config(tenant_id, 'Http:ndcs.com:443')
+        self.assertEqual(config.get_protocol(), 'http')
+        self.assertEqual(config.get_host(), 'ndcs.com')
+        self.assertEqual(config.get_port(), 443)
+
     def testNoSQLHandleConfigClone(self):
         max_content_length = 1024 * 1024
         config = get_handle_config(tenant_id)
         clone_config = config.clone()
+        self.assertEqual(clone_config.get_endpoint(), endpoint)
         self.assertEqual(clone_config.get_default_timeout(), timeout)
         self.assertEqual(clone_config.get_default_table_request_timeout(),
                          table_request_timeout)
@@ -232,6 +268,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
     def testNoSQLHandleConfigGets(self):
         max_content_length = 1024 * 1024
         config = get_handle_config(tenant_id)
+        self.assertEqual(config.get_endpoint(), endpoint)
         self.assertEqual(config.get_default_timeout(), timeout)
         self.assertEqual(config.get_default_table_request_timeout(),
                          table_request_timeout)

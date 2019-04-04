@@ -24,7 +24,7 @@ from borneo.idcs import (
     PropertiesCredentialsProvider)
 from parameters import (
     consistency, endpoint, idcs_url, is_cloudsim, is_dev_pod, is_minicloud,
-    logger_level, pool_connections, pool_maxsize, table_prefix,
+    is_prod_pod, logger_level, pool_connections, pool_maxsize, table_prefix,
     table_request_timeout, timeout)
 
 # The sc endpoint port for setting the tier.
@@ -105,13 +105,13 @@ def get_handle(tenant_id):
 
 
 def set_access_token_provider(config, tenant_id):
-    if is_cloudsim() or is_minicloud():
+    if is_cloudsim():
         config.set_authorization_provider(
             NoSecurityAccessTokenProvider(tenant_id))
-    elif is_dev_pod():
+    elif is_dev_pod() or is_minicloud():
         config.set_authorization_provider(
             KeystoreAccessTokenProvider().set_tenant(tenant_id))
-    else:
+    elif is_prod_pod():
         if credentials_file is None:
             raise IllegalArgumentException(
                 'Must specify the credentials file path.')
@@ -121,6 +121,8 @@ def set_access_token_provider(config, tenant_id):
             idcs_url=idcs_url(), use_refresh_token=True,
             creds_provider=creds_provider, timeout_ms=timeout)
         config.set_authorization_provider(authorization_provider)
+    else:
+        raise IllegalArgumentException('Please set the test server.')
 
 
 def add_test_tier_tenant(tenant_id):
@@ -210,6 +212,7 @@ def get_logger():
 
 def make_table_name(name):
     return table_prefix + name
+
 
 class KeystoreAccessTokenProvider(AccessTokenProvider):
     # Static fields used to build AT

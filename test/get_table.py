@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     GetTableRequest, IllegalArgumentException, State, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import table_name, timeout, wait_timeout
+from parameters import not_cloudsim, table_name, timeout, wait_timeout
 from test_base import TestBase
 
 
@@ -88,6 +88,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                          table_limits.get_write_units())
         self.assertEqual(result.get_table_limits().get_storage_gb(),
                          table_limits.get_storage_gb())
+        if not_cloudsim():
+            self.assertIsNotNone(result.get_schema())
         self.assertIsNone(result.get_operation_id())
 
     def testGetTableWithOperationId(self):
@@ -105,6 +107,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                          table_limits.get_write_units())
         self.assertEqual(result.get_table_limits().get_storage_gb(),
                          table_limits.get_storage_gb())
+        if not_cloudsim():
+            self.assertIsNotNone(result.get_schema())
         table_result.wait_for_state(self.handle, table_name, State.DROPPED,
                                     wait_timeout, 1000)
 

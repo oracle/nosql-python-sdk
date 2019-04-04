@@ -68,16 +68,16 @@ def is_dev_pod():
     return False
 
 
+def is_minicloud():
+    return False
+
+
 def is_prod_pod():
     return idcs_url() is not None
 
 
 def is_pod():
     return is_dev_pod() or is_prod_pod()
-
-
-def is_minicloud():
-    return False
 
 
 def not_cloudsim():

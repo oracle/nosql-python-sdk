@@ -692,15 +692,14 @@ class NoSQLHandleConfig:
         if len(parts) == 1:
             # 1 part means only host
             self.__host = self.__endpoint
-
-        if len(parts) == 2:
+        elif len(parts) == 2:
             # 2 parts:
-            #  proto:host (default port based on proto)
+            #  proto:[//]host (default port based on proto)
             #  host:port (default proto)
 
-            if parts[0].startswith('http'):
-                # proto:host
-                self.__protocol = parts[0]
+            if parts[0].lower().startswith('http'):
+                # proto:[//]host
+                self.__protocol = parts[0].lower()
                 self.__host = parts[1]
                 # infer port
                 if self.__protocol == 'http':
@@ -712,15 +711,15 @@ class NoSQLHandleConfig:
                 # in this path infer proto from port
                 if self.__port != 443:
                     self.__protocol = 'http'
-
-        if len(parts) == 3:
+        elif len(parts) == 3:
             # 3 parts: proto:[//]host:port
-            self.__protocol = parts[0]
+            self.__protocol = parts[0].lower()
             self.__host = parts[1]
             self.__port = self.__validate_port(parts[2])
-            # strip '//' if present
-            if self.__host.startswith('//'):
-                self.__host = self.__host[2:]
+
+        # strip '//' if present in host
+        if self.__host.startswith('//'):
+            self.__host = self.__host[2:]
 
         if self.__protocol != 'http' and self.__protocol != 'https':
             raise IllegalArgumentException(

@@ -154,10 +154,10 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                          self.table_limits.get_write_units())
         self.assertEqual(result.get_table_limits().get_storage_gb(),
                          self.table_limits.get_storage_gb())
+        if not_cloudsim():
+            self.assertIsNone(result.get_schema())
         wait_result = result.wait_for_state(self.handle, table_name,
                                             State.ACTIVE, wait_timeout, 1000)
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
         self.assertEqual(wait_result.get_table_name(), table_name)
         self.assertEqual(wait_result.get_state(), State.ACTIVE)
         self.assertEqual(wait_result.get_table_limits().get_read_units(),
@@ -193,7 +193,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
                          self.table_limits.get_storage_gb())
         if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
+            self.assertIsNone(wait_result.get_schema())
         self.assertIsNone(wait_result.get_operation_id())
 
     def testTableRequestCreateDropIndex(self):
