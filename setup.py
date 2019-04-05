@@ -2,18 +2,10 @@
 Setup script for the Python driver for Oracle NoSQL Database
 """
 
-import os
 import io
+import os
+import re
 from setuptools import setup, find_packages
-
-#
-# Version format is major.minor.patch
-#
-major_version = '5'
-minor_version = '0'
-patch_version = '0'
-dot = '.'
-release_version = major_version + dot + minor_version + dot + patch_version
 
 
 def open_relative(*path):
@@ -24,14 +16,20 @@ def open_relative(*path):
     """
     here = os.path.abspath(os.path.dirname(__file__))
     filename = os.path.join(here, *path)
-    return io.open(filename, mode="r", encoding="utf-8")
+    return io.open(filename, mode='r', encoding='utf-8')
 
+with open_relative('src', 'borneo', 'version.py') as fd:
+    version = re.search(
+        r'^__version__\s*=\s*['\"]([^'\"]*)['\"]',
+        fd.read(), re.MULTILINE).group(1)
+    if not version:
+        raise RuntimeError('Cannot find version information')
 
-with open_relative("README.rst") as f:
+with open_relative('README.rst') as f:
     readme = f.read()
 
 requires = [
-    "requests"
+    'requests'
 ]
 
 setup(
@@ -39,7 +37,7 @@ setup(
 
     # Version should match the system release, but may vary as patches
     # are created.
-    version=release_version,
+    version=version,
     description='Oracle NoSQL Database Cloud Service Python SDK',
     long_description=readme,
 
@@ -49,8 +47,8 @@ setup(
     # Author details
     author='Oracle',
     author_email='fei.p.peng@oracle.com',
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=find_packages(where='src'),
+    package_dir={'': 'src'},
     include_package_data=True,
 
     # License is UPL, Version 1.0

@@ -8,13 +8,16 @@
 #
 
 from logging import DEBUG
+from platform import python_version
 from requests import Session, adapters
+from sys import version_info
 
 from .common import ByteOutputStream, CheckValue, HttpConstants, LogUtils
 from .config import DefaultRetryHandler
 from .exception import IllegalArgumentException
 from .http import RequestUtils
 from .serde import BinaryProtocol
+from .version import __version__
 
 
 class Client:
@@ -39,6 +42,7 @@ class Client:
             self.__retry_handler = DefaultRetryHandler()
         self.__sec_info_timeout = config.get_sec_info_timeout()
         self.__shut_down = False
+        self.__user_agent = self.__make_user_agent()
         self.__auth_provider = config.get_authorization_provider()
         if self.__auth_provider is None:
             raise IllegalArgumentException(
@@ -89,7 +93,8 @@ class Client:
                    'Connection': 'keep-alive',
                    'Accept': 'application/octet-stream',
                    'Authorization': auth_string,
-                   'Content-Length': str(len(content))}
+                   'Content-Length': str(len(content)),
+                   'User-Agent': self.__user_agent}
         if self.__logutils.is_enabled_for(DEBUG):
             self.__logutils.log_trace('Request: ' + request.__class__.__name__)
         request_utils = RequestUtils(
@@ -135,6 +140,14 @@ class Client:
         # Generate the uri for request.
         return (protocol + '://' + host + ':' + str(port) + '/' +
                 HttpConstants.NOSQL_DATA_PATH)
+
+    def __make_user_agent(self):
+        if version_info.major >= 3:
+            pyversion = python_version()
+        else:
+            pyversion = '%s.%s.%s' % (version_info.major, version_info.minor,
+                                      version_info.micro)
+        return '%s/%s (Python %s)' % ('NoSQL-PythonSDK', __version__, pyversion)
 
     def __write_content(self, request, content):
         """

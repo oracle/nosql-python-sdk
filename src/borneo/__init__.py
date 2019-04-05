@@ -30,6 +30,7 @@ from .operations import (
     TableRequest, TableResult,
     TableUsageRequest, TableUsageResult, WriteMultipleRequest,
     WriteMultipleResult)
+from .version import __version__
 
 __all__ = ['AuthorizationProvider',
            'BatchOperationNumberLimitException',

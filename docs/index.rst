@@ -1,6 +1,6 @@
 
-Oracle NoSQL Database Cloud Service Python SDK
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Oracle NoSQL Database Cloud Service Python SDK - |NoSQLSdkVersion|
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is the Python SDK for the Oracle NoSQL Database Cloud service. Python 2.7+ and 3.5+ are supported.
 
