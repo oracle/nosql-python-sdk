@@ -174,7 +174,8 @@ class BinaryProtocol:
     def deserialize_table_result(bis, result):
         has_info = bis.read_boolean()
         if has_info:
-            result.set_tenant_id(BinaryProtocol.read_string(bis))
+            # don't use tenant_id, but it's in the result
+            BinaryProtocol.read_string(bis)
             result.set_table_name(BinaryProtocol.read_string(bis))
             result.set_state(
                 BinaryProtocol.__get_table_state(bis.read_byte()))
@@ -568,11 +569,9 @@ class BinaryProtocol:
         # Update the length value.
         bos.write_int_at_offset(offset, bos.get_offset() - start)
 
-    # Writes serial version and opcode
     @staticmethod
-    def write_op_code(bos, op, skip_serial_version=False):
-        if not skip_serial_version:
-            bos.write_short_int(BinaryProtocol.__get_serial_version())
+    def write_op_code(bos, op):
+        # Writes the opcode for the operation.
         bos.write_byte(op)
 
     @staticmethod
@@ -627,6 +626,11 @@ class BinaryProtocol:
             raise IllegalArgumentException(
                 'Invalid sequence length: ' + str(length))
         BinaryProtocol.write_packed_int(bos, length)
+
+    @staticmethod
+    def write_serial_version(bos):
+        # Writes the (short) serial version
+        bos.write_short_int(BinaryProtocol.SERIAL_VERSION)
 
     @staticmethod
     def write_string(bos, value):
@@ -713,10 +717,6 @@ class BinaryProtocol:
             raise IllegalStateException(
                 'Unknown value type ' + str(type(value)))
 
-    @staticmethod
-    def __get_serial_version():
-        return BinaryProtocol.SERIAL_VERSION
-
 
 class DeleteRequestSerializer:
     """
@@ -735,7 +735,7 @@ class DeleteRequestSerializer:
         match_version = request.get_match_version()
         op_code = (BinaryProtocol.OP_CODE.DELETE if match_version is None else
                    BinaryProtocol.OP_CODE.DELETE_IF_VERSION)
-        BinaryProtocol.write_op_code(bos, op_code, self.__is_sub_request)
+        BinaryProtocol.write_op_code(bos, op_code)
         if self.__is_sub_request:
             bos.write_boolean(request.get_return_row())
         else:
@@ -902,7 +902,7 @@ class PutRequestSerializer:
 
     def serialize(self, request, bos):
         op = self.__get_op_code(request)
-        BinaryProtocol.write_op_code(bos, op, self.__is_sub_request)
+        BinaryProtocol.write_op_code(bos, op)
         if self.__is_sub_request:
             bos.write_boolean(request.get_return_row())
         else:
@@ -1027,7 +1027,8 @@ class TableUsageRequestSerializer:
 
     def deserialize(self, bis):
         result = self.__cls_result()
-        result.set_tenant_id(BinaryProtocol.read_string(bis))
+        # don't use tenant_id, but it's in the result
+        BinaryProtocol.read_string(bis)
         result.set_table_name(BinaryProtocol.read_string(bis))
         num_results = BinaryProtocol.read_packed_int(bis)
         usage_records = list()

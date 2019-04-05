@@ -1436,6 +1436,11 @@ class QueryRequest(Request):
         IllegalArgumentException. This limit is independent of read units
         consumed by the operation.
 
+        It is recommended that for tables with relatively low provisioned read
+        throughput that this limit be reduced to less than or equal to one half
+        of the provisioned throughput in order to avoid or reduce throttling
+        exceptions.
+
         :param max_read_kb: the limit in terms of number of KB read during this
             operation.
         :type max_read_kb: int
@@ -2894,7 +2899,6 @@ class TableResult(Result):
 
     def __init__(self):
         super(TableResult, self).__init__()
-        self.__tenant_id = None
         self.__table_name = None
         self.__state = None
         self.__limits = None
@@ -2902,23 +2906,9 @@ class TableResult(Result):
         self.__operation_id = None
 
     def __str__(self):
-        return ('table [' + str(self.__tenant_id) + '] ' +
-                str(self.__table_name) + '[' + str(self.__state) + '] ' +
-                str(self.__limits) + ' schema [' + str(self.__schema) + ']' +
-                ' operation_id = ' + str(self.__operation_id))
-
-    def set_tenant_id(self, tenant_id):
-        self.__tenant_id = tenant_id
-        return self
-
-    def get_tenant_id(self):
-        """
-        Returns the tenant id.
-
-        :return: the tenant id.
-        :rtype: str
-        """
-        return self.__tenant_id
+        return ('table ' + str(self.__table_name) + '[' + str(self.__state) +
+                '] ' + str(self.__limits) + ' schema [' + str(self.__schema) +
+                '] operation_id = ' + str(self.__operation_id))
 
     def set_table_name(self, table_name):
         self.__table_name = table_name
@@ -3102,35 +3092,20 @@ class TableUsageResult(Result):
 
     def __init__(self):
         super(TableUsageResult, self).__init__()
-        self.__tenant_id = None
         self.__table_name = None
         self.__usage_records = None
 
     def __str__(self):
         if self.__usage_records is None:
-            records_s = 'None'
+            records_str = 'None'
         else:
-            records_s = ''
+            records_str = ''
             for index in range(len(self.__usage_records)):
-                records_s += str(self.__usage_records[index])
+                records_str += str(self.__usage_records[index])
                 if index < len(self.__usage_records) - 1:
-                    records_s += ', '
-        return ('TableUsageResult [tenant_id=' + str(self.__tenant_id) +
-                '] [table=' + str(self.__table_name) + '] [table_usage=[' +
-                records_s + ']]')
-
-    def set_tenant_id(self, tenant_id):
-        self.__tenant_id = tenant_id
-        return self
-
-    def get_tenant_id(self):
-        """
-        Returns the tenant id.
-
-        :return: the tenant id.
-        :rtype: str
-        """
-        return self.__tenant_id
+                    records_str += ', '
+        return ('TableUsageResult [table=' + str(self.__table_name) +
+                '] [table_usage=[' + records_str + ']]')
 
     def set_table_name(self, table_name):
         self.__table_name = table_name

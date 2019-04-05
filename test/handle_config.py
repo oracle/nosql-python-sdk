@@ -31,6 +31,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
 
     def testNoSQLHandleConfigSetIllegalEndpoint(self):
         # illegal endpoint
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, None)
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
                           'localhost:8080:foo')
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,

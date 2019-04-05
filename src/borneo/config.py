@@ -196,17 +196,27 @@ class NoSQLHandleConfig:
 
     Most of the configuration parameters are optional and have default values if
     not specified. The only required configuration is the endpoint required by
-    the constructor. The endpoint is used to connect to the service. See the
-    online documentation for the complete set of available regions. For example:
+    the constructor. The endpoint is used to connect to the service. Endpoints
+    must include the target address, and may include protocol and port. The
+    valid syntax is [http[s]://]host[:port], For example, these are valid
+    endpoint arguments:
 
      * ndcs.uscom-east-1.oracle.cloud.com
      * localhost:8080 - used for connecting to a Cloud Simulator instance
+     * https\://ndcs.eucom-central-1.oraclecloud.com:443
 
-    When no port is specified the handle assumes port 443 and the https
-    protocol.
+    If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
+    all other cases.
+
+    If protocol is omitted, the endpoint uses http if the port is 8080, and
+    https in all other cases.
+
+    See the documentation online for the complete set of available regions.
 
     :param endpoint: The endpoint to use to connect to the service. Required.
     :type endpoint: str
+    :raises IllegalArgumentException: raises the exception if the endpoint is
+        None or malformed.
     """
 
     # The default value for request, and table request timeouts in milliseconds,
@@ -696,7 +706,6 @@ class NoSQLHandleConfig:
             # 2 parts:
             #  proto:[//]host (default port based on proto)
             #  host:port (default proto)
-
             if parts[0].lower().startswith('http'):
                 # proto:[//]host
                 self.__protocol = parts[0].lower()

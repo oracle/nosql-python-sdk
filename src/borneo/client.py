@@ -144,4 +144,5 @@ class Client:
         :returns: the bytes contain the content.
         """
         bos = ByteOutputStream(content)
+        BinaryProtocol.write_serial_version(bos)
         return request.create_serializer().serialize(request, bos)

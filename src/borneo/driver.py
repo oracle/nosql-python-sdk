@@ -347,6 +347,19 @@ class NoSQLHandle:
         supported by this interfaces. Those operations must be performed using
         :py:meth:`table_request`.
 
+        The amount of data read by a single query request is limited by a system
+        default and can be further limited using
+        :py:meth:`QueryRequest.set_max_read_kb`. This limits the amount of data
+        *read* and not the amount of data *returned*, which means that a query
+        can return zero results but still have more data to read. This situation
+        is detected by checking if the :py:class:`QueryRequest` has a
+        continuation key, using :py:meth:`QueryRequest.get_continuation_key`.
+        For this reason queries should always operate in a loop, acquiring more
+        results, until the continuation key is null, indicating that the query
+        is done. Inside the loop the continuation key is applied to the
+        :py:class:`QueryRequest` using
+        :py:meth:`QueryRequest.et_continuation_key`.
+
         :param request: the input parameters for the operation.
         :returns: the result of the operation.
         :raises IllegalArgumentException: raises the exception if request is not

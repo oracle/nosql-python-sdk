@@ -25,7 +25,7 @@ from borneo.exception import IllegalStateException
 from borneo.http import RequestUtils
 try:
     from .idcs import AccessTokenProvider, PropertiesCredentialsProvider, Utils
-except ValueError:
+except (ImportError, ValueError):
     from idcs import AccessTokenProvider, PropertiesCredentialsProvider, Utils
 
 
@@ -42,7 +42,7 @@ class OAuthClient:
     This utility needs a valid access token in a token file that can be
     downloaded from the IDCS admin console. After logging into the IDCS admin
     console, choose *Applications* from the button on the top left. Find the
-    Application named *ANDC*, click the button *Generate Access Token* in the
+    Application named *ANDC*, click the button *Generate Access Token*, in the
     pop-up window, pick *Invoke Identity Cloud Service APIs* under
     *Customized Scopes*. Click on *Download Token* and a token file will be
     generated and downloaded. Note that this token has a lifetime of one hour.
