@@ -38,8 +38,7 @@ def create_access_token_provider(tenant_id):
     if using_cloud_sim:
         return NoSecurityAccessTokenProvider(tenant_id)
 
-    provider = DefaultAccessTokenProvider(
-        idcs_url=idcs_url, use_refresh_token=False)
+    provider = DefaultAccessTokenProvider(idcs_url=idcs_url)
     provider.set_credentials_provider(
         PropertiesCredentialsProvider()
         .set_properties_file(credentials_file))

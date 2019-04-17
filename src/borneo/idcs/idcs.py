@@ -10,9 +10,8 @@
 from abc import ABCMeta, abstractmethod
 from base64 import b64encode
 from json import loads
-from os import environ, path, remove, sep
+from os import environ, path, sep
 from requests import Session, codes
-from shutil import move
 from threading import Lock, Timer
 try:
     from urlparse import urlparse
@@ -387,36 +386,8 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     payloads to acquire the required access tokens. The expiry window is a
     constant 120,000 milliseconds.
 
-    If using a refresh token is enabled, this provider will attempt to acquire
-    service access token with `Refresh Token Grant Type <https://docs.oracle.\
-    com/en/cloud/paas/identity-cloud/rest-api/RefreshGT.html>`_ if refresh token
-    is available and supplied by :py:class:`CredentialsProvider`. If no refresh
-    token or token acquisition using refresh token grant type failed, this
-    provider will try to use resource owner grant type to acquire the access
-    token along with the refresh token.
-
-    If IDCS issued the refresh token, it will be stored using
-    :py:meth:`borneo.CredentialsProvider.store_service_refresh_token`,
-    so in the future token renewal, the user credentials can be eliminated for
-    acquiring a new ANDC service access token.
-
-    However, account access token cannot be acquired using refresh token grant
-    type, so if the provider need to provide account access token for
-    :py:class:`TableRequest` as below, the user credentials must still be
-    available in :py:class:`CredentialsProvider`.
-
-        Create a table\n
-        Drop a table\n
-        Change the throughput and storage size associated with a table\n
-        List tables
-
     :param idcs_props_file: the path of an IDCS properties file.
     :param idcs_url: an IDCS URL, provided by IDCS.
-    :param use_refresh_token: if True, enable use of refresh tokens to acquire
-        access tokens. Note that it only can be used to acquire service access
-        token. By default, use of refresh tokens is disabled. It can be enabled
-        by changing "Is Refresh Token Allowed" in Resources tab in the
-        configuration of application ANDC from the IDCS admin console.
     :param creds_provider: a credentials provider.
     :param timeout_ms: the access token acquisition request timeout in
         milliseconds.
@@ -429,15 +400,9 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     # Payload used to acquire access token with resource owner grant flow.
     _RO_GRANT_FORMAT = 'grant_type=password&username={0}&scope={1}&password='
 
-    # Payload used to acquire access token with refresh token grant flow.
-    _RT_GRANT_FORMAT = 'grant_type=refresh_token&refresh_token='
-
     # Payload used to acquire IDCS access token with client grant flow.
     _CLIENT_GRANT_PAYLOAD = (
         'grant_type=client_credentials&scope=urn:opc:idm:__myscopes__')
-
-    # Specify as part of FQS to acquire refresh token.
-    _GET_REFRESH_TOKEN = ' offline_access'
 
     # IDCS fully qualified scope to acquire IDCS AT.
     _IDCS_SCOPE = 'urn:opc:idm:__myscopes__'
@@ -445,9 +410,8 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     # Filter using OAuth client id to find client metadata from IDCS.
     _CLIENT_FILTER = '?filter=name+eq+'
 
-    # Field names in the IDCS access token response.
+    # Field name in the IDCS access token response.
     _AT_FIELD = 'access_token'
-    _RT_FIELD = 'refresh_token'
 
     # Properties in the IDCS properties file.
     _IDCS_URL_PROP = 'idcs_url'
@@ -457,8 +421,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     _DEFAULT_PROPS_FILE = environ['HOME'] + sep + '.andc' + sep + 'idcs.props'
 
     def __init__(self, idcs_props_file=_DEFAULT_PROPS_FILE, idcs_url=None,
-                 use_refresh_token=False, creds_provider=None,
-                 timeout_ms=Utils.DEFAULT_TIMEOUT_MS,
+                 creds_provider=None, timeout_ms=Utils.DEFAULT_TIMEOUT_MS,
                  cache_duration_seconds=AccessTokenProvider.MAX_ENTRY_LIFE_TIME,
                  refresh_ahead=AccessTokenProvider.DEFAULT_REFRESH_AHEAD):
         # Constructs a default access token provider.
@@ -468,14 +431,12 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
                 DefaultAccessTokenProvider.MAX_ENTRY_LIFE_TIME,
                 DefaultAccessTokenProvider.DEFAULT_REFRESH_AHEAD)
             self.__idcs_url = self.__get_idcs_url(idcs_props_file)
-            self.__use_refresh_token = False
             self.__creds_provider = (
                 PropertiesCredentialsProvider().set_properties_file(
                     self.__get_credential_file(idcs_props_file)))
             self.__timeout_ms = Utils.DEFAULT_TIMEOUT_MS
         else:
             CheckValue.check_str(idcs_url, 'idcs_url')
-            CheckValue.check_boolean(use_refresh_token, 'use_refresh_token')
             self.__is_properties_credentials_provider(creds_provider)
             CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
             CheckValue.check_int_gt_zero(cache_duration_seconds,
@@ -484,7 +445,6 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             super(DefaultAccessTokenProvider, self).__init__(
                 cache_duration_seconds, refresh_ahead)
             self.__idcs_url = idcs_url
-            self.__use_refresh_token = use_refresh_token
             self.__creds_provider = (PropertiesCredentialsProvider() if
                                      creds_provider is None else creds_provider)
             self.__timeout_ms = timeout_ms
@@ -553,11 +513,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
                 'Unable to find service scope, OAuth client isn\'t ' +
                 'configured properly, run OAuthClient utility to verify and ' +
                 'recreate.')
-        if self.__use_refresh_token:
-            result = self.__get_at_by_refresh_token()
-            if result is not None:
-                return result
-        return self.__get_at_by_password(self.__get_andc_fqs())
+        return self.__get_at_by_password(self.__andc_fqs)
 
     def close(self):
         super(DefaultAccessTokenProvider, self).close()
@@ -627,15 +583,6 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             self.__handle_token_error_response(response_code, content)
         return self.__parse_access_token_response(content)
 
-    def __get_andc_fqs(self):
-        """
-        Return fully qualified scope of ANDC. Typically, it's the concatenation
-        of OAuth audience and scope, would plus " offline_access" if attempt to
-        acquire refresh token as well.
-        """
-        return (self.__andc_fqs + DefaultAccessTokenProvider._GET_REFRESH_TOKEN
-                if self.__use_refresh_token else self.__andc_fqs)
-
     def __get_at_by_password(self, fqs):
         user_creds = self.__get_user_creds()
         client_creds = self.__get_client_creds()
@@ -648,24 +595,6 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         # Build the actual payload to acquire access token.
         payload = replaced + user_creds.get_secret()
         return self.__get_access_token(auth_header, payload, fqs)
-
-    def __get_at_by_refresh_token(self):
-        saved_rt = self.__creds_provider.get_service_refresh_token()
-        if saved_rt is None:
-            return self.__get_at_by_password(self.__get_andc_fqs())
-        try:
-            client_creds = self.__get_client_creds()
-            auth_header = self.__get_auth_header(
-                client_creds.get_credential_alias(), client_creds.get_secret())
-            payload = DefaultAccessTokenProvider._RT_GRANT_FORMAT + saved_rt
-            # Build the actual payload to acquire access token.
-            return self.__get_access_token(auth_header, payload, 'refresh_token')
-        except RuntimeError as re:
-            # Log the error, expect to retry with resource owner grant case.
-            self.__logutils.log_info(
-                'Failed to acquire access token using refresh token, ' +
-                str(re))
-            return None
 
     def __get_auth_header(self, client_id, secret):
         # Return authorization header in form of 'Basic <clientId:secret>'.
@@ -738,9 +667,6 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         """
         response = loads(response)
         access_token = response.get(DefaultAccessTokenProvider._AT_FIELD)
-        refresh_token = response.get(DefaultAccessTokenProvider._RT_FIELD)
-        if refresh_token is not None and self.__use_refresh_token:
-            self.__creds_provider.store_service_refresh_token(refresh_token)
         if access_token is None:
             raise IllegalStateException(
                 'Access token response contains invalid value, response: ' +
@@ -791,11 +717,6 @@ class CredentialsProvider(object):
 
     These credentials are used by an instance of :py:class:`AccessTokenProvider`
     to acquire access tokens (ATs) for operations.
-
-    For grant types such as resource owner grant, authorization code
-    and assertion, which can generate a refresh token, this interface also
-    supports methods that allow the implementation to store and read
-    the refresh token.
     """
     __metaclass__ = ABCMeta
 
@@ -819,28 +740,6 @@ class CredentialsProvider(object):
         """
         pass
 
-    @abstractmethod
-    def get_service_refresh_token(self):
-        """
-        Returns IDCS refresh token string.
-
-        :returns: the refresh token stored by this provider, or None if not
-            available.
-        """
-        pass
-
-    @abstractmethod
-    def store_service_refresh_token(self, refresh_token):
-        """
-        Allows storage of a refresh token string obtained from IDCS.
-
-        This method stores the refresh token in the properties file. Any
-        existing token is replaced.
-
-        :param refresh_token: the refresh token string obtained from IDCS.
-        """
-        pass
-
 
 class PropertiesCredentialsProvider(CredentialsProvider):
     """
@@ -861,24 +760,14 @@ class PropertiesCredentialsProvider(CredentialsProvider):
         andc_client_id\n
         andc_client_secret
 
-    OAuth refresh token. This is managed by this class and never written by a
-    user or application. As a result users should be careful modifying the
-    properties file while the application is running.
-
-        andc_refresh_token
-
     The default file is ~/.andc/credentials and can be modified using
     :py:meth:`set_properties_file`.
     """
-    # Name suffix of temporary file used in writing refresh token.
-    _NEW_PROPS_SUFFIX = '_new'
-
     # Properties in the properties file.
     USER_NAME_PROP = 'andc_username'
     PWD_PROP = 'andc_user_pwd'
     CLIENT_ID_PROP = 'andc_client_id'
     CLIENT_SECRET_PROP = 'andc_client_secret'
-    _REFRESH_TOKEN_PROP = 'andc_refresh_token'
 
     # Default credentials file at ~/.andc/credentials.
     _DEFAULT_CREDS_FILE = environ['HOME'] + sep + '.andc' + sep + 'credentials'
@@ -920,35 +809,6 @@ class PropertiesCredentialsProvider(CredentialsProvider):
             return None
         pass_word = quote(pass_word.encode())
         return IDCSCredentials(user_name, pass_word)
-
-    def get_service_refresh_token(self):
-        return self.__get_property_from_file(
-            PropertiesCredentialsProvider._REFRESH_TOKEN_PROP)
-
-    def store_service_refresh_token(self, refresh_token):
-        CheckValue.check_str(refresh_token, 'refresh_token')
-        tmp_file = (self.__properties_file +
-                    PropertiesCredentialsProvider._NEW_PROPS_SUFFIX)
-        with self.__lock:
-            if path.exists(tmp_file):
-                remove(tmp_file)
-            with open(tmp_file, 'w') as f:
-                creds = self.get_oauth_client_credentials()
-                if creds is not None:
-                    f.write(PropertiesCredentialsProvider.CLIENT_ID_PROP + '=')
-                    f.write(creds.get_credential_alias() + '\n')
-                    f.write(
-                        PropertiesCredentialsProvider.CLIENT_SECRET_PROP + '=')
-                    f.write(creds.get_secret() + '\n')
-                creds = self.__get_plain_user_credentials()
-                if creds is not None:
-                    f.write(PropertiesCredentialsProvider.USER_NAME_PROP + '=')
-                    f.write(creds.get_credential_alias() + '\n')
-                    f.write(PropertiesCredentialsProvider.PWD_PROP + '=')
-                    f.write(creds.get_secret() + '\n')
-                f.write(PropertiesCredentialsProvider._REFRESH_TOKEN_PROP + '=')
-                f.write(refresh_token + '\n')
-            move(tmp_file, self.__properties_file)
 
     @staticmethod
     def get_property_from_file(properties_file, property_name):

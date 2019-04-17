@@ -18,9 +18,10 @@ def open_relative(*path):
     filename = os.path.join(here, *path)
     return io.open(filename, mode='r', encoding='utf-8')
 
+
 with open_relative('src', 'borneo', 'version.py') as fd:
     version = re.search(
-        r'^__version__\s*=\s*['\"]([^'\"]*)['\"]',
+        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
         fd.read(), re.MULTILINE).group(1)
     if not version:
         raise RuntimeError('Cannot find version information')

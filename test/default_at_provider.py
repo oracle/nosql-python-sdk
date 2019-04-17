@@ -52,8 +52,8 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             '{"schemas": [' +
             '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
             '"totalResults": 0,"Resources": []}')
-        TOKEN_RESULT = ('{{"access_token": "{0}","refresh_token": "{1}",\
-"expires_in": "100","token_type": "Bearer"}}')
+        TOKEN_RESULT = ('{{"access_token": "{0}","expires_in": "100",\
+"token_type": "Bearer"}}')
         PSM_INFO = (
             '{"schemas": [' +
             '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
@@ -85,10 +85,6 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         # illegal idcs url
         self.assertRaises(IllegalArgumentException, DefaultAccessTokenProvider,
                           idcs_url={'idcs_url': idcs_url})
-        # illegal use refresh token flag
-        self.assertRaises(IllegalArgumentException, DefaultAccessTokenProvider,
-                          idcs_url=self.base,
-                          use_refresh_token='IllegalUseRefreshToken')
         # illegal properties credentials provider
         self.assertRaises(IllegalArgumentException, DefaultAccessTokenProvider,
                           idcs_url=self.base,
@@ -133,7 +129,6 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
     def testAccessTokenProviderGetAuthorizationString(self):
         account_at = 'account-at'
         service_at = 'service-at'
-        refresh_token = 'refresh_token'
 
         class TokenHandler(SimpleHTTPRequestHandler):
             def do_GET(self):
@@ -151,12 +146,10 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                     content = self.rfile.read(
                         int(self.headers['Content-Length']))
                     content = unquote(content.decode())
-                    if 'andc' in content or 'refresh_token' in content:
-                        res = str.format(TOKEN_RESULT, service_at,
-                                         refresh_token)
+                    if 'andc' in content:
+                        res = str.format(TOKEN_RESULT, service_at)
                     else:
-                        res = str.format(TOKEN_RESULT, account_at,
-                                         refresh_token)
+                        res = str.format(TOKEN_RESULT, account_at)
                     self.send_response(codes.ok)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Content-Length', str(len(res)))
@@ -167,8 +160,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.base = 'http://localhost:' + str(port)
         # get authorization string for ListTablesRequest
         self.token_provider = DefaultAccessTokenProvider(
-            idcs_url=self.base, use_refresh_token=True,
-            creds_provider=self.creds_provider)
+            idcs_url=self.base, creds_provider=self.creds_provider)
         result = self.token_provider.get_authorization_string(
             ListTablesRequest())
         self.assertIsNotNone(result)
@@ -177,13 +169,10 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_authorization_string(TableRequest())
         self.assertIsNotNone(result)
         self.assertEqual(result, 'Bearer ' + service_at)
-        self.assertEqual(self.creds_provider.get_service_refresh_token(),
-                         refresh_token)
         self.__stop_server(httpd)
 
     def testAccessTokenProviderGetAccountAccessToken(self):
         account_at = 'account-at'
-        refresh_token = 'refresh_token'
 
         class TokenHandler(SimpleHTTPRequestHandler):
             def do_GET(self):
@@ -198,7 +187,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             def do_POST(self):
                 rawpath = self.path.split('?')[0]
                 if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, account_at, refresh_token)
+                    res = str.format(TOKEN_RESULT, account_at)
                     self.send_response(codes.ok)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Content-Length', str(len(res)))
@@ -215,29 +204,16 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.token_provider.close()
 
         self.base = 'http://localhost:' + str(port)
-        # connect to legal idcs url, use_refresh_token = False
+        # connect to legal idcs url
         generate_properties_file(self.base, fake_credentials_file)
         self.token_provider = DefaultAccessTokenProvider(properties_file)
         result = self.token_provider.get_account_access_token()
         self.assertIsNotNone(result)
         self.assertEqual(result, account_at)
-        self.assertIsNone(self.creds_provider.get_service_refresh_token())
-        self.token_provider.close()
-
-        # connect to legal idcs url, use_refresh_token = True
-        self.token_provider = DefaultAccessTokenProvider(
-            idcs_url=self.base, use_refresh_token=True,
-            creds_provider=self.creds_provider)
-        result = self.token_provider.get_account_access_token()
-        self.assertIsNotNone(result)
-        self.assertEqual(result, account_at)
-        self.assertEqual(self.creds_provider.get_service_refresh_token(),
-                         refresh_token)
         self.__stop_server(httpd)
 
     def testAccessTokenProviderGetServiceAccessToken(self):
         service_at = 'service-at'
-        refresh_token = 'refresh_token'
 
         class TokenHandler(SimpleHTTPRequestHandler):
             def do_GET(self):
@@ -252,7 +228,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             def do_POST(self):
                 rawpath = self.path.split('?')[0]
                 if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, service_at, refresh_token)
+                    res = str.format(TOKEN_RESULT, service_at)
                     self.send_response(codes.ok)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Content-Length', str(len(res)))
@@ -263,36 +239,22 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         # connect to illegal idcs url
         self.base = 'http://localhost:80'
         self.token_provider = DefaultAccessTokenProvider(
-            idcs_url=self.base, use_refresh_token=True,
-            creds_provider=self.creds_provider)
+            idcs_url=self.base, creds_provider=self.creds_provider)
         self.assertRaises(ConnectionError,
                           self.token_provider.get_service_access_token)
         self.token_provider.close()
 
         self.base = 'http://localhost:' + str(port)
-        # connect to legal idcs url, use_refresh_token = False
-        generate_properties_file(self.base, fake_credentials_file)
-        self.token_provider = DefaultAccessTokenProvider(properties_file)
-        result = self.token_provider.get_service_access_token()
-        self.assertIsNotNone(result)
-        self.assertEqual(result, service_at)
-        self.assertIsNone(self.creds_provider.get_service_refresh_token())
-        self.token_provider.close()
-
-        # connect to legal idcs url, use_refresh_token = True
+        # connect to legal idcs url
         self.token_provider = DefaultAccessTokenProvider(
-            idcs_url=self.base, use_refresh_token=True,
-            creds_provider=self.creds_provider)
+            idcs_url=self.base, creds_provider=self.creds_provider)
         result = self.token_provider.get_service_access_token()
         self.assertIsNotNone(result)
         self.assertEqual(result, service_at)
-        self.assertEqual(self.creds_provider.get_service_refresh_token(),
-                         refresh_token)
         self.__stop_server(httpd)
 
     def testAccessTokenProviderNoClientInfo(self):
         service_at = 'service-at'
-        refresh_token = 'refresh_token'
 
         class TokenHandler(SimpleHTTPRequestHandler):
             def do_GET(self):
@@ -307,7 +269,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             def do_POST(self):
                 rawpath = self.path.split('?')[0]
                 if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, service_at, refresh_token)
+                    res = str.format(TOKEN_RESULT, service_at)
                     self.send_response(codes.ok)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Content-Length', str(len(res)))
@@ -317,8 +279,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
-            idcs_url=self.base, use_refresh_token=True,
-            creds_provider=self.creds_provider)
+            idcs_url=self.base, creds_provider=self.creds_provider)
         if version_info.major == 2:
             # get service access token
             self.assertRaisesRegexp(
@@ -355,8 +316,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
-            idcs_url=self.base, use_refresh_token=True,
-            creds_provider=self.creds_provider)
+            idcs_url=self.base, creds_provider=self.creds_provider)
         if version_info.major == 2:
             self.assertRaisesRegexp(
                 InvalidAuthorizationException,

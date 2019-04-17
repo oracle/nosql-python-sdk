@@ -84,10 +84,10 @@ class OAuthClient:
 -token <token file>
     """
     #
-    # NOTE: above is simple javadoc. This information is on the implementation.
+    # NOTE: above is simple doc. This information is on the implementation.
     # This custom OAuth client must be created with a specified name. The client
     # must:
-    # - enable password, refresh_token, client_credentials as allowed grants
+    # - enable password, client_credentials as allowed grants
     # - have PSM and NDCS fully-qualified scopes (FQS) as allowed scopes
     # - have ANDC_FullAccessRole
     #
@@ -121,7 +121,7 @@ class OAuthClient:
         '"isOAuthResource": false,"isUnmanagedApp": true,"active": true,' +
         '"description": "Custom OAuth Client for application access to ' +
         'NoSQL Database Cloud Service","clientType": "confidential",' +
-        '"allowedGrants": ["password", "refresh_token", "client_credentials"]' +
+        '"allowedGrants": ["password", "client_credentials"]' +
         ',"trustScope": "Explicit","allowedScopes": [' +
         '{{"fqs": "{1}"}},{{"fqs": "{2}"}}],' +
         '"schemas": ["urn:ietf:params:scim:schemas:oracle:idcs:App"],' +
@@ -478,12 +478,11 @@ class OAuthClient:
         match = 0
         for grant in grants:
             if (grant.lower() == 'password' or
-                    grant.lower() == 'refresh_token' or
                     grant.lower() == 'client_credentials'):
                 match += 1
-        if match != 3:
+        if match != 2:
             errors.append('Missing required allowed grants, require Resource ' +
-                          'Owner, Refresh Token and Client Credentials')
+                          'Owner and Client Credentials')
         self.__log_verbose('Grants verification succeed')
 
     def __verify_role(self, roles, errors):

@@ -118,8 +118,8 @@ def set_access_token_provider(config, tenant_id):
         creds_provider = PropertiesCredentialsProvider().set_properties_file(
             credentials_file)
         authorization_provider = DefaultAccessTokenProvider(
-            idcs_url=idcs_url(), use_refresh_token=True,
-            creds_provider=creds_provider, timeout_ms=timeout)
+            idcs_url=idcs_url(), creds_provider=creds_provider,
+            timeout_ms=timeout)
         config.set_authorization_provider(authorization_provider)
     else:
         raise IllegalArgumentException('Please set the test server.')

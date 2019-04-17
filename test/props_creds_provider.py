@@ -41,10 +41,6 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.provider.set_properties_file, 'abc')
 
-    def testCredentialsProviderStoreIllegalServiceRefreshToken(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.provider.store_service_refresh_token, 0)
-
     def testCredentialsProviderGetOAuthClientCredentials(self):
         self.provider.set_properties_file(fake_credentials_file)
         creds = self.provider.get_oauth_client_credentials()
@@ -56,23 +52,6 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
         creds = self.provider.get_user_credentials()
         self.assertEqual(creds.get_credential_alias(), andc_username)
         self.assertEqual(creds.get_secret(), quote(andc_user_pwd.encode()))
-
-    def testCredentialsProviderGetServiceRefreshToken(self):
-        self.provider.set_properties_file(fake_credentials_file)
-        self.assertIsNone(self.provider.get_service_refresh_token())
-
-    def testCredentialsProviderStoreServiceRefreshToken(self):
-        test_refresh_token = 'test-refresh-token'
-        self.provider.set_properties_file(fake_credentials_file)
-        self.provider.store_service_refresh_token(test_refresh_token)
-        creds = self.provider.get_oauth_client_credentials()
-        self.assertEqual(creds.get_credential_alias(), andc_client_id)
-        self.assertEqual(creds.get_secret(), andc_client_secret)
-        creds = self.provider.get_user_credentials()
-        self.assertEqual(creds.get_credential_alias(), andc_username)
-        self.assertEqual(creds.get_secret(), quote(andc_user_pwd.encode()))
-        self.assertEqual(self.provider.get_service_refresh_token(),
-                         test_refresh_token)
 
     def testCredentialsProviderFormatCredentialsFile(self):
         # generate a credentials file with spaces in each line.
@@ -90,7 +69,6 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
         self.assertEqual(creds.get_credential_alias(), andc_client_id)
         self.assertEqual(creds.get_secret(), andc_client_secret)
         self.assertIsNone(self.provider.get_user_credentials())
-        self.assertIsNone(self.provider.get_service_refresh_token())
         remove(tmp)
 
 
