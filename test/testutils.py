@@ -23,9 +23,9 @@ from borneo.idcs import (
     AccessTokenProvider, DefaultAccessTokenProvider,
     PropertiesCredentialsProvider)
 from parameters import (
-    consistency, endpoint, idcs_url, is_cloudsim, is_dev_pod, is_minicloud,
-    is_prod_pod, logger_level, pool_connections, pool_maxsize, table_prefix,
-    table_request_timeout, timeout)
+    consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
+    is_minicloud, is_prod_pod, logger_level, pool_connections, pool_maxsize,
+    table_prefix, table_request_timeout, timeout)
 
 # The sc endpoint port for setting the tier.
 sc_endpoint = 'localhost:13600'
@@ -118,8 +118,8 @@ def set_access_token_provider(config, tenant_id):
         creds_provider = PropertiesCredentialsProvider().set_properties_file(
             credentials_file)
         authorization_provider = DefaultAccessTokenProvider(
-            idcs_url=idcs_url(), creds_provider=creds_provider,
-            timeout_ms=timeout)
+            idcs_url=idcs_url(), entitlement_id=entitlement_id,
+            creds_provider=creds_provider, timeout_ms=timeout)
         config.set_authorization_provider(authorization_provider)
     else:
         raise IllegalArgumentException('Please set the test server.')
@@ -197,6 +197,8 @@ def generate_properties_file(test_idcs_url, test_credentials_file):
     with open(properties_file, 'w') as prop_file:
         prop_file.write('idcs_url=' + test_idcs_url + '\n')
         prop_file.write('creds_file=' + test_credentials_file + '\n')
+        if entitlement_id is not None:
+            prop_file.write('entitlement_id=' + entitlement_id + '\n')
 
 
 def get_logger():

@@ -16,6 +16,9 @@ from testutils import (
 
 
 class TestBase:
+    def __init__(self):
+        self.handle = None
+
     @classmethod
     def set_up_class(cls):
         add_test_tier_tenant(tenant_id)

@@ -47,6 +47,10 @@
 # Service: not used
 tenant_id = 'test_tenant'
 
+# Cloud Simulator: not used
+# Service: your entitlement id, it will be used when oauth client is not created
+entitlement_id = None
+
 # The table name created. It must not contain '.' or '_'
 table_name = 'pythontable'
 
