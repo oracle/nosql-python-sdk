@@ -24,11 +24,11 @@ from borneo import Consistency
 # parameters in this file should be changed as needed.
 #
 
-# A test tenant_id, only used for the Cloud Simulator
+# A test tenant_id, only used for the Cloud Simulator.
 tenant_id = 'test_tenant'
-# Your entitlement id, it will be used when oauth client is not created
+# Your entitlement id.
 entitlement_id = None
-# A prefix for table names
+# A prefix for table names.
 table_prefix = 'pytest'
 # The table name to use.
 table_name = table_prefix + 'Users'

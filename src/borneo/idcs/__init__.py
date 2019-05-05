@@ -10,12 +10,10 @@
 from .idcs import (
     AccessTokenProvider, CredentialsProvider, DefaultAccessTokenProvider,
     IDCSCredentials, PropertiesCredentialsProvider)
-from .oauth_client import OAuthClient
 
 __all__ = ['AccessTokenProvider',
            'CredentialsProvider',
            'DefaultAccessTokenProvider',
            'IDCSCredentials',
-           'OAuthClient',
            'PropertiesCredentialsProvider',
            ]

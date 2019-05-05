@@ -17,38 +17,51 @@
 # Run against Oracle NoSQL Database Cloud Service:
 #
 # Requires an Oracle Cloud account with a subscription to the Oracle NoSQL
-# Database Cloud Service. You need to generate the credentials file template
-# credentials.tmp using the OAuthClient tool first. Then create a new file in
-# specified path set by parameter "credentials_file" below, and copy content of
-# credentials.tmp to the file. Open the file in your text editor, add only the
-# following information and save the file. This file should be secured so that
-# only the application has access to read it
+# Database Cloud Service. Obtain client id and secret from Oracle Identity Cloud
+# Service (IDCS) admin console, choose Applications from the button on the top
+# left. Find the Application named ANDC. The client id and secret are in the
+# General Information of Configuration. Create a new file in the specified path
+# set by parameter "credentials_file" below, open the file in your text editor,
+# add the following information and save the file. This file should be secured
+# so that only the application has access to read it.
 #
-#     andc_client_id=<application_client_id from credential file>
-#     andc_client_secret=<application_client_secret from credential file>
+#     andc_client_id=<application_client_id from admin console>
+#     andc_client_secret=<application_client_secret admin console>
+#     andc_username=<user name of cloud account>
+#     andc_user_pwd=<user password of cloud account>
 #
 # After that is done this information is required to run the example, or any
 # application using the service.
 #
 #     o IDCS URL assigned to the tenancy
+#     o entitlement id
 #
 # The tenant-specific IDCS URL is the IDCS host assigned to the tenant. After
 # logging into the IDCS admin console, copy the host of the IDCS admin console
 # URL. For example, the format of the admin console URL is
 # "https://{tenantId}.identity.oraclecloud.com/ui/v1/adminconsole". The
 # "https://{tenantId}.identity.oraclecloud.com" portion is the required.
-# Then Assign the IDCS URL to the idcs_url variable below
+# Then assign the IDCS URL to the idcs_url variable below.
+#
+# The entitlement id can be found using the IDCS admin console. After logging
+# into the IDCS admin console, choose Applications from the button on the top
+# left. Find the Application named ANDC, enter the Resources tab in the
+# Configuration. There is a field called primary audience, the entitlement id
+# parameter is the value of "urn:opc:andc:entitlementid", which is treated as a
+# string. For example if your primary audience is
+# "urn:opc:andc:entitlementid=123456789" then the parameter is "123456789".
+# Then assign the entitlement id to the entitlement_id variable below.
 #
 # These variables control whether the program uses the Cloud Simulator or the
 # real service. Modify as necessary for your environment. By default the
-# variables are set to use the Cloud Simulator
+# variables are set to use the Cloud Simulator.
 #
 # Cloud Simulator: a tenant id -- simple string
 # Service: not used
 tenant_id = 'test_tenant'
 
 # Cloud Simulator: not used
-# Service: your entitlement id, it will be used when oauth client is not created
+# Service: your entitlement id
 entitlement_id = None
 
 # The table name created. It must not contain '.' or '_'
