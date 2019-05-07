@@ -10,9 +10,7 @@ For information about the Oracle NoSQL Database Cloud service see  https://docs.
    :hidden:
    :maxdepth: 2
 
+   installation
+   tables
+   datatypes
    api
-
-; leave these for now. The .rst files will result in a sphinx warning until used.
-; these pages will eventually go in front of api, above
-;  installation
-;  tables

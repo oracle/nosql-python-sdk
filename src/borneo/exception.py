@@ -55,7 +55,7 @@ class IllegalStateException(RuntimeError):
 
 class NoSQLException(RuntimeError):
     """
-    A base exception for most exceptions thrown by the NoSQL driver.
+    A base class for most exceptions thrown by the NoSQL driver.
     """
 
     def __init__(self, message, cause=None):
@@ -168,7 +168,7 @@ class ResourceLimitException(NoSQLException):
 
 class RetryableException(NoSQLException):
     """
-    A base exception for all exceptions that may be retried with a reasonable
+    A base class for all exceptions that may be retried with a reasonable
     expectation that they may succeed on retry.
     """
 
@@ -318,7 +318,7 @@ class TableLimitException(ResourceLimitException):
 
 class BatchOperationNumberLimitException(ResourceLimitException):
     """
-    Thrown to indicate that the number of operations included in 
+    Thrown to indicate that the number of operations included in
     :py:meth:`NoSQLHandle.write_multiple` operation exceeds the system defined
     limit.
     """
