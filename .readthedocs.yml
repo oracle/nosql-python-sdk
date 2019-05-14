@@ -11,9 +11,9 @@ sphinx:
 
 # python version
 python:
-    version: 3.5
-    setup_py_install: true
+  version: 3.5
+  install:
+    - requirements: requirements.txt
    
 formats: all
 
-requirements_file: requirements.txt
