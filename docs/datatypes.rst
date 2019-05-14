@@ -12,7 +12,8 @@ Cloud Service and Python data types. The database types are referred to as
 Oracle NoSQL Database Types
 ===========================
 
-See `Supported Data Types <https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnsd/supported-data-types.html>`_ for a description of the data types supported
+See `Supported Data Types <https://docs.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8>`_
+for a description of the data types supported
 by the service. An application uses these types to create tables and indexes.
 For example, a table may be created using this DDL statement, which defines
 types in terms of the database types:

@@ -55,10 +55,10 @@ You also set table limits using :func:`borneo.TableRequest.set_table_limits` met
 
 Before creating a table, learn about:
 
-The supported data types for Oracle NoSQL Database Cloud. See `Supported Data Types <https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnsd/supported-data-types.html>`_. Also see :ref:`datatypes` for a description of how database types map to
+The supported data types for Oracle NoSQL Database Cloud. See `Supported Data Types <https://docs.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8>`_. Also see :ref:`datatypes` for a description of how database types map to
 Python.
 
-Cloud limits. See `Oracle NoSQL Database Cloud Limits <https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnsd/cloud-limits.html>`_.
+Cloud limits. See `Oracle NoSQL Database Cloud Limits <https://docs.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-30129AB3-906B-4E71-8EFB-8E0BBCD67144>`_.
 
 Examples of DDL statements are:
 ::
