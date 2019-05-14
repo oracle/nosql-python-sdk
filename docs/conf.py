@@ -29,13 +29,6 @@ project = u'NoSQL Cloud Python Driver'
 copyright = u'2018, 2019 Oracle'
 author = u'Oracle'
 
-# The short X.Y version
-version = u''
-# The full version, including alpha/beta/rc tags
-release = unicode(str(datetime.today().timetuple().tm_year - 2000) + '.' +
-                  str(datetime.today().timetuple().tm_yday), 'utf-8')
-
-
 # -- General configuration ---------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
