@@ -1,7 +1,4 @@
-Copyright (C) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
-
-The following UPL license covers the Oracle code and examples provided in this
-distribution.
+Copyright (c) 2018, 2019 Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
