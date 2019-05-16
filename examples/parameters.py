@@ -62,6 +62,7 @@ tenant_id = 'test_tenant'
 
 # Cloud Simulator: not used
 # Service: your entitlement id
+# entitlement_id = 'id'
 entitlement_id = None
 
 # The table name created. It must not contain '.' or '_'
@@ -86,6 +87,11 @@ idcs_url = 'your_idcs_url'
 # Cloud Simulator: not used
 # Service: absolute path to credentials file
 credentials_file = 'path-to-your-credentials-file'
+
+# Cloud Simulator: not used
+# Change to False and edit utils.py to add your credentials to
+# MyCredentialsProvider to supply credentials
+use_properties_credentials = True
 
 #
 # Set to True to drop the table at the end of the example

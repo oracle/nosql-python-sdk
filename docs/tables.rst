@@ -22,6 +22,10 @@ default values for handle configuration.
 Configuration requires an :class:`borneo.AuthorizationProvider` to provide
 identity and authorization information to the handle.
 
+See the section *Supplying Credentials to an Application* in :ref:`install` for
+options related to using your own :class:`CredentialsProvider` class for better
+credential security.
+
 .. code-block:: pycon
 
     from borneo import (AuthorizationProvider, NoSQLHandleConfig, NoSQLHandle)

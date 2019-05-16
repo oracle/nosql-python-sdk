@@ -361,7 +361,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     An instance of :py:class:`AccessTokenProvider` that acquires access tokens
     from Oracle Identity Cloud Service (IDCS) using information provided by
     :py:class:`CredentialsProvider`. By default the
-    :py:class:`PropertiesCredentialsProvider` is used.
+    :py:class:`CredentialsProvider` is used.
 
     This class requires tenant-specific information in order to properly
     communicate with IDCS using the credential information:
@@ -457,7 +457,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             self.__timeout_ms = Utils.DEFAULT_TIMEOUT_MS
         else:
             CheckValue.check_str(idcs_url, 'idcs_url')
-            self.__is_properties_credentials_provider(creds_provider)
+            self.__is_credentials_provider(creds_provider)
             CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
             CheckValue.check_int_gt_zero(cache_duration_seconds,
                                          'cache_duration_seconds')
@@ -485,14 +485,14 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
 
     def set_credentials_provider(self, provider):
         """
-        Sets :py:class:`PropertiesCredentialsProvider`.
+        Sets :py:class:`CredentialsProvider`.
 
         :param provider: the credentials provider.
         :returns: self.
         :raises IllegalArgumentException: raises the exception if provider is
-            not an instance of PropertiesCredentialsProvider.
+            not an instance of CredentialsProvider.
         """
-        self.__is_properties_credentials_provider(provider)
+        self.__is_credentials_provider(provider)
         self.__creds_provider = provider
         return self
 
@@ -546,7 +546,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     def __ensure_creds_provider(self):
         if self.__creds_provider is None:
             raise IllegalArgumentException(
-                'PropertiesCredentialsProvider unavailable.')
+                'CredentialsProvider unavailable.')
 
     def __find_oauth_scopes(self):
         # Find PSM and ANDC FQS from allowed scopes of OAuth client.
@@ -749,11 +749,11 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
                 'IDCS error response: ' + content + ', status code: ' +
                 str(response_code))
 
-    def __is_properties_credentials_provider(self, provider):
+    def __is_credentials_provider(self, provider):
         if (provider is not None and
-                not isinstance(provider, PropertiesCredentialsProvider)):
+                not isinstance(provider, CredentialsProvider)):
             raise IllegalArgumentException('provider must be an instance of ' +
-                                           'PropertiesCredentialsProvider.')
+                                           'CredentialsProvider.')
 
     def __parse_access_token_response(self, response):
         """
@@ -904,12 +904,12 @@ class PropertiesCredentialsProvider(CredentialsProvider):
     def get_user_credentials(self):
         user_name = self.__get_property_from_file(
             PropertiesCredentialsProvider.USER_NAME_PROP)
-        pass_word = self.__get_property_from_file(
+        password = self.__get_property_from_file(
             PropertiesCredentialsProvider.PWD_PROP)
-        if user_name is None or pass_word is None:
+        if user_name is None or password is None:
             return None
-        pass_word = quote(pass_word.encode())
-        return IDCSCredentials(user_name, pass_word)
+        password = quote(password.encode())
+        return IDCSCredentials(user_name, password)
 
     @staticmethod
     def get_property_from_file(properties_file, property_name):
@@ -940,8 +940,8 @@ class PropertiesCredentialsProvider(CredentialsProvider):
         # Get user credentials without URL encoding.
         user_name = self.__get_property_from_file(
             PropertiesCredentialsProvider.USER_NAME_PROP)
-        pass_word = self.__get_property_from_file(
+        password = self.__get_property_from_file(
             PropertiesCredentialsProvider.PWD_PROP)
-        if user_name is None or pass_word is None:
+        if user_name is None or password is None:
             return None
-        return IDCSCredentials(user_name, pass_word)
+        return IDCSCredentials(user_name, password)

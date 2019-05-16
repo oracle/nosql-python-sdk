@@ -103,21 +103,69 @@ How to acquire Client ID, Client Secret, Entitlement ID, and IDCS URL:
 
 If you have multiple developers using the same tenancy for the service, share
 these credentials with them. Each developer will use the Client ID and Client
-Secret along with their own user name and password to create a usable
-credentials file. The entitlement ID and IDCS URL are used in the application to
+Secret along with their own user name and password to create usable
+credentials. The entitlement ID and IDCS URL are used in the application to
 connect to the Oracle NoSQL Database Cloud Service.
 
-=========================
-Create a Credentials File
-=========================
 
-It is possible to provide credentials to your application programmatically but
-it can be easier to use a single credentials file and
-:class:`borneo.idcs.PropertiesCredentialsProvider` makes file-based access
-simple.
+=======================================
+Supplying Credentials to an Application
+=======================================
 
-By default the credentials file is found in *~/.andc/credentials* but the
-location can be changed. The format is that of a properties file with the
+Credentials are used to establish the initial connection from your application
+to the service. There are 2 ways to supply the credentials:
+
+1. Using a file and :class:`borneo.idcs.PropertiesCredentialsProvider`
+2. Using an instance of :class:`borneo.idcs.CredentialsProvider` to supply
+   the credentials
+
+Using a file is handy and makes it easy to share credentials but it is not
+particularly secure as the information is in plain text in the file. If done the
+permission settings on the file should limit read access to just the
+application. In general it is recommended that secure applications create an
+instance of :class:`borneo.idcs.CredentialsProvider`.
+
+Creating Your Own CredentialsProvider
+-------------------------------------
+
+You can supply credentials with your own implementation of
+:class:`borneo.idcs.CredentialsProvider`.
+
+.. code-block:: pycon
+
+                from borneo.idcs import (
+                    CredentialsProvider, DefaultAccessTokenProvider,
+                    IDCSCredentials)
+
+                class MyCredentialsProvider(CredentialsProvider):
+
+                    def get_oauth_client_credentials(self):
+                        return IDCSCredentials('your_idcs_client_id',
+                                                             'your_client_secret')
+
+                    def get_user_credentials(self):
+                        #
+                        # password must be URL-encoded. This can be done using
+                        # urllib.parse.quote
+                        #
+                        return IDCSCredentials('your_oracle_cloud_user_name',
+                                                            'your_oracle_cloud_password')
+
+                #
+                # Use MyCredentialsProvider
+                #
+                at_provider = DefaultAccessTokenProvider(idcs_url, entitlement_id)
+                at_provider.set_credentials_provider(MyCredentialsProvider())
+
+
+Using a File for Credentials
+----------------------------
+
+:class:`borneo.idcs.PropertiesCredentialsProvider` reads credentials from a file.
+By default the credentials file is found in *$HOME/.andc/credentials* but the
+location can be changed using
+:func:`borneo.idcs.PropertiesCredentialsProvider.set_properties_file`.
+The format of the file is that of a properties file with the
 format of *key=value*, with one property per line.
 The contents and format are:
 ::
@@ -130,6 +178,18 @@ The contents and format are:
 The client ID and client secret should be acquired using the instructions above.
 The cloud username and password are for the cloud login. The order of the
 properties does not matter.
+
+.. code-block:: pycon
+
+                from borneo.idcs import (
+                    DefaultAccessTokenProvider, PropertiesCredentialsProvider)
+
+                #
+                # Use PropertiesCredentialsProvider
+                #
+                at_provider = DefaultAccessTokenProvider(idcs_url, entitlement_id)
+                at_provider.set_credentials_provider(
+                    PropertiesCredentialsProvider().set_credentials_file(<path-to-file>))
 
 =========================
 Connecting an Application
@@ -153,8 +213,10 @@ the Cloud Simulator, **localhost:8080**.
                 #
                 idcs_url=<your_idcs_url>
                 entitlement_id=<your_entitlement_id>
-                credentials_file=<path_to_your_credentials_file>
                 endpoint=<communication_endpoint>
+
+                # if using a credentials file
+                credentials_file=<path_to_your_credentials_file>
 
                 #
                 # Create an AuthorizationProvider
@@ -164,10 +226,23 @@ the Cloud Simulator, **localhost:8080**.
                     idcs_url=idcs_url, entitlement_id=entitlement_id)
 
                 #
-                # set the credentials provider based on your credentials file
+                # set the credentials provider. 2 examples:
+                # 1. using a properties file
+                # 2. using a custom CredentialsProvider
+                #
+
+                #
+                # (1) set the credentials provider based on your credentials file
                 #
                 at_provider.set_credentials_provider(
                     PropertiesCredentialsProvider().set_properties_file(credentials_file)
+
+                # OR
+                #
+                # (2) use your own instance of CredentialsProvider (e.g.
+                # MyCredentialsProvider -- see above example)
+                #
+                # at_provider.set_credentials_provider(MyCredentialsProvider())
 
                 #
                 # create a configuration object
@@ -179,8 +254,10 @@ the Cloud Simulator, **localhost:8080**.
                 #
                 handle = NoSQLHandle(config)
 
-See examples and test code for specific details. Both of these use *parameters.py*
-files for configuration of required information. The examples have instructions
+See examples and test code for specific details. Both of these use
+*parameters.py* files for configuration of required information. The examples
+can use either style of CredentialsProvider -- using a file or using a custom
+class.
 
 -------------------------
 Using the Cloud Simulator
