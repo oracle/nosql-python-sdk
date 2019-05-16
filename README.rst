@@ -18,9 +18,9 @@ Installation
 The SDK can be installed using pip.
 ::
 
-    pip install oci
+    pip install borneo
 
-See `the installation guide <https://oracle-cloud-infrastructure-python-sdk .readthedocs.io/en/latest/installation.html>`_ for additional requirements and and alternative install methods.
+See `the installation guide <https://nosql-python-sdk .readthedocs.io/en/latest/installation.html>`_ for additional requirements and and alternative install methods.
 
 ========
 Examples
