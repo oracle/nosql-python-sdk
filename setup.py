@@ -35,6 +35,7 @@ requires = [
 
 setup(
     name='borneo',
+    url='https://nosql-python-sdk.readthedocs.io/en/latest/index.html',
 
     # Version should match the system release, but may vary as patches
     # are created.
@@ -42,10 +43,6 @@ setup(
     description='Oracle NoSQL Database Cloud Service Python SDK',
     long_description=readme,
 
-    # The project's main homepage and download page
-    url='https://cloud.oracle.com/nosqldatabase',
-
-    # Author details
     author='Oracle',
     author_email='fei.p.peng@oracle.com',
     packages=find_packages(where='src'),
@@ -53,7 +50,7 @@ setup(
     include_package_data=True,
 
     # License is UPL, Version 1.0
-    license='UPL V1.0',
+    license='Universal Permissive License 1.0',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -68,7 +65,7 @@ setup(
         'Topic :: Database :: Front-Ends',
 
         # License -- must match "license" above
-        'License :: OSI Approved :: Universal Permissive License',
+        'License :: OSI Approved :: Universal Permissive License (UPL)',
 
         # Supported Python versions
         'Programming Language :: Python :: 2.7',
