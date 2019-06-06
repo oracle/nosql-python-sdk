@@ -13,14 +13,20 @@ QueryRequest
       ~QueryRequest.get_consistency
       ~QueryRequest.get_continuation_key
       ~QueryRequest.get_limit
+      ~QueryRequest.get_math_context
+      ~QueryRequest.get_max_memory_consumption
       ~QueryRequest.get_max_read_kb
+      ~QueryRequest.get_max_write_kb
       ~QueryRequest.get_prepared_statement
       ~QueryRequest.get_statement
       ~QueryRequest.get_timeout
       ~QueryRequest.set_consistency
       ~QueryRequest.set_continuation_key
       ~QueryRequest.set_limit
+      ~QueryRequest.set_math_context
+      ~QueryRequest.set_max_memory_consumption
       ~QueryRequest.set_max_read_kb
+      ~QueryRequest.set_max_write_kb
       ~QueryRequest.set_prepared_statement
       ~QueryRequest.set_statement
       ~QueryRequest.set_timeout
@@ -30,14 +36,20 @@ QueryRequest
    .. automethod:: get_consistency
    .. automethod:: get_continuation_key
    .. automethod:: get_limit
+   .. automethod:: get_math_context
+   .. automethod:: get_max_memory_consumption
    .. automethod:: get_max_read_kb
+   .. automethod:: get_max_write_kb
    .. automethod:: get_prepared_statement
    .. automethod:: get_statement
    .. automethod:: get_timeout
    .. automethod:: set_consistency
    .. automethod:: set_continuation_key
    .. automethod:: set_limit
+   .. automethod:: set_math_context
+   .. automethod:: set_max_memory_consumption
    .. automethod:: set_max_read_kb
+   .. automethod:: set_max_write_kb
    .. automethod:: set_prepared_statement
    .. automethod:: set_statement
    .. automethod:: set_timeout

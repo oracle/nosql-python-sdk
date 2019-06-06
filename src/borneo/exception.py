@@ -82,6 +82,89 @@ class NoSQLException(RuntimeError):
         return False
 
 
+class QueryException(RuntimeError):
+    """
+    A class to hold query exceptions indicating syntactic or semantic problems
+    at the driver side during query execution. It is internal use only and it
+    will be caught, and rethrown as IllegalArgumentException to the application.
+    It includes location information. When converted to an IAE, the location
+    info is put into the message created for the IAE.
+    """
+
+    def __init__(self, message=None, cause=None, location=None):
+        self.__message = message
+        self.__cause = cause
+        self.__location = location
+
+    def __str__(self):
+        return ('Error:' + ('' if self.__location is None else ' at (' +
+                            str(self.__location.get_start_line()) + ', ' +
+                            str(self.__location.get_start_column()) + ')') +
+                ' ' + self.__message)
+
+    def get_illegal_argument(self):
+        # Get this exception as a simple IAE, not wrapped. This is used on the
+        # client side.
+        raise IllegalArgumentException(str(self))
+
+    def get_location(self):
+        # Returns the location associated with this exception. May be None if
+        # not available.
+        return self.__location
+
+    class Location:
+        """
+        Location of an expression in the query. It contains both start and end,
+        line and column info.
+        """
+
+        def __init__(self, start_line, start_column, end_line, end_column):
+            self.__start_line = start_line
+            self.__start_column = start_column
+            self.__end_line = end_line
+            self.__end_column = end_column
+            assert start_line >= 0
+            assert start_column >= 0
+            assert end_line >= 0
+            assert end_column >= 0
+
+        def __str__(self):
+            return (str(self.__start_line) + ':' + str(self.__start_column) +
+                    '-' + str(self.__end_line) + ':' + str(self.__end_column))
+
+        def get_end_column(self):
+            # Returns the end column as its char position in line.
+            return self.__end_column
+
+        def get_end_line(self):
+            # Returns the end line.
+            return self.__end_line
+
+        def get_start_column(self):
+            # Returns the start column as its char position in line.
+            return self.__start_column
+
+        def get_start_line(self):
+            # Returns the start line.
+            return self.__start_line
+
+
+class QueryStateException(IllegalStateException):
+    """
+    An internal class that encapsulates illegal states in the query engine. The
+    query engine operates inside clients and servers and cannot safely throw
+    IllegalStateException as that can crash the server. This exception is used
+    to indicate problems in the engine that are most likely query engine bugs
+    but are not otherwise fatal to the system.
+    """
+
+    def __init__(self, message):
+        self.__message = message
+
+    def __str__(self):
+        return 'Unexpected state in query engine:\n' + self.__message
+
+
 class IndexExistsException(NoSQLException):
     """
     The operation attempted to create an index for a table but the named index

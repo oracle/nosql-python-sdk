@@ -12,7 +12,7 @@ from base64 import b64encode
 from json import loads
 from os import environ, path, sep
 from requests import Session, codes
-from threading import Lock, Timer
+from threading import Timer
 try:
     from urlparse import urlparse
     from urllib import quote
@@ -876,7 +876,6 @@ class PropertiesCredentialsProvider(CredentialsProvider):
     def __init__(self):
         self.__properties_file = (
             PropertiesCredentialsProvider._DEFAULT_CREDS_FILE)
-        self.__lock = Lock()
 
     def set_properties_file(self, file_path):
         """

@@ -12,7 +12,7 @@ from requests import ConnectionError, Timeout, codes
 from threading import Lock
 from time import time
 
-from .common import ByteInputStream
+from .common import ByteInputStream, synchronized
 from .exception import (
     IllegalStateException, NoSQLException, RequestTimeoutException,
     RetryableException, SecurityInfoNotReadyException)
@@ -38,7 +38,8 @@ class HttpResponse:
 
 class RequestUtils:
     # Utility to issue http request.
-    def __init__(self, sess, logutils, request=None, retry_handler=None):
+    def __init__(self, sess, logutils, request=None, retry_handler=None,
+                 client=None):
         """
         Init the RequestUtils.
 
@@ -47,12 +48,13 @@ class RequestUtils:
         :param request: request to execute.
         :param retry_handler: the retry handler.
         """
+        self.__client = client
         self.__sess = sess
         self.__logutils = logutils
         self.__request = request
         self.__retry_handler = retry_handler
-        self.__lock = Lock()
         self.__max_request_id = 1
+        self.lock = Lock()
 
     def do_delete_request(self, uri, headers, timeout_ms):
         """
@@ -191,8 +193,10 @@ class RequestUtils:
             except RetryableException as re:
                 self.__logutils.log_debug('Retryable exception: ' + str(re))
                 """
-                Handle automatic retries. If this returns True then the delay
-                (if any) will be performed and the request should be retried.
+                Handle automatic retries. If this does not throw an error, then
+                the delay (if any) will have been performed and the request
+                should be retried.
+
                 If there have been too many retries this method will throw the
                 original exception.
                 """
@@ -260,14 +264,14 @@ class RequestUtils:
         else:
             self.__logutils.log_info(msg)
 
+    @synchronized
     def __next_request_id(self):
         """
         Get the next client-scoped request id. It needs to be combined with the
         client id to obtain a globally unique scope.
         """
-        with self.__lock:
-            self.__max_request_id += 1
-            return self.__max_request_id
+        self.__max_request_id += 1
+        return self.__max_request_id
 
     def __process_response(self, request, content, status):
         """
@@ -296,7 +300,12 @@ class RequestUtils:
         """
         code = bis.read_byte()
         if code == 0:
-            return request.create_deserializer().deserialize(bis)
+            res = request.create_deserializer().deserialize(
+                request, bis, BinaryProtocol.SERIAL_VERSION)
+            if request.is_query_request():
+                if not request.is_simple_query():
+                    request.get_driver().set_client(self.__client)
+            return res
 
         """
         Operation failed. Handle the failure and throw an appropriate

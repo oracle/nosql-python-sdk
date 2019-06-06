@@ -8,6 +8,7 @@
 #
 
 from datetime import datetime
+from decimal import Context, ROUND_HALF_EVEN
 from json import loads
 from time import mktime, sleep, time
 
@@ -39,6 +40,9 @@ class Request(object):
 
     def _get_timeout_internal(self):
         return self.__timeout_ms
+
+    def is_query_request(self):
+        return False
 
     def set_defaults(self, cfg):
         """
@@ -876,7 +880,8 @@ class MultiDeleteRequest(Request):
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
         """
-        if not isinstance(continuation_key, bytearray):
+        if (continuation_key is not None and
+                not isinstance(continuation_key, bytearray)):
             raise IllegalArgumentException(
                 'set_continuation_key requires bytearray as parameter.')
         self.__continuation_key = continuation_key
@@ -1015,6 +1020,7 @@ class PrepareRequest(Request):
     def __init__(self):
         super(PrepareRequest, self).__init__()
         self.__statement = None
+        self.__get_query_plan = False
 
     def set_statement(self, statement):
         """
@@ -1038,6 +1044,33 @@ class PrepareRequest(Request):
         :rtype: str
         """
         return self.__statement
+
+    def set_get_query_plan(self, get_query_plan):
+        """
+        Sets whether a printout of the query execution plan should be include in
+        the :py:class:`PrepareResult`.
+
+        :param get_query_plan: True if a printout of the query execution plan
+            should be include in the :py:class:`PrepareResult`. False otherwise.
+        :type get_query_plan: bool
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if get_query_plan
+            is not a boolean.
+        """
+        CheckValue.check_boolean(get_query_plan, 'get_query_plan')
+        self.__get_query_plan = get_query_plan
+        return self
+
+    def get_query_plan(self):
+        """
+        Returns whether a printout of the query execution plan should be include
+        in the :py:class:`PrepareResult`.
+
+        :return: whether a printout of the query execution plan should be
+            include in the :py:class:`PrepareResult`.
+        :rtype: bool
+        """
+        return self.__get_query_plan
 
     def set_timeout(self, timeout_ms):
         """
@@ -1382,26 +1415,89 @@ class PutRequest(WriteRequest):
 
 class QueryRequest(Request):
     """
-    A request that encapsulates a query. A query may be either a string query
-    statement or a prepared query, which may include bind variables. A query
-    request cannot have both a string statement and prepared query, but it must
-    have one or the other.
+    A request that represents a query. A query may be specified as either a
+    textual SQL statement (a String) or a prepared query (an instance of
+    :py:class:`PreparedStatement`), which may include bind variables.
 
     For performance reasons prepared queries are preferred for queries that may
-    be reused. Prepared queries bypass compilation of the query. They also allow
-    for parameterized queries using bind variables.
+    be reused. This is because prepared queries bypass query compilation. They
+    also allow for parameterized queries using bind variables.
+
+    To compute and retrieve the full result set of a query, the same
+    QueryRequest instance will typically have to be executed multiple times (via
+    :py:meth:`NoSQLHandle.query`. Each execution returns a
+    :py:class:`QueryResult`, which contains a subset of the result set and a
+    *continuation key*. (an opaque byte array that contains the information
+    needed to resume execution during the next iteration). If the continuation
+    key is None, there are no more results (the full result set has been
+    computed). Otherwise, the continuation key must be copied from the
+    QueryResult to the QueryRequest before the QueryRequest is executed again to
+    retrieve the next batch of results. Notice that a batch of results returned
+    by a QueryRequest execution may be empty. This is because during each
+    execution the query is allowed to read or write a maximum number of bytes.
+    If this maximum is reached, execution stops. This can happen before any
+    result was generated (for example, if none of the rows read satisfied the
+    query conditions).
+
+    To reuse a QueryRequest instance to run the same query from the beginning
+    (or a different query), the application must first call
+    :py:meth:`set_continuation_key` passing None as input.
+
+    QueryRequest instances are not thread-safe. That is, if two or more
+    application threads need to run the same query concurrently, they must
+    create and use their own QueryRequest instances.
 
     The statement or prepared_statement is required parameter.
     """
 
     def __init__(self):
         super(QueryRequest, self).__init__()
+        self.__trace_level = 0
         self.__limit = 0
         self.__max_read_kb = 0
-        self.__continuation_key = None
+        self.__max_write_kb = 0
+        self.__max_memory_consumption = 1024 * 1024 * 1024
+        self.__math_context = Context(prec=7, rounding=ROUND_HALF_EVEN)
         self.__consistency = None
         self.__statement = None
         self.__prepared_statement = None
+        self.__continuation_key = None
+        # If shardId is >= 0, the QueryRequest should be executed only at the
+        # shard with this id. This is the case only for advanced queries that do
+        # sorting.
+        self.__shard_id = -1
+        # The QueryDriver, for advanced queries only.
+        self.driver = None
+        # An "internal" request is one created and submitted for execution by
+        # the ReceiveIter.
+        self.is_internal = False
+
+    def copy_internal(self):
+        # Creates an internal QueryRequest out of the application-provided
+        # request.
+        internal_req = QueryRequest()
+        internal_req.set_timeout(self.get_timeout())
+        internal_req.set_trace_level(self.__trace_level)
+        internal_req.set_limit(self.__limit)
+        internal_req.set_max_read_kb(self.__max_read_kb)
+        internal_req.set_max_write_kb(self.__max_write_kb)
+        internal_req.set_max_memory_consumption(self.__max_memory_consumption)
+        internal_req.set_math_context(self.__math_context)
+        internal_req.set_consistency(self.__consistency)
+        internal_req.set_prepared_statement(self.__prepared_statement)
+        internal_req.driver = self.driver
+        internal_req.is_internal = True
+        return internal_req
+
+    def set_trace_level(self, trace_level):
+        CheckValue.check_int_ge_zero(trace_level, 'trace_level')
+        if trace_level > 32:
+            raise IllegalArgumentException('trace level must be <= 32')
+        self.__trace_level = trace_level
+        return self
+
+    def get_trace_level(self):
+        return self.__trace_level
 
     def set_limit(self, limit):
         """
@@ -1445,8 +1541,8 @@ class QueryRequest(Request):
             operation.
         :type max_read_kb: int
         :return: self.
-        :raises IllegalArgumentException: raises the exception if the maxReadKB
-            value is less than 0 or beyond the system defined limit.
+        :raises IllegalArgumentException: raises the exception if the
+            max_read_kb value is less than 0 or beyond the system defined limit.
         :raises IllegalArgumentException: raises the exception if max_read_kb is
             a negative number or max_read_kb is greater than
             BinaryProtocol.READ_KB_LIMIT.
@@ -1469,6 +1565,105 @@ class QueryRequest(Request):
         :rtype: int
         """
         return self.__max_read_kb
+
+    def set_max_write_kb(self, max_write_kb):
+        """
+        Sets the limit on the total data written during this operation, in KB.
+        This value can only reduce the system defined limit. An attempt to
+        increase the limit beyond the system defined limit will cause
+        IllegalArgumentException. This limit is independent of write units
+        consumed by the operation.
+
+        :param max_write_kb: the limit in terms of number of KB written during
+            this operation.
+        :type max_write_kb: int
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if the
+            max_write_kb value is less than 0 or beyond the system defined
+            limit.
+        :raises IllegalArgumentException: raises the exception if max_write_kb
+            is a negative number or max_write_kb is greater than
+            BinaryProtocol.WRITE_KB_LIMIT.
+        """
+        CheckValue.check_int_ge_zero(max_write_kb, 'max_write_kb')
+        if max_write_kb > serde.BinaryProtocol.WRITE_KB_LIMIT:
+            raise IllegalArgumentException(
+                'max_write_kb can not exceed ' +
+                str(serde.BinaryProtocol.WRITE_KB_LIMIT))
+        self.__max_write_kb = max_write_kb
+        return self
+
+    def get_max_write_kb(self):
+        """
+        Returns the limit on the total data written during this operation, in
+        KB. If not set by the application this value will be 0 which means no
+        application-defined limit.
+
+        :return: the limit, or 0 if not set.
+        :rtype: int
+        """
+        return self.__max_write_kb
+
+    def set_max_memory_consumption(self, memory_consumption):
+        """
+        Sets the maximum number of memory bytes that may be consumed by the
+        statement at the driver for operations such as duplicate elimination
+        (which may be required due to the use of an index on an array or map)
+        and sorting. Such operations may consume a lot of memory as they need to
+        cache the full result set or a large subset of it at the client memory.
+        The default value is 1GB.
+
+        :param memory_consumption: the maximum number of memory bytes that may
+            be consumed by the statement at the driver for blocking operations.
+        :type memory_consumption: long
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if
+            memory_consumption is a negative number or 0.
+        """
+        CheckValue.check_int_ge_zero(memory_consumption, 'memory_consumption')
+        self.__max_memory_consumption = memory_consumption
+        return self
+
+    def get_max_memory_consumption(self):
+        """
+        Returns the maximum number of memory bytes that may be consumed by the
+        statement at the driver for operations such as duplicate elimination
+        (which may be required due to the use of an index on an array or map)
+        and sorting (sorting by distance when a query contains a geo_near()
+        function). Such operations may consume a lot of memory as they need to
+        cache the full result set at the client memory.
+        The default value is 100MB.
+
+        :return: the maximum number of memory bytes.
+        :rtype: long
+        """
+        return self.__max_memory_consumption
+
+    def set_math_context(self, math_context):
+        """
+        Sets the Context used for Decimal operations.
+
+        :param math_context: the Context used for Decimal operations.
+        :type math_context: Context
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if math_context
+            is not an instance of Context.
+        """
+        if not isinstance(math_context, Context):
+            raise IllegalArgumentException(
+                'set_math_context requires an instance of decimal.Context as ' +
+                'parameter.')
+        self.__math_context = math_context
+        return self
+
+    def get_math_context(self):
+        """
+        Returns the Context used for Decimal operations.
+
+        :return: the Context used for Decimal operations.
+        :rtype: Context
+        """
+        return self.__math_context
 
     def set_consistency(self, consistency):
         """
@@ -1509,10 +1704,15 @@ class QueryRequest(Request):
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
         """
-        if not isinstance(continuation_key, bytearray):
+        if (continuation_key is not None and
+                not isinstance(continuation_key, bytearray)):
             raise IllegalArgumentException(
                 'set_continuation_key requires bytearray as parameter.')
         self.__continuation_key = continuation_key
+        if (self.driver is not None and not self.is_internal and
+                self.__continuation_key is None):
+            self.driver.close()
+            self.driver = None
         return self
 
     def get_continuation_key(self):
@@ -1535,6 +1735,10 @@ class QueryRequest(Request):
             not a string.
         """
         CheckValue.check_str(statement, 'statement')
+        if (self.__prepared_statement is not None and
+                statement != self.__prepared_statement.get_sql_text()):
+            raise IllegalArgumentException(
+                'The query text is not equal to the prepared one.')
         self.__statement = statement
         return self
 
@@ -1563,6 +1767,11 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'set_prepared_statement requires an instance of PrepareResult' +
                 ' or PreparedStatement as parameter.')
+        if (isinstance(value, PreparedStatement) and
+                self.__statement is not None and
+                self.__statement != value.get_sql_text()):
+            raise IllegalArgumentException(
+                'The query text is not equal to the prepared one.')
         self.__prepared_statement = (
             value.get_prepared_statement() if isinstance(value, PrepareResult)
             else value)
@@ -1576,6 +1785,22 @@ class QueryRequest(Request):
         :rtype: PreparedStatement
         """
         return self.__prepared_statement
+
+    def set_shard_id(self, shard_id):
+        self.__shard_id = shard_id
+
+    def get_shard_id(self):
+        return self.__shard_id
+
+    def set_driver(self, driver):
+        if self.driver is not None:
+            raise IllegalArgumentException(
+                'QueryRequest is already bound to a QueryDriver')
+        self.driver = driver
+        return self
+
+    def get_driver(self):
+        return self.driver
 
     def set_timeout(self, timeout_ms):
         """
@@ -1608,13 +1833,30 @@ class QueryRequest(Request):
             self.__consistency = cfg.get_default_consistency()
         return self
 
+    def has_driver(self):
+        return self.driver is not None
+
+    def is_prepared(self):
+        return self.__prepared_statement is not None
+
+    def is_query_request(self):
+        return not self.is_internal
+
+    def is_simple_query(self):
+        return self.__prepared_statement.is_simple_query()
+
+    def topology_info(self):
+        return (None if self.__prepared_statement is None else
+                self.__prepared_statement.topology_info())
+
+    def topology_seq_num(self):
+        return (-1 if self.__prepared_statement is None else
+                self.__prepared_statement.topology_seq_num())
+
     def validate(self):
-        if (self.__statement is not None and
-                self.__prepared_statement is not None or
-                self.__statement is None and
-                self.__prepared_statement is None):
+        if self.__statement is None and self.__prepared_statement is None:
             raise IllegalArgumentException(
-                'One of statement or prepared statement must be set.')
+                'Either statement or prepared statement should be set.')
 
     def create_serializer(self):
         return serde.QueryRequestSerializer()
@@ -2624,7 +2866,7 @@ class PrepareResult(Result):
 
     def set_prepared_statement(self, prepared_statement):
         # Sets the prepared statement.
-        self.__prepared_statement = PreparedStatement(prepared_statement)
+        self.__prepared_statement = prepared_statement
         return self
 
     def get_prepared_statement(self):
@@ -2791,7 +3033,7 @@ class QueryResult(Result):
     number of rows affected by the statement.
 
     If the value returned by :py:meth:`get_continuation_key` is not None there
-    are additional results available. That value can be supplied to a new
+    are additional results available. That value can be supplied to the query
     request using :py:meth:`QueryRequest.set_continuation_key` to continue the
     query. It is possible for a query to return no results in an empty list but
     still have a non-none continuation key. This happens if the query reads the
@@ -2800,13 +3042,36 @@ class QueryResult(Result):
     if any exist.
     """
 
-    def __init__(self):
+    def __init__(self, request, computed=True):
         super(QueryResult, self).__init__()
+        self.__request = request
         self.__results = None
         self.__continuation_key = None
+        # The following 6 fields are used only for "internal" QueryResults,
+        # i.e., those received and processed by the ReceiveIter.
+
+        self.__reached_limit = False
+        self.__is_computed = computed
+        # The following 4 fields are used during phase 1 of a sorting
+        # ALL_PARTITIONS query. In this case, self.__results may store results
+        # from multiple partitions. If so, self.__results are grouped by
+        # partition and self.__pids, self.__num_results_per_pid and
+        # self.__continuation_keys store the partition id, the number of
+        # results, and the continuation key per partition. Finally,
+        # self.__is_in_phase1 specifies whether phase 1 is done.
+        self.__is_in_phase1 = False
+        self.__num_results_per_pid = None
+        self.__continuation_keys = None
+        self.__pids = None
 
     def __str__(self):
-        return 'Query, num results: ' + str(len(self.__results))
+        self.__compute()
+        if self.__results is None:
+            return None
+        res = 'Number of query results: ' + str(len(self.__results))
+        for result in self.__results:
+            res += '\n' + str(result)
+        return res + '\n'
 
     def set_results(self, results):
         self.__results = results
@@ -2820,6 +3085,10 @@ class QueryResult(Result):
         :return: a list of results for the query.
         :rtype: list(dict)
         """
+        self.__compute()
+        return self.__results
+
+    def get_results_internal(self):
         return self.__results
 
     def set_continuation_key(self, continuation_key):
@@ -2835,7 +3104,49 @@ class QueryResult(Result):
             to return.
         :rtype: bytearray
         """
+        self.__compute()
         return self.__continuation_key
+
+    def set_reached_limit(self, reached_limit):
+        self.__reached_limit = reached_limit
+        return self
+
+    def reached_limit(self):
+        return self.__reached_limit
+
+    def get_request(self):
+        return self.__request
+
+    def set_computed(self, computed):
+        self.__is_computed = computed
+        return self
+
+    def set_is_in_phase1(self, is_in_phase1):
+        self.__is_in_phase1 = is_in_phase1
+
+    def is_in_phase1(self):
+        return self.__is_in_phase1
+
+    def set_num_results_per_pid(self, num_results_per_pid):
+        self.__num_results_per_pid = num_results_per_pid
+
+    def get_num_partition_results(self, i):
+        return self.__num_results_per_pid[i]
+
+    def set_partition_cont_keys(self, continuation_keys):
+        self.__continuation_keys = continuation_keys
+
+    def get_partition_cont_key(self, i):
+        return self.__continuation_keys[i]
+
+    def set_pids(self, pids):
+        self.__pids = pids
+
+    def get_num_pids(self):
+        return 0 if self.__pids is None else len(self.__pids)
+
+    def get_pid(self, i):
+        return self.__pids[i]
 
     def get_read_kb(self):
         """
@@ -2847,6 +3158,7 @@ class QueryResult(Result):
         :return: the read KBytes consumed.
         :rtype: int
         """
+        self.__compute()
         return super(QueryResult, self)._get_read_kb_internal()
 
     def get_read_units(self):
@@ -2858,6 +3170,7 @@ class QueryResult(Result):
         :return: the read units consumed.
         :rtype: int
         """
+        self.__compute()
         return super(QueryResult, self)._get_read_units_internal()
 
     def get_write_kb(self):
@@ -2867,6 +3180,7 @@ class QueryResult(Result):
         :return: the write KBytes consumed.
         :rtype: int
         """
+        self.__compute()
         return super(QueryResult, self)._get_write_kb_internal()
 
     def get_write_units(self):
@@ -2876,7 +3190,15 @@ class QueryResult(Result):
         :return: the write units consumed.
         :rtype: int
         """
+        self.__compute()
         return super(QueryResult, self)._get_write_units_internal()
+
+    def __compute(self):
+        if self.__is_computed:
+            return
+        driver = self.__request.get_driver()
+        driver.compute(self)
+        self.__is_computed = True
 
 
 class TableResult(Result):

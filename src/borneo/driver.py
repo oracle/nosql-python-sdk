@@ -327,18 +327,7 @@ class NoSQLHandle:
     def query(self, request):
         """
         Queries a table based on the query statement specified in the
-        :py:class:`QueryRequest`. There are limitations on types of queries that
-        can be supported in a multi-tenant cloud environment. In general,
-        queries that must visit multiple shards are supported except in the
-        following conditions:
-
-        The query includes an "ORDER BY" clause. Distributed sorting is not
-        available. Sorted queries will work if a shard key is supplied in the
-        query.
-
-        The query includes a "GROUP BY" clause. Distributed grouping is not
-        available. Grouped queries will work if a shard key is supplied in the
-        query.
+        :py:class:`QueryRequest`.
 
         Queries that include a full shard key will execute much more efficiently
         than more distributed queries that must go to multiple shards.
@@ -355,7 +344,7 @@ class NoSQLHandle:
         is detected by checking if the :py:class:`QueryRequest` has a
         continuation key, using :py:meth:`QueryRequest.get_continuation_key`.
         For this reason queries should always operate in a loop, acquiring more
-        results, until the continuation key is null, indicating that the query
+        results, until the continuation key is None, indicating that the query
         is done. Inside the loop the continuation key is applied to the
         :py:class:`QueryRequest` using
         :py:meth:`QueryRequest.et_continuation_key`.

@@ -16,11 +16,15 @@ from .common import ByteOutputStream, CheckValue, HttpConstants, LogUtils
 from .config import DefaultRetryHandler
 from .exception import IllegalArgumentException
 from .http import RequestUtils
+from .operations import QueryResult
+from .query import QueryDriver
 from .serde import BinaryProtocol
 from .version import __version__
 
 
 class Client:
+    TRACE_LEVEL = 0
+
     # The HTTP driver client.
     def __init__(self, config, logger):
         self.__logutils = LogUtils(logger)
@@ -79,6 +83,45 @@ class Client:
         CheckValue.check_not_none(request, 'request')
         request.set_defaults(self.__config)
         request.validate()
+        if request.is_query_request():
+            """
+            The following 'if' may be True for advanced queries only. For such
+            queries, the 'if' will be True (i.e., the QueryRequest will be bound
+            with a QueryDriver) if and only if this is not the 1st execute()
+            call for this query. In this case we just return a new, empty
+            QueryResult. Actual computation of a result batch will take place
+            when the app calls get_results() on the QueryResult.
+            """
+            if request.has_driver():
+                self.__trace('QueryRequest has QueryDriver', 2)
+                return QueryResult(request, False)
+            """
+            If it is an advanced query and we are here, then this must be the
+            1st execute() call for the query. If the query has been prepared
+            before, we create a QueryDriver and bind it with the QueryRequest.
+            Then, we create and return an empty QueryResult. Actual computation
+            of a result batch will take place when the app calls get_results()
+            on the QueryResult.
+            """
+            if request.is_prepared() and not request.is_simple_query():
+                self.__trace(
+                    'QueryRequest has no QueryDriver, but is prepared', 2)
+                driver = QueryDriver(request)
+                driver.set_client(self)
+                driver.set_topology_info(request.topology_info())
+                return QueryResult(request, False)
+            """
+            If we are here, then this is either (a) a simple query or (b) an
+            advanced query that has not been prepared already, which also
+            implies that this is the 1st execute() call on this query. For a
+            non-prepared advanced query, the effect of this 1st execute() call
+            is to send the query to the proxy for compilation, get back the
+            prepared query, but no query results, create a QueryDriver, and bind
+            it with the QueryRequest (see QueryRequestSerializer.deserialize()),
+            and return an empty QueryResult.
+            """
+            self.__trace(
+                'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
         auth_string = self.__auth_provider.get_authorization_string(request)
         if auth_string is None:
@@ -98,7 +141,7 @@ class Client:
         if self.__logutils.is_enabled_for(DEBUG):
             self.__logutils.log_trace('Request: ' + request.__class__.__name__)
         request_utils = RequestUtils(
-            self.__sess, self.__logutils, request, self.__retry_handler)
+            self.__sess, self.__logutils, request, self.__retry_handler, self)
         return request_utils.do_post_request(
             self.__request_uri, headers, content, timeout_ms,
             self.__sec_info_timeout)
@@ -141,6 +184,10 @@ class Client:
         return (protocol + '://' + host + ':' + str(port) + '/' +
                 HttpConstants.NOSQL_DATA_PATH)
 
+    def __trace(self, msg, level):
+        if level <= Client.TRACE_LEVEL:
+            print('DRIVER: ' + msg)
+
     def __make_user_agent(self):
         if version_info.major >= 3:
             pyversion = python_version()
@@ -158,4 +205,5 @@ class Client:
         """
         bos = ByteOutputStream(content)
         BinaryProtocol.write_serial_version(bos)
-        return request.create_serializer().serialize(request, bos)
+        return request.create_serializer().serialize(
+            request, bos, BinaryProtocol.SERIAL_VERSION)

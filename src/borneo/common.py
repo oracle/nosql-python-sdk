@@ -8,9 +8,12 @@
 #
 
 from datetime import datetime
+from functools import wraps
 from logging import Logger
+from platform import architecture
 from struct import pack, unpack
 from sys import version_info
+from threading import Lock
 from time import ctime, time
 
 from .exception import IllegalArgumentException
@@ -18,6 +21,14 @@ from .exception import IllegalArgumentException
 
 def enum(**enums):
     return type('Enum', (object,), enums)
+
+
+def synchronized(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return func(self, *args, **kwargs)
+    return wrapper
 
 
 class ByteInputStream:
@@ -28,14 +39,17 @@ class ByteInputStream:
 
     def __init__(self, content):
         self.__content = content
-        self.__content.reverse()
 
     def read_boolean(self):
         res = bool(self.read_byte())
         return res
 
     def read_byte(self):
-        return self.__content.pop()
+        res = self.__content.pop(0)
+        if res > 127:
+            return res - 256
+        else:
+            return res
 
     def read_float(self):
         buf = bytearray(8)
@@ -47,12 +61,18 @@ class ByteInputStream:
         if end is None:
             end = len(buf)
         for index in range(start, end):
-            buf[index] = self.__content.pop()
+            buf[index] = self.__content.pop(0)
 
     def read_int(self):
         buf = bytearray(4)
         self.read_fully(buf)
         res, = unpack('>i', buf)
+        return res
+
+    def read_short_int(self):
+        buf = bytearray(2)
+        self.read_fully(buf)
+        res, = unpack('>h', buf)
         return res
 
 
@@ -887,18 +907,55 @@ class PreparedStatement:
     :py:meth:`copy_statement`.
     """
 
-    def __init__(self, statement):
+    def __init__(self, sql_text, query_plan, topology_info, proxy_statement,
+                 driver_plan, num_iterators, num_registers, external_vars):
         """
         Constructs a PreparedStatement. Construction is hidden to eliminate
         application access to the underlying statement, reducing the chance of
         corruption.
         """
         # 10 is arbitrary. TODO: put magic number in it for validation?
-        if statement is None or len(statement) < 10:
+        if proxy_statement is None or len(proxy_statement) < 10:
             raise IllegalArgumentException(
                 'Invalid prepared query, cannot be None.')
-        self.__statement = statement
-        self.__variables = dict()
+
+        self.__sql_text = sql_text
+        self.__query_plan = query_plan
+        # Applicable to advanced queries only.
+        self.__topology_info = topology_info
+        # The serialized PreparedStatement created at the backend store. It is
+        # opaque for the driver. It is received from the proxy and sent back to
+        # the proxy every time a new batch of results is needed.
+        self.__proxy_statement = proxy_statement
+        # The part of the query plan that must be executed at the driver. It is
+        # received from the proxy when the query is prepared there. It is
+        # deserialized by the driver and not sent back to the proxy again.
+        # Applicable to advanced queries only.
+        self.__driver_query_plan = driver_plan
+        # The number of iterators in the full query plan
+        # Applicable to advanced queries only.
+        self.__num_iterators = num_iterators
+        # The number of registers required to run the full query plan.
+        # Applicable to advanced queries only.
+        self.__num_registers = num_registers
+        # Maps the name of each external variable to its id, which is a position
+        # in a field value array stored in the RuntimeControlBlock and holding
+        # the values of the variables. Applicable to advanced queries only.
+        self.__variables = external_vars
+        # The values for the external variables of the query. This map is
+        # populated by the application. It is sent to the proxy every time a new
+        # batch of results is needed. The values in this map are also placed in
+        # the RuntimeControlBlock field value array, just before the query
+        # starts its execution at the driver.
+        self.__bound_variables = None
+        self.lock = Lock()
+
+    def clear_variables(self):
+        """
+        Clears all bind variables from the statement.
+        """
+        if self.__bound_variables is not None:
+            self.__bound_variables.clear()
 
     def copy_statement(self):
         """
@@ -909,11 +966,77 @@ class PreparedStatement:
             Bind variables are uninitialized.
         :rtype: PreparedStatement
         """
-        return PreparedStatement(self.__statement)
+        return PreparedStatement(
+            self.__sql_text, self.__query_plan, self.__topology_info,
+            self.__proxy_statement, self.__driver_query_plan,
+            self.__num_iterators, self.__num_registers, self.__variables)
+
+    def driver_plan(self):
+        return self.__driver_query_plan
+
+    def get_query_plan(self):
+        """
+        Returns a string representation of the query execution plan, if it was
+        requested in the :py:class:`PrepareRequest`; None otherwise.
+
+        :returns: the string representation of the query execution plan.
+        :rtype: bool
+        """
+        return self.__query_plan
+
+    def get_sql_text(self):
+        """
+        Returns the SQL text of this PreparedStatement.
+
+        :returns: the SQL text of this PreparedStatement.
+        :rtype: str
+        """
+        return self.__sql_text
 
     def get_statement(self):
         # internal use to return the serialized, prepared query, opaque
-        return self.__statement
+        return self.__proxy_statement
+
+    def get_variables(self):
+        """
+        Returns the dictionary of variables to use for a prepared query
+        with variables.
+
+        :returns: the dictionary.
+        :rtype: dict
+        """
+        return self.__bound_variables
+
+    def get_variable_values(self):
+        if self.__bound_variables is None:
+            return None
+        values = [0] * len(self.__bound_variables)
+        for key in self.__bound_variables:
+            varid = self.__variables.get(key)
+            values[varid] = self.__bound_variables[key]
+        return values
+
+    def is_simple_query(self):
+        return self.__driver_query_plan is None
+
+    def num_iterators(self):
+        return self.__num_iterators
+
+    def num_registers(self):
+        return self.__num_registers
+
+    def print_driver_plan(self):
+        return self.__driver_query_plan.display()
+
+    @synchronized
+    def set_topology_info(self, topology_info):
+        if topology_info is None:
+            return
+        if self.__topology_info is None:
+            self.__topology_info = topology_info
+            return
+        if self.__topology_info.get_seq_num() < topology_info.get_seq_num():
+            self.__topology_info = topology_info
 
     def set_variable(self, name, value):
         """
@@ -930,24 +1053,21 @@ class PreparedStatement:
             string.
         """
         CheckValue.check_str(name, 'name')
-        self.__variables[name] = value
+        if self.__bound_variables is None:
+            self.__bound_variables = dict()
+        if self.__variables is not None and self.__variables.get(name) is None:
+            raise IllegalArgumentException(
+                'The query doesn\'t contain the variable: ' + name)
+        self.__bound_variables[name] = value
         return self
 
-    def get_variables(self):
-        """
-        Returns the dictionary of variables to use for a prepared query
-        with variables.
+    def topology_info(self):
+        return self.__topology_info
 
-        :returns: the dictionary.
-        :rtype: dict
-        """
-        return self.__variables
-
-    def clear_variables(self):
-        """
-        Clears all bind variables from the statement.
-        """
-        self.__variables = dict()
+    @synchronized
+    def topology_seq_num(self):
+        return (-1 if self.__topology_info is None else
+                self.__topology_info.get_seq_num())
 
 
 class PutOption:
@@ -960,6 +1080,90 @@ class PutOption:
     """Set PutOption.IF_PRESENT to perform put if present operation."""
     IF_VERSION = 2
     """Set PutOption.IF_VERSION to perform put if version operation."""
+
+
+class SizeOf(object):
+    ARRAY_OVERHEAD = 0
+    ARRAY_OVERHEAD_32 = 16
+    ARRAY_OVERHEAD_64 = 24
+
+    ARRAY_SIZE_INCLUDED = 0
+    ARRAY_SIZE_INCLUDED_32 = 4
+    ARRAY_SIZE_INCLUDED_64 = 0
+
+    HASHMAP_ENTRY_OVERHEAD = 0
+    HASHMAP_ENTRY_OVERHEAD_32 = 24
+    HASHMAP_ENTRY_OVERHEAD_64 = 52
+
+    HASHMAP_OVERHEAD = 0
+    HASHMAP_OVERHEAD_32 = 120
+    HASHMAP_OVERHEAD_64 = 219
+
+    HASHSET_ENTRY_OVERHEAD = 0
+    HASHSET_ENTRY_OVERHEAD_32 = 24
+    HASHSET_ENTRY_OVERHEAD_64 = 55
+
+    HASHSET_OVERHEAD = 0
+    HASHSET_OVERHEAD_32 = 136
+    HASHSET_OVERHEAD_64 = 240
+
+    OBJECT_OVERHEAD = 0
+    OBJECT_OVERHEAD_32 = 8
+    OBJECT_OVERHEAD_64 = 16
+
+    OBJECT_REF_OVERHEAD = 0
+    OBJECT_REF_OVERHEAD_32 = 4
+    OBJECT_REF_OVERHEAD_64 = 8
+
+    ARRAYLIST_OVERHEAD = 0
+
+    @staticmethod
+    def object_array_size(array_len):
+        return SizeOf.byte_array_size(array_len * SizeOf.OBJECT_REF_OVERHEAD)
+
+    @staticmethod
+    def byte_array_size(array_len, array_overhead=ARRAY_OVERHEAD,
+                        array_size_included=ARRAY_SIZE_INCLUDED):
+        """
+        Returns the memory size occupied by a byte array of a given length. All
+        arrays (regardless of element type) have the same overhead for a zero
+        length array. On 32b Python, there are 4 bytes included in that fixed
+        overhead that can be used for the first N elements -- however many fit
+        in 4 bytes. On 64b Python, there is no extra space included. In all
+        cases, space is allocated in 8 byte chunks.
+        """
+        size = array_overhead
+        if array_len > array_size_included:
+            size += (array_len - array_size_included + 7) / 8 * 8
+        return size
+
+    @staticmethod
+    def string_size(s):
+        return (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
+                SizeOf.byte_array_size(2 * len(s)))
+
+    if architecture()[0] == '64bit':
+        ARRAY_OVERHEAD = ARRAY_OVERHEAD_64
+        ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_64
+        HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_64
+        HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_64
+        HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_64
+        HASHSET_OVERHEAD = HASHSET_OVERHEAD_64
+        OBJECT_OVERHEAD = OBJECT_OVERHEAD_64
+        OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_64
+        ARRAYLIST_OVERHEAD = (
+            64 - byte_array_size.__func__(0 * OBJECT_REF_OVERHEAD))
+    else:
+        ARRAY_OVERHEAD = ARRAY_OVERHEAD_32
+        ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_32
+        HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_32
+        HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_32
+        HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_32
+        HASHSET_OVERHEAD = HASHSET_OVERHEAD_32
+        OBJECT_OVERHEAD = OBJECT_OVERHEAD_32
+        OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_32
+        ARRAYLIST_OVERHEAD = (
+            40 - byte_array_size.__func__(0 * OBJECT_REF_OVERHEAD))
 
 
 class State:
