@@ -118,6 +118,15 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(IllegalArgumentException,
                           self.put_request.set_return_row, 'IllegalReturnRow')
 
+    def testPutSetIllegalExactMatch(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.put_request.set_exact_match, 'IllegalExactMatch')
+
+    def testPutSetIllegalIdentityCacheSize(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.put_request.set_identity_cache_size,
+                          'IllegalIdentityCacheSize')
+
     def testPutIfVersionWithoutMatchVersion(self):
         self.put_request.set_option(PutOption.IF_VERSION)
         self.assertRaises(IllegalArgumentException, self.handle.put,
@@ -143,7 +152,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         version = self.handle.put(self.put_request).get_version()
         self.put_request.set_option(PutOption.IF_ABSENT).set_match_version(
             version).set_ttl(self.ttl).set_use_table_default_ttl(
-            True).set_return_row(True)
+            True).set_return_row(True).set_exact_match(
+            True).set_identity_cache_size(5)
         self.assertEqual(self.put_request.get_value(), self.row)
         self.assertEqual(self.put_request.get_option(), PutOption.IF_ABSENT)
         self.assertEqual(self.put_request.get_match_version(), version)
@@ -153,6 +163,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(self.put_request.get_timeout(), timeout)
         self.assertEqual(self.put_request.get_table_name(), table_name)
         self.assertTrue(self.put_request.get_return_row())
+        self.assertTrue(self.put_request.get_exact_match())
+        self.assertEqual(self.put_request.get_identity_cache_size(), 5)
 
     def testPutIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.put,
@@ -165,6 +177,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             int(round(time() * 1000)))
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 0)
@@ -190,6 +203,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             int(round(time() * 1000)))
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 0)
@@ -212,6 +226,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         result = self.handle.put(self.put_request)
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 0)
@@ -237,6 +252,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             int(round(time() * 1000)))
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 1)
@@ -258,6 +274,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         # should fail, and return the existing row
         result = self.handle.put(self.put_request)
         self.assertIsNone(result.get_version())
+        self.assertIsNone(result.get_generated_value())
         self.assertEqual(result.get_existing_version().get_bytes(),
                          version.get_bytes())
         self.assertEqual(result.get_existing_value(), self.row)
@@ -272,6 +289,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.put_request.set_option(PutOption.IF_PRESENT)
         result = self.handle.put(self.put_request)
         self.assertIsNone(result.get_version())
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 1)
@@ -290,6 +308,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         result = self.handle.put(self.put_request)
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 1)
@@ -315,6 +334,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             int(round(time() * 1000)))
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 1)
@@ -346,6 +366,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             int(round(time() * 1000)))
         version = result.get_version()
         self.assertIsNotNone(version)
+        self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
         self.assertEqual(result.get_read_kb(), 1)
@@ -368,6 +389,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.put_request.set_ttl(None).set_use_table_default_ttl(True)
         result = self.handle.put(self.put_request)
         self.assertIsNone(result.get_version())
+        self.assertIsNone(result.get_generated_value())
         self.assertEqual(result.get_existing_version().get_bytes(),
                          version.get_bytes())
         self.assertEqual(result.get_existing_value(), self.row)
@@ -376,46 +398,60 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(result.get_write_kb(), 0)
         self.assertEqual(result.get_write_units(), 0)
 
-    def testExactMatch(self):
-        exact_table = table_prefix + 'exact'
+    def testPutWithExactMatch(self):
+        exact_table = table_prefix + 'Exact'
         create_request = TableRequest().set_statement(
-            'create table ' + exact_table + '(id integer, name string, \
-age integer, primary key(id))').set_table_limits(TableLimits(5000,5000,50))
-        result = TestBase.table_request(create_request, State.ACTIVE)
+            'CREATE TABLE ' + exact_table + '(id INTEGER, name STRING, \
+age INTEGER, PRIMARY KEY(id))').set_table_limits(TableLimits(5000, 5000, 50))
+        TestBase.table_request(create_request, State.ACTIVE)
 
         # create a row with an extra field not in the table, by default this
         # will succeed
-        row = {'id': 1, 'name' : 'myname', 'age' : 6, 'extra' : 5}
+        row = {'id': 1, 'name': 'myname', 'age': 6, 'extra': 5}
         put_request = PutRequest().set_value(row).set_table_name(exact_table)
-        version = self.handle.put(put_request).get_version()
-        self.assertIsNotNone(version)
+        result = self.handle.put(put_request)
+        self.assertIsNotNone(result.get_version())
+        self.assertIsNone(result.get_generated_value())
+        self.assertIsNone(result.get_existing_version())
+        self.assertIsNone(result.get_existing_value())
+        self.assertEqual(result.get_read_kb(), 0)
+        self.assertEqual(result.get_read_units(), 0)
+        self.assertEqual(result.get_write_kb(), 1)
+        self.assertEqual(result.get_write_units(), 1)
 
         # this will cause the operation to fail because it's not an exact match
-        put_request.set_exact_match(True);
+        put_request.set_exact_match(True)
         self.assertRaises(IllegalArgumentException, self.handle.put,
-                              put_request)
+                          put_request)
 
-    def testIdentityColumn(self):
-        id_table = table_prefix + 'identity'
+    def testPutWithIdentityColumn(self):
+        id_table = table_prefix + 'Identity'
         create_request = TableRequest().set_statement(
-            'create table ' + id_table + '(id integer, id1 long generated \
-always as identity, name string, primary key(shard(id), id1))')
-        create_request.set_table_limits(TableLimits(5000,5000,50))
-        result = TestBase.table_request(create_request, State.ACTIVE)
+            'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
+ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
+        create_request.set_table_limits(TableLimits(5000, 5000, 50))
+        TestBase.table_request(create_request, State.ACTIVE)
 
         # create a row with an extra field not in the table, by default this
         # will succeed
-        row = {'id': 1, 'name' : 'myname'}
+        row = {'sid': 1, 'name': 'myname'}
         put_request = PutRequest().set_value(row).set_table_name(id_table)
-        put_result = self.handle.put(put_request)
-        self.assertIsNotNone(put_result.get_version())
-        self.assertIsNotNone(put_result.get_generated_value())
+        result = self.handle.put(put_request)
+        self.assertIsNotNone(result.get_version())
+        self.assertIsNotNone(result.get_generated_value())
+        self.assertIsNone(result.get_existing_version())
+        self.assertIsNone(result.get_existing_value())
+        self.assertEqual(result.get_read_kb(), 0)
+        self.assertEqual(result.get_read_units(), 0)
+        self.assertEqual(result.get_write_kb(), 1)
+        self.assertEqual(result.get_write_units(), 1)
 
-        # this is invalid because id1 is 'generated always' and in that
-        # path it is not legal to provide a value for id1
-        row['id1'] = 1
+        # this is invalid because id is 'generated always' and in that path it
+        # is not legal to provide a value for id
+        row['id'] = 1
         self.assertRaises(IllegalArgumentException, self.handle.put,
-                              put_request)
+                          put_request)
+
 
 if __name__ == '__main__':
     unittest.main()

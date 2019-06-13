@@ -1385,7 +1385,7 @@ class PutRequest(WriteRequest):
 
     def set_exact_match(self, exact_match):
         """
-        If true the value must be an exact match for the table schema or the
+        If True the value must be an exact match for the table schema or the
         operation will fail. An exact match means that there are no required
         fields missing and that there are no extra, unknown fields. The default
         behavior is to not require an exact match.
@@ -1402,29 +1402,28 @@ class PutRequest(WriteRequest):
 
     def get_exact_match(self):
         """
-        Returns whether or not the value must be an exact match to the table
-        schema or not.
+        Returns whether the value must be an exact match to the table schema or
+        not.
 
-        :return: the value
+        :return: the value.
         :rtype: bool
         """
         return self.__exact_match
 
-
     def set_identity_cache_size(self, identity_cache_size):
         """
-        Sets the number of generated identity values that are requested from
-        the server during a put. This takes precedence over the DDL identity
-        CACHE option set during creation of the identity column.
+        Sets the number of generated identity values that are requested from the
+        server during a put. This takes precedence over the DDL identity CACHE
+        option set during creation of the identity column.
 
         Any value equal or less than 0 means that the DDL identity CACHE value
         is used.
 
-        :param identity_cache_size: the size
+        :param identity_cache_size: the size.
         :type identity_cache_size: int
         :return: self.
-        :raises IllegalArgumentException: raises the exception if size is not
-          an integer.
+        :raises IllegalArgumentException: raises the exception if
+            identity_cache_size is not an integer.
         """
         CheckValue.check_int(identity_cache_size, 'identity_cache_size')
         self.__identity_cache_size = identity_cache_size
@@ -1432,10 +1431,10 @@ class PutRequest(WriteRequest):
 
     def get_identity_cache_size(self):
         """
-        Gets the number of generated identity values that are requested from
-        the server during a put if set in this request.
+        Gets the number of generated identity values that are requested from the
+        server during a put if set in this request.
 
-        :return: the value
+        :return: the value.
         :rtype: int
         """
         return self.__identity_cache_size
@@ -3014,6 +3013,21 @@ class PutResult(WriteResult):
         """
         return self.__version
 
+    def set_generated_value(self, value):
+        self.__generated_value = value
+
+    def get_generated_value(self):
+        """
+        Returns the value generated if the operation created a new value for an
+        identity column. If the table has no identity columns this value is
+        None. If it has an identity column and a value was generated for that
+        column, it is not None.
+
+        :return: the generated value.
+        :rtype: dict
+        """
+        return self.__generated_value
+
     def get_existing_version(self):
         """
         Returns the existing row :py:class:`Version` if available. This value
@@ -3079,21 +3093,6 @@ class PutResult(WriteResult):
         """
         return super(PutResult, self)._get_write_units_internal()
 
-    def get_generated_value(self):
-        """
-        Returns the value generated if the operation created a new value for
-        an identity column. If the table has no identity columns this value is
-        None. If it has an identity column and a value was generated for that
-        column, it is not None.
-
-        :return: the generated value.
-
-        :rtype: dict
-        """
-        return self.__generated_value
-
-    def _set_generated_value(self, value):
-        self.__generated_value = value
 
 class QueryResult(Result):
     """
@@ -3706,6 +3705,21 @@ class OperationResult(WriteResult):
         """
         return self.__success
 
+    def set_generated_value(self, value):
+        self.__generated_value = value
+
+    def get_generated_value(self):
+        """
+        Returns the value generated if the operation created a new value for an
+        identity column. If the table has no identity columns this value is
+        None. If it has an identity column and a value was generated for that
+        column, it is not None.
+
+        :return: the generated value.
+        :rtype: dict
+        """
+        return self.__generated_value
+
     def get_existing_version(self):
         """
         Returns the existing row version associated with the key if
@@ -3726,19 +3740,3 @@ class OperationResult(WriteResult):
         :rtype: dict
         """
         return super(OperationResult, self).get_existing_value_internal()
-
-    def get_generated_value(self):
-        """
-        Returns the value generated if the operation created a new value for
-        an identity column. If the table has no identity columns this value is
-        None. If it has an identity column and a value was generated for that
-        column, it is not None.
-
-        :return: the generated value.
-
-        :rtype: dict
-        """
-        return self.__generated_value
-
-    def _set_generated_value(self, value):
-        self.__generated_value = value

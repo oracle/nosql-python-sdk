@@ -1056,7 +1056,7 @@ class PutRequestSerializer:
         # was an identity column value generated?
         has_generated_value = bis.read_boolean()
         if has_generated_value:
-            result._set_generated_value(BinaryProtocol.read_field_value(bis))
+            result.set_generated_value(BinaryProtocol.read_field_value(bis))
         return result
 
     def __get_op_code(self, request):
@@ -1285,5 +1285,5 @@ class WriteMultipleRequestSerializer:
         # was an identity column value generated?
         has_generated_value = bis.read_boolean()
         if has_generated_value:
-            op_result._set_generated_value(BinaryProtocol.read_field_value(bis))
+            op_result.set_generated_value(BinaryProtocol.read_field_value(bis))
         return op_result

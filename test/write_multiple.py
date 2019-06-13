@@ -210,6 +210,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 # putIfAbsent and deleteIfVersion failed
                 self.assertIsNone(op_results[idx].get_version())
                 self.assertFalse(op_results[idx].get_success())
+                self.assertIsNone(op_results[idx].get_generated_value())
                 self.assertEqual(
                     op_results[idx].get_existing_version().get_bytes(),
                     self.versions[self.ops_sk][idx].get_bytes())
@@ -219,6 +220,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 # delete succeed
                 self.assertIsNone(op_results[idx].get_version())
                 self.assertTrue(op_results[idx].get_success())
+                self.assertIsNone(op_results[idx].get_generated_value())
                 self.assertIsNone(op_results[idx].get_existing_version())
                 self.assertIsNone(op_results[idx].get_existing_value())
             else:
@@ -227,6 +229,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertNotEqual(op_results[idx].get_version(),
                                     self.versions[self.ops_sk][idx])
                 self.assertTrue(op_results[idx].get_success())
+                self.assertIsNone(op_results[idx].get_generated_value())
                 self.assertIsNone(op_results[idx].get_existing_version())
                 self.assertIsNone(op_results[idx].get_existing_value())
         self.assertIsNone(result.get_failed_operation_result())
@@ -283,6 +286,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         op_results = result.get_results()
         self.assertIsNone(op_results[0].get_version())
         self.assertFalse(op_results[0].get_success())
+        self.assertIsNone(op_results[0].get_generated_value())
         self.assertEqual(op_results[0].get_existing_version().get_bytes(),
                          self.versions[self.ops_sk][failed_idx].get_bytes())
         self.assertEqual(op_results[0].get_existing_value(),
@@ -290,6 +294,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         failed_result = result.get_failed_operation_result()
         self.assertIsNone(failed_result.get_version())
         self.assertFalse(failed_result.get_success())
+        self.assertIsNone(failed_result.get_generated_value())
         self.assertEqual(failed_result.get_existing_version().get_bytes(),
                          self.versions[self.ops_sk][failed_idx].get_bytes())
         self.assertEqual(failed_result.get_existing_value(),
@@ -318,24 +323,36 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertEqual(result.get_write_kb(), 0)
                 self.assertEqual(result.get_write_units(), 0)
 
-    def testIdentityColumn(self):
-        id_table = table_prefix + 'identity'
+    def testWriteMultipleWithIdentityColumn(self):
+        id_table = table_prefix + 'Identity'
         create_request = TableRequest().set_statement(
-            'create table ' + id_table + '(id integer, id1 long generated \
-always as identity, name string, primary key(shard(id), id1))')
-        create_request.set_table_limits(TableLimits(5000,5000,50))
-        result = TestBase.table_request(create_request, State.ACTIVE)
+            'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
+ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARS(sid), id))')
+        create_request.set_table_limits(TableLimits(5000, 5000, 50))
+        TestBase.table_request(create_request, State.ACTIVE)
 
         wm_request = WriteMultipleRequest()
-        row = {'id' : 1, 'name' : 'myname'}
+        row = {'sid': 1, 'name': 'myname'}
         for idx in range(10):
             put_request = PutRequest().set_table_name(id_table).set_value(row)
             put_request.set_identity_cache_size(idx)
             wm_request.add(put_request, False)
 
-        wmRes = self.handle.write_multiple(wm_request)
-        for res in wmRes.get_results():
+        result = self.handle.write_multiple(wm_request)
+        for res in result.get_results():
+            self.assertIsNotNone(res.get_version())
+            self.assertTrue(res.get_success())
             self.assertIsNotNone(res.get_generated_value())
+            self.assertIsNone(res.get_existing_version())
+            self.assertIsNone(res.get_existing_value())
+        self.assertIsNone(result.get_failed_operation_result())
+        self.assertEqual(result.get_failed_operation_index(), -1)
+        self.assertTrue(result.get_success())
+        self.assertEqual(result.get_read_kb(), 0)
+        self.assertEqual(result.get_read_units(), 0)
+        self.assertEqual(result.get_write_kb(), 10)
+        self.assertEqual(result.get_write_units(), 20)
+
 
 if __name__ == '__main__':
     unittest.main()
