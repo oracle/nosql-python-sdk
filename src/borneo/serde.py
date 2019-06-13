@@ -1037,6 +1037,8 @@ class PutRequestSerializer:
             bos.write_boolean(request.get_return_row())
         else:
             BinaryProtocol.serialize_write_request(request, bos)
+        bos.write_boolean(request.get_exact_match())
+        BinaryProtocol.write_packed_int(bos, request.get_identity_cache_size())
         BinaryProtocol.write_record(bos, request.get_value())
         bos.write_boolean(request.get_update_ttl())
         BinaryProtocol.write_ttl(bos, request.get_ttl())
@@ -1051,6 +1053,10 @@ class PutRequestSerializer:
             result.set_version(BinaryProtocol.read_version(bis))
         # return row info.
         BinaryProtocol.deserialize_write_response(bis, result)
+        # was an identity column value generated?
+        has_generated_value = bis.read_boolean()
+        if has_generated_value:
+            result._set_generated_value(BinaryProtocol.read_field_value(bis))
         return result
 
     def __get_op_code(self, request):
@@ -1276,4 +1282,8 @@ class WriteMultipleRequestSerializer:
         if bis.read_boolean():
             op_result.set_version(BinaryProtocol.read_version(bis))
         BinaryProtocol.deserialize_write_response(bis, op_result)
+        # was an identity column value generated?
+        has_generated_value = bis.read_boolean()
+        if has_generated_value:
+            op_result._set_generated_value(BinaryProtocol.read_field_value(bis))
         return op_result

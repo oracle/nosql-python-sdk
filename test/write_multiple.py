@@ -11,6 +11,7 @@ import unittest
 from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
+from parameters import table_prefix
 from struct import pack
 from time import time
 
@@ -317,6 +318,24 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertEqual(result.get_write_kb(), 0)
                 self.assertEqual(result.get_write_units(), 0)
 
+    def testIdentityColumn(self):
+        id_table = table_prefix + 'identity'
+        create_request = TableRequest().set_statement(
+            'create table ' + id_table + '(id integer, id1 long generated \
+always as identity, name string, primary key(shard(id), id1))')
+        create_request.set_table_limits(TableLimits(5000,5000,50))
+        result = TestBase.table_request(create_request, State.ACTIVE)
+
+        wm_request = WriteMultipleRequest()
+        row = {'id' : 1, 'name' : 'myname'}
+        for idx in range(10):
+            put_request = PutRequest().set_table_name(id_table).set_value(row)
+            put_request.set_identity_cache_size(idx)
+            wm_request.add(put_request, False)
+
+        wmRes = self.handle.write_multiple(wm_request)
+        for res in wmRes.get_results():
+            self.assertIsNotNone(res.get_generated_value())
 
 if __name__ == '__main__':
     unittest.main()

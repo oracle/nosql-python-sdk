@@ -10,6 +10,7 @@
 import unittest
 from datetime import datetime
 from decimal import Decimal
+from parameters import table_prefix
 from struct import pack
 from time import time
 
@@ -375,6 +376,46 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(result.get_write_kb(), 0)
         self.assertEqual(result.get_write_units(), 0)
 
+    def testExactMatch(self):
+        exact_table = table_prefix + 'exact'
+        create_request = TableRequest().set_statement(
+            'create table ' + exact_table + '(id integer, name string, \
+age integer, primary key(id))').set_table_limits(TableLimits(5000,5000,50))
+        result = TestBase.table_request(create_request, State.ACTIVE)
+
+        # create a row with an extra field not in the table, by default this
+        # will succeed
+        row = {'id': 1, 'name' : 'myname', 'age' : 6, 'extra' : 5}
+        put_request = PutRequest().set_value(row).set_table_name(exact_table)
+        version = self.handle.put(put_request).get_version()
+        self.assertIsNotNone(version)
+
+        # this will cause the operation to fail because it's not an exact match
+        put_request.set_exact_match(True);
+        self.assertRaises(IllegalArgumentException, self.handle.put,
+                              put_request)
+
+    def testIdentityColumn(self):
+        id_table = table_prefix + 'identity'
+        create_request = TableRequest().set_statement(
+            'create table ' + id_table + '(id integer, id1 long generated \
+always as identity, name string, primary key(shard(id), id1))')
+        create_request.set_table_limits(TableLimits(5000,5000,50))
+        result = TestBase.table_request(create_request, State.ACTIVE)
+
+        # create a row with an extra field not in the table, by default this
+        # will succeed
+        row = {'id': 1, 'name' : 'myname'}
+        put_request = PutRequest().set_value(row).set_table_name(id_table)
+        put_result = self.handle.put(put_request)
+        self.assertIsNotNone(put_result.get_version())
+        self.assertIsNotNone(put_result.get_generated_value())
+
+        # this is invalid because id1 is 'generated always' and in that
+        # path it is not legal to provide a value for id1
+        row['id1'] = 1
+        self.assertRaises(IllegalArgumentException, self.handle.put,
+                              put_request)
 
 if __name__ == '__main__':
     unittest.main()
