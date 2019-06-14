@@ -17,15 +17,16 @@ from .common import (
     CheckValue, IndexInfo, PackedInteger, PreparedStatement, PutOption, State,
     TableLimits, TableUsage, TimeUnit, Version, enum)
 from .exception import (
-    BatchOperationNumberLimitException, DeploymentException,
-    EvolutionLimitException, IllegalArgumentException, IllegalStateException,
-    IndexExistsException, IndexLimitException, IndexNotFoundException,
-    InvalidAuthorizationException, KeySizeLimitException, NoSQLException,
-    OperationThrottlingException, ReadThrottlingException,
-    RequestSizeLimitException, RequestTimeoutException, RowSizeLimitException,
-    SecurityInfoNotReadyException, SystemException, TableBusyException,
-    TableExistsException, TableLimitException, TableNotFoundException,
-    TableSizeException, UnauthorizedException, WriteThrottlingException)
+    AuthenticationException, BatchOperationNumberLimitException,
+    DeploymentException, EvolutionLimitException, IllegalArgumentException,
+    IllegalStateException, IndexExistsException, IndexLimitException,
+    IndexNotFoundException, InvalidAuthorizationException,
+    KeySizeLimitException, NoSQLException, OperationThrottlingException,
+    ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
+    RowSizeLimitException, SecurityInfoNotReadyException, SystemException,
+    TableBusyException, TableExistsException, TableLimitException,
+    TableNotFoundException, TableSizeException, UnauthorizedException,
+    WriteThrottlingException)
 from .operations import WriteMultipleRequest
 from .query import PlanIter, QueryDriver, TopologyInfo
 
@@ -147,7 +148,8 @@ class BinaryProtocol:
                               SERVER_ERROR=101,
                               SERVICE_UNAVAILABLE=102,
                               TABLE_BUSY=103,
-                              SECURITY_INFO_UNAVAILABLE=104)
+                              SECURITY_INFO_UNAVAILABLE=104,
+                              RETRY_AUTHENTICATION=105)
 
     """
     Other server issues, begin from 125.
@@ -213,6 +215,8 @@ class BinaryProtocol:
             return IllegalStateException(msg)
         elif code == BinaryProtocol.SERVER_RETRY_ERROR.REQUEST_TIMEOUT:
             return RequestTimeoutException(msg)
+        elif code == BinaryProtocol.SERVER_RETRY_ERROR.RETRY_AUTHENTICATION:
+            return AuthenticationException(msg)
         elif code == (
                 BinaryProtocol.SERVER_RETRY_ERROR.SECURITY_INFO_UNAVAILABLE):
             return SecurityInfoNotReadyException(msg)
@@ -309,7 +313,7 @@ class BinaryProtocol:
                 return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
             else:
                 rounding = int(dt[place + 7])
-                dt = dt[0:place + 7]
+                dt = dt[:place + 7]
                 dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
                 return dt if rounding < 5 else (dt + timedelta(microseconds=1))
         else:

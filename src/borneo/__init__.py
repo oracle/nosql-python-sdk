@@ -15,13 +15,13 @@ from .common import (
 from .config import DefaultRetryHandler, NoSQLHandleConfig, RetryHandler
 from .driver import NoSQLHandle
 from .exception import (
-    BatchOperationNumberLimitException, IllegalArgumentException,
-    IllegalStateException, IndexExistsException, IndexNotFoundException,
-    InvalidAuthorizationException, NoSQLException, OperationThrottlingException,
-    ReadThrottlingException, RequestTimeoutException, RetryableException,
-    SecurityInfoNotReadyException, SystemException, TableBusyException,
-    TableExistsException, TableNotFoundException,
-    ThrottlingException, WriteThrottlingException)
+    AuthenticationException, BatchOperationNumberLimitException,
+    IllegalArgumentException, IllegalStateException, IndexExistsException,
+    IndexNotFoundException, InvalidAuthorizationException, NoSQLException,
+    OperationThrottlingException, ReadThrottlingException,
+    RequestTimeoutException, RetryableException, SecurityInfoNotReadyException,
+    SystemException, TableBusyException, TableExistsException,
+    TableNotFoundException, ThrottlingException, WriteThrottlingException)
 from .operations import (
     DeleteRequest, DeleteResult, GetIndexesRequest, GetIndexesResult,
     GetRequest, GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
@@ -33,7 +33,8 @@ from .operations import (
     WriteMultipleResult)
 from .version import __version__
 
-__all__ = ['AuthorizationProvider',
+__all__ = ['AuthenticationException',
+           'AuthorizationProvider',
            'BatchOperationNumberLimitException',
            'Consistency',
            'DefaultRetryHandler',

@@ -10,9 +10,11 @@
 from abc import ABCMeta, abstractmethod
 from base64 import b64encode
 from json import loads
+from logging import Logger
 from os import environ, path, sep
 from requests import Session, codes
-from threading import Timer
+from threading import Lock, Timer
+from time import time
 try:
     from urlparse import urlparse
     from urllib import quote
@@ -20,13 +22,13 @@ except ImportError:
     from urllib.parse import urlparse, quote
 
 from borneo.auth import AuthorizationProvider
-from borneo.common import CheckValue, LogUtils, Memoize
+from borneo.common import ByteInputStream, CheckValue, LogUtils, Memoize
 from borneo.exception import (
     IllegalArgumentException, IllegalStateException,
-    InvalidAuthorizationException, RequestTimeoutException,
+    InvalidAuthorizationException, NoSQLException, RequestTimeoutException,
     UnauthorizedException)
 from borneo.http import RequestUtils
-from borneo.operations import ListTablesRequest, TableRequest
+from borneo.operations import ListTablesRequest, Request, TableRequest
 
 
 class Utils:
@@ -225,7 +227,7 @@ class AccessTokenProvider(AuthorizationProvider):
             self.__duration_seconds - self.__refresh_ahead_s if
             self.__duration_seconds > self.__refresh_ahead_s else 0)
 
-    def get_authorization_string(self, request):
+    def get_authorization_string(self, request=None):
         """
         Returns IDCS ATs appropriate for the operation.
 
@@ -233,6 +235,10 @@ class AccessTokenProvider(AuthorizationProvider):
         :returns: authorization string that can be present by client, which
             indicates this client is authorized to issue the specified request.
         """
+        if not isinstance(request, Request):
+            raise IllegalArgumentException(
+                'get_authorization_string requires an instance of Request as ' +
+                'parameter.')
         need_account_at = self.__need_account_at(request)
         key = (AccessTokenProvider.ACCOUNT_AT_KEY if need_account_at else
                AccessTokenProvider.SERVICE_AT_KEY)
@@ -354,6 +360,225 @@ class AccessTokenProvider(AuthorizationProvider):
             self.__timer = None
         self.__timer = Timer(self.__refresh_interval_s, self.__refresh_task)
         self.__timer.start()
+
+
+class StoreAccessTokenProvider(AuthorizationProvider):
+    """
+    StoreAccessTokenProvider has following functions:
+
+        Bootstrap login using credentials provided by user, store the login
+        token for later re-use.\n
+        Depends on store policy, renew to get a new login token during the life
+        time of the current login token\n
+        Logout the use when close.
+    """
+    # Used when we send user:password pair.
+    _BASIC_PREFIX = 'Basic '
+    # The general prefix for the login token.
+    _BEARER_PREFIX = 'Bearer '
+    # Login service end point name.
+    _LOGIN_SERVICE = '/login'
+    # Login token renew service end point name.
+    _RENEW_SERVICE = '/renew'
+    # Logout service end point name.
+    _LOGOUT_SERVICE = '/logout'
+    # Default timeout when sending http request to server
+    _HTTP_TIMEOUT_MS = 30000
+
+    def __init__(self, user_name=None, password=None, login_url=None,
+                 security_base_url=None, logger=None):
+        self.__auth_string = None
+        self.__auto_renew = True
+        self.__disable_ssl_hook = False
+        self.__is_closed = False
+        self.__security_base_url = '/V0/nosql/security'
+        self.__timer = None
+
+        if (user_name is None and password is None and login_url is None and
+                security_base_url is None and logger is None):
+            self.__is_secure = False
+        else:
+            if (user_name is None or password is None or login_url is None or
+                    security_base_url is not None and
+                    not CheckValue.is_str(security_base_url) or
+                    logger is not None and not isinstance(logger, Logger)):
+                raise IllegalArgumentException('Invalid input arguments.')
+            CheckValue.check_str(user_name, 'user_name')
+            CheckValue.check_str(password, 'password')
+            CheckValue.check_str(login_url, 'login_url')
+            self.__is_secure = True
+            if security_base_url is not None:
+                self.__security_base_url = security_base_url
+        self.__user_name = user_name
+        self.__password = password
+        self.__login_url = login_url
+        self.__logger = logger
+        self.__logutils = LogUtils(logger)
+        self.__sess = Session()
+        self.__request_utils = RequestUtils(self.__sess, self.__logutils)
+        self.__lock = Lock()
+
+    def bootstrap_login(self):
+        if not self.__is_secure or self.__is_closed:
+            return
+        # Convert the username:password pair in base 64 format.
+        pair = self.__user_name + ':' + self.__password
+        try:
+            encoded_pair = b64encode(pair)
+        except TypeError:
+            encoded_pair = b64encode(pair.encode()).decode()
+        try:
+            # Send request to server for login token.
+            response = self.__send_request(
+                StoreAccessTokenProvider._BASIC_PREFIX + encoded_pair,
+                StoreAccessTokenProvider._LOGIN_SERVICE)
+            content = response.get_content()
+            # Login fail
+            if response.get_status_code() != codes.ok:
+                raise InvalidAuthorizationException(
+                    'Fail to login to service: ' + content)
+            if self.__is_closed:
+                return
+            # Generate the authentication string using login token.
+            self.__auth_string = (StoreAccessTokenProvider._BEARER_PREFIX +
+                                  content)
+            # Schedule login token renew thread.
+            self.__schedule_refresh()
+        except InvalidAuthorizationException as iae:
+            raise iae
+        except Exception as e:
+            raise NoSQLException('Bootstrap login fail.', e)
+
+    def close(self):
+        # Don't do anything for non-secure case.
+        if not self.__is_secure or self.__is_closed:
+            return
+        # Send request for logout.
+        try:
+            response = self.__send_request(
+                self.__auth_string, StoreAccessTokenProvider._LOGOUT_SERVICE)
+            if response.get_status_code() != codes.ok:
+                self.__logutils.log_info(
+                    'Fail to logout user ' + self.__user_name + ' problem: ' +
+                    response.get_content())
+        except Exception as e:
+            self.__logutils.log_info(
+                'Fail to logout user ' + self.__user_name + ' problem: ' +
+                str(e))
+        # Clean up.
+        self.__is_closed = True
+        self.__auth_string = None
+        self.__password = None
+        if self.__timer is not None:
+            self.__timer.cancel()
+            self.__timer = None
+
+    def get_authorization_string(self, request=None):
+        if request is not None and not isinstance(request, Request):
+            raise IllegalArgumentException(
+                'get_authorization_string requires an instance of Request or ' +
+                'None as parameter.')
+        if not self.__is_secure or self.__is_closed:
+            return None
+        # If there is no cached auth string, re-authentication to retrieve the
+        # login token and generate the auth string.
+        if self.__auth_string is None:
+            self.bootstrap_login()
+        return self.__auth_string
+
+    def set_auto_renew(self, auto_renew):
+        """
+        Set this True will enable the auto renew of login token.
+
+        :param auto_renew: set to True enables the auto renew of login token.
+        :type auto_renew: bool
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if auto_renew is
+            not True or False.
+        """
+        CheckValue.check_boolean(auto_renew, 'auto_renew')
+        self.__auto_renew = auto_renew
+        return self
+
+    def set_logger(self, logger):
+        # Allow post init steps to set a logger for provider.
+        CheckValue.check_logger(logger, 'logger')
+        if self.__logger is not None:
+            return self
+        self.__logger = logger
+        self.__logutils = LogUtils(logger)
+        self.__request_utils = RequestUtils(self.__sess, self.__logutils)
+        return self
+
+    def validate_auth_string(self, auth_string):
+        if self.__is_secure and auth_string is None:
+            raise IllegalArgumentException(
+                'Secured StoreAccessProvider requires a non-none string.')
+
+    def __get_expiration_time_from_token(self):
+        # Retrieve login token from authentication string.
+        if self.__auth_string is None:
+            return -1
+        token = self.__auth_string[
+            len(StoreAccessTokenProvider._BEARER_PREFIX):]
+        buf = bytearray.fromhex(token)
+        bis = ByteInputStream(buf)
+        # Read serial version first.
+        bis.read_short_int()
+        expire_at = bis.read_long()
+        return expire_at
+
+    def __refresh_task(self):
+        if not self.__is_secure or not self.__auto_renew or self.__is_closed:
+            return
+        try:
+            old_auth = self.__auth_string
+            response = self.__send_request(
+                old_auth, StoreAccessTokenProvider._RENEW_SERVICE)
+            content = response.get_content()
+            if response.get_status_code() != codes.ok:
+                raise InvalidAuthorizationException(content)
+            if self.__is_closed:
+                return
+            with self.__lock:
+                if self.__auth_string == old_auth:
+                    self.__auth_string = (
+                        StoreAccessTokenProvider._BEARER_PREFIX + content)
+            self.__schedule_refresh()
+        except Exception as e:
+            self.__logutils.log_info('Fail to renew login token: ' + str(e))
+            if self.__timer is not None:
+                self.__timer.cancel()
+                self.__timer = None
+
+    def __schedule_refresh(self):
+        # Schedule a login token renew when half of the token life time is
+        # reached.
+        if not self.__is_secure or not self.__auto_renew:
+            return
+        # Clean up any existing timer
+        if self.__timer is not None:
+            self.__timer.cancel()
+            self.__timer = None
+        acquire_time = int(round(time() * 1000))
+        expire_time = self.__get_expiration_time_from_token()
+        if expire_time < 0:
+            return
+        # If it is 10 seconds before expiration, don't do further renew to avoid
+        # to many renew request in the last few seconds.
+        if expire_time > acquire_time + 10000:
+            renew_time = acquire_time + (expire_time - acquire_time) // 2
+            self.__timer = Timer(
+                (renew_time - acquire_time) // 1000, self.__refresh_task)
+            self.__timer.start()
+
+    def __send_request(self, auth_header, service_name):
+        # Send HTTPS request to login/renew/logout service location with proper
+        # authentication information.
+        headers = {'Authorization': auth_header}
+        return self.__request_utils.do_get_request(
+            self.__login_url + self.__security_base_url + service_name, headers,
+            StoreAccessTokenProvider._HTTP_TIMEOUT_MS)
 
 
 class DefaultAccessTokenProvider(AccessTokenProvider):
@@ -497,16 +722,10 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         return self
 
     def set_logger(self, logger):
-        """
-        Sets a logger instance for this provider. If not set, the logger
-        associated with the driver is used.
-
-        :param logger: the logger.
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if logger is not
-            an instance of Logger.
-        """
+        # Allow post init steps to set a logger for provider.
         CheckValue.check_logger(logger, 'logger')
+        if self.__logger is not None:
+            return self
         self.__logger = logger
         self.__logutils = LogUtils(logger)
         self.__request_utils = RequestUtils(self.__sess, self.__logutils)

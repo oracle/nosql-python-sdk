@@ -159,10 +159,22 @@ class QueryStateException(IllegalStateException):
     """
 
     def __init__(self, message):
-        self.__message = message
+        super(QueryStateException, self).__init__(
+            'Unexpected state in query engine:\n' + message)
 
-    def __str__(self):
-        return 'Unexpected state in query engine:\n' + self.__message
+
+class AuthenticationException(NoSQLException):
+    """
+    This exception is thrown when use StoreAccessTokenProvider in following
+    cases:
+
+        User doesn't provide authentication information in the request header.\n
+        User's authentication session is expired. By default the
+        StoreAccessTokenProvider will retry the authentication for user.
+    """
+
+    def __init__(self, message, cause=None):
+        super(AuthenticationException, self).__init__(message, cause)
 
 
 class IndexExistsException(NoSQLException):
@@ -172,10 +184,7 @@ class IndexExistsException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(IndexExistsException, self).__init__(message)
 
 
 class IndexNotFoundException(NoSQLException):
@@ -185,10 +194,7 @@ class IndexNotFoundException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(IndexNotFoundException, self).__init__(message)
 
 
 class InvalidAuthorizationException(NoSQLException):
@@ -198,10 +204,7 @@ class InvalidAuthorizationException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(InvalidAuthorizationException, self).__init__(message)
 
 
 class RequestTimeoutException(NoSQLException):
@@ -212,17 +215,17 @@ class RequestTimeoutException(NoSQLException):
     """
 
     def __init__(self, message, timeout_ms=0, cause=None):
-        self.__message = message
+        super(RequestTimeoutException, self).__init__(message, cause)
         self.__timeout_ms = timeout_ms
-        self.__cause = cause
 
     def __str__(self):
-        msg = self.__message
+        msg = super(RequestTimeoutException, self).__str__()
         if self.__timeout_ms != 0:
             msg += '  Timeout: ' + str(self.__timeout_ms) + ' ms.'
-        if self.__cause is not None:
-            msg += ('\nCaused by: ' + self.__cause.__class__.__name__ + ': ' +
-                    str(self.__cause))
+        cause = self.get_cause()
+        if cause is not None:
+            msg += ('\nCaused by: ' + cause.__class__.__name__ + ': ' +
+                    str(cause))
         return msg
 
     def get_timeout_ms(self):
@@ -243,10 +246,7 @@ class ResourceLimitException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(ResourceLimitException, self).__init__(message)
 
 
 class RetryableException(NoSQLException):
@@ -256,10 +256,7 @@ class RetryableException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(RetryableException, self).__init__(message)
 
     def ok_to_retry(self):
         return True
@@ -272,10 +269,7 @@ class TableExistsException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(TableExistsException, self).__init__(message)
 
 
 class TableNotFoundException(NoSQLException):
@@ -285,10 +279,7 @@ class TableNotFoundException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(TableNotFoundException, self).__init__(message)
 
 
 class TableSizeException(NoSQLException):
@@ -300,10 +291,7 @@ class TableSizeException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(TableSizeException, self).__init__(message)
 
 
 class UnauthorizedException(NoSQLException):
@@ -313,10 +301,7 @@ class UnauthorizedException(NoSQLException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(UnauthorizedException, self).__init__(message)
 
 
 class EvolutionLimitException(ResourceLimitException):
@@ -326,10 +311,7 @@ class EvolutionLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(EvolutionLimitException, self).__init__(message)
 
 
 class DeploymentException(ResourceLimitException):
@@ -341,10 +323,7 @@ class DeploymentException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(DeploymentException, self).__init__(message)
 
 
 class IndexLimitException(ResourceLimitException):
@@ -354,10 +333,7 @@ class IndexLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(IndexLimitException, self).__init__(message)
 
 
 class KeySizeLimitException(ResourceLimitException):
@@ -367,10 +343,7 @@ class KeySizeLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(KeySizeLimitException, self).__init__(message)
 
 
 class RowSizeLimitException(ResourceLimitException):
@@ -380,10 +353,7 @@ class RowSizeLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(RowSizeLimitException, self).__init__(message)
 
 
 class TableLimitException(ResourceLimitException):
@@ -393,10 +363,7 @@ class TableLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(TableLimitException, self).__init__(message)
 
 
 class BatchOperationNumberLimitException(ResourceLimitException):
@@ -407,10 +374,7 @@ class BatchOperationNumberLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(BatchOperationNumberLimitException, self).__init__(message)
 
 
 class RequestSizeLimitException(ResourceLimitException):
@@ -420,10 +384,7 @@ class RequestSizeLimitException(ResourceLimitException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(RequestSizeLimitException, self).__init__(message)
 
 
 class SecurityInfoNotReadyException(RetryableException):
@@ -434,10 +395,7 @@ class SecurityInfoNotReadyException(RetryableException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(SecurityInfoNotReadyException, self).__init__(message)
 
 
 class SystemException(RetryableException):
@@ -447,10 +405,7 @@ class SystemException(RetryableException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(SystemException, self).__init__(message)
 
 
 class TableBusyException(RetryableException):
@@ -461,10 +416,7 @@ class TableBusyException(RetryableException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(TableBusyException, self).__init__(message)
 
 
 class ThrottlingException(RetryableException):
@@ -482,10 +434,7 @@ class ThrottlingException(RetryableException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(ThrottlingException, self).__init__(message)
 
 
 class OperationThrottlingException(ThrottlingException):
@@ -502,10 +451,7 @@ class OperationThrottlingException(ThrottlingException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(OperationThrottlingException, self).__init__(message)
 
 
 class ReadThrottlingException(ThrottlingException):
@@ -520,10 +466,7 @@ class ReadThrottlingException(ThrottlingException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(ReadThrottlingException, self).__init__(message)
 
 
 class WriteThrottlingException(ThrottlingException):
@@ -538,7 +481,4 @@ class WriteThrottlingException(ThrottlingException):
     """
 
     def __init__(self, message):
-        self.__message = message
-
-    def __str__(self):
-        return self.__message
+        super(WriteThrottlingException, self).__init__(message)

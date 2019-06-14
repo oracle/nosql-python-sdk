@@ -38,6 +38,10 @@ index_name = 'idx'
 # Cloud Simulator running on its default port (8080) on the local machine.
 # Unit tests are generally run against the Cloud Simulator.
 endpoint = 'localhost:8080'
+# User name for on-prem proxy.
+user_name = None
+# Password for on-prem proxy.
+password = None
 # The timeout of the http request and the operations.
 timeout = 30000
 # The table request timeout, used when a table operation doesn't set its own.
@@ -74,12 +78,20 @@ def is_minicloud():
     return False
 
 
+def is_onprem():
+    return login_url() is not None
+
+
 def is_prod_pod():
     return idcs_url() is not None
 
 
 def is_pod():
     return is_dev_pod() or is_prod_pod()
+
+
+def login_url():
+    return None
 
 
 def not_cloudsim():

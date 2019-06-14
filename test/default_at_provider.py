@@ -132,6 +132,12 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.token_provider.set_logger, 'IllegalLogger')
 
+    def testAccessTokenProviderGetAuthorizationStringWithIllegalRequest(self):
+        self.token_provider = DefaultAccessTokenProvider(idcs_url=self.base)
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.get_authorization_string,
+                          'IllegalRequest')
+
     def testAccessTokenProviderGetAuthorizationString(self):
         account_at = 'account-at'
         service_at = 'service-at'

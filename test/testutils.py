@@ -18,14 +18,15 @@ from time import sleep
 
 from borneo import (
     DefaultRetryHandler, IllegalArgumentException, IllegalStateException,
-    NoSQLHandle, NoSQLHandleConfig)
+    NoSQLHandle, NoSQLHandleConfig, QueryResult)
 from borneo.idcs import (
     AccessTokenProvider, DefaultAccessTokenProvider,
-    PropertiesCredentialsProvider)
+    PropertiesCredentialsProvider, StoreAccessTokenProvider)
 from parameters import (
     consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
-    is_minicloud, is_prod_pod, logger_level, pool_connections, pool_maxsize,
-    table_prefix, table_request_timeout, timeout)
+    is_minicloud, is_onprem, is_prod_pod, logger_level, login_url, password,
+    pool_connections, pool_maxsize, table_prefix, table_request_timeout,
+    timeout, user_name)
 
 # The sc endpoint port for setting the tier.
 sc_endpoint = 'localhost:13600'
@@ -64,6 +65,32 @@ proxy_port = 0
 proxy_username = None
 # The proxy password.
 proxy_password = None
+
+
+def check_cost(self, result, read_kb, read_units, write_kb, write_units,
+               advance=False, multi_shards=False):
+    if is_onprem():
+        self.assertEqual(result.get_read_kb(), 0)
+        self.assertEqual(result.get_read_units(), 0)
+        self.assertEqual(result.get_write_kb(), 0)
+        self.assertEqual(result.get_write_units(), 0)
+    elif isinstance(result, QueryResult) and advance:
+        self.assertGreater(result.get_read_kb(), read_kb)
+        self.assertGreater(result.get_read_units(), read_units)
+        self.assertEqual(result.get_write_kb(), write_kb)
+        self.assertEqual(result.get_write_units(), write_units)
+    elif isinstance(result, QueryResult) and multi_shards:
+        self.assertGreaterEqual(result.get_read_kb(), read_kb)
+        self.assertLessEqual(result.get_read_kb(), read_kb + 1)
+        self.assertGreaterEqual(result.get_read_units(), read_units)
+        self.assertLessEqual(result.get_read_units(), read_units + 2)
+        self.assertEqual(result.get_write_kb(), write_kb)
+        self.assertEqual(result.get_write_units(), write_units)
+    else:
+        self.assertEqual(result.get_read_kb(), read_kb)
+        self.assertEqual(result.get_read_units(), read_units)
+        self.assertEqual(result.get_write_kb(), write_kb)
+        self.assertEqual(result.get_write_units(), write_units)
 
 
 def get_handle_config(tenant_id):
@@ -106,11 +133,10 @@ def get_handle(tenant_id):
 
 def set_access_token_provider(config, tenant_id):
     if is_cloudsim():
-        config.set_authorization_provider(
-            NoSecurityAccessTokenProvider(tenant_id))
+        authorization_provider = NoSecurityAccessTokenProvider(tenant_id)
     elif is_dev_pod() or is_minicloud():
-        config.set_authorization_provider(
-            KeystoreAccessTokenProvider().set_tenant(tenant_id))
+        authorization_provider = KeystoreAccessTokenProvider().set_tenant(
+            tenant_id)
     elif is_prod_pod():
         if credentials_file is None:
             raise IllegalArgumentException(
@@ -120,9 +146,18 @@ def set_access_token_provider(config, tenant_id):
         authorization_provider = DefaultAccessTokenProvider(
             idcs_url=idcs_url(), entitlement_id=entitlement_id,
             creds_provider=creds_provider, timeout_ms=timeout)
-        config.set_authorization_provider(authorization_provider)
+    elif is_onprem():
+        if user_name is None and password is None:
+            authorization_provider = StoreAccessTokenProvider()
+        else:
+            if user_name is None or password is None:
+                raise IllegalArgumentException(
+                    'Please set both the user_name and password.')
+            authorization_provider = StoreAccessTokenProvider(
+                user_name, password, login_url(), logger=logger)
     else:
         raise IllegalArgumentException('Please set the test server.')
+    config.set_authorization_provider(authorization_provider)
 
 
 def add_test_tier_tenant(tenant_id):

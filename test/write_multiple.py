@@ -20,6 +20,7 @@ from borneo import (
     IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest, State,
     TableLimits, TableRequest, TimeToLive, WriteMultipleRequest)
 from parameters import table_name, timeout
+from testutils import check_cost
 from test_base import TestBase
 
 
@@ -235,10 +236,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertIsNone(result.get_failed_operation_result())
         self.assertEqual(result.get_failed_operation_index(), -1)
         self.assertTrue(result.get_success())
-        self.assertEqual(result.get_read_kb(), 0 + 1 + 1 + 1 + 1 + 1)
-        self.assertEqual(result.get_read_units(), 0 + 2 + 2 + 2 + 2 + 2)
-        self.assertEqual(result.get_write_kb(), 2 + 0 + 2 + 2 + 1 + 0)
-        self.assertEqual(result.get_write_units(), 2 + 0 + 2 + 2 + 1 + 0)
+        check_cost(self, result, 5, 10, 7, 7)
         # check the records after write_multiple request succeed
         for sk in self.shardkeys:
             for i in self.ids:
@@ -272,10 +270,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         self.assertGreater(actual_expiration, 0)
                         self.assertLess(actual_expect_diff,
                                         self.hour_in_milliseconds)
-                self.assertEqual(result.get_read_kb(), 1)
-                self.assertEqual(result.get_read_units(), 2)
-                self.assertEqual(result.get_write_kb(), 0)
-                self.assertEqual(result.get_write_units(), 0)
+                check_cost(self, result, 1, 2, 0, 0)
 
     def testWriteMultipleAbortIfUnsuccessful(self):
         failed_idx = 1
@@ -301,10 +296,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                          self.rows[self.ops_sk][failed_idx])
         self.assertEqual(result.get_failed_operation_index(), failed_idx)
         self.assertFalse(result.get_success())
-        self.assertEqual(result.get_read_kb(), 0 + 1)
-        self.assertEqual(result.get_read_units(), 0 + 2)
-        self.assertEqual(result.get_write_kb(), 2 + 0)
-        self.assertEqual(result.get_write_units(), 2 + 0)
+        check_cost(self, result, 1, 2, 2, 2)
         # check the records after multi_delete request failed
         for sk in self.shardkeys:
             for i in self.ids:
@@ -318,10 +310,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                                       self.old_expect_expiration)
                 self.assertGreater(actual_expiration, 0)
                 self.assertLess(actual_expect_diff, self.day_in_milliseconds)
-                self.assertEqual(result.get_read_kb(), 1)
-                self.assertEqual(result.get_read_units(), 2)
-                self.assertEqual(result.get_write_kb(), 0)
-                self.assertEqual(result.get_write_units(), 0)
+                check_cost(self, result, 1, 2, 0, 0)
 
     def testWriteMultipleWithIdentityColumn(self):
         num_operations = 10
@@ -351,10 +340,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.assertIsNone(result.get_failed_operation_result())
         self.assertEqual(result.get_failed_operation_index(), -1)
         self.assertTrue(result.get_success())
-        self.assertEqual(result.get_read_kb(), 0)
-        self.assertEqual(result.get_read_units(), 0)
-        self.assertEqual(result.get_write_kb(), num_operations)
-        self.assertEqual(result.get_write_units(), num_operations)
+        check_cost(self, result, 0, 0, num_operations, num_operations)
         # check the records after write_multiple request succeed
         self.get_request.set_table_name(id_table)
         for idx in range(num_operations):
@@ -364,10 +350,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
                              {'sid': 1, 'id': idx + 1, 'name': 'myname'})
             self.assertIsNotNone(result.get_version())
             self.assertEqual(result.get_expiration_time(), 0)
-            self.assertEqual(result.get_read_kb(), 1)
-            self.assertEqual(result.get_read_units(), 2)
-            self.assertEqual(result.get_write_kb(), 0)
-            self.assertEqual(result.get_write_units(), 0)
+            check_cost(self, result, 1, 2, 0, 0)
 
 
 if __name__ == '__main__':

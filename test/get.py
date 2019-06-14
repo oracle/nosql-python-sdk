@@ -17,6 +17,7 @@ from borneo import (
     Consistency, GetRequest, IllegalArgumentException, PutRequest, State,
     TableLimits, TableNotFoundException, TableRequest, TimeToLive)
 from parameters import table_name, timeout
+from testutils import check_cost
 from test_base import TestBase
 
 
@@ -120,10 +121,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - tb_expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, hour_in_milliseconds)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, 1, 2, 0, 0)
 
     def testGetEventual(self):
         self.get_request.set_consistency(Consistency.EVENTUAL)
@@ -134,10 +132,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - tb_expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, hour_in_milliseconds)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 1)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, 1, 1, 0, 0)
 
     def testGetNonExisting(self):
         self.get_request.set_key({'fld_sid': 2, 'fld_id': 2})
@@ -145,10 +140,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_value())
         self.assertIsNone(result.get_version())
         self.assertEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, 1, 2, 0, 0)
 
 
 if __name__ == '__main__':

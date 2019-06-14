@@ -9,11 +9,12 @@
 
 from .idcs import (
     AccessTokenProvider, CredentialsProvider, DefaultAccessTokenProvider,
-    IDCSCredentials, PropertiesCredentialsProvider)
+    IDCSCredentials, PropertiesCredentialsProvider, StoreAccessTokenProvider)
 
 __all__ = ['AccessTokenProvider',
            'CredentialsProvider',
            'DefaultAccessTokenProvider',
            'IDCSCredentials',
            'PropertiesCredentialsProvider',
+           'StoreAccessTokenProvider',
            ]

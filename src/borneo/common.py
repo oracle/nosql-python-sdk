@@ -69,6 +69,12 @@ class ByteInputStream:
         res, = unpack('>i', buf)
         return res
 
+    def read_long(self):
+        buf = bytearray(8)
+        self.read_fully(buf)
+        res, = unpack('>q', buf)
+        return res
+
     def read_short_int(self):
         buf = bytearray(2)
         self.read_fully(buf)
@@ -167,7 +173,7 @@ class CheckValue:
 
     @staticmethod
     def check_str(data, name):
-        if not CheckValue.is_str(data):
+        if not CheckValue.is_str(data) or len(data) == 0:
             raise IllegalArgumentException(name + ' must be a string type.')
 
     @staticmethod

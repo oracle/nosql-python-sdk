@@ -11,7 +11,6 @@ from logging import FileHandler, WARNING, getLogger
 from os import mkdir, path, sep
 from sys import argv
 
-from .idcs import DefaultAccessTokenProvider
 from .client import Client
 from .config import NoSQLHandleConfig
 from .exception import IllegalArgumentException, IllegalStateException
@@ -84,7 +83,7 @@ class NoSQLHandle:
             raise IllegalArgumentException(
                 'config must be an instance of NoSQLHandleConfig.')
         logger = self.__get_logger(config)
-        self.__config_default_at_handler_logging(config, logger)
+        config.get_authorization_provider().set_logger(logger)
         self.__client = Client(config, logger)
 
     def delete(self, request):
@@ -425,12 +424,6 @@ class NoSQLHandle:
         # Ensure that the client exists and hasn't been closed.
         if self.__client is None:
             raise IllegalStateException('NoSQLHandle has been closed.')
-
-    def __config_default_at_handler_logging(self, config, logger):
-        provider = config.get_authorization_provider()
-        if isinstance(provider, DefaultAccessTokenProvider):
-            if provider.get_logger() is None:
-                provider.set_logger(logger)
 
     def __get_logger(self, config):
         """

@@ -17,6 +17,7 @@ from borneo import (
     PutRequest, QueryRequest, State, TableLimits, TableNotFoundException,
     TableRequest, WriteMultipleRequest)
 from parameters import table_name, timeout
+from testutils import check_cost
 from test_base import TestBase
 
 
@@ -173,21 +174,15 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         result = self.handle.query(self.query_request)
         self.assertEqual(len(result.get_results()), num_records)
         self.assertIsNone(result.get_continuation_key())
-        self.assertGreaterEqual(result.get_read_kb(), num_records)
-        self.assertLessEqual(result.get_read_kb(), num_records + 1)
-        self.assertGreaterEqual(result.get_read_units(), num_records * 2)
-        self.assertLessEqual(result.get_read_kb(), (num_records + 1) * 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, num_records, num_records * 2, 0, 0,
+                   multi_shards=True)
         # do multi_delete
         self.multi_delete_request.set_table_name(table_name).set_key(self.key)
         result = self.handle.multi_delete(self.multi_delete_request)
         self.assertIsNone(result.get_continuation_key())
         self.assertEqual(result.get_num_deletions(), num_deletion)
-        self.assertEqual(result.get_read_kb(), num_deletion)
-        self.assertEqual(result.get_read_units(), num_deletion * 2)
-        self.assertEqual(result.get_write_kb(), num_deletion)
-        self.assertEqual(result.get_write_units(), num_deletion)
+        check_cost(self, result, num_deletion, num_deletion * 2,
+                   num_deletion, num_deletion)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
         records = result.get_results()
@@ -195,12 +190,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         for idx in range(num_remaining):
             self.assertEqual(records[idx], {'fld_sid': 0, 'fld_id': idx})
         self.assertIsNone(result.get_continuation_key())
-        self.assertGreaterEqual(result.get_read_kb(), num_remaining)
-        self.assertLessEqual(result.get_read_kb(), num_remaining + 1)
-        self.assertGreaterEqual(result.get_read_units(), num_remaining * 2)
-        self.assertLessEqual(result.get_read_units(), (num_remaining + 1) * 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, num_remaining, num_remaining * 2, 0, 0,
+                   multi_shards=True)
 
     def testMultiDeleteWithMaxWriteKb(self):
         # do multi_delete with max_write_kb=3
@@ -211,10 +202,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         result = self.handle.multi_delete(self.multi_delete_request)
         self.assertIsNotNone(result.get_continuation_key())
         self.assertEqual(result.get_num_deletions(), max_write_kb)
-        self.assertEqual(result.get_read_kb(), max_write_kb)
-        self.assertEqual(result.get_read_units(), max_write_kb * 2)
-        self.assertEqual(result.get_write_kb(), max_write_kb)
-        self.assertEqual(result.get_write_units(), max_write_kb)
+        check_cost(self, result, max_write_kb, max_write_kb * 2,
+                   max_write_kb, max_write_kb)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
         records = result.get_results()
@@ -229,12 +218,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                 self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
                 sk1_id += 1
         self.assertIsNone(result.get_continuation_key())
-        self.assertGreaterEqual(result.get_read_kb(), num_remaining)
-        self.assertLessEqual(result.get_read_kb(), num_remaining + 1)
-        self.assertGreaterEqual(result.get_read_units(), num_remaining * 2)
-        self.assertLessEqual(result.get_read_units(), (num_remaining + 1) * 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, num_remaining, num_remaining * 2, 0, 0,
+                   multi_shards=True)
 
     def testMultiDeleteWithContinuationKey(self):
         num_records = 12
@@ -255,10 +240,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                 read_kb = (1 if deleted == 0 else deleted)
                 self.assertIsNone(result.get_continuation_key())
             self.assertEqual(result.get_num_deletions(), deleted)
-            self.assertEqual(result.get_read_kb(), read_kb)
-            self.assertEqual(result.get_read_units(), read_kb * 2)
-            self.assertEqual(result.get_write_kb(), deleted)
-            self.assertEqual(result.get_write_units(), deleted)
+            check_cost(self, result, read_kb, read_kb * 2, deleted, deleted)
             # check the records after multi_delete request
             query_result = self.handle.query(self.query_request)
             records = query_result.get_results()
@@ -274,14 +256,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                     self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
                     sk1_id += 1
             self.assertIsNone(query_result.get_continuation_key())
-            self.assertGreaterEqual(query_result.get_read_kb(), num_remaining)
-            self.assertLessEqual(query_result.get_read_kb(), num_remaining + 1)
-            self.assertGreaterEqual(query_result.get_read_units(),
-                                    num_remaining * 2)
-            self.assertLessEqual(query_result.get_read_units(),
-                                 (num_remaining + 1) * 2)
-            self.assertEqual(query_result.get_write_kb(), 0)
-            self.assertEqual(query_result.get_write_units(), 0)
+            check_cost(self, query_result, num_remaining, num_remaining * 2, 0,
+                       0, multi_shards=True)
             count += 1
             if result.get_continuation_key() is None:
                 break
@@ -299,10 +275,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         result = self.handle.multi_delete(self.multi_delete_request)
         self.assertIsNone(result.get_continuation_key())
         self.assertEqual(result.get_num_deletions(), num_deletion)
-        self.assertEqual(result.get_read_kb(), num_deletion)
-        self.assertEqual(result.get_read_units(), num_deletion * 2)
-        self.assertEqual(result.get_write_kb(), num_deletion)
-        self.assertEqual(result.get_write_units(), num_deletion)
+        check_cost(self, result, num_deletion, num_deletion * 2,
+                   num_deletion, num_deletion)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
         records = result.get_results()
@@ -317,12 +291,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                 self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
                 sk1_id += 5
         self.assertIsNone(result.get_continuation_key())
-        self.assertGreaterEqual(result.get_read_kb(), num_remaining)
-        self.assertLessEqual(result.get_read_kb(), num_remaining + 1)
-        self.assertGreaterEqual(result.get_read_units(), num_remaining * 2)
-        self.assertLessEqual(result.get_read_units(), (num_remaining + 1) * 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        check_cost(self, result, num_remaining, num_remaining * 2, 0, 0,
+                   multi_shards=True)
 
 
 if __name__ == '__main__':

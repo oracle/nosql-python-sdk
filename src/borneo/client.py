@@ -123,11 +123,6 @@ class Client:
             self.__trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
-        auth_string = self.__auth_provider.get_authorization_string(request)
-        if auth_string is None:
-            raise IllegalArgumentException(
-                'Configured AuthorizationProvider acquired an unexpected ' +
-                'None authorization string.')
         content = bytearray()
         self.__write_content(request, content)
         BinaryProtocol.check_request_size_limit(request, len(content))
@@ -135,7 +130,6 @@ class Client:
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
                    'Accept': 'application/octet-stream',
-                   'Authorization': auth_string,
                    'Content-Length': str(len(content)),
                    'User-Agent': self.__user_agent}
         if self.__logutils.is_enabled_for(DEBUG):
@@ -145,6 +139,9 @@ class Client:
         return request_utils.do_post_request(
             self.__request_uri, headers, content, timeout_ms,
             self.__sec_info_timeout)
+
+    def get_auth_provider(self):
+        return self.__auth_provider
 
     def shut_down(self):
         # Shutdown the client.

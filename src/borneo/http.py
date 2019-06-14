@@ -14,9 +14,13 @@ from time import time
 
 from .common import ByteInputStream, synchronized
 from .exception import (
-    IllegalStateException, NoSQLException, RequestTimeoutException,
-    RetryableException, SecurityInfoNotReadyException)
+    AuthenticationException, IllegalStateException, NoSQLException,
+    RequestTimeoutException, RetryableException, SecurityInfoNotReadyException)
 from .serde import BinaryProtocol
+try:
+    import idcs
+except ImportError:
+    from . import idcs
 
 
 class HttpResponse:
@@ -48,12 +52,14 @@ class RequestUtils:
         :param request: request to execute.
         :param retry_handler: the retry handler.
         """
-        self.__client = client
         self.__sess = sess
         self.__logutils = logutils
         self.__request = request
         self.__retry_handler = retry_handler
+        self.__client = client
         self.__max_request_id = 1
+        self.__auth_provider = (
+            client.get_auth_provider() if client is not None else None)
         self.lock = Lock()
 
     def do_delete_request(self, uri, headers, timeout_ms):
@@ -142,7 +148,7 @@ class RequestUtils:
 
     def __do_request(self, method, uri, headers, payload, timeout_ms,
                      sec_timeout_ms):
-        start_ms = int(time() * 1000)
+        start_ms = int(round(time() * 1000))
         timeout_s = timeout_ms // 1000
         if timeout_s == 0:
             timeout_s = 1
@@ -150,6 +156,12 @@ class RequestUtils:
         num_retried = 0
         exception = None
         while True:
+            if self.__auth_provider is not None:
+                auth_string = self.__auth_provider.get_authorization_string(
+                    self.__request)
+                self.__auth_provider.validate_auth_string(auth_string)
+                if auth_string is not None:
+                    headers['Authorization'] = auth_string
             if num_retried > 0:
                 self.__log_retried(num_retried, exception)
             response = None
@@ -190,6 +202,16 @@ class RequestUtils:
                         num_retried += 1
                         continue
                     return res
+            except AuthenticationException as ae:
+                if (self.__auth_provider is not None and isinstance(
+                        self.__auth_provider, idcs.StoreAccessTokenProvider)):
+                    self.__auth_provider.bootstrap_login()
+                    exception = ae
+                    num_retried += 1
+                    continue
+                self.__logutils.log_info(
+                    'Unexpected authentication exception: ' + str(ae))
+                raise NoSQLException('Unexpected exception: ' + str(ae), ae)
             except RetryableException as re:
                 self.__logutils.log_debug('Retryable exception: ' + str(re))
                 """
@@ -345,5 +367,5 @@ class RequestUtils:
         :returns: True if the request need to be timed out.
         """
         if isinstance(exception, SecurityInfoNotReadyException):
-            return int(time() * 1000) - start_time >= sec_timeout_ms
-        return int(time() * 1000) - start_time >= request_timeout
+            return int(round(time() * 1000)) - start_time >= sec_timeout_ms
+        return int(round(time() * 1000)) - start_time >= request_timeout
