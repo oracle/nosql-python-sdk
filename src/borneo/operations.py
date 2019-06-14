@@ -1308,6 +1308,62 @@ class PutRequest(WriteRequest):
         """
         return self.__update_ttl or self.__ttl is not None
 
+    def set_exact_match(self, exact_match):
+        """
+        If True the value must be an exact match for the table schema or the
+        operation will fail. An exact match means that there are no required
+        fields missing and that there are no extra, unknown fields. The default
+        behavior is to not require an exact match.
+
+        :param exact_match: True or False.
+        :type exact_match: bool
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if exact_match is
+            not True or False.
+        """
+        CheckValue.check_boolean(exact_match, 'exact_match')
+        self.__exact_match = exact_match
+        return self
+
+    def get_exact_match(self):
+        """
+        Returns whether the value must be an exact match to the table schema or
+        not.
+
+        :return: the value.
+        :rtype: bool
+        """
+        return self.__exact_match
+
+    def set_identity_cache_size(self, identity_cache_size):
+        """
+        Sets the number of generated identity values that are requested from the
+        server during a put. This takes precedence over the DDL identity CACHE
+        option set during creation of the identity column.
+
+        Any value equal or less than 0 means that the DDL identity CACHE value
+        is used.
+
+        :param identity_cache_size: the size.
+        :type identity_cache_size: int
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if
+            identity_cache_size is not an integer.
+        """
+        CheckValue.check_int(identity_cache_size, 'identity_cache_size')
+        self.__identity_cache_size = identity_cache_size
+        return self
+
+    def get_identity_cache_size(self):
+        """
+        Gets the number of generated identity values that are requested from the
+        server during a put if set in this request.
+
+        :return: the value.
+        :rtype: int
+        """
+        return self.__identity_cache_size
+
     def set_timeout(self, timeout_ms):
         """
         Sets the request timeout value, in milliseconds. This overrides any
@@ -1382,62 +1438,6 @@ class PutRequest(WriteRequest):
         :rtype: bool
         """
         return super(PutRequest, self).get_return_row_internal()
-
-    def set_exact_match(self, exact_match):
-        """
-        If True the value must be an exact match for the table schema or the
-        operation will fail. An exact match means that there are no required
-        fields missing and that there are no extra, unknown fields. The default
-        behavior is to not require an exact match.
-
-        :param exact_match: True or False.
-        :type exact_match: bool
-        :return: self.
-        :raises IllegalArgumentException: raises the exception if exact_match is
-            not True or False.
-        """
-        CheckValue.check_boolean(exact_match, 'exact_match')
-        self.__exact_match = exact_match
-        return self
-
-    def get_exact_match(self):
-        """
-        Returns whether the value must be an exact match to the table schema or
-        not.
-
-        :return: the value.
-        :rtype: bool
-        """
-        return self.__exact_match
-
-    def set_identity_cache_size(self, identity_cache_size):
-        """
-        Sets the number of generated identity values that are requested from the
-        server during a put. This takes precedence over the DDL identity CACHE
-        option set during creation of the identity column.
-
-        Any value equal or less than 0 means that the DDL identity CACHE value
-        is used.
-
-        :param identity_cache_size: the size.
-        :type identity_cache_size: int
-        :return: self.
-        :raises IllegalArgumentException: raises the exception if
-            identity_cache_size is not an integer.
-        """
-        CheckValue.check_int(identity_cache_size, 'identity_cache_size')
-        self.__identity_cache_size = identity_cache_size
-        return self
-
-    def get_identity_cache_size(self):
-        """
-        Gets the number of generated identity values that are requested from the
-        server during a put if set in this request.
-
-        :return: the value.
-        :rtype: int
-        """
-        return self.__identity_cache_size
 
     def validate(self):
         # Validates the state of the object when complete.

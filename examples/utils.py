@@ -59,6 +59,7 @@ def get_handle(tenant_id):
         create_access_token_provider(tenant_id))
     return NoSQLHandle(config)
 
+
 class MyCredentialsProvider(CredentialsProvider):
     """
     A credentials provider that returns credentials as defined locally
@@ -71,9 +72,10 @@ class MyCredentialsProvider(CredentialsProvider):
     it serves as an example of how an application can secure its
     credentials.
     """
+
     def get_oauth_client_credentials(self):
         return IDCSCredentials('your_idcs_client_id',
-                            'your_client_secret')
+                               'your_client_secret')
 
     def get_user_credentials(self):
         #
@@ -81,4 +83,4 @@ class MyCredentialsProvider(CredentialsProvider):
         # urllib.parse.quote
         #
         return IDCSCredentials('your_oracle_cloud_user_name',
-                            'your_oracle_cloud_password')
+                               'your_oracle_cloud_password')

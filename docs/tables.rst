@@ -170,6 +170,7 @@ ways:
 
       request.set_value({'id':1})
       request.set_key({'id':1})
+
  * as a JSON string
    ::
 

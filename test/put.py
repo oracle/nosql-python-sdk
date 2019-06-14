@@ -8,6 +8,7 @@
 #
 
 import unittest
+from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
 from parameters import table_prefix
@@ -99,6 +100,15 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                           self.put_request.set_use_table_default_ttl,
                           'IllegalUseTableDefaultTtl')
 
+    def testPutSetIllegalExactMatch(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.put_request.set_exact_match, 'IllegalExactMatch')
+
+    def testPutSetIllegalIdentityCacheSize(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.put_request.set_identity_cache_size,
+                          'IllegalIdentityCacheSize')
+
     def testPutSetIllegalTimeout(self):
         self.assertRaises(IllegalArgumentException,
                           self.put_request.set_timeout, 'IllegalTimeout')
@@ -117,15 +127,6 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def testPutSetIllegalReturnRow(self):
         self.assertRaises(IllegalArgumentException,
                           self.put_request.set_return_row, 'IllegalReturnRow')
-
-    def testPutSetIllegalExactMatch(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.put_request.set_exact_match, 'IllegalExactMatch')
-
-    def testPutSetIllegalIdentityCacheSize(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.put_request.set_identity_cache_size,
-                          'IllegalIdentityCacheSize')
 
     def testPutIfVersionWithoutMatchVersion(self):
         self.put_request.set_option(PutOption.IF_VERSION)
@@ -149,11 +150,12 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                           self.put_request)
 
     def testPutGets(self):
+        identity_cache_size = 5
         version = self.handle.put(self.put_request).get_version()
         self.put_request.set_option(PutOption.IF_ABSENT).set_match_version(
             version).set_ttl(self.ttl).set_use_table_default_ttl(
-            True).set_return_row(True).set_exact_match(
-            True).set_identity_cache_size(5)
+            True).set_exact_match(True).set_identity_cache_size(
+            identity_cache_size).set_return_row(True)
         self.assertEqual(self.put_request.get_value(), self.row)
         self.assertEqual(self.put_request.get_option(), PutOption.IF_ABSENT)
         self.assertEqual(self.put_request.get_match_version(), version)
@@ -162,9 +164,10 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertTrue(self.put_request.get_update_ttl())
         self.assertEqual(self.put_request.get_timeout(), timeout)
         self.assertEqual(self.put_request.get_table_name(), table_name)
-        self.assertTrue(self.put_request.get_return_row())
         self.assertTrue(self.put_request.get_exact_match())
-        self.assertEqual(self.put_request.get_identity_cache_size(), 5)
+        self.assertEqual(self.put_request.get_identity_cache_size(),
+                         identity_cache_size)
+        self.assertTrue(self.put_request.get_return_row())
 
     def testPutIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.put,
@@ -399,18 +402,18 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(result.get_write_units(), 0)
 
     def testPutWithExactMatch(self):
-        exact_table = table_prefix + 'Exact'
-        create_request = TableRequest().set_statement(
-            'CREATE TABLE ' + exact_table + '(id INTEGER, name STRING, \
-age INTEGER, PRIMARY KEY(id))').set_table_limits(TableLimits(5000, 5000, 50))
-        TestBase.table_request(create_request, State.ACTIVE)
-
-        # create a row with an extra field not in the table, by default this
+        # test put a row with an extra field not in the table, by default this
         # will succeed
-        row = {'id': 1, 'name': 'myname', 'age': 6, 'extra': 5}
-        put_request = PutRequest().set_value(row).set_table_name(exact_table)
-        result = self.handle.put(put_request)
-        self.assertIsNotNone(result.get_version())
+        row = deepcopy(self.row)
+        row.update({'fld_id': 2, 'extra': 5})
+        key = {'fld_id': 2}
+        self.row.update({'fld_id': 2})
+        self.put_request.set_value(row)
+        result = self.handle.put(self.put_request)
+        tb_expect_expiration = table_ttl.to_expiration_time(
+            int(round(time() * 1000)))
+        version = result.get_version()
+        self.assertIsNotNone(version)
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
@@ -418,11 +421,23 @@ age INTEGER, PRIMARY KEY(id))').set_table_limits(TableLimits(5000, 5000, 50))
         self.assertEqual(result.get_read_units(), 0)
         self.assertEqual(result.get_write_kb(), 1)
         self.assertEqual(result.get_write_units(), 1)
-
-        # this will cause the operation to fail because it's not an exact match
-        put_request.set_exact_match(True)
+        self.get_request.set_key(key)
+        result = self.handle.get(self.get_request)
+        self.assertEqual(result.get_value(), self.row)
+        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
+        actual_expiration = result.get_expiration_time()
+        actual_expect_diff = actual_expiration - tb_expect_expiration
+        self.assertGreater(actual_expiration, 0)
+        self.assertLess(actual_expect_diff, self.day_in_milliseconds)
+        self.assertEqual(result.get_read_kb(), 1)
+        self.assertEqual(result.get_read_units(), 2)
+        self.assertEqual(result.get_write_kb(), 0)
+        self.assertEqual(result.get_write_units(), 0)
+        # test put a row with an extra field not in the table, this will fail
+        # because it's not an exact match when we set exact_match=True
+        self.put_request.set_exact_match(True)
         self.assertRaises(IllegalArgumentException, self.handle.put,
-                          put_request)
+                          self.put_request)
 
     def testPutWithIdentityColumn(self):
         id_table = table_prefix + 'Identity'
@@ -432,12 +447,15 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         create_request.set_table_limits(TableLimits(5000, 5000, 50))
         TestBase.table_request(create_request, State.ACTIVE)
 
-        # create a row with an extra field not in the table, by default this
+        # test put a row with an extra field not in the table, by default this
         # will succeed
-        row = {'sid': 1, 'name': 'myname'}
-        put_request = PutRequest().set_value(row).set_table_name(id_table)
-        result = self.handle.put(put_request)
-        self.assertIsNotNone(result.get_version())
+        row = {'sid': 1, 'name': 'myname', 'extra': 'extra'}
+        key = {'sid': 1, 'id': 1}
+        get_row = {'sid': 1, 'id': 1, 'name': 'myname'}
+        self.put_request.set_table_name(id_table).set_value(row)
+        result = self.handle.put(self.put_request)
+        version = result.get_version()
+        self.assertIsNotNone(version)
         self.assertIsNotNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
@@ -445,12 +463,21 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.assertEqual(result.get_read_units(), 0)
         self.assertEqual(result.get_write_kb(), 1)
         self.assertEqual(result.get_write_units(), 1)
-
-        # this is invalid because id is 'generated always' and in that path it
-        # is not legal to provide a value for id
-        row['id'] = 1
+        self.get_request.set_table_name(id_table).set_key(key)
+        result = self.handle.get(self.get_request)
+        self.assertEqual(result.get_value(), get_row)
+        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
+        self.assertEqual(result.get_expiration_time(), 0)
+        self.assertEqual(result.get_read_kb(), 1)
+        self.assertEqual(result.get_read_units(), 2)
+        self.assertEqual(result.get_write_kb(), 0)
+        self.assertEqual(result.get_write_units(), 0)
+        # test put a row with identity field, this will fail because id is
+        # 'generated always' and in that path it is not legal to provide a value
+        # for id
+        row.update({'id': 1})
         self.assertRaises(IllegalArgumentException, self.handle.put,
-                          put_request)
+                          self.put_request)
 
 
 if __name__ == '__main__':

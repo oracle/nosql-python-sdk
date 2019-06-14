@@ -324,34 +324,50 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertEqual(result.get_write_units(), 0)
 
     def testWriteMultipleWithIdentityColumn(self):
+        num_operations = 10
         id_table = table_prefix + 'Identity'
         create_request = TableRequest().set_statement(
             'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
-ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARS(sid), id))')
+ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         create_request.set_table_limits(TableLimits(5000, 5000, 50))
         TestBase.table_request(create_request, State.ACTIVE)
 
-        wm_request = WriteMultipleRequest()
+        # add ten operations
         row = {'sid': 1, 'name': 'myname'}
-        for idx in range(10):
+        for idx in range(num_operations):
             put_request = PutRequest().set_table_name(id_table).set_value(row)
             put_request.set_identity_cache_size(idx)
-            wm_request.add(put_request, False)
-
-        result = self.handle.write_multiple(wm_request)
-        for res in result.get_results():
-            self.assertIsNotNone(res.get_version())
-            self.assertTrue(res.get_success())
-            self.assertIsNotNone(res.get_generated_value())
-            self.assertIsNone(res.get_existing_version())
-            self.assertIsNone(res.get_existing_value())
+            self.write_multiple_request.add(put_request, False)
+        # execute the write multiple request
+        result = self.handle.write_multiple(self.write_multiple_request)
+        self.assertEqual(result.size(), num_operations)
+        op_results = result.get_results()
+        for idx in range(result.size()):
+            self.assertIsNotNone(op_results[idx].get_version())
+            self.assertTrue(op_results[idx].get_success())
+            self.assertEqual(op_results[idx].get_generated_value(), idx + 1)
+            self.assertIsNone(op_results[idx].get_existing_version())
+            self.assertIsNone(op_results[idx].get_existing_value())
         self.assertIsNone(result.get_failed_operation_result())
         self.assertEqual(result.get_failed_operation_index(), -1)
         self.assertTrue(result.get_success())
         self.assertEqual(result.get_read_kb(), 0)
         self.assertEqual(result.get_read_units(), 0)
-        self.assertEqual(result.get_write_kb(), 10)
-        self.assertEqual(result.get_write_units(), 20)
+        self.assertEqual(result.get_write_kb(), num_operations)
+        self.assertEqual(result.get_write_units(), num_operations)
+        # check the records after write_multiple request succeed
+        self.get_request.set_table_name(id_table)
+        for idx in range(num_operations):
+            self.get_request.set_key({'sid': 1, 'id': idx + 1})
+            result = self.handle.get(self.get_request)
+            self.assertEqual(result.get_value(),
+                             {'sid': 1, 'id': idx + 1, 'name': 'myname'})
+            self.assertIsNotNone(result.get_version())
+            self.assertEqual(result.get_expiration_time(), 0)
+            self.assertEqual(result.get_read_kb(), 1)
+            self.assertEqual(result.get_read_units(), 2)
+            self.assertEqual(result.get_write_kb(), 0)
+            self.assertEqual(result.get_write_units(), 0)
 
 
 if __name__ == '__main__':

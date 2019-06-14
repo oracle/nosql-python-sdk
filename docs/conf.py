@@ -15,12 +15,11 @@
 import os
 import sphinx_rtd_theme
 import sys
-from datetime import datetime
+
+import borneo
 
 # add path to this project before import
 sys.path.insert(0, os.path.abspath('../src'))
-
-import borneo
 
 
 # -- Project information -----------------------------------------------------
