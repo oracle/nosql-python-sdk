@@ -11,7 +11,7 @@ from abc import ABCMeta, abstractmethod
 from base64 import b64encode
 from json import loads
 from logging import Logger
-from os import environ, path, sep
+from os import path, sep
 from requests import Session, codes
 from threading import Lock, Timer
 from time import time
@@ -323,18 +323,17 @@ class AccessTokenProvider(AuthorizationProvider):
         """
         if isinstance(request, ListTablesRequest):
             return True
-        if not isinstance(request, TableRequest):
-            return False
-        # Find if it's CreateTable and AlterTable limits, only these two
-        # requests have TableLimits present.
-        if request.get_table_limits() is not None:
-            return True
-        # Check if request is DropTable by looking up the keyword.
-        ddl = request.get_statement()
-        if ddl is not None:
-            formatted_ddl = ' '.join(ddl.split()).upper()
-            return formatted_ddl.startswith(
-                AccessTokenProvider.DROP_TABLE_KEYWORD)
+        if isinstance(request, TableRequest):
+            # Find if it's CreateTable and AlterTable limits, only these two
+            # requests have TableLimits present.
+            if request.get_table_limits() is not None:
+                return True
+            # Check if request is DropTable by looking up the keyword.
+            ddl = request.get_statement()
+            if ddl is not None:
+                formatted_ddl = ' '.join(ddl.split()).upper()
+                return formatted_ddl.startswith(
+                    AccessTokenProvider.DROP_TABLE_KEYWORD)
         return False
 
     def __refresh_task(self):
@@ -661,7 +660,8 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     _ENTITLEMENT_ID_PROP = 'entitlement_id'
 
     # Default properties file at ~/.andc/idcs.props
-    _DEFAULT_PROPS_FILE = environ['HOME'] + sep + '.andc' + sep + 'idcs.props'
+    _DEFAULT_PROPS_FILE = (
+        path.expanduser('~') + sep + '.andc' + sep + 'idcs.props')
 
     def __init__(self, idcs_props_file=_DEFAULT_PROPS_FILE, idcs_url=None,
                  entitlement_id=None, creds_provider=None,
@@ -1090,7 +1090,8 @@ class PropertiesCredentialsProvider(CredentialsProvider):
     CLIENT_SECRET_PROP = 'andc_client_secret'
 
     # Default credentials file at ~/.andc/credentials.
-    _DEFAULT_CREDS_FILE = environ['HOME'] + sep + '.andc' + sep + 'credentials'
+    _DEFAULT_CREDS_FILE = (
+        path.expanduser('~') + sep + '.andc' + sep + 'credentials')
 
     def __init__(self):
         self.__properties_file = (

@@ -89,35 +89,6 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                           'IllegalRequest')
 
     def testAccessTokenProviderGetAuthorizationString(self):
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == LOGIN_PATH:
-                    self.__generate_login_token(LOGIN_TOKEN)
-                elif rawpath == RENEW_PATH:
-                    self.__generate_login_token(RENEW_TOKEN)
-                elif rawpath == LOGOUT_PATH:
-                    self.send_response(codes.ok)
-
-            def __generate_login_token(self, token_text):
-                content = bytearray()
-                bos = ByteOutputStream(content)
-                bos.write_short_int(1)
-                bos.write_long(int(round(time() * 1000)) + 15000)
-                try:
-                    buf = bytearray(token_text.encode())
-                except UnicodeDecodeError:
-                    buf = bytearray(token_text)
-                bos.write_bytearray(buf)
-                try:
-                    hex_str = content.hex()
-                except AttributeError:
-                    hex_str = str(content).encode('hex')
-                self.send_response(codes.ok)
-                self.send_header('Content-Length', str(len(hex_str)))
-                self.end_headers()
-                self.wfile.write(hex_str.encode())
-
         httpd, port = self.__find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
@@ -216,6 +187,43 @@ class ByteOutputStream:
     def write_value(self, value):
         val_b = bytearray(value)
         self.write_bytearray(val_b)
+
+
+class TokenHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        rawpath = self.path.split('?')[0]
+        auth_string = self.headers['Authorization']
+        if rawpath == LOGIN_PATH:
+            assert auth_string == BASIC_AUTH_STRING
+            self.__generate_login_token(LOGIN_TOKEN)
+        elif rawpath == RENEW_PATH:
+            assert auth_string.startswith(AUTH_TOKEN_PREFIX)
+            self.__generate_login_token(RENEW_TOKEN)
+        elif rawpath == LOGOUT_PATH:
+            assert auth_string.startswith(AUTH_TOKEN_PREFIX)
+            self.send_response(codes.ok)
+
+    def log_request(self, code='-', size='-'):
+        return
+
+    def __generate_login_token(self, token_text):
+        content = bytearray()
+        bos = ByteOutputStream(content)
+        bos.write_short_int(1)
+        bos.write_long(int(round(time() * 1000)) + 15000)
+        try:
+            buf = bytearray(token_text.encode())
+        except UnicodeDecodeError:
+            buf = bytearray(token_text)
+        bos.write_bytearray(buf)
+        try:
+            hex_str = content.hex()
+        except AttributeError:
+            hex_str = str(content).encode('hex')
+        self.send_response(codes.ok)
+        self.send_header('Content-Length', str(len(hex_str)))
+        self.end_headers()
+        self.wfile.write(hex_str.encode())
 
 
 if __name__ == '__main__':

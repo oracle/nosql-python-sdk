@@ -24,7 +24,7 @@ from borneo.idcs import (
     PropertiesCredentialsProvider, StoreAccessTokenProvider)
 from parameters import (
     consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
-    is_minicloud, is_onprem, is_prod_pod, logger_level, login_url, password,
+    is_minicloud, is_onprem, is_prod_pod, logger_level, password,
     pool_connections, pool_maxsize, table_prefix, table_request_timeout,
     timeout, user_name)
 
@@ -150,11 +150,13 @@ def set_access_token_provider(config, tenant_id):
         if user_name is None and password is None:
             authorization_provider = StoreAccessTokenProvider()
         else:
+            login_url = (config.get_protocol() + '://' + config.get_host() +
+                         ':' + str(config.get_port()))
             if user_name is None or password is None:
                 raise IllegalArgumentException(
                     'Please set both the user_name and password.')
             authorization_provider = StoreAccessTokenProvider(
-                user_name, password, login_url(), logger=logger)
+                user_name, password, login_url, logger=logger)
     else:
         raise IllegalArgumentException('Please set the test server.')
     config.set_authorization_provider(authorization_provider)
