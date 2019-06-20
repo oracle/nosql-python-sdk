@@ -20,7 +20,7 @@ from .operations import (
     QueryRequest, TableRequest, TableUsageRequest, WriteMultipleRequest)
 
 
-class NoSQLHandle:
+class NoSQLHandle(object):
     """
     NoSQLHandle is a handle that can be used to access Oracle NoSQL tables. To
     create a connection represented by NoSQLHandle, request an instance using
@@ -83,7 +83,7 @@ class NoSQLHandle:
             raise IllegalArgumentException(
                 'config must be an instance of NoSQLHandleConfig.')
         logger = self.__get_logger(config)
-        config.get_authorization_provider().set_logger(logger)
+        self.__config_auth_provider_logging(config, logger)
         self.__client = Client(config, logger)
 
     def delete(self, request):
@@ -424,6 +424,11 @@ class NoSQLHandle:
         # Ensure that the client exists and hasn't been closed.
         if self.__client is None:
             raise IllegalStateException('NoSQLHandle has been closed.')
+
+    def __config_auth_provider_logging(self, config, logger):
+        provider = config.get_authorization_provider()
+        if provider.get_logger() is None:
+            provider.set_logger(logger)
 
     def __get_logger(self, config):
         """

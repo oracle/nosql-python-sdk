@@ -112,7 +112,7 @@ class QueryException(RuntimeError):
         # not available.
         return self.__location
 
-    class Location:
+    class Location(object):
         """
         Location of an expression in the query. It contains both start and end,
         line and column info.

@@ -20,14 +20,13 @@ from borneo import (
     PutOption, PutRequest, State, TableLimits, TableNotFoundException,
     TableRequest, TimeToLive)
 from parameters import table_name, timeout
-from testutils import check_cost
 from test_base import TestBase
 
 
 class TestPut(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
         global table_ttl
         table_ttl = TimeToLive.of_days(30)
         create_statement = (
@@ -39,14 +38,14 @@ fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request, State.ACTIVE)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.row = {'fld_id': 1, 'fld_long': 2147483648,
                     'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
                     'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
@@ -69,7 +68,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def tearDown(self):
         request = DeleteRequest().set_key(self.key).set_table_name(table_name)
         self.handle.delete(request)
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testPutSetIllegalValue(self):
         self.assertRaises(IllegalArgumentException, self.put_request.set_value,
@@ -184,7 +183,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 0, 0, 1, 1)
+        self.check_cost(result, 0, 0, 1, 1)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
@@ -192,7 +191,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - tb_expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.day_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row
         self.row.update({'fld_long': 2147483649})
         self.put_request.set_value(self.row).set_ttl(self.ttl)
@@ -204,7 +203,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 0, 0, 2, 2)
+        self.check_cost(result, 0, 0, 2, 2)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
@@ -212,7 +211,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.hour_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # update the ttl of the row to never expire
         self.put_request.set_ttl(TimeToLive.of_days(0))
         result = self.handle.put(self.put_request)
@@ -221,13 +220,13 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 0, 0, 2, 2)
+        self.check_cost(result, 0, 0, 2, 2)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
         actual_expiration = result.get_expiration_time()
         self.assertEqual(actual_expiration, 0)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfAbsent(self):
         # test PutIfAbsent with normal values
@@ -241,7 +240,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 1, 2, 1, 1)
+        self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
@@ -249,7 +248,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.hour_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row, operation
         # should fail, and return the existing row
         result = self.handle.put(self.put_request)
@@ -258,7 +257,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(result.get_existing_version().get_bytes(),
                          version.get_bytes())
         self.assertEqual(result.get_existing_value(), self.row)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfPresent(self):
         # test PutIfPresent with normal values, operation should fail because
@@ -269,7 +268,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # insert a row
         self.put_request.set_option(PutOption.IF_ABSENT).set_ttl(self.ttl)
         self.handle.put(self.put_request)
@@ -285,7 +284,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 1, 2, 2, 2)
+        self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
@@ -293,7 +292,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.hour_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # test PutIfPresent with normal values, update the ttl with table
         # default ttl
         self.put_request.set_ttl(None).set_use_table_default_ttl(True)
@@ -305,7 +304,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 1, 2, 2, 2)
+        self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
@@ -313,7 +312,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - tb_expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.day_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfVersion(self):
         # insert a row
@@ -331,7 +330,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 1, 2, 2, 2)
+        self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
@@ -339,7 +338,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.hour_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # test PutIfVersion with normal values, operation should fail because
         # version not match, and return the existing row
         self.put_request.set_ttl(None).set_use_table_default_ttl(True)
@@ -349,7 +348,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(result.get_existing_version().get_bytes(),
                          version.get_bytes())
         self.assertEqual(result.get_existing_value(), self.row)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testPutWithExactMatch(self):
         # test put a row with an extra field not in the table, by default this
@@ -367,7 +366,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertIsNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 0, 0, 1, 1)
+        self.check_cost(result, 0, 0, 1, 1)
         self.get_request.set_key(key)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), self.row)
@@ -376,7 +375,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         actual_expect_diff = actual_expiration - tb_expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, self.day_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # test put a row with an extra field not in the table, this will fail
         # because it's not an exact match when we set exact_match=True
         self.put_request.set_exact_match(True)
@@ -389,7 +388,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
 ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         create_request.set_table_limits(TableLimits(5000, 5000, 50))
-        TestBase.table_request(create_request, State.ACTIVE)
+        self.table_request(create_request, State.ACTIVE)
 
         # test put a row with an extra field not in the table, by default this
         # will succeed
@@ -403,13 +402,13 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.assertIsNotNone(result.get_generated_value())
         self.assertIsNone(result.get_existing_version())
         self.assertIsNone(result.get_existing_value())
-        check_cost(self, result, 0, 0, 1, 1)
+        self.check_cost(result, 0, 0, 1, 1)
         self.get_request.set_table_name(id_table).set_key(key)
         result = self.handle.get(self.get_request)
         self.assertEqual(result.get_value(), get_row)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
         self.assertEqual(result.get_expiration_time(), 0)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # test put a row with identity field, this will fail because id is
         # 'generated always' and in that path it is not legal to provide a value
         # for id

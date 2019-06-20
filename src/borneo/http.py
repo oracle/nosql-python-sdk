@@ -23,7 +23,7 @@ except ImportError:
     from . import idcs
 
 
-class HttpResponse:
+class HttpResponse(object):
     # Class to package HTTP response output and status code.
     def __init__(self, content, status_code):
         self.__content = content
@@ -40,7 +40,7 @@ class HttpResponse:
         return self.__status_code
 
 
-class RequestUtils:
+class RequestUtils(object):
     # Utility to issue http request.
     def __init__(self, sess, logutils, request=None, retry_handler=None,
                  client=None):

@@ -18,7 +18,7 @@ from time import sleep
 
 from borneo import (
     DefaultRetryHandler, IllegalArgumentException, IllegalStateException,
-    NoSQLHandle, NoSQLHandleConfig, QueryResult)
+    NoSQLHandle, NoSQLHandleConfig)
 from borneo.idcs import (
     AccessTokenProvider, DefaultAccessTokenProvider,
     PropertiesCredentialsProvider, StoreAccessTokenProvider)
@@ -36,7 +36,7 @@ sc_nd_tenant_base = sc_url_base + 'tenant/nondefault/'
 tier_name = 'test_tier'
 
 logger = None
-retry_handler = DefaultRetryHandler(10, 5)
+retry_handler = DefaultRetryHandler(delay_s=5)
 # The timeout for waiting security information is available.
 sec_info_timeout = 20000
 
@@ -65,32 +65,6 @@ proxy_port = 0
 proxy_username = None
 # The proxy password.
 proxy_password = None
-
-
-def check_cost(self, result, read_kb, read_units, write_kb, write_units,
-               advance=False, multi_shards=False):
-    if is_onprem():
-        self.assertEqual(result.get_read_kb(), 0)
-        self.assertEqual(result.get_read_units(), 0)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
-    elif isinstance(result, QueryResult) and advance:
-        self.assertGreater(result.get_read_kb(), read_kb)
-        self.assertGreater(result.get_read_units(), read_units)
-        self.assertEqual(result.get_write_kb(), write_kb)
-        self.assertEqual(result.get_write_units(), write_units)
-    elif isinstance(result, QueryResult) and multi_shards:
-        self.assertGreaterEqual(result.get_read_kb(), read_kb)
-        self.assertLessEqual(result.get_read_kb(), read_kb + 1)
-        self.assertGreaterEqual(result.get_read_units(), read_units)
-        self.assertLessEqual(result.get_read_units(), read_units + 2)
-        self.assertEqual(result.get_write_kb(), write_kb)
-        self.assertEqual(result.get_write_units(), write_units)
-    else:
-        self.assertEqual(result.get_read_kb(), read_kb)
-        self.assertEqual(result.get_read_units(), read_units)
-        self.assertEqual(result.get_write_kb(), write_kb)
-        self.assertEqual(result.get_write_units(), write_units)
 
 
 def get_handle_config(tenant_id):
@@ -199,7 +173,7 @@ def delete_tier():
 def add_tenant(tenant_id):
     if is_minicloud():
         tenant_url = sc_nd_tenant_base + tenant_id + '/' + tier_name
-        response = post(tenant_url, data=None)
+        response = post(tenant_url)
         if response.status_code != codes.ok:
             raise IllegalStateException('Add tenant failed.')
 

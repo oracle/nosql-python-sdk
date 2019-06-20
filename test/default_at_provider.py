@@ -367,7 +367,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         httpd.server_close()
 
 
-class TokenHandler(SimpleHTTPRequestHandler):
+class TokenHandler(SimpleHTTPRequestHandler, object):
     def do_GET(self):
         rawpath = self.path.split('?')[0]
         if rawpath == APP_ENDPOINT:

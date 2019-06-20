@@ -18,14 +18,14 @@ from borneo import (
     PutRequest, QueryRequest, State, TableLimits, TableNotFoundException,
     TableRequest, TimeToLive, WriteMultipleRequest)
 from parameters import table_name, tenant_id, timeout
-from testutils import check_cost, get_handle_config
+from testutils import get_handle_config
 from test_base import TestBase
 
 
 class TestQuery(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
         index_name = 'idx_' + table_name
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
@@ -37,26 +37,26 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request, State.ACTIVE)
 
         create_idx_request = TableRequest()
         create_idx_statement = (
             'CREATE INDEX ' + index_name + '1 ON ' + table_name + '(fld_long)')
         create_idx_request.set_statement(create_idx_statement)
-        cls._result = TestBase.table_request(create_idx_request, State.ACTIVE)
+        cls.table_request(create_idx_request, State.ACTIVE)
         create_idx_statement = (
             'CREATE INDEX ' + index_name + '2 ON ' + table_name + '(fld_str)')
         create_idx_request.set_statement(create_idx_statement)
-        cls._result = TestBase.table_request(create_idx_request, State.ACTIVE)
+        cls.table_request(create_idx_request, State.ACTIVE)
         create_idx_statement = (
             'CREATE INDEX ' + index_name + '3 ON ' + table_name + '(fld_bool)')
         create_idx_request.set_statement(create_idx_statement)
-        cls._result = TestBase.table_request(create_idx_request, State.ACTIVE)
+        cls.table_request(create_idx_request, State.ACTIVE)
         create_idx_statement = (
             'CREATE INDEX ' + index_name + '4 ON ' + table_name +
             '(fld_json.location as point)')
         create_idx_request.set_statement(create_idx_statement)
-        cls._result = TestBase.table_request(create_idx_request, State.ACTIVE)
+        cls.table_request(create_idx_request, State.ACTIVE)
 
         global prepare_cost
         prepare_cost = 2
@@ -66,10 +66,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.handle_config = get_handle_config(tenant_id)
         self.min_time = list()
         self.max_time = list()
@@ -122,7 +122,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.get_request = GetRequest().set_table_name(table_name)
 
     def tearDown(self):
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testQuerySetIllegalLimit(self):
         self.assertRaises(IllegalArgumentException,
@@ -245,8 +245,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         for idx in range(num_records):
             self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_records + prepare_cost,
-                   num_records * 2 + prepare_cost, 0, 0)
+        self.check_cost(result, num_records + prepare_cost,
+                        num_records * 2 + prepare_cost, 0, 0)
 
     def testQueryStatementSelectWithLimit(self):
         limit = 3
@@ -257,8 +257,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         for idx in range(limit):
             self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
         self.assertIsNotNone(result.get_continuation_key())
-        check_cost(
-            self, result, limit + prepare_cost, limit * 2 + prepare_cost, 0, 0)
+        self.check_cost(
+            result, limit + prepare_cost, limit * 2 + prepare_cost, 0, 0)
 
     def testQueryStatementSelectWithMaxReadKb(self):
         max_read_kb = 4
@@ -270,8 +270,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         for idx in range(len(records)):
             self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
         self.assertIsNotNone(result.get_continuation_key())
-        check_cost(self, result, max_read_kb + prepare_cost + 1,
-                   max_read_kb * 2 + prepare_cost + 2, 0, 0)
+        self.check_cost(result, max_read_kb + prepare_cost + 1,
+                        max_read_kb * 2 + prepare_cost + 2, 0, 0)
 
     def testQueryStatementSelectWithConsistency(self):
         num_records = 6
@@ -283,8 +283,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         for idx in range(num_records):
             self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_records + prepare_cost,
-                   num_records * 2 + prepare_cost, 0, 0)
+        self.check_cost(result, num_records + prepare_cost,
+                        num_records * 2 + prepare_cost, 0, 0)
 
     def testQueryStatementSelectWithContinuationKey(self):
         num_records = 6
@@ -307,8 +307,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             for idx in range(num_get):
                 self.assertEqual(records[idx],
                                  {'fld_sid': 1, 'fld_id': completed + idx})
-            check_cost(
-                self, result, read_kb + (prepare_cost if count == 0 else 0),
+            self.check_cost(
+                result, read_kb + (prepare_cost if count == 0 else 0),
                 read_kb * 2 + (prepare_cost if count == 0 else 0), 0, 0)
             count += 1
             if result.get_continuation_key() is None:
@@ -327,8 +327,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         for idx in range(num_records):
             self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_records + prepare_cost,
-                   num_records * 2 + prepare_cost, 0, 0)
+        self.check_cost(result, num_records + prepare_cost,
+                        num_records * 2 + prepare_cost, 0, 0)
 
     def testQueryPreparedStatementUpdate(self):
         fld_sid = 0
@@ -344,7 +344,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 0})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
         # update an existing row
         prepared_statement.set_variable('$fld_sid', fld_sid).set_variable(
             '$fld_id', fld_id)
@@ -354,7 +354,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 2, 4, 4, 4)
+        self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
         prepared_statement = self.prepare_result_select.get_prepared_statement()
         prepared_statement.set_variable('$fld_long', fld_long)
@@ -365,7 +365,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
                                       'fld_long': fld_long})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryPreparedStatementUpdateWithLimit(self):
         fld_sid = 1
@@ -381,7 +381,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 2, 4, 4, 4)
+        self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
         prepared_statement = self.prepare_result_select.get_prepared_statement()
         prepared_statement.set_variable('$fld_long', fld_long)
@@ -392,7 +392,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
                                       'fld_long': fld_long})
         self.assertIsNotNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryPreparedStatementUpdateWithMaxReadKb(self):
         fld_sid = 0
@@ -413,7 +413,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 2, 4, 4, 4)
+        self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
         prepared_statement = self.prepare_result_select.get_prepared_statement()
         prepared_statement.set_variable('$fld_long', fld_long)
@@ -424,7 +424,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
                                       'fld_long': fld_long})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryPreparedStatementUpdateWithConsistency(self):
         fld_sid = 1
@@ -440,7 +440,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 2, 4, 4, 4)
+        self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
         prepared_statement = self.prepare_result_select.get_prepared_statement()
         prepared_statement.set_variable('$fld_long', fld_long)
@@ -451,7 +451,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
                                       'fld_long': fld_long})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryPreparedStatementUpdateWithContinuationKey(self):
         fld_sid = 1
@@ -481,7 +481,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 read_kb = (1 if num_update == 0 else num_update * 2)
                 write_kb = (0 if num_update == 0 else num_update * 4)
             self.assertIsNone(result.get_continuation_key())
-            check_cost(self, result, read_kb, read_kb * 2, write_kb, write_kb)
+            self.check_cost(result, read_kb, read_kb * 2, write_kb, write_kb)
             count += 1
             if result.get_continuation_key() is None:
                 break
@@ -501,7 +501,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.assertIsNotNone(result.get_continuation_key())
         else:
             self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryPreparedStatementUpdateWithDefault(self):
         fld_sid = 0
@@ -517,7 +517,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 2, 4, 4, 4)
+        self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
         prepared_statement = self.prepare_result_select.get_prepared_statement()
         prepared_statement.set_variable('$fld_long', fld_long)
@@ -528,7 +528,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
                                       'fld_long': fld_long})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryStatementUpdateTTL(self):
         hour_in_milliseconds = 60 * 60 * 1000
@@ -543,7 +543,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, 2 + prepare_cost, 4 + prepare_cost, 6, 6)
+        self.check_cost(result, 2 + prepare_cost, 4 + prepare_cost, 6, 6)
         # check the record after update ttl request succeed
         self.get_request.set_key({'fld_sid': 1, 'fld_id': 3})
         result = self.handle.get(self.get_request)
@@ -551,7 +551,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         actual_expect_diff = actual_expiration - expect_expiration
         self.assertGreater(actual_expiration, 0)
         self.assertLess(actual_expect_diff, hour_in_milliseconds)
-        check_cost(self, result, 1, 2, 0, 0)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testQueryOrderBy(self):
         num_records = 12
@@ -572,12 +572,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[idx],
                         {'fld_sid': idx // num_ids, 'fld_id': idx % num_ids})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test order by secondary index field
@@ -593,12 +593,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[idx],
                         {'fld_str': '{"name": u' + str(idx).zfill(2) + '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryFuncMinMaxGroupBy(self):
         num_sids = 2
@@ -610,7 +610,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         # self.assertEqual(records[0], {'Column_1': self.min_time[0]})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, prepare_cost, prepare_cost, 0, 0, True)
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
         # test max function
         statement = ('SELECT max(fld_time) FROM ' + table_name)
@@ -620,7 +620,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         # self.assertEqual(records[0], {'Column_1': self.max_time[1]})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, prepare_cost, prepare_cost, 0, 0, True)
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
         # test min function group by primary index field
         statement = ('SELECT min(fld_time) FROM ' + table_name +
@@ -637,12 +637,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 #     self.assertEqual(
                 #         records[idx], {'Column_1': self.min_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test max function group by primary index field
@@ -660,12 +660,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 #     self.assertEqual(
                 #         records[idx], {'Column_1': self.max_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test min function group by secondary index field
@@ -681,12 +681,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 #     self.assertEqual(
                 #         records[idx], {'Column_1': self.min_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
         # test max function group by secondary index field
         statement = ('SELECT max(fld_time) FROM ' + table_name +
@@ -701,12 +701,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 #     self.assertEqual(
                 #         records[idx], {'Column_1': self.max_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryFuncSumGroupBy(self):
         num_records = 12
@@ -719,7 +719,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'Column_1': 3.1415 * num_records})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, prepare_cost, prepare_cost, 0, 0, True)
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
         # test sum function group by primary index field
         statement = ('SELECT sum(fld_double) FROM ' + table_name +
@@ -737,12 +737,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[idx],
                         {'Column_1': 3.1415 * (num_records // num_sids)})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test sum function group by secondary index field
@@ -759,12 +759,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[idx],
                         {'Column_1': 3.1415 * (num_records // num_sids)})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryFuncAvgGroupBy(self):
         num_sids = 2
@@ -776,7 +776,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'Column_1': 3.1415})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, prepare_cost, prepare_cost, 0, 0, True)
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
         # test avg function group by primary index field
         statement = ('SELECT avg(fld_double) FROM ' + table_name +
@@ -792,12 +792,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for idx in range(num_sids):
                     self.assertEqual(records[idx], {'Column_1': 3.1415})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test avg function group by secondary index field
@@ -812,12 +812,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for idx in range(num_sids):
                     self.assertEqual(records[idx], {'Column_1': 3.1415})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryFuncCountGroupBy(self):
         num_records = 12
@@ -830,7 +830,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], {'Column_1': num_records})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, prepare_cost, prepare_cost, 0, 0, True)
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
         # test count function group by primary index field
         statement = ('SELECT count(*) FROM ' + table_name +
@@ -847,12 +847,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.assertEqual(
                         records[idx], {'Column_1': num_records // num_sids})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test count function group by secondary index field
@@ -868,12 +868,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.assertEqual(
                         records[idx], {'Column_1': num_records // num_sids})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryOrderByWithLimit(self):
         num_records = 12
@@ -895,12 +895,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         {'fld_str': '{"name": u' +
                          str(num_records - idx - 1).zfill(2) + '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test order by secondary index field with limit
@@ -917,12 +917,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[idx],
                         {'fld_str': '{"name": u' + str(idx).zfill(2) + '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryOrderByWithOffset(self):
         offset = 4
@@ -950,12 +950,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         {'fld_str': '{"name": u' +
                          str(num_get - idx - 1).zfill(2) + '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test order by secondary index field with offset
@@ -979,12 +979,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         {'fld_str': '{"name": u' + str(offset + idx).zfill(2) +
                          '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
     def testQueryFuncGeoNear(self):
         num_get = 6
@@ -1006,7 +1006,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.assertLess(abs(pre[0] - longitude), abs(curr[0] - longitude))
             self.assertLess(abs(pre[1] - latitude), abs(curr[1] - latitude))
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, prepare_cost, prepare_cost, 0, 0, True)
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
         # test geo_near function order by primary index field
         statement = (
@@ -1028,12 +1028,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[i],
                         {'fld_str': '{"name": u' + str(name[i]).zfill(2) + '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
         self.assertEqual(count, 2)
 
         # test geo_near function order by secondary index field
@@ -1054,12 +1054,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         records[i],
                         {'fld_str': '{"name": u' + str(name[i]).zfill(2) + '}'})
                 self.assertIsNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0)
+                self.check_cost(result, 0, 0, 0, 0)
                 break
             else:
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
-                check_cost(self, result, 0, 0, 0, 0, True)
+                self.check_cost(result, 0, 0, 0, 0, True)
 
 
 if __name__ == '__main__':

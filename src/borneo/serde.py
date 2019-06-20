@@ -7,6 +7,7 @@
 # appropriate download for a copy of the license and additional information.
 #
 
+from abc import ABCMeta, abstractmethod
 from datetime import datetime, timedelta
 from decimal import (
     Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
@@ -31,7 +32,7 @@ from .operations import WriteMultipleRequest
 from .query import PlanIter, QueryDriver, TopologyInfo
 
 
-class BinaryProtocol:
+class BinaryProtocol(object):
     """
     A base class for binary protocol serialization and constant protocol values.
     Constants are used instead of relying on ordering of values in enumerations
@@ -829,7 +830,28 @@ class BinaryProtocol:
                 'Unknown value type ' + str(type(value)))
 
 
-class DeleteRequestSerializer:
+class RequestSerializer(object):
+    """
+    Base class of different kinds of RequestSerializer.
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def serialize(self, request, bos, serial_version):
+        """
+        Method used to serialize the request.
+        """
+        pass
+
+    @abstractmethod
+    def deserialize(self, request, bis, serial_version):
+        """
+        Method used to deserialize the request.
+        """
+        pass
+
+
+class DeleteRequestSerializer(RequestSerializer):
     """
     The flag indicates if the serializer is used for a standalone request or a
     sub operation of WriteMultiple request.
@@ -863,7 +885,7 @@ class DeleteRequestSerializer:
         return result
 
 
-class GetIndexesRequestSerializer:
+class GetIndexesRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -899,7 +921,7 @@ class GetIndexesRequestSerializer:
         return IndexInfo(index_name, field_names)
 
 
-class GetRequestSerializer:
+class GetRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -919,7 +941,7 @@ class GetRequestSerializer:
         return result
 
 
-class GetTableRequestSerializer:
+class GetTableRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -935,7 +957,7 @@ class GetTableRequestSerializer:
         return result
 
 
-class ListTablesRequestSerializer:
+class ListTablesRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -958,7 +980,7 @@ class ListTablesRequestSerializer:
         return result
 
 
-class MultiDeleteRequestSerializer:
+class MultiDeleteRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -979,7 +1001,7 @@ class MultiDeleteRequestSerializer:
         return result
 
 
-class PrepareRequestSerializer:
+class PrepareRequestSerializer(RequestSerializer):
     # Prepare a query.
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
@@ -1028,7 +1050,7 @@ class PrepareRequestSerializer:
             num_iterators, num_registers, external_vars)
 
 
-class PutRequestSerializer:
+class PutRequestSerializer(RequestSerializer):
     """
     The flag indicates if the serializer is used for a standalone request or a
     sub operation of WriteMultiple request.
@@ -1086,7 +1108,7 @@ class PutRequestSerializer:
             raise IllegalStateException('Unknown Options ' + str(request_op))
 
 
-class QueryRequestSerializer:
+class QueryRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -1173,7 +1195,7 @@ class QueryRequestSerializer:
         return result
 
 
-class TableRequestSerializer:
+class TableRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -1201,7 +1223,7 @@ class TableRequestSerializer:
         return result
 
 
-class TableUsageRequestSerializer:
+class TableUsageRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
         self.__cls_result = cls_result
 
@@ -1243,7 +1265,7 @@ class TableUsageRequestSerializer:
         return usage
 
 
-class WriteMultipleRequestSerializer:
+class WriteMultipleRequestSerializer(RequestSerializer):
     def __init__(self, cls_update_multiple_result=None,
                  cls_operation_result=None):
         self.__cls_update_multiple_result = cls_update_multiple_result

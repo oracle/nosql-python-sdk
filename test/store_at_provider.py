@@ -141,7 +141,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         httpd.server_close()
 
 
-class ByteInputStream:
+class ByteInputStream(object):
     """
     The ByteInputStream provides methods to get data with different type from
     a bytearray.
@@ -170,7 +170,7 @@ class ByteInputStream:
         return res
 
 
-class ByteOutputStream:
+class ByteOutputStream(object):
     """
     The ByteOutputStream provides methods to write data with different type into
     a bytearray.
@@ -196,7 +196,7 @@ class ByteOutputStream:
         self.write_bytearray(val_b)
 
 
-class TokenHandler(SimpleHTTPRequestHandler):
+class TokenHandler(SimpleHTTPRequestHandler, object):
     def do_GET(self):
         rawpath = self.path.split('?')[0]
         auth_string = self.headers['Authorization']
@@ -224,9 +224,9 @@ class TokenHandler(SimpleHTTPRequestHandler):
             buf = bytearray(token_text)
         bos.write_bytearray(buf)
         try:
-            hex_str = content.hex()
-        except AttributeError:
             hex_str = str(content).encode('hex')
+        except LookupError:
+            hex_str = content.hex()
         self.send_response(codes.ok)
         self.send_header('Content-Length', str(len(hex_str)))
         self.end_headers()

@@ -17,14 +17,13 @@ from borneo import (
     PutRequest, QueryRequest, State, TableLimits, TableNotFoundException,
     TableRequest, WriteMultipleRequest)
 from parameters import table_name, timeout
-from testutils import check_cost
 from test_base import TestBase
 
 
 class TestMultiDelete(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
@@ -35,14 +34,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request, State.ACTIVE)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.shardkeys = [0, 1]
         ids = [0, 1, 2, 3, 4, 5]
         write_multiple_request = WriteMultipleRequest()
@@ -76,7 +75,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         for sk in self.shardkeys:
             key = {'fld_sid': sk}
             self.handle.multi_delete(self.multi_delete_request.set_key(key))
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testMultiDeleteSetIllegalTableName(self):
         self.assertRaises(IllegalArgumentException,
@@ -174,15 +173,15 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         result = self.handle.query(self.query_request)
         self.assertEqual(len(result.get_results()), num_records)
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_records, num_records * 2, 0, 0,
-                   multi_shards=True)
+        self.check_cost(result, num_records, num_records * 2, 0, 0,
+                        multi_shards=True)
         # do multi_delete
         self.multi_delete_request.set_table_name(table_name).set_key(self.key)
         result = self.handle.multi_delete(self.multi_delete_request)
         self.assertIsNone(result.get_continuation_key())
         self.assertEqual(result.get_num_deletions(), num_deletion)
-        check_cost(self, result, num_deletion, num_deletion * 2,
-                   num_deletion, num_deletion)
+        self.check_cost(result, num_deletion, num_deletion * 2,
+                        num_deletion, num_deletion)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
         records = result.get_results()
@@ -190,8 +189,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         for idx in range(num_remaining):
             self.assertEqual(records[idx], {'fld_sid': 0, 'fld_id': idx})
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_remaining, num_remaining * 2, 0, 0,
-                   multi_shards=True)
+        self.check_cost(result, num_remaining, num_remaining * 2, 0, 0,
+                        multi_shards=True)
 
     def testMultiDeleteWithMaxWriteKb(self):
         # do multi_delete with max_write_kb=3
@@ -202,8 +201,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         result = self.handle.multi_delete(self.multi_delete_request)
         self.assertIsNotNone(result.get_continuation_key())
         self.assertEqual(result.get_num_deletions(), max_write_kb)
-        check_cost(self, result, max_write_kb, max_write_kb * 2,
-                   max_write_kb, max_write_kb)
+        self.check_cost(result, max_write_kb, max_write_kb * 2,
+                        max_write_kb, max_write_kb)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
         records = result.get_results()
@@ -218,8 +217,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                 self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
                 sk1_id += 1
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_remaining, num_remaining * 2, 0, 0,
-                   multi_shards=True)
+        self.check_cost(result, num_remaining, num_remaining * 2, 0, 0,
+                        multi_shards=True)
 
     def testMultiDeleteWithContinuationKey(self):
         num_records = 12
@@ -240,7 +239,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                 read_kb = (1 if deleted == 0 else deleted)
                 self.assertIsNone(result.get_continuation_key())
             self.assertEqual(result.get_num_deletions(), deleted)
-            check_cost(self, result, read_kb, read_kb * 2, deleted, deleted)
+            self.check_cost(result, read_kb, read_kb * 2, deleted, deleted)
             # check the records after multi_delete request
             query_result = self.handle.query(self.query_request)
             records = query_result.get_results()
@@ -256,8 +255,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                     self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
                     sk1_id += 1
             self.assertIsNone(query_result.get_continuation_key())
-            check_cost(self, query_result, num_remaining, num_remaining * 2, 0,
-                       0, multi_shards=True)
+            self.check_cost(query_result, num_remaining, num_remaining * 2, 0,
+                            0, multi_shards=True)
             count += 1
             if result.get_continuation_key() is None:
                 break
@@ -275,8 +274,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         result = self.handle.multi_delete(self.multi_delete_request)
         self.assertIsNone(result.get_continuation_key())
         self.assertEqual(result.get_num_deletions(), num_deletion)
-        check_cost(self, result, num_deletion, num_deletion * 2,
-                   num_deletion, num_deletion)
+        self.check_cost(result, num_deletion, num_deletion * 2,
+                        num_deletion, num_deletion)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
         records = result.get_results()
@@ -291,8 +290,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                 self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
                 sk1_id += 5
         self.assertIsNone(result.get_continuation_key())
-        check_cost(self, result, num_remaining, num_remaining * 2, 0, 0,
-                   multi_shards=True)
+        self.check_cost(result, num_remaining, num_remaining * 2, 0, 0,
+                        multi_shards=True)
 
 
 if __name__ == '__main__':

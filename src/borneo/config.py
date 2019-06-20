@@ -182,7 +182,7 @@ class DefaultRetryHandler(RetryHandler):
         return msec // 1000
 
 
-class NoSQLHandleConfig:
+class NoSQLHandleConfig(object):
     """
     An instance of this class is required by :py:class:`NoSQLHandle`.
 

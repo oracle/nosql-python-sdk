@@ -15,6 +15,7 @@ from os import path, sep
 from requests import Session, codes
 from threading import Lock, Timer
 from time import time
+from traceback import format_exc
 try:
     from urlparse import urlparse
     from urllib import quote
@@ -31,7 +32,7 @@ from borneo.http import RequestUtils
 from borneo.operations import ListTablesRequest, Request, TableRequest
 
 
-class Utils:
+class Utils(object):
     # PSM scope
     PSM_SCOPE = 'urn:opc:resource:consumer::all'
     # IDCS Apps endpoint used to find App info
@@ -453,8 +454,10 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             # Schedule login token renew thread.
             self.__schedule_refresh()
         except InvalidAuthorizationException as iae:
+            print(format_exc())
             raise iae
         except Exception as e:
+            print(format_exc())
             raise NoSQLException('Bootstrap login fail.', e)
 
     def close(self):
@@ -534,10 +537,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         return self.__auto_renew
 
     def set_logger(self, logger):
-        # Allow post init steps to set a logger for provider.
         CheckValue.check_logger(logger, 'logger')
-        if self.__logger is not None:
-            return self
         self.__logger = logger
         self.__logutils = LogUtils(logger)
         self.__request_utils = RequestUtils(self.__sess, self.__logutils)
@@ -703,9 +703,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         # Constructs a default access token provider.
         if idcs_url is None:
             CheckValue.check_str(idcs_props_file, 'idcs_props_file')
-            super(DefaultAccessTokenProvider, self).__init__(
-                DefaultAccessTokenProvider.MAX_ENTRY_LIFE_TIME,
-                DefaultAccessTokenProvider.DEFAULT_REFRESH_AHEAD)
+            super(DefaultAccessTokenProvider, self).__init__()
             self.__idcs_url = self.__get_idcs_url(idcs_props_file)
             entitlement = self.__get_entitlement_id(idcs_props_file)
             self.__creds_provider = (
@@ -754,10 +752,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         return self
 
     def set_logger(self, logger):
-        # Allow post init steps to set a logger for provider.
         CheckValue.check_logger(logger, 'logger')
-        if self.__logger is not None:
-            return self
         self.__logger = logger
         self.__logutils = LogUtils(logger)
         self.__request_utils = RequestUtils(self.__sess, self.__logutils)
@@ -1015,14 +1010,14 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         self.__logutils.log_debug('Acquired access token ' + access_token)
         return access_token
 
-    class PSMAppInfo:
+    class PSMAppInfo(object):
         def __init__(self, client_id, client_secret, audience):
             self.client_id = client_id
             self.client_secret = client_secret
             self.audience = audience
 
 
-class IDCSCredentials:
+class IDCSCredentials(object):
     """
     A credentials object that bundles a string alias and char array secret used
     to authenticate with IDCS for token acquisition.

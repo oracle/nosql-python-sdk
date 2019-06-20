@@ -19,8 +19,7 @@ from test_base import TestBase
 class TestGetIndexes(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
-        cls._drop_requests = list()
+        cls.set_up_class()
         global table_names, index_names, num_indexes, index_fields
         table_names = list()
         num_tables = 2
@@ -43,7 +42,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
             limits = TableLimits(5000, 5000, 50)
             create_request = TableRequest().set_statement(
                 create_statement).set_table_limits(limits)
-            cls._result = TestBase.table_request(create_request, State.ACTIVE)
+            cls.table_request(create_request, State.ACTIVE)
 
             index_names.append(list())
             for index in range(table + num_indexes):
@@ -54,19 +53,18 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                     '(' + ','.join(index_fields[index]) + ')')
                 create_index_request = TableRequest().set_statement(
                     create_index_statement)
-                cls._result = TestBase.table_request(create_index_request,
-                                                     State.ACTIVE)
+                cls.table_request(create_index_request, State.ACTIVE)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.get_indexes_request = GetIndexesRequest().set_timeout(timeout)
 
     def tearDown(self):
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testGetIndexesSetIllegalTableName(self):
         self.assertRaises(IllegalArgumentException,

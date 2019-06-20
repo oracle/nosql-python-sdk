@@ -31,7 +31,7 @@ def synchronized(func):
     return wrapper
 
 
-class ByteInputStream:
+class ByteInputStream(object):
     """
     The ByteInputStream provides methods to get data with different type from
     a bytearray.
@@ -82,7 +82,7 @@ class ByteInputStream:
         return res
 
 
-class ByteOutputStream:
+class ByteOutputStream(object):
     """
     The ByteOutputStream provides methods to write data with different type into
     a bytearray.
@@ -131,7 +131,7 @@ class ByteOutputStream:
         self.write_bytearray(val_b)
 
 
-class CheckValue:
+class CheckValue(object):
     @staticmethod
     def check_boolean(data, name):
         if data is not True and data is not False:
@@ -197,7 +197,7 @@ class CheckValue:
         return False
 
 
-class Consistency:
+class Consistency(object):
     """
     Set the consistency for read requests.
     """
@@ -212,7 +212,7 @@ class Consistency:
     """
 
 
-class FieldRange:
+class FieldRange(object):
     """
     FieldRange defines a range of values to be used in a
     :py:meth:`NoSQLHandle.multi_delete` operation, as specified in
@@ -358,7 +358,7 @@ class FieldRange:
                 str(start_type) + ', end type is ' + str(end_type))
 
 
-class HttpConstants:
+class HttpConstants(object):
     # The current version of the protocol
     NOSQL_VERSION = 'V0'
 
@@ -369,21 +369,20 @@ class HttpConstants:
     DATA_PATH_NAME = 'data'
 
     # Creates a URI path from the arguments
-    @staticmethod
-    def make_path(*args):
+    def __make_path(*args):
         path = args[0]
         for index in range(1, len(args)):
             path += '/' + args[index]
         return path
 
     # The service name of the nosql prefix
-    NOSQL_PREFIX = make_path.__func__(NOSQL_VERSION, NOSQL_PATH_NAME)
+    NOSQL_PREFIX = __make_path(NOSQL_VERSION, NOSQL_PATH_NAME)
 
     # The path denoting a NoSQL request
-    NOSQL_DATA_PATH = make_path.__func__(NOSQL_PREFIX, DATA_PATH_NAME)
+    NOSQL_DATA_PATH = __make_path(NOSQL_PREFIX, DATA_PATH_NAME)
 
 
-class IndexInfo:
+class IndexInfo(object):
     """
     IndexInfo represents the information about a single index including its name
     and field names. Instances of this class are returned in
@@ -417,7 +416,7 @@ class IndexInfo:
         return self.__field_names
 
 
-class LogUtils:
+class LogUtils(object):
     # Utility methods to facilitate Logging.
     def __init__(self, logger=None):
         self.__logger = logger
@@ -451,7 +450,7 @@ class LogUtils:
         return self.__logger is not None and self.__logger.isEnabledFor(level)
 
 
-class Memoize:
+class Memoize(object):
     # A cache that used for saving the access token.
     def __init__(self, duration=60):
         self.__cache = {}
@@ -469,7 +468,7 @@ class Memoize:
         return time() - entry['time'] > self.__duration
 
 
-class PackedInteger:
+class PackedInteger(object):
     # The maximum number of bytes needed to store an int value (5).
     MAX_LENGTH = 5
 
@@ -896,7 +895,7 @@ class PackedInteger:
             return value
 
 
-class PreparedStatement:
+class PreparedStatement(object):
     """
     A class encapsulating a prepared query statement. It includes state that can
     be sent to a server and executed without re-parsing the query. It includes
@@ -1076,7 +1075,7 @@ class PreparedStatement:
                 self.__topology_info.get_seq_num())
 
 
-class PutOption:
+class PutOption(object):
     """
     Set the put option for put requests.
     """
@@ -1148,6 +1147,12 @@ class SizeOf(object):
         return (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
                 SizeOf.byte_array_size(2 * len(s)))
 
+    def __byte_array_size(*args):
+        size = args[1]
+        if args[0] > args[2]:
+            size += (args[0] - args[2] + 7) / 8 * 8
+        return size
+
     if architecture()[0] == '64bit':
         ARRAY_OVERHEAD = ARRAY_OVERHEAD_64
         ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_64
@@ -1157,8 +1162,8 @@ class SizeOf(object):
         HASHSET_OVERHEAD = HASHSET_OVERHEAD_64
         OBJECT_OVERHEAD = OBJECT_OVERHEAD_64
         OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_64
-        ARRAYLIST_OVERHEAD = (
-            64 - byte_array_size.__func__(0 * OBJECT_REF_OVERHEAD))
+        ARRAYLIST_OVERHEAD = (64 - __byte_array_size(
+            0 * OBJECT_REF_OVERHEAD, ARRAY_OVERHEAD, ARRAY_SIZE_INCLUDED))
     else:
         ARRAY_OVERHEAD = ARRAY_OVERHEAD_32
         ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_32
@@ -1168,11 +1173,11 @@ class SizeOf(object):
         HASHSET_OVERHEAD = HASHSET_OVERHEAD_32
         OBJECT_OVERHEAD = OBJECT_OVERHEAD_32
         OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_32
-        ARRAYLIST_OVERHEAD = (
-            40 - byte_array_size.__func__(0 * OBJECT_REF_OVERHEAD))
+        ARRAYLIST_OVERHEAD = (40 - __byte_array_size(
+            0 * OBJECT_REF_OVERHEAD, ARRAY_OVERHEAD, ARRAY_SIZE_INCLUDED))
 
 
-class State:
+class State(object):
     """
     Represents the table state, usually used when
     :py:meth:`TableResult.wait_for_state` is called.
@@ -1189,7 +1194,7 @@ class State:
     """Represents the table is updating."""
 
 
-class TableLimits:
+class TableLimits(object):
     """
     A TableLimits instance is used during table creation to specify the
     throughput and capacity to be consumed by the table. It is also used in an
@@ -1308,7 +1313,7 @@ class TableLimits:
                 'TableLimits values must be non-negative.')
 
 
-class TableUsage:
+class TableUsage(object):
     """
     TableUsage represents a single usage record, or slice, that includes
     information about read and write throughput consumed during that period as
@@ -1422,7 +1427,7 @@ class TableUsage:
         return self.__storage_throttle_count
 
 
-class TimeUnit:
+class TimeUnit(object):
     """
     The time unit to use.
     """
@@ -1432,7 +1437,7 @@ class TimeUnit:
     """Set TimeUnit.DAYS to use day as time unit"""
 
 
-class TimeToLive:
+class TimeToLive(object):
     """
     TimeToLive is a utility class that represents a period of time, similar to
     java.time.Duration in Java, but specialized to the needs of this driver.
@@ -1557,7 +1562,7 @@ class TimeToLive:
         return self.__timeunit == TimeUnit.HOURS
 
 
-class Version:
+class Version(object):
     """
     Version is an opaque class that represents the version of a row in the
     database. It is returned by successful :py:class:`GetRequest` and

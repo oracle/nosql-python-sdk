@@ -23,7 +23,8 @@ from test_base import TestBase
 class TestTableUsage(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.handle = None
+        cls.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
@@ -34,7 +35,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request, State.ACTIVE)
         # put and get some data, read_units = 100, write_units = 199
         row = {'fld_id': 1, 'fld_long': 2147483648,
                'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
@@ -50,8 +51,8 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         get_request = GetRequest().set_key(key).set_table_name(table_name)
         count = 0
         while count < 100:
-            cls._handle.put(put_request)
-            cls._handle.get(get_request)
+            cls.handle.put(put_request)
+            cls.handle.get(get_request)
             count += 1
             # sleep to allow records to accumulate over time, but not if
             # using Cloudsim.
@@ -64,14 +65,14 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.table_usage_request = TableUsageRequest().set_timeout(timeout)
 
     def tearDown(self):
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testTableUsageSetIllegalTableName(self):
         self.assertRaises(IllegalArgumentException,

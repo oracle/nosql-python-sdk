@@ -14,7 +14,6 @@ AuthorizationProvider
       ~AuthorizationProvider.get_authorization_string
       ~AuthorizationProvider.get_logger
       ~AuthorizationProvider.set_logger
-      ~AuthorizationProvider.validate_auth_string
 
    .. rubric:: Methods Documentation
 
@@ -22,4 +21,3 @@ AuthorizationProvider
    .. automethod:: get_authorization_string
    .. automethod:: get_logger
    .. automethod:: set_logger
-   .. automethod:: validate_auth_string

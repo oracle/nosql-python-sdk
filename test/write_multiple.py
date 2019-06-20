@@ -20,14 +20,13 @@ from borneo import (
     IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest, State,
     TableLimits, TableRequest, TimeToLive, WriteMultipleRequest)
 from parameters import table_name, timeout
-from testutils import check_cost
 from test_base import TestBase
 
 
 class TestWriteMultiple(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
@@ -38,14 +37,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request, State.ACTIVE)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.shardkeys = [0, 1]
         self.ids = [0, 1, 2, 3, 4, 5]
         self.rows = list()
@@ -123,7 +122,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             request = MultiDeleteRequest().set_table_name(
                 table_name).set_key(key)
             self.handle.multi_delete(request)
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testWriteMultipleAddIllegalRequestAndAbortIfUnsuccessful(self):
         self.assertRaises(IllegalArgumentException,
@@ -236,7 +235,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertIsNone(result.get_failed_operation_result())
         self.assertEqual(result.get_failed_operation_index(), -1)
         self.assertTrue(result.get_success())
-        check_cost(self, result, 5, 10, 7, 7)
+        self.check_cost(result, 5, 10, 7, 7)
         # check the records after write_multiple request succeed
         for sk in self.shardkeys:
             for i in self.ids:
@@ -270,7 +269,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         self.assertGreater(actual_expiration, 0)
                         self.assertLess(actual_expect_diff,
                                         self.hour_in_milliseconds)
-                check_cost(self, result, 1, 2, 0, 0)
+                self.check_cost(result, 1, 2, 0, 0)
 
     def testWriteMultipleAbortIfUnsuccessful(self):
         failed_idx = 1
@@ -296,7 +295,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                          self.rows[self.ops_sk][failed_idx])
         self.assertEqual(result.get_failed_operation_index(), failed_idx)
         self.assertFalse(result.get_success())
-        check_cost(self, result, 1, 2, 2, 2)
+        self.check_cost(result, 1, 2, 2, 2)
         # check the records after multi_delete request failed
         for sk in self.shardkeys:
             for i in self.ids:
@@ -310,7 +309,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                                       self.old_expect_expiration)
                 self.assertGreater(actual_expiration, 0)
                 self.assertLess(actual_expect_diff, self.day_in_milliseconds)
-                check_cost(self, result, 1, 2, 0, 0)
+                self.check_cost(result, 1, 2, 0, 0)
 
     def testWriteMultipleWithIdentityColumn(self):
         num_operations = 10
@@ -319,7 +318,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
 ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         create_request.set_table_limits(TableLimits(5000, 5000, 50))
-        TestBase.table_request(create_request, State.ACTIVE)
+        self.table_request(create_request, State.ACTIVE)
 
         # add ten operations
         row = {'sid': 1, 'name': 'myname'}
@@ -340,7 +339,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.assertIsNone(result.get_failed_operation_result())
         self.assertEqual(result.get_failed_operation_index(), -1)
         self.assertTrue(result.get_success())
-        check_cost(self, result, 0, 0, num_operations, num_operations)
+        self.check_cost(result, 0, 0, num_operations, num_operations)
         # check the records after write_multiple request succeed
         self.get_request.set_table_name(id_table)
         for idx in range(num_operations):
@@ -350,7 +349,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
                              {'sid': 1, 'id': idx + 1, 'name': 'myname'})
             self.assertIsNotNone(result.get_version())
             self.assertEqual(result.get_expiration_time(), 0)
-            check_cost(self, result, 1, 2, 0, 0)
+            self.check_cost(result, 1, 2, 0, 0)
 
 
 if __name__ == '__main__':

@@ -78,7 +78,7 @@ class PlanIterState(object):
             'Wrong state transition for iterator ' + str(self) +
             '. Current state: ' + self.state + ' New state: ' + state)
 
-    class StateEnum:
+    class StateEnum(object):
         OPEN = 0
         RUNNING = 1
         DONE = 2
@@ -418,7 +418,7 @@ class PlanIter(object):
     def reset(self, rcb):
         pass
 
-    class PlanIterKind:
+    class PlanIterKind(object):
         """
         Enumeration of the different kinds of iterators (there is one PlanIter
         subclass for each kind).
@@ -1413,7 +1413,7 @@ class ReceiveIter(PlanIter):
             super(ReceiveIter.ReceiveIterState, self).done()
             self.clear()
 
-    class RemoteScanner:
+    class RemoteScanner(object):
         """
         For all-shard, ordering queries, there is one RemoteScanner per shard.
         In this case, each RemoteScanner will fetch results only from the shard
@@ -2058,7 +2058,7 @@ class VarRefIter(PlanIter):
         state.reset()
 
 
-class Compare:
+class Compare(object):
 
     @staticmethod
     def compare_atomics(rcb, v0, v1, res):
@@ -2126,7 +2126,7 @@ class Compare:
                 return comp
         return 0
 
-    class CompResult:
+    class CompResult(object):
         def __init__(self):
             self.comp = 0
             self.incompatible = False
@@ -2139,7 +2139,7 @@ class Compare:
             self.incompatible = False
 
 
-class QueryDriver:
+class QueryDriver(object):
     QUERY_V2 = 2
     QUERY_VERSION = QUERY_V2
     BATCH_SIZE = 100
@@ -2268,7 +2268,7 @@ class QueryDriver:
         self.__rcb.reset_kb_consumption()
 
 
-class QueryFormatter:
+class QueryFormatter(object):
     """
     A simple class to hold query expression and plan formatting information,
     such as indent level. A new instance of this class is passed to display()
@@ -2304,7 +2304,7 @@ class QueryFormatter:
         self.__indent = indent
 
 
-class RuntimeControlBlock:
+class RuntimeControlBlock(object):
     """
     Stores all state of an executing query plan. There is a single RCB instance
     per query execution, and all iterators have access to that instance during
@@ -2421,7 +2421,7 @@ class RuntimeControlBlock:
         print('D-QUERY: ' + msg)
 
 
-class SortSpec:
+class SortSpec(object):
     """
     The order-by clause, for each sort expression allows for an optional
     'sort spec', which specifies the relative order of NULLs (less than or
@@ -2436,7 +2436,7 @@ class SortSpec:
         self.nones_first = bis.read_boolean()
 
 
-class TopologyInfo:
+class TopologyInfo(object):
     def __init__(self, seq_num, shard_ids):
         self.__seq_num = seq_num
         self.__shard_ids = shard_ids

@@ -29,7 +29,7 @@ except (ImportError, ValueError):
     from idcs import AccessTokenProvider, PropertiesCredentialsProvider, Utils
 
 
-class OAuthClient:
+class OAuthClient(object):
     """
     Utility to create a custom OAuth client.
 
@@ -516,12 +516,12 @@ class OAuthClient:
             ' or the token file is generated with incorrect scopes,' +
             ' requires Identity Domain Administrator')
 
-    class ANDC:
+    class ANDC(object):
         def __init__(self, app_id, audience):
             self.app_id = app_id
             self.audience = audience
 
-    class Client:
+    class Client(object):
         def __init__(self, app_id, oauth_id, secret):
             self.app_id = app_id
             self.oauth_id = oauth_id

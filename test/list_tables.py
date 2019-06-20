@@ -14,18 +14,20 @@ from borneo import (
     IllegalArgumentException, ListTablesRequest, State, TableLimits,
     TableRequest)
 from parameters import (
-    is_pod, not_cloudsim, table_name, tenant_id, timeout, wait_timeout)
+    is_pod, not_cloudsim, table_name, table_prefix, tenant_id, timeout,
+    wait_timeout)
 from testutils import (
     add_tenant, add_tier, delete_tenant, delete_tier, get_handle,
     make_table_name)
 
 
 class TestListTables(unittest.TestCase):
+    handles = None
+
     @classmethod
     def setUpClass(cls):
         add_tier()
-        cls._handles = list()
-        cls._drop_requests = list()
+        cls.handles = list()
         global table_names
         table_names = list()
         num_tables = 3
@@ -33,56 +35,53 @@ class TestListTables(unittest.TestCase):
         # In pod env create 1 handle, otherwise create 2 handles for additional
         # testing
         #
-        cls._num_handles = 1 if is_pod() else 2
-        for handle in range(cls._num_handles):
+        num_handles = 1 if is_pod() else 2
+        for handle in range(num_handles):
             add_tenant(tenant_id + str(handle))
             table_names.append(list())
-            cls._drop_requests.append(list())
-            cls._handles.append(get_handle(tenant_id + str(handle)))
+            cls.handles.append(get_handle(tenant_id + str(handle)))
             for table in range(handle + num_tables):
-                table_names[handle].append(table_name + str(table))
-            for table in range(handle + num_tables):
+                tb_name = table_name + str(table)
+                table_names[handle].append(tb_name)
                 #
                 # Add a sleep for a pod to let things happen
                 #
                 if is_pod():
                     sleep(60)
-                drop_statement = ('DROP TABLE IF EXISTS ' +
-                                  table_names[handle][table])
-                drop_request = TableRequest().set_statement(drop_statement)
-                cls._drop_requests[handle].append(drop_request)
-                cls._result = cls._handles[handle].table_request(drop_request)
-                cls._result.wait_for_state(
-                    cls._handles[handle], table_names[handle][table],
-                    State.DROPPED, wait_timeout, 1000)
+                drop_request = TableRequest().set_statement(
+                    'DROP TABLE IF EXISTS ' + tb_name)
+                result = cls.handles[handle].table_request(drop_request)
+                result.wait_for_state(cls.handles[handle], tb_name,
+                                      State.DROPPED, wait_timeout, 1000)
                 create_statement = (
-                    'CREATE TABLE ' + table_names[handle][table] + '(\
-fld_id INTEGER, fld_long LONG, fld_float FLOAT, fld_double DOUBLE, \
-fld_bool BOOLEAN, fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(2), \
-fld_num NUMBER, fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
+                    'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
+fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
+fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(2), fld_num NUMBER, \
+fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 limits = TableLimits(5000, 5000, 50)
                 create_request = TableRequest().set_statement(
                     create_statement).set_table_limits(limits)
-                cls._result = cls._handles[handle].table_request(
-                    create_request)
-                cls._result.wait_for_state(
-                    cls._handles[handle], table_names[handle][table],
-                    State.ACTIVE, wait_timeout, 1000)
+                result = cls.handles[handle].table_request(create_request)
+                result.wait_for_state(cls.handles[handle], tb_name,
+                                      State.ACTIVE, wait_timeout, 1000)
 
     @classmethod
     def tearDownClass(cls):
-        for handle in range(cls._num_handles):
+        for handle in cls.handles:
             try:
-                for table in range(len(table_names[handle])):
-                    cls._result = cls._handles[handle].table_request(
-                        cls._drop_requests[handle][table])
-                    cls._result.wait_for_state(
-                        cls._handles[handle], table_names[handle][table],
-                        State.DROPPED, wait_timeout, 1000)
+                ltr = ListTablesRequest()
+                result = handle.list_tables(ltr)
+                for table in result.get_tables():
+                    if table.startswith(table_prefix):
+                        drop_request = TableRequest().set_statement(
+                            'DROP TABLE IF EXISTS ' + table)
+                        result = handle.table_request(drop_request)
+                        result.wait_for_state(handle, table, State.DROPPED,
+                                              wait_timeout, 1000)
             finally:
-                cls._handles[handle].close()
+                handle.close()
                 delete_tenant(tenant_id + str(handle))
         delete_tier()
 

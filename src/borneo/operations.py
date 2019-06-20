@@ -2494,7 +2494,7 @@ class WriteMultipleRequest(Request):
         return serde.WriteMultipleRequestSerializer(
             WriteMultipleResult, WriteMultipleResult.OperationResult)
 
-    class OperationRequest:
+    class OperationRequest(object):
         # A wrapper of WriteRequest that contains an additional flag
         # abort_if_unsuccessful. Internal for now
         def __init__(self, request, abort_if_unsuccessful):

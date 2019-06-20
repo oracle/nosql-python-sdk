@@ -21,14 +21,14 @@ from test_base import TestBase
 class TestTableRequest(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.handle_config = get_handle_config(tenant_id)
         index_name = 'idx_' + table_name
         self.create_tb_statement = (
@@ -62,7 +62,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         except TableNotFoundException:
             pass
         finally:
-            TestBase.tear_down(self)
+            self.tear_down()
 
     def testTableRequestSetIllegalStatement(self):
         self.table_request.set_statement('IllegalStatement')

@@ -22,7 +22,7 @@ from .serde import BinaryProtocol
 from .version import __version__
 
 
-class Client:
+class Client(object):
     TRACE_LEVEL = 0
 
     # The HTTP driver client.
