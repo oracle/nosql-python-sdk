@@ -178,8 +178,8 @@ class RequestUtils:
                     # wrap the payload to make it compatible with pyOpenSSL,
                     # there maybe small cost to wrap it.
                     response = self.__sess.request(
-                        method, uri, headers=headers,
-                        data=memoryview(payload), timeout=timeout_s)
+                        method, uri, headers=headers, data=memoryview(payload),
+                        timeout=timeout_s)
                 if self.__logutils.is_enabled_for(DEBUG):
                     self.__logutils.log_trace(
                         'Response: ' + self.__request.__class__.__name__ +

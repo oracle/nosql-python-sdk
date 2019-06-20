@@ -88,6 +88,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                           self.token_provider.get_authorization_string,
                           'IllegalRequest')
 
+    def testAccessTokenProviderGets(self):
+        self.token_provider = StoreAccessTokenProvider(
+            USER_NAME, PASSWORD, self.base).set_auto_renew(False)
+        self.assertTrue(self.token_provider.is_secure())
+        self.assertFalse(self.token_provider.is_auto_renew())
+        self.assertIsNone(self.token_provider.get_logger())
+
     def testAccessTokenProviderGetAuthorizationString(self):
         httpd, port = self.__find_port_start_server(TokenHandler)
 
@@ -204,7 +211,7 @@ class TokenHandler(SimpleHTTPRequestHandler):
             self.send_response(codes.ok)
 
     def log_request(self, code='-', size='-'):
-        return
+        pass
 
     def __generate_login_token(self, token_text):
         content = bytearray()

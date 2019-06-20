@@ -178,6 +178,13 @@ class BinaryProtocol:
         result.set_write_kb(BinaryProtocol.read_packed_int(bis))
 
     @staticmethod
+    def deserialize_generated_value(bis, result):
+        has_generated_value = bis.read_boolean()
+        if not has_generated_value:
+            return
+        result.set_generated_value(BinaryProtocol.read_field_value(bis))
+
+    @staticmethod
     def deserialize_table_result(bis, result):
         has_info = bis.read_boolean()
         if has_info:
@@ -1057,10 +1064,8 @@ class PutRequestSerializer:
             result.set_version(BinaryProtocol.read_version(bis))
         # return row info.
         BinaryProtocol.deserialize_write_response(bis, result)
-        # was an identity column value generated?
-        has_generated_value = bis.read_boolean()
-        if has_generated_value:
-            result.set_generated_value(BinaryProtocol.read_field_value(bis))
+        # generated identity column value
+        BinaryProtocol.deserialize_generated_value(bis, result)
         return result
 
     def __get_op_code(self, request):
@@ -1092,7 +1097,7 @@ class QueryRequestSerializer:
         bos.write_byte(request.get_consistency())
         BinaryProtocol.write_packed_int(bos, request.get_limit())
         BinaryProtocol.write_packed_int(bos, request.get_max_read_kb())
-        BinaryProtocol.write_bytearray(bos, request.get_continuation_key())
+        BinaryProtocol.write_bytearray(bos, request.get_cont_key())
         bos.write_boolean(request.is_prepared())
         # The following 7 fields were added in V2.
         bos.write_short_int(QueryDriver.QUERY_VERSION)
@@ -1141,6 +1146,7 @@ class QueryRequestSerializer:
                 result.set_partition_cont_keys(cont_keys)
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         result.set_continuation_key(BinaryProtocol.read_bytearray(bis))
+        request.set_cont_key(result.get_continuation_key())
         # In V2, if the QueryRequest was not initially prepared, the prepared
         # statement created at the proxy is returned back along with the query
         # results, so that the preparation does not need to be done during each
@@ -1286,8 +1292,6 @@ class WriteMultipleRequestSerializer:
         if bis.read_boolean():
             op_result.set_version(BinaryProtocol.read_version(bis))
         BinaryProtocol.deserialize_write_response(bis, op_result)
-        # was an identity column value generated?
-        has_generated_value = bis.read_boolean()
-        if has_generated_value:
-            op_result.set_generated_value(BinaryProtocol.read_field_value(bis))
+        # generated identity column value
+        BinaryProtocol.deserialize_generated_value(bis, op_result)
         return op_result

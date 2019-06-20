@@ -1135,8 +1135,11 @@ class ReceiveIter(PlanIter):
         bin_prim_key = self.__create_binary_primkey(res)
         if bin_prim_key in state.prim_keys_set:
             if rcb.get_trace_level() >= 1:
-                rcb.trace('ReceiveIter.__simple_next() : result was duplicate')
+                rcb.trace(
+                    'ReceiveIter.__check_duplicate() : result was duplicate')
             return True
+        else:
+            state.prim_keys_set.append(bin_prim_key)
         sz = self.sizeof(bin_prim_key) + SizeOf.HASHSET_ENTRY_OVERHEAD
         state.memory_consumption += sz
         state.dup_elim_memory += sz
@@ -1193,7 +1196,7 @@ class ReceiveIter(PlanIter):
             # partition whose id is specified in continuation_key and from any
             # other partition that is co-located with that partition.
             req = rcb.get_request().copy_internal()
-            req.set_continuation_key(state.continuation_key)
+            req.set_cont_key(state.continuation_key)
             if rcb.get_trace_level() >= 1:
                 rcb.trace('ReceiveIter : executing remote request for ' +
                           'sorting phase 1.')
@@ -1269,8 +1272,6 @@ class ReceiveIter(PlanIter):
             try:
                 scanner = state.sorted_scanners.pop(0)
             except IndexError:
-                scanner = None
-            if scanner is None:
                 state.done()
                 return False
             res = scanner.next_local()
@@ -1468,7 +1469,7 @@ class ReceiveIter(PlanIter):
 
         def fetch(self):
             req = self.rcb.get_request().copy_internal()
-            req.set_continuation_key(self.continuation_key)
+            req.set_cont_key(self.continuation_key)
             req.set_shard_id(
                 self.shard_or_part_id if self.is_for_shard else -1)
             if self.__out.does_sort() and not self.is_for_shard:
@@ -2152,6 +2153,8 @@ class QueryDriver:
         self.__topology_info = None
         self.__prep_cost = 0
         self.__rcb = None
+        # The max number of results the app will receive per NoSQLHandle.query()
+        # invocation
         self.__batch_size = (request.get_limit() if request.get_limit() > 0 else
                              QueryDriver.BATCH_SIZE)
         self.__results = None
@@ -2229,7 +2232,7 @@ class QueryDriver:
         else:
             self.__continuation_key = QueryDriver.DUMMY_CONT_KEY
         self.__set_query_result(result)
-        self.__request.set_continuation_key(self.__continuation_key)
+        self.__request.set_cont_key(self.__continuation_key)
 
     def get_client(self):
         return self.__client

@@ -11,15 +11,17 @@ StoreAccessTokenProvider
    .. autosummary::
 
       ~StoreAccessTokenProvider.close
-      ~StoreAccessTokenProvider.get_authorization_string
+      ~StoreAccessTokenProvider.get_logger
+      ~StoreAccessTokenProvider.is_auto_renew
+      ~StoreAccessTokenProvider.is_secure
       ~StoreAccessTokenProvider.set_auto_renew
       ~StoreAccessTokenProvider.set_logger
-      ~StoreAccessTokenProvider.validate_auth_string
 
    .. rubric:: Methods Documentation
 
    .. automethod:: close
-   .. automethod:: get_authorization_string
+   .. automethod:: get_logger
+   .. automethod:: is_auto_renew
+   .. automethod:: is_secure
    .. automethod:: set_auto_renew
    .. automethod:: set_logger
-   .. automethod:: validate_auth_string

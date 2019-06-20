@@ -146,6 +146,10 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                           self.token_provider.get_authorization_string,
                           'IllegalRequest')
 
+    def testAccessTokenProviderGets(self):
+        self.token_provider = DefaultAccessTokenProvider(idcs_url=self.base)
+        self.assertIsNone(self.token_provider.get_logger())
+
     def testAccessTokenProviderGetAuthorizationString(self):
         global GET_INFO, POST_INFO
         GET_INFO = CLIENT_INFO
@@ -224,12 +228,14 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         if version_info.major == 2:
             # get service access token
             self.assertRaisesRegexp(
-                IllegalStateException, 'Unable to find service scope,.*$',
+                IllegalStateException,
+                'Unable to find service scope from OAuth Client.*$',
                 self.token_provider.get_service_access_token)
         else:
             # get service access token
             self.assertRaisesRegex(
-                IllegalStateException, 'Unable to find service scope,.*$',
+                IllegalStateException,
+                'Unable to find service scope from OAuth Client.*$',
                 self.token_provider.get_service_access_token)
         # get account access toke
         self.assertEqual(
@@ -393,7 +399,7 @@ class TokenHandler(SimpleHTTPRequestHandler):
             self.wfile.write(res.encode())
 
     def log_request(self, code='-', size='-'):
-        return
+        pass
 
 
 if __name__ == '__main__':

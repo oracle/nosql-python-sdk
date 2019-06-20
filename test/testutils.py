@@ -24,7 +24,7 @@ from borneo.idcs import (
     PropertiesCredentialsProvider, StoreAccessTokenProvider)
 from parameters import (
     consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
-    is_minicloud, is_onprem, is_prod_pod, logger_level, password,
+    is_minicloud, is_onprem, is_pod, is_prod_pod, logger_level, password,
     pool_connections, pool_maxsize, table_prefix, table_request_timeout,
     timeout, user_name)
 
@@ -125,7 +125,7 @@ def get_simple_handle_config(tenant_id, ep=endpoint):
 def get_handle(tenant_id):
     # Returns a connection to the server
     config = get_handle_config(tenant_id)
-    if config.get_protocol() == 'https':
+    if is_pod():
         # sleep a while to avoid the OperationThrottlingException
         sleep(60)
     return NoSQLHandle(config)
@@ -150,11 +150,11 @@ def set_access_token_provider(config, tenant_id):
         if user_name is None and password is None:
             authorization_provider = StoreAccessTokenProvider()
         else:
-            login_url = (config.get_protocol() + '://' + config.get_host() +
-                         ':' + str(config.get_port()))
             if user_name is None or password is None:
                 raise IllegalArgumentException(
                     'Please set both the user_name and password.')
+            login_url = (config.get_protocol() + '://' + config.get_host() +
+                         ':' + str(config.get_port()))
             authorization_provider = StoreAccessTokenProvider(
                 user_name, password, login_url, logger=logger)
     else:

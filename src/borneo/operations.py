@@ -1359,7 +1359,7 @@ class PutRequest(WriteRequest):
         Gets the number of generated identity values that are requested from the
         server during a put if set in this request.
 
-        :return: the value.
+        :return: the identity cache size.
         :rtype: int
         """
         return self.__identity_cache_size
@@ -1482,24 +1482,33 @@ class QueryRequest(Request):
     also allow for parameterized queries using bind variables.
 
     To compute and retrieve the full result set of a query, the same
-    QueryRequest instance will typically have to be executed multiple times (via
-    :py:meth:`NoSQLHandle.query`. Each execution returns a
-    :py:class:`QueryResult`, which contains a subset of the result set and a
-    *continuation key*. (an opaque byte array that contains the information
-    needed to resume execution during the next iteration). If the continuation
-    key is None, there are no more results (the full result set has been
-    computed). Otherwise, the continuation key must be copied from the
-    QueryResult to the QueryRequest before the QueryRequest is executed again to
-    retrieve the next batch of results. Notice that a batch of results returned
-    by a QueryRequest execution may be empty. This is because during each
-    execution the query is allowed to read or write a maximum number of bytes.
-    If this maximum is reached, execution stops. This can happen before any
-    result was generated (for example, if none of the rows read satisfied the
-    query conditions).
+    QueryRequest instance will, in general, have to be executed multiple times
+    (via :py:meth:`NoSQLHandle.query`). Each execution returns a
+    :py:class:`QueryResult`, which contains a subset of the result set. The
+    following code snippet illustrates a typical query execution:
 
-    To reuse a QueryRequest instance to run the same query from the beginning
-    (or a different query), the application must first call
-    :py:meth:`set_continuation_key` passing None as input.
+    .. code-block:: pycon
+
+        handle = ...
+        request = QueryRequest().set_statement('SELECT * FROM foo')
+        while True:
+            result = handle.query(request)
+            results = result.get_results()
+            # do something with the results
+            if request.is_done():
+                break
+
+    Notice that a batch of results returned by a QueryRequest execution may be
+    empty. This is because during each execution the query is allowed to read or
+    write a maximum number of bytes. If this maximum is reached, execution
+    stops. This can happen before any result was generated (for example, if none
+    of the rows read satisfied the query conditions).
+
+    If an application wishes to terminate query execution before retrieving all
+    of the query results, it should call :py:meth:`close` in order to release
+    any local resources held by the query. This also allows the application to
+    reuse the QueryRequest instance to run the same query from the beginning or
+    a different query.
 
     QueryRequest instances are not thread-safe. That is, if two or more
     application threads need to run the same query concurrently, they must
@@ -1546,6 +1555,24 @@ class QueryRequest(Request):
         internal_req.driver = self.driver
         internal_req.is_internal = True
         return internal_req
+
+    def close(self):
+        """
+        Terminates the query execution and releases any memory consumed by the
+        query at the driver. An application should use this method if it wishes
+        to terminate query execution before retrieving all of the query results.
+        """
+        self.set_continuation_key(None)
+
+    def is_done(self):
+        """
+        Returns True if the query execution is finished, i.e., there are no more
+        query results to be generated. Otherwise False.
+
+        :return: Whether the query execution is finished or not.
+        :rtype: bool
+        """
+        return self.__continuation_key is None
 
     def set_trace_level(self, trace_level):
         CheckValue.check_int_ge_zero(trace_level, 'trace_level')
@@ -1757,7 +1784,6 @@ class QueryRequest(Request):
 
         :param continuation_key: the key which should have been obtained from
             :py:meth:`QueryResult.get_continuation_key`.
-        :type continuation_key: bytearray
         :return: self.
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
@@ -1766,12 +1792,7 @@ class QueryRequest(Request):
                 not isinstance(continuation_key, bytearray)):
             raise IllegalArgumentException(
                 'set_continuation_key requires bytearray as parameter.')
-        self.__continuation_key = continuation_key
-        if (self.driver is not None and not self.is_internal and
-                self.__continuation_key is None):
-            self.driver.close()
-            self.driver = None
-        return self
+        return self.set_cont_key(continuation_key)
 
     def get_continuation_key(self):
         """
@@ -1780,6 +1801,17 @@ class QueryRequest(Request):
         :return: the key.
         :rtype: bytearray
         """
+        return self.__continuation_key
+
+    def set_cont_key(self, continuation_key):
+        self.__continuation_key = continuation_key
+        if (self.driver is not None and not self.is_internal and
+                self.__continuation_key is None):
+            self.driver.close()
+            self.driver = None
+        return self
+
+    def get_cont_key(self):
         return self.__continuation_key
 
     def set_statement(self, statement):
@@ -2460,7 +2492,7 @@ class WriteMultipleRequest(Request):
 
     def create_deserializer(self):
         return serde.WriteMultipleRequestSerializer(
-            WriteMultipleResult, OperationResult)
+            WriteMultipleResult, WriteMultipleResult.OperationResult)
 
     class OperationRequest:
         # A wrapper of WriteRequest that contains an additional flag
@@ -3015,6 +3047,7 @@ class PutResult(WriteResult):
 
     def set_generated_value(self, value):
         self.__generated_value = value
+        return self
 
     def get_generated_value(self):
         """
@@ -3024,7 +3057,6 @@ class PutResult(WriteResult):
         column, it is not None.
 
         :return: the generated value.
-        :rtype: dict
         """
         return self.__generated_value
 
@@ -3129,9 +3161,9 @@ class QueryResult(Result):
         # The following 4 fields are used during phase 1 of a sorting
         # ALL_PARTITIONS query. In this case, self.__results may store results
         # from multiple partitions. If so, self.__results are grouped by
-        # partition and self.__pids, self.__num_results_per_pid and
-        # self.__continuation_keys store the partition id, the number of
-        # results, and the continuation key per partition. Finally,
+        # partition and self.__pids, self.__num_results_per_pid, and
+        # self.__continuation_keys fields store the partition id, the number
+        # of results, and the continuation key per partition. Finally, the
         # self.__is_in_phase1 specifies whether phase 1 is done.
         self.__is_in_phase1 = False
         self.__num_results_per_pid = None
@@ -3655,88 +3687,93 @@ class WriteMultipleResult(Result):
         """
         return super(WriteMultipleResult, self)._get_write_units_internal()
 
-
-class OperationResult(WriteResult):
-    """
-    A single Result associated with the execution of an individual operation in
-    a :py:meth:`NoSQLHandle.write_multiple` request. A list of OperationResult
-    is contained in :py:meth:`WriteMultipleResult` and obtained using
-    :py:meth:`WriteMultipleResult.get_results`.
-    """
-
-    def __init__(self):
-        super(OperationResult, self).__init__()
-        self.__version = None
-        self.__success = False
-        self.__generated_value = None
-
-    def __str__(self):
-        return ('Success: ' + str(self.__success) + ', version: ' +
-                str(self.__version) + ', existing version: ' +
-                str(self.get_existing_version()) + ', existing value: ' +
-                str(self.get_existing_value()))
-
-    def set_version(self, version):
-        self.__version = version
-        return self
-
-    def get_version(self):
+    class OperationResult(WriteResult):
         """
-        Returns the version of the new row for put operation, or None if put
-        operations did not succeed or the operation is delete operation.
-
-        :return: the version.
-        :rtype: Version
+        A single Result associated with the execution of an individual operation
+        in a :py:meth:`borneo.NoSQLHandle.write_multiple` request. A list of
+        OperationResult is contained in :py:class:`borneo.WriteMultipleResult`
+        and obtained using :py:meth:`borneo.WriteMultipleResult.get_results`.
         """
-        return self.__version
 
-    def set_success(self, success):
-        self.__success = success
-        return self
+        def __init__(self):
+            super(WriteMultipleResult.OperationResult, self).__init__()
+            self.__version = None
+            self.__success = False
+            self.__generated_value = None
 
-    def get_success(self):
-        """
-        Returns the flag indicates whether the operation succeeded. A put or
-        delete operation may be unsuccessful if the condition is not
-        matched.
+        def __str__(self):
+            return ('Success: ' + str(self.__success) + ', version: ' +
+                    str(self.__version) + ', existing version: ' +
+                    str(self.get_existing_version()) + ', existing value: ' +
+                    str(self.get_existing_value()) + ', generated value: ' +
+                    str(self.__generated_value))
 
-        :return: True if the operation succeeded.
-        :rtype: bool
-        """
-        return self.__success
+        def set_version(self, version):
+            self.__version = version
+            return self
 
-    def set_generated_value(self, value):
-        self.__generated_value = value
+        def get_version(self):
+            """
+            Returns the version of the new row for put operation, or None if put
+            operations did not succeed or the operation is delete operation.
 
-    def get_generated_value(self):
-        """
-        Returns the value generated if the operation created a new value for an
-        identity column. If the table has no identity columns this value is
-        None. If it has an identity column and a value was generated for that
-        column, it is not None.
+            :return: the version.
+            :rtype: Version
+            """
+            return self.__version
 
-        :return: the generated value.
-        :rtype: dict
-        """
-        return self.__generated_value
+        def set_success(self, success):
+            self.__success = success
+            return self
 
-    def get_existing_version(self):
-        """
-        Returns the existing row version associated with the key if
-        available.
+        def get_success(self):
+            """
+            Returns the flag indicates whether the operation succeeded. A put or
+            delete operation may be unsuccessful if the condition is not
+            matched.
 
-        :return: the existing row version associated with the key if
+            :return: True if the operation succeeded.
+            :rtype: bool
+            """
+            return self.__success
+
+        def set_generated_value(self, value):
+            self.__generated_value = value
+            return self
+
+        def get_generated_value(self):
+            """
+            Returns the value generated if the operation created a new value for
+            an identity column. If the table has no identity columns this value
+            is None. If it has an identity column and a value was generated for
+            that column, it is not None.
+
+            This value is only valid for a put operation on a table with an
+            identity column.
+
+            :return: the generated value.
+            """
+            return self.__generated_value
+
+        def get_existing_version(self):
+            """
+            Returns the existing row version associated with the key if
             available.
-        :rtype: Version
-        """
-        return super(OperationResult, self).get_existing_version_internal()
 
-    def get_existing_value(self):
-        """
-        Returns the previous row value associated with the key if available.
+            :return: the existing row version associated with the key if
+                available.
+            :rtype: Version
+            """
+            return super(WriteMultipleResult.OperationResult,
+                         self).get_existing_version_internal()
 
-        :return: the previous row value associated with the key if
-            available.
-        :rtype: dict
-        """
-        return super(OperationResult, self).get_existing_value_internal()
+        def get_existing_value(self):
+            """
+            Returns the previous row value associated with the key if available.
+
+            :return: the previous row value associated with the key if
+                available.
+            :rtype: dict
+            """
+            return super(WriteMultipleResult.OperationResult,
+                         self).get_existing_value_internal()

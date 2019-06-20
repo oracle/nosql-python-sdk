@@ -25,12 +25,10 @@ from .exception import (
 from .operations import (
     DeleteRequest, DeleteResult, GetIndexesRequest, GetIndexesResult,
     GetRequest, GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
-    MultiDeleteRequest, MultiDeleteResult, OperationResult,
-    PrepareRequest, PrepareResult,
+    MultiDeleteRequest, MultiDeleteResult, PrepareRequest, PrepareResult,
     PutRequest, PutResult, QueryRequest, QueryResult, Request, Result,
-    TableRequest, TableResult,
-    TableUsageRequest, TableUsageResult, WriteMultipleRequest,
-    WriteMultipleResult)
+    TableRequest, TableResult, TableUsageRequest, TableUsageResult,
+    WriteMultipleRequest, WriteMultipleResult)
 from .version import __version__
 
 __all__ = ['AuthenticationException',
@@ -60,7 +58,6 @@ __all__ = ['AuthenticationException',
            'NoSQLHandle',
            'NoSQLHandleConfig',
            'OperationThrottlingException',
-           'OperationResult',
            'PreparedStatement',
            'PrepareRequest',
            'PrepareResult',

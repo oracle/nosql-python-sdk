@@ -48,8 +48,7 @@ class AuthorizationProvider(object):
 
     def set_logger(self, logger):
         """
-        Sets a logger instance for this provider. If not set, the logger
-        associated with the driver is used.
+        Sets a logger instance for this provider if it is not already set.
 
         :param logger: the logger to use.
         :returns: self.
@@ -57,6 +56,14 @@ class AuthorizationProvider(object):
             an instance of Logger.
         """
         return self
+
+    def get_logger(self):
+        """
+        Returns the logger of this provider if set, None if not.
+
+        :returns: the logger.
+        """
+        pass
 
     def validate_auth_string(self, auth_string):
         """

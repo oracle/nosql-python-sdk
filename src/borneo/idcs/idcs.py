@@ -363,13 +363,21 @@ class AccessTokenProvider(AuthorizationProvider):
 
 class StoreAccessTokenProvider(AuthorizationProvider):
     """
-    StoreAccessTokenProvider has following functions:
+    StoreAccessTokenProvider is an :py:class:`AuthorizationProvider` that
+    performs the following functions:
 
-        Bootstrap login using credentials provided by user, store the login
-        token for later re-use.\n
-        Depends on store policy, renew to get a new login token during the life
-        time of the current login token\n
-        Logout the use when close.
+        Initial (bootstrap) login to store, using credentials provided.\n
+        Storage of bootstrap login token for re-use.\n
+        Optionally renews the login token before it expires.\n
+        Logs out of the store when closed.
+
+    :param user_name: the user name to use for the store.
+    :param password: the password for the user.
+    :param login_url: the url to use for the login operation.
+    :param security_base_url: the security base url.
+    :param logger: an optional Logger instance.
+    :raises IllegalArgumentException: raises the exception if parameters are not
+        expected type.
     """
     # Used when we send user:password pair.
     _BASIC_PREFIX = 'Basic '
@@ -395,6 +403,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
 
         if (user_name is None and password is None and login_url is None and
                 security_base_url is None and logger is None):
+            # Used for access to a store without security enabled.
             self.__is_secure = False
         else:
             if (user_name is None or password is None or login_url is None or
@@ -449,6 +458,9 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             raise NoSQLException('Bootstrap login fail.', e)
 
     def close(self):
+        """
+        Close the provider, releasing resources such as a stored login token.
+        """
         # Don't do anything for non-secure case.
         if not self.__is_secure or self.__is_closed:
             return
@@ -464,6 +476,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self.__logutils.log_info(
                 'Fail to logout user ' + self.__user_name + ' problem: ' +
                 str(e))
+
         # Clean up.
         self.__is_closed = True
         self.__auth_string = None
@@ -471,6 +484,8 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         if self.__timer is not None:
             self.__timer.cancel()
             self.__timer = None
+        if self.__sess is not None:
+            self.__sess.close()
 
     def get_authorization_string(self, request=None):
         if request is not None and not isinstance(request, Request):
@@ -485,11 +500,21 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self.bootstrap_login()
         return self.__auth_string
 
+    def is_secure(self):
+        """
+        Returns whether the provider is accessing a secured store.
+
+        :return: True if accessing a secure store, otherwise False.
+        :rtype: bool
+        """
+        return self.__is_secure
+
     def set_auto_renew(self, auto_renew):
         """
-        Set this True will enable the auto renew of login token.
+        Sets the auto-renew state. If True, automatic renewal of the login token
+        is enabled.
 
-        :param auto_renew: set to True enables the auto renew of login token.
+        :param auto_renew: set to True to enable auto-renew.
         :type auto_renew: bool
         :return: self.
         :raises IllegalArgumentException: raises the exception if auto_renew is
@@ -498,6 +523,15 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         CheckValue.check_boolean(auto_renew, 'auto_renew')
         self.__auto_renew = auto_renew
         return self
+
+    def is_auto_renew(self):
+        """
+        Returns whether the login token is to be automatically renewed.
+
+        :return: True if auto-renew is set, otherwise False.
+        :rtype: bool
+        """
+        return self.__auto_renew
 
     def set_logger(self, logger):
         # Allow post init steps to set a logger for provider.
@@ -508,6 +542,9 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         self.__logutils = LogUtils(logger)
         self.__request_utils = RequestUtils(self.__sess, self.__logutils)
         return self
+
+    def get_logger(self):
+        return self.__logger
 
     def validate_auth_string(self, auth_string):
         if self.__is_secure and auth_string is None:
@@ -587,15 +624,10 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     :py:class:`CredentialsProvider`. By default the
     :py:class:`CredentialsProvider` is used.
 
-    This class requires tenant-specific information in order to properly
-    communicate with IDCS using the credential information:
-
-        A tenant-specific URL used to communicate with IDCS.\n
-        An entitlement id. This is generated by Oracle during account creation.
-
-    The tenant-specific IDCS URL is the IDCS host assigned to the tenant. After
-    logging into the IDCS admin console, copy the host of the IDCS admin console
-    URL. For example, the format of the admin console URL is
+    This class requires tenant-specific URL in order to properly communicate
+    with IDCS. The tenant-specific IDCS URL is the IDCS host assigned to the
+    tenant. After logging into the IDCS admin console, copy the host of the IDCS
+    admin console URL. For example, the format of the admin console URL is
     "https\://{tenantId}.identity.oraclecloud.com/ui/v1/adminconsole". The
     "https\://{tenantId}.identity.oraclecloud.com" portion is the required
     parameter.
@@ -732,11 +764,6 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         return self
 
     def get_logger(self):
-        """
-        Returns the logger of this provider if set, None if not.
-
-        :returns: the logger.
-        """
         return self.__logger
 
     def get_account_access_token(self):
@@ -752,9 +779,8 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             self.__find_oauth_scopes()
         if self.__andc_fqs is None:
             raise IllegalStateException(
-                'Unable to find service scope, OAuth client isn\'t ' +
-                'configured properly, run OAuthClient utility to verify and ' +
-                'recreate.')
+                'Unable to find service scope from OAuth Client, retry with ' +
+                'service entitlement id.')
         return self.__get_at_by_password(self.__andc_fqs)
 
     def close(self):
@@ -778,9 +804,10 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             auth = 'Bearer ' + self.__get_access_token(
                 auth, DefaultAccessTokenProvider._CLIENT_GRANT_PAYLOAD,
                 DefaultAccessTokenProvider._IDCS_SCOPE)
-        except InvalidAuthorizationException:
-            self.__logutils.log_debug(
-                'Cannot get access token with IDCS scope using client grant.')
+        except InvalidAuthorizationException as iae:
+            self.__logutils.log_info(
+                str.format('Unable to find FQS from OAuth client {0}: {1}.',
+                           oauth_id, str(iae)))
             return
         response = self.__request_utils.do_get_request(
             self.__idcs_url + Utils.APP_ENDPOINT +
@@ -1154,13 +1181,3 @@ class PropertiesCredentialsProvider(CredentialsProvider):
     def __get_property_from_file(self, property_name):
         return PropertiesCredentialsProvider.get_property_from_file(
             self.__properties_file, property_name)
-
-    def __get_plain_user_credentials(self):
-        # Get user credentials without URL encoding.
-        user_name = self.__get_property_from_file(
-            PropertiesCredentialsProvider.USER_NAME_PROP)
-        password = self.__get_property_from_file(
-            PropertiesCredentialsProvider.PWD_PROP)
-        if user_name is None or password is None:
-            return None
-        return IDCSCredentials(user_name, password)

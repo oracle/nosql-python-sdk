@@ -168,9 +168,10 @@ class AuthenticationException(NoSQLException):
     This exception is thrown when use StoreAccessTokenProvider in following
     cases:
 
-        User doesn't provide authentication information in the request header.\n
-        User's authentication session is expired. By default the
-        StoreAccessTokenProvider will retry the authentication for user.
+        Authentication information was not provided in the request header.\n
+        The authentication session has expired. By default
+        :py:class:`idcs.StoreAccessTokenProvider` will automatically retry
+        authentication operation based on its authentication information.
     """
 
     def __init__(self, message, cause=None):
