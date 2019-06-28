@@ -8,15 +8,13 @@
 #
 
 import unittest
-from datetime import datetime
-from decimal import Decimal
-from struct import pack
 
 from borneo import (
     DeleteRequest, GetRequest, IllegalArgumentException, PutRequest, State,
     TableLimits, TableNotFoundException, TableRequest)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestDelete(unittest.TestCase, TestBase):
@@ -42,16 +40,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
 
     def setUp(self):
         self.set_up()
-        self.row = {'fld_id': 1, 'fld_long': 2147483648,
-                    'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                    'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
-                    'fld_bin': bytearray(pack('>i', 4)),
-                    'fld_time': datetime.now(), 'fld_num': Decimal(5),
-                    'fld_json': {'a': '1', 'b': None, 'c': '3'},
-                    'fld_arr': ['a', 'b', 'c'],
-                    'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                    'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                'fld_str': None}}
+        self.row = get_row(with_sid=False)
         self.key = {'fld_id': 1}
         self.put_request = PutRequest().set_value(self.row).set_table_name(
             table_name)
@@ -141,7 +130,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersion(self):
-        self.row.update({'fld_long': 2147483649})
+        self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row)
         version = self.handle.put(self.put_request).get_version()
         # delete failed because version not match
@@ -170,7 +159,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersionWithReturnRow(self):
-        self.row.update({'fld_long': 2147483649})
+        self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row)
         version = self.handle.put(self.put_request).get_version()
         # delete failed because version not match

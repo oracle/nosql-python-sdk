@@ -8,11 +8,9 @@
 #
 
 import unittest
+from collections import OrderedDict
 from copy import deepcopy
-from datetime import datetime
-from decimal import Decimal
 from parameters import table_prefix
-from struct import pack
 from time import time
 
 from borneo import (
@@ -21,6 +19,7 @@ from borneo import (
     TableLimits, TableRequest, TimeToLive, WriteMultipleRequest)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestWriteMultiple(unittest.TestCase, TestBase):
@@ -58,19 +57,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.new_rows.append(list())
             self.versions.append(list())
             for i in self.ids:
-                row = {'fld_sid': sk, 'fld_id': i, 'fld_long': 2147483648,
-                       'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                       'fld_bool': True,
-                       'fld_str': '{"name": u1, "phone": null}',
-                       'fld_bin': bytearray(pack('>i', 4)),
-                       'fld_time': datetime.now(), 'fld_num': Decimal(5),
-                       'fld_json': {'a': '1', 'b': None, 'c': '3'},
-                       'fld_arr': ['a', 'b', 'c'],
-                       'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                       'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                   'fld_str': None}}
+                row = get_row()
+                row['fld_sid'] = sk
+                row['fld_id'] = i
                 new_row = deepcopy(row)
-                new_row.update({'fld_long': 2147483649})
+                new_row['fld_long'] = 2147483649
                 self.rows[sk].append(row)
                 self.new_rows[sk].append(new_row)
                 put_request = PutRequest().set_value(row).set_table_name(
@@ -321,7 +312,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.table_request(create_request, State.ACTIVE)
 
         # add ten operations
-        row = {'sid': 1, 'name': 'myname'}
+        row = {'name': 'myname', 'sid': 1}
         for idx in range(num_operations):
             put_request = PutRequest().set_table_name(id_table).set_value(row)
             put_request.set_identity_cache_size(idx)
@@ -345,8 +336,11 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         for idx in range(num_operations):
             self.get_request.set_key({'sid': 1, 'id': idx + 1})
             result = self.handle.get(self.get_request)
-            self.assertEqual(result.get_value(),
-                             {'sid': 1, 'id': idx + 1, 'name': 'myname'})
+            expected = OrderedDict()
+            expected['sid'] = 1
+            expected['id'] = idx + 1
+            expected['name'] = 'myname'
+            self.assertEqual(result.get_value(), expected)
             self.assertIsNotNone(result.get_version())
             self.assertEqual(result.get_expiration_time(), 0)
             self.check_cost(result, 1, 2, 0, 0)

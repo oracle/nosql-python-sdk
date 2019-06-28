@@ -947,9 +947,9 @@ class PreparedStatement(object):
         # in a field value array stored in the RuntimeControlBlock and holding
         # the values of the variables. Applicable to advanced queries only.
         self.__variables = external_vars
-        # The values for the external variables of the query. This map is
+        # The values for the external variables of the query. This dict is
         # populated by the application. It is sent to the proxy every time a new
-        # batch of results is needed. The values in this map are also placed in
+        # batch of results is needed. The values in this dict are also placed in
         # the RuntimeControlBlock field value array, just before the query
         # starts its execution at the driver.
         self.__bound_variables = None

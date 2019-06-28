@@ -8,11 +8,15 @@
 #
 
 from base64 import urlsafe_b64encode
+from collections import OrderedDict
+from datetime import datetime
+from decimal import Decimal
 from json import dumps
 from logging import FileHandler, Logger
 from os import mkdir, path, remove, sep
 from requests import codes, delete, post
 from rsa import PrivateKey, sign
+from struct import pack
 from sys import argv
 from time import sleep
 
@@ -103,6 +107,41 @@ def get_handle(tenant_id):
         # sleep a while to avoid the OperationThrottlingException
         sleep(60)
     return NoSQLHandle(config)
+
+
+def get_row(with_sid=True):
+    row = OrderedDict()
+    if with_sid:
+        row['fld_sid'] = 1
+    row['fld_id'] = 1
+    row['fld_long'] = 2147483648
+    row['fld_float'] = 3.1414999961853027
+    row['fld_double'] = 3.1415
+    row['fld_bool'] = True
+    row['fld_str'] = '{"name": u1, "phone": null}'
+    row['fld_bin'] = bytearray(pack('>i', 4))
+    row['fld_time'] = datetime.now()
+    row['fld_num'] = Decimal(5)
+    location = OrderedDict()
+    location['type'] = 'point'
+    location['coordinates'] = [23.549, 35.2908]
+    fld_json = OrderedDict()
+    fld_json['json_1'] = 1
+    fld_json['json_2'] = None
+    fld_json['location'] = location
+    row['fld_json'] = fld_json
+    row['fld_arr'] = ['a', 'b', 'c']
+    fld_map = OrderedDict()
+    fld_map['a'] = '1'
+    fld_map['b'] = '2'
+    fld_map['c'] = '3'
+    row['fld_map'] = fld_map
+    fld_rec = OrderedDict()
+    fld_rec['fld_id'] = 1
+    fld_rec['fld_bool'] = False
+    fld_rec['fld_str'] = None
+    row['fld_rec'] = fld_rec
+    return row
 
 
 def set_access_token_provider(config, tenant_id):

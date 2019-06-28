@@ -186,12 +186,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                                             State.DROPPED, wait_timeout, 1000)
         self.assertEqual(wait_result.get_table_name(), table_name)
         self.assertEqual(wait_result.get_state(), State.DROPPED)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
+        self.assertIsNone(wait_result.get_table_limits())
         if not_cloudsim():
             self.assertIsNone(wait_result.get_schema())
         self.assertIsNone(wait_result.get_operation_id())

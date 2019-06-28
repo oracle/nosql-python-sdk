@@ -12,8 +12,7 @@ from unittest import TestCase
 
 from borneo import ListTablesRequest, QueryResult, State, TableRequest
 from parameters import is_onprem, is_pod, table_prefix, tenant_id, wait_timeout
-from testutils import (
-    add_test_tier_tenant, delete_test_tier_tenant, get_handle)
+from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
 
 
 class TestBase(object):

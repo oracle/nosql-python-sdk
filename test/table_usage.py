@@ -9,8 +9,6 @@
 
 import unittest
 from datetime import datetime, timedelta
-from decimal import Decimal
-from struct import pack
 from time import mktime, sleep, time
 
 from borneo import (
@@ -18,6 +16,7 @@ from borneo import (
     TableNotFoundException, TableRequest, TableUsageRequest)
 from parameters import not_cloudsim, table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestTableUsage(unittest.TestCase, TestBase):
@@ -37,15 +36,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             create_statement).set_table_limits(limits)
         cls.table_request(create_request, State.ACTIVE)
         # put and get some data, read_units = 100, write_units = 199
-        row = {'fld_id': 1, 'fld_long': 2147483648,
-               'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-               'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
-               'fld_bin': bytearray(pack('>i', 4)), 'fld_time': datetime.now(),
-               'fld_num': Decimal(5),
-               'fld_json': {'a': '1', 'b': None, 'c': '3'},
-               'fld_arr': ['a', 'b', 'c'],
-               'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-               'fld_rec': {'fld_id': 1, 'fld_bool': False, 'fld_str': None}}
+        row = get_row()
         key = {'fld_id': 1}
         put_request = PutRequest().set_value(row).set_table_name(table_name)
         get_request = GetRequest().set_key(key).set_table_name(table_name)

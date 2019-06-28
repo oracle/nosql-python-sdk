@@ -8,9 +8,8 @@
 #
 
 import unittest
-from datetime import datetime
-from decimal import Context, Decimal, ROUND_HALF_EVEN
-from struct import pack
+from collections import OrderedDict
+from decimal import Context, ROUND_HALF_EVEN
 from time import time
 
 from borneo import (
@@ -18,7 +17,7 @@ from borneo import (
     PutRequest, QueryRequest, State, TableLimits, TableNotFoundException,
     TableRequest, TimeToLive, WriteMultipleRequest)
 from parameters import table_name, tenant_id, timeout
-from testutils import get_handle_config
+from testutils import get_handle_config, get_row
 from test_base import TestBase
 
 
@@ -78,26 +77,19 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         write_multiple_request = WriteMultipleRequest()
         for sk in range(shardkeys):
             for i in range(ids):
-                dt = datetime.now()
+                row = get_row()
                 if i == 0:
-                    self.min_time.append(dt)
-                elif i == shardkeys - 1:
-                    self.max_time.append(dt)
-                row = {'fld_sid': sk, 'fld_id': i, 'fld_long': 2147483648,
-                       'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                       'fld_bool': False if sk == 0 else True,
-                       'fld_str': '{"name": u' +
-                       str(shardkeys * ids - sk * ids - i - 1).zfill(2) + '}',
-                       'fld_bin': bytearray(pack('>i', 4)),
-                       'fld_time': dt, 'fld_num': Decimal(5),
-                       'fld_json': {'json_1': '1', 'json_2': None, 'location':
-                                    {'type': 'point', 'coordinates':
-                                     [23.549 - sk * 0.5 - i,
-                                      35.2908 + sk * 0.5 + i]}},
-                       'fld_arr': ['a', 'b', 'c'],
-                       'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                       'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                   'fld_str': None}}
+                    self.min_time.append(row['fld_time'])
+                elif i == ids - 1:
+                    self.max_time.append(row['fld_time'])
+                row['fld_sid'] = sk
+                row['fld_id'] = i
+                row['fld_bool'] = False if sk == 0 else True
+                row['fld_str'] = (
+                    '{"name": u' +
+                    str(shardkeys * ids - sk * ids - i - 1).zfill(2) + '}')
+                row['fld_json']['location']['coordinates'] = (
+                    [23.549 - sk * 0.5 - i, 35.2908 + sk * 0.5 + i])
                 write_multiple_request.add(
                     PutRequest().set_value(row).set_table_name(table_name),
                     True)
@@ -243,7 +235,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         for idx in range(num_records):
-            self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
+            self.assertEqual(records[idx], self.__expected_row(1, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_records + prepare_cost,
                         num_records * 2 + prepare_cost, 0, 0)
@@ -255,7 +247,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), limit)
         for idx in range(limit):
-            self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
+            self.assertEqual(records[idx], self.__expected_row(1, idx))
         self.assertIsNotNone(result.get_continuation_key())
         self.check_cost(
             result, limit + prepare_cost, limit * 2 + prepare_cost, 0, 0)
@@ -268,7 +260,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), max_read_kb + 1)
         for idx in range(len(records)):
-            self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
+            self.assertEqual(records[idx], self.__expected_row(1, idx))
         self.assertIsNotNone(result.get_continuation_key())
         self.check_cost(result, max_read_kb + prepare_cost + 1,
                         max_read_kb * 2 + prepare_cost + 2, 0, 0)
@@ -281,7 +273,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         for idx in range(num_records):
-            self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
+            self.assertEqual(records[idx], self.__expected_row(1, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_records + prepare_cost,
                         num_records * 2 + prepare_cost, 0, 0)
@@ -306,7 +298,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.assertEqual(len(records), num_get)
             for idx in range(num_get):
                 self.assertEqual(records[idx],
-                                 {'fld_sid': 1, 'fld_id': completed + idx})
+                                 self.__expected_row(1, completed + idx))
             self.check_cost(
                 result, read_kb + (prepare_cost if count == 0 else 0),
                 read_kb * 2 + (prepare_cost if count == 0 else 0), 0, 0)
@@ -325,7 +317,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         for idx in range(num_records):
-            self.assertEqual(records[idx], {'fld_sid': 1, 'fld_id': idx})
+            self.assertEqual(records[idx], self.__expected_row(1, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_records + prepare_cost,
                         num_records * 2 + prepare_cost, 0, 0)
@@ -362,8 +354,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
-                                      'fld_long': fld_long})
+        self.assertEqual(records[0],
+                         self.__expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -389,8 +381,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
-                                      'fld_long': fld_long})
+        self.assertEqual(records[0],
+                         self.__expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNotNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -421,8 +413,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
-                                      'fld_long': fld_long})
+        self.assertEqual(records[0],
+                         self.__expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -448,8 +440,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
-                                      'fld_long': fld_long})
+        self.assertEqual(records[0],
+                         self.__expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -495,8 +487,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         records = result.get_results()
         self.assertEqual(len(records), num_records)
-        self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
-                                      'fld_long': fld_long})
+        self.assertEqual(records[0],
+                         self.__expected_row(fld_sid, fld_id, fld_long))
         if limit <= num_records:
             self.assertIsNotNone(result.get_continuation_key())
         else:
@@ -525,8 +517,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0], {'fld_sid': fld_sid, 'fld_id': fld_id,
-                                      'fld_long': fld_long})
+        self.assertEqual(records[0],
+                         self.__expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -570,7 +562,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for idx in range(num_records):
                     self.assertEqual(
                         records[idx],
-                        {'fld_sid': idx // num_ids, 'fld_id': idx % num_ids})
+                        self.__expected_row(idx // num_ids, idx % num_ids))
                 self.assertIsNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0)
                 break
@@ -608,7 +600,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        # self.assertEqual(records[0], {'Column_1': self.min_time[0]})
+        self.assertEqual(records[0], {'Column_1': self.min_time[0]})
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -618,7 +610,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(query_request)
         records = result.get_results()
         self.assertEqual(len(records), 1)
-        # self.assertEqual(records[0], {'Column_1': self.max_time[1]})
+        self.assertEqual(records[0], {'Column_1': self.max_time[1]})
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -633,9 +625,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             records = result.get_results()
             if query_request.is_done():
                 self.assertEqual(len(records), num_sids)
-                # for idx in range(num_sids):
-                #     self.assertEqual(
-                #         records[idx], {'Column_1': self.min_time[idx]})
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.min_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0)
                 break
@@ -656,9 +648,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             records = result.get_results()
             if query_request.is_done():
                 self.assertEqual(len(records), num_sids)
-                # for idx in range(num_sids):
-                #     self.assertEqual(
-                #         records[idx], {'Column_1': self.max_time[idx]})
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.max_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0)
                 break
@@ -677,9 +669,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             records = result.get_results()
             if query_request.is_done():
                 self.assertEqual(len(records), num_sids)
-                # for idx in range(2):
-                #     self.assertEqual(
-                #         records[idx], {'Column_1': self.min_time[idx]})
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.min_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0)
                 break
@@ -697,9 +689,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             records = result.get_results()
             if query_request.is_done():
                 self.assertEqual(len(records), num_sids)
-                # for idx in range(2):
-                #     self.assertEqual(
-                #         records[idx], {'Column_1': self.max_time[idx]})
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.max_time[idx]})
                 self.assertIsNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0)
                 break
@@ -1060,6 +1052,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertEqual(records, [])
                 self.assertIsNotNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0, True)
+
+    def __expected_row(self, fld_sid, fld_id, fld_long=None):
+        expected_row = OrderedDict()
+        expected_row['fld_sid'] = fld_sid
+        expected_row['fld_id'] = fld_id
+        if fld_long is not None:
+            expected_row['fld_long'] = fld_long
+        return expected_row
 
 
 if __name__ == '__main__':

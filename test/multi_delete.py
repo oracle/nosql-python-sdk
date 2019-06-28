@@ -8,9 +8,7 @@
 #
 
 import unittest
-from datetime import datetime
-from decimal import Decimal
-from struct import pack
+from collections import OrderedDict
 
 from borneo import (
     FieldRange, IllegalArgumentException, MultiDeleteRequest, PrepareRequest,
@@ -18,6 +16,7 @@ from borneo import (
     TableRequest, WriteMultipleRequest)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestMultiDelete(unittest.TestCase, TestBase):
@@ -47,17 +46,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         write_multiple_request = WriteMultipleRequest()
         for sk in self.shardkeys:
             for i in ids:
-                row = {'fld_sid': sk, 'fld_id': i, 'fld_long': 2147483648,
-                       'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                       'fld_bool': True,
-                       'fld_str': '{"name": u1, "phone": null}',
-                       'fld_bin': bytearray(pack('>i', 4)),
-                       'fld_time': datetime.now(), 'fld_num': Decimal(5),
-                       'fld_json': {'a': '1', 'b': None, 'c': '3'},
-                       'fld_arr': ['a', 'b', 'c'],
-                       'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                       'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                   'fld_str': None}}
+                row = get_row()
+                row['fld_sid'] = sk
+                row['fld_id'] = i
                 write_multiple_request.add(
                     PutRequest().set_value(row).set_table_name(table_name),
                     True)
@@ -187,7 +178,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         records = result.get_results()
         self.assertEqual(len(records), num_remaining)
         for idx in range(num_remaining):
-            self.assertEqual(records[idx], {'fld_sid': 0, 'fld_id': idx})
+            self.assertEqual(records[idx], self.__expected_row(0, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_remaining, num_remaining * 2, 0, 0,
                         multi_shards=True)
@@ -211,10 +202,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         sk1_id = max_write_kb
         for record in records:
             if record.get('fld_sid') == 0:
-                self.assertEqual(record, {'fld_sid': 0, 'fld_id': sk0_id})
+                self.assertEqual(record, self.__expected_row(0, sk0_id))
                 sk0_id += 1
             else:
-                self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
+                self.assertEqual(record, self.__expected_row(1, sk1_id))
                 sk1_id += 1
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_remaining, num_remaining * 2, 0, 0,
@@ -249,10 +240,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
             sk1_id = completed + deleted
             for record in records:
                 if record.get('fld_sid') == 0:
-                    self.assertEqual(record, {'fld_sid': 0, 'fld_id': sk0_id})
+                    self.assertEqual(record, self.__expected_row(0, sk0_id))
                     sk0_id += 1
                 else:
-                    self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
+                    self.assertEqual(record, self.__expected_row(1, sk1_id))
                     sk1_id += 1
             self.assertIsNone(query_result.get_continuation_key())
             self.check_cost(query_result, num_remaining, num_remaining * 2, 0,
@@ -284,14 +275,20 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         sk1_id = 0
         for record in records:
             if record.get('fld_sid') == 0:
-                self.assertEqual(record, {'fld_sid': 0, 'fld_id': sk0_id})
+                self.assertEqual(record, self.__expected_row(0, sk0_id))
                 sk0_id += 1
             else:
-                self.assertEqual(record, {'fld_sid': 1, 'fld_id': sk1_id})
+                self.assertEqual(record, self.__expected_row(1, sk1_id))
                 sk1_id += 5
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_remaining, num_remaining * 2, 0, 0,
                         multi_shards=True)
+
+    def __expected_row(self, fld_sid, fld_id):
+        expected_row = OrderedDict()
+        expected_row['fld_sid'] = fld_sid
+        expected_row['fld_id'] = fld_id
+        return expected_row
 
 
 if __name__ == '__main__':

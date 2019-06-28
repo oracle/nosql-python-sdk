@@ -8,6 +8,7 @@
 #
 
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal
 from sys import getsizeof, version_info
@@ -972,8 +973,8 @@ class FuncSumIter(PlanIter):
         stored in the FuncSumState. The 1st time, the SUM value is the final SUM
         value for the just completed group. In this case the "reset" param is
         True in order to reset the running sum in the state. The 2nd time the
-        SUM value is the initial SUM value computed from the 1st tuple of the new
-        group.
+        SUM value is the initial SUM value computed from the 1st tuple of the
+        new group.
         """
         state = rcb.get_state(self.state_pos)
         if state.none_input_only:
@@ -1727,7 +1728,7 @@ class SFWIter(PlanIter):
             if self.__num_gb_columns < 0:
                 if self.__is_select_star:
                     break
-                result = dict()
+                result = OrderedDict()
                 rcb.set_reg_val(self.result_reg, result)
                 for i in range(len(self.column_iters)):
                     column_iter = self.column_iters[i]
@@ -1820,7 +1821,7 @@ class SFWIter(PlanIter):
             state.gb_tuple[i] = self.column_iters[i].get_aggr_value(
                 rcb, True)
 
-        # 2. Create a result MapValue out of the GB tuple.
+        # 2. Create a result dict out of the GB tuple.
         result = dict()
         rcb.set_reg_val(self.result_reg, result)
         for i in range(len(self.column_iters)):

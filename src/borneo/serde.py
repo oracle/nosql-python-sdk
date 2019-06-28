@@ -8,6 +8,7 @@
 #
 
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from decimal import (
     Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
@@ -339,7 +340,7 @@ class BinaryProtocol(object):
         bis.read_int()
 
         size = bis.read_int()
-        result = dict()
+        result = OrderedDict()
         count = 0
         while count < size:
             key = BinaryProtocol.read_string(bis)

@@ -8,11 +8,9 @@
 #
 
 import unittest
+from collections import OrderedDict
 from copy import deepcopy
-from datetime import datetime
-from decimal import Decimal
 from parameters import table_prefix
-from struct import pack
 from time import time
 
 from borneo import (
@@ -21,6 +19,7 @@ from borneo import (
     TableRequest, TimeToLive)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestPut(unittest.TestCase, TestBase):
@@ -46,16 +45,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
 
     def setUp(self):
         self.set_up()
-        self.row = {'fld_id': 1, 'fld_long': 2147483648,
-                    'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                    'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
-                    'fld_bin': bytearray(pack('>i', 4)),
-                    'fld_time': datetime.now(), 'fld_num': Decimal(5),
-                    'fld_json': {'a': '1', 'b': None, 'c': '3'},
-                    'fld_arr': ['a', 'b', 'c'],
-                    'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                    'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                'fld_str': None}}
+        self.row = get_row(with_sid=False)
         self.key = {'fld_id': 1}
         self.put_request = PutRequest().set_value(self.row).set_table_name(
             table_name).set_timeout(timeout)
@@ -193,7 +183,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertLess(actual_expect_diff, self.day_in_milliseconds)
         self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row
-        self.row.update({'fld_long': 2147483649})
+        self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row).set_ttl(self.ttl)
         result = self.handle.put(self.put_request)
         expect_expiration = self.ttl.to_expiration_time(
@@ -275,7 +265,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         expect_expiration = self.ttl.to_expiration_time(
             int(round(time() * 1000)))
         # test PutIfPresent with normal values, operation should succeed
-        self.row.update({'fld_long': 2147483649})
+        self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row).set_option(
             PutOption.IF_PRESENT).set_return_row(True)
         result = self.handle.put(self.put_request)
@@ -319,7 +309,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         result = self.handle.put(self.put_request)
         version_old = result.get_version()
         # test PutIfVersion with normal values, operation should succeed
-        self.row.update({'fld_bool': False})
+        self.row['fld_bool'] = False
         self.put_request.set_value(self.row).set_ttl(
             self.ttl).set_match_version(version_old).set_return_row(True)
         result = self.handle.put(self.put_request)
@@ -356,7 +346,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         row = deepcopy(self.row)
         row.update({'fld_id': 2, 'extra': 5})
         key = {'fld_id': 2}
-        self.row.update({'fld_id': 2})
+        self.row['fld_id'] = 2
         self.put_request.set_value(row)
         result = self.handle.put(self.put_request)
         tb_expect_expiration = table_ttl.to_expiration_time(
@@ -392,9 +382,12 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
 
         # test put a row with an extra field not in the table, by default this
         # will succeed
-        row = {'sid': 1, 'name': 'myname', 'extra': 'extra'}
+        row = {'name': 'myname', 'extra': 'extra', 'sid': 1}
         key = {'sid': 1, 'id': 1}
-        get_row = {'sid': 1, 'id': 1, 'name': 'myname'}
+        expected = OrderedDict()
+        expected['sid'] = 1
+        expected['id'] = 1
+        expected['name'] = 'myname'
         self.put_request.set_table_name(id_table).set_value(row)
         result = self.handle.put(self.put_request)
         version = result.get_version()
@@ -405,14 +398,14 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.check_cost(result, 0, 0, 1, 1)
         self.get_request.set_table_name(id_table).set_key(key)
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), get_row)
+        self.assertEqual(result.get_value(), expected)
         self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
         self.assertEqual(result.get_expiration_time(), 0)
         self.check_cost(result, 1, 2, 0, 0)
         # test put a row with identity field, this will fail because id is
         # 'generated always' and in that path it is not legal to provide a value
         # for id
-        row.update({'id': 1})
+        row['id'] = 1
         self.assertRaises(IllegalArgumentException, self.handle.put,
                           self.put_request)
 

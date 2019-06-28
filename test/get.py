@@ -8,9 +8,6 @@
 #
 
 import unittest
-from datetime import datetime
-from decimal import Decimal
-from struct import pack
 from time import time
 
 from borneo import (
@@ -18,6 +15,7 @@ from borneo import (
     TableLimits, TableNotFoundException, TableRequest, TimeToLive)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestGet(unittest.TestCase, TestBase):
@@ -37,15 +35,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
         cls.table_request(create_request, State.ACTIVE)
         global row, tb_expect_expiration, hour_in_milliseconds
-        row = {'fld_sid': 1, 'fld_id': 1, 'fld_long': 2147483648,
-               'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-               'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
-               'fld_bin': bytearray(pack('>i', 4)),
-               'fld_time': datetime.now(), 'fld_num': Decimal(5),
-               'fld_json': {'a': '1', 'b': None, 'c': '3'},
-               'fld_arr': ['a', 'b', 'c'],
-               'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-               'fld_rec': {'fld_id': 1, 'fld_bool': False, 'fld_str': None}}
+        row = get_row()
         put_request = PutRequest().set_value(row).set_table_name(table_name)
         cls.handle.put(put_request)
         tb_expect_expiration = table_ttl.to_expiration_time(
