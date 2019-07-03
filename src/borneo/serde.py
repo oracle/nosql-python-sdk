@@ -197,7 +197,7 @@ class BinaryProtocol(object):
             BinaryProtocol.read_string(bis)
             result.set_table_name(BinaryProtocol.read_string(bis))
             result.set_state(
-                BinaryProtocol.__get_table_state(bis.read_byte()))
+                BinaryProtocol._get_table_state(bis.read_byte()))
             has_static_state = bis.read_boolean()
             if has_static_state:
                 read_kb = BinaryProtocol.read_packed_int(bis)
@@ -632,7 +632,7 @@ class BinaryProtocol(object):
     @staticmethod
     def write_field_value(bos, value):
         # Serialize a generic field value.
-        bos.write_byte(BinaryProtocol.__get_type(value))
+        bos.write_byte(BinaryProtocol._get_type(value))
         if value is not None:
             if isinstance(value, list):
                 BinaryProtocol.write_list(bos, value)
@@ -793,7 +793,7 @@ class BinaryProtocol(object):
         BinaryProtocol.write_bytearray(bos, version.get_bytes())
 
     @staticmethod
-    def __get_table_state(state):
+    def _get_table_state(state):
         if state == BinaryProtocol.TABLE_STATE.ACTIVE:
             return State.ACTIVE
         elif state == BinaryProtocol.TABLE_STATE.CREATING:
@@ -808,7 +808,7 @@ class BinaryProtocol(object):
             raise IllegalStateException('Unknown table state ' + str(state))
 
     @staticmethod
-    def __get_type(value):
+    def _get_type(value):
         if isinstance(value, list):
             return BinaryProtocol.FIELD_VALUE_TYPE.ARRAY
         elif isinstance(value, bytearray):
@@ -865,15 +865,15 @@ class DeleteRequestSerializer(RequestSerializer):
     """
 
     def __init__(self, is_sub_request=False, cls_result=None):
-        self.__is_sub_request = is_sub_request
-        self.__cls_result = cls_result
+        self._is_sub_request = is_sub_request
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         match_version = request.get_match_version()
         op_code = (BinaryProtocol.OP_CODE.DELETE if match_version is None else
                    BinaryProtocol.OP_CODE.DELETE_IF_VERSION)
         BinaryProtocol.write_op_code(bos, op_code)
-        if self.__is_sub_request:
+        if self._is_sub_request:
             bos.write_boolean(request.get_return_row())
         else:
             BinaryProtocol.serialize_write_request(request, bos)
@@ -882,7 +882,7 @@ class DeleteRequestSerializer(RequestSerializer):
             BinaryProtocol.write_version(bos, match_version)
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         result.set_success(bis.read_boolean())
         BinaryProtocol.deserialize_write_response(bis, result)
@@ -891,7 +891,7 @@ class DeleteRequestSerializer(RequestSerializer):
 
 class GetIndexesRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.GET_INDEXES)
@@ -904,17 +904,17 @@ class GetIndexesRequestSerializer(RequestSerializer):
             bos.write_boolean(False)
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         num_indexes = BinaryProtocol.read_packed_int(bis)
         indexes = list()
         count = 0
         while count < num_indexes:
-            indexes.append(self.__deserialize_index_info(bis))
+            indexes.append(self._deserialize_index_info(bis))
             count += 1
         result.set_indexes(indexes)
         return result
 
-    def __deserialize_index_info(self, bis):
+    def _deserialize_index_info(self, bis):
         index_name = BinaryProtocol.read_string(bis)
         num_fields = BinaryProtocol.read_packed_int(bis)
         field_names = list()
@@ -927,7 +927,7 @@ class GetIndexesRequestSerializer(RequestSerializer):
 
 class GetRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.GET)
@@ -935,7 +935,7 @@ class GetRequestSerializer(RequestSerializer):
         BinaryProtocol.write_field_value(bos, request.get_key())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         has_row = bis.read_boolean()
         if has_row:
@@ -947,7 +947,7 @@ class GetRequestSerializer(RequestSerializer):
 
 class GetTableRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.GET_TABLE)
@@ -956,14 +956,14 @@ class GetTableRequestSerializer(RequestSerializer):
         BinaryProtocol.write_string(bos, request.get_operation_id())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_table_result(bis, result)
         return result
 
 
 class ListTablesRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.LIST_TABLES)
@@ -972,7 +972,7 @@ class ListTablesRequestSerializer(RequestSerializer):
         bos.write_int(request.get_limit())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         num_tables = BinaryProtocol.read_packed_int(bis)
         tables = list()
         count = 0
@@ -986,7 +986,7 @@ class ListTablesRequestSerializer(RequestSerializer):
 
 class MultiDeleteRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.MULTI_DELETE)
@@ -998,7 +998,7 @@ class MultiDeleteRequestSerializer(RequestSerializer):
         BinaryProtocol.write_bytearray(bos, request.get_continuation_key())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         result.set_num_deletions(BinaryProtocol.read_packed_int(bis))
         result.set_continuation_key(BinaryProtocol.read_bytearray(bis))
@@ -1008,7 +1008,7 @@ class MultiDeleteRequestSerializer(RequestSerializer):
 class PrepareRequestSerializer(RequestSerializer):
     # Prepare a query.
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.PREPARE)
@@ -1018,7 +1018,7 @@ class PrepareRequestSerializer(RequestSerializer):
         bos.write_boolean(request.get_query_plan())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         prep_stmt = PrepareRequestSerializer.deserialize_internal(
             request.get_statement(), request.get_query_plan(), bis)
@@ -1064,13 +1064,13 @@ class PutRequestSerializer(RequestSerializer):
     """
 
     def __init__(self, is_sub_request=False, cls_result=None):
-        self.__is_sub_request = is_sub_request
-        self.__cls_result = cls_result
+        self._is_sub_request = is_sub_request
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
-        op = self.__get_op_code(request)
+        op = self._get_op_code(request)
         BinaryProtocol.write_op_code(bos, op)
-        if self.__is_sub_request:
+        if self._is_sub_request:
             bos.write_boolean(request.get_return_row())
         else:
             BinaryProtocol.serialize_write_request(request, bos)
@@ -1083,7 +1083,7 @@ class PutRequestSerializer(RequestSerializer):
             BinaryProtocol.write_version(bos, request.get_match_version())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         success = bis.read_boolean()
         if success:
@@ -1094,7 +1094,7 @@ class PutRequestSerializer(RequestSerializer):
         BinaryProtocol.deserialize_generated_value(bis, result)
         return result
 
-    def __get_op_code(self, request):
+    def _get_op_code(self, request):
         """
         Assumes that the request has been validated and only one of the if
         options is set, if any.
@@ -1114,7 +1114,7 @@ class PutRequestSerializer(RequestSerializer):
 
 class QueryRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         # write unconditional state first.
@@ -1150,7 +1150,7 @@ class QueryRequestSerializer(RequestSerializer):
     def deserialize(self, request, bis, serial_version):
         prep = request.get_prepared_statement()
         is_prepared = prep is not None
-        result = self.__cls_result(request)
+        result = self._cls_result(request)
         num_rows = bis.read_int()
         is_sort_phase1_result = bis.read_boolean()
         results = list()
@@ -1201,7 +1201,7 @@ class QueryRequestSerializer(RequestSerializer):
 
 class TableRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.TABLE_REQUEST)
@@ -1222,14 +1222,14 @@ class TableRequestSerializer(RequestSerializer):
             bos.write_boolean(False)
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         BinaryProtocol.deserialize_table_result(bis, result)
         return result
 
 
 class TableUsageRequestSerializer(RequestSerializer):
     def __init__(self, cls_result=None):
-        self.__cls_result = cls_result
+        self._cls_result = cls_result
 
     def serialize(self, request, bos, serial_version):
         BinaryProtocol.write_op_code(
@@ -1241,7 +1241,7 @@ class TableUsageRequestSerializer(RequestSerializer):
         BinaryProtocol.write_packed_int(bos, request.get_limit())
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_result()
+        result = self._cls_result()
         # don't use tenant_id, but it's in the result
         BinaryProtocol.read_string(bis)
         result.set_table_name(BinaryProtocol.read_string(bis))
@@ -1249,12 +1249,12 @@ class TableUsageRequestSerializer(RequestSerializer):
         usage_records = list()
         count = 0
         while count < num_results:
-            usage_records.append(self.__deserialize_usage(bis))
+            usage_records.append(self._deserialize_usage(bis))
             count += 1
         result.set_usage_records(usage_records)
         return result
 
-    def __deserialize_usage(self, bis):
+    def _deserialize_usage(self, bis):
         start_time_ms = BinaryProtocol.read_packed_long(bis)
         seconds_in_period = BinaryProtocol.read_packed_int(bis)
         read_units = BinaryProtocol.read_packed_int(bis)
@@ -1272,8 +1272,8 @@ class TableUsageRequestSerializer(RequestSerializer):
 class WriteMultipleRequestSerializer(RequestSerializer):
     def __init__(self, cls_update_multiple_result=None,
                  cls_operation_result=None):
-        self.__cls_update_multiple_result = cls_update_multiple_result
-        self.__cls_operation_result = cls_operation_result
+        self._cls_update_multiple_result = cls_update_multiple_result
+        self._cls_operation_result = cls_operation_result
 
     def serialize(self, request, bos, serial_version):
         put_serializer = PutRequestSerializer(True)
@@ -1298,22 +1298,22 @@ class WriteMultipleRequestSerializer(RequestSerializer):
                 req, (bos.get_offset() - start))
 
     def deserialize(self, request, bis, serial_version):
-        result = self.__cls_update_multiple_result()
+        result = self._cls_update_multiple_result()
         succeed = bis.read_boolean()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         if succeed:
             num = BinaryProtocol.read_packed_int(bis)
             count = 0
             while count < num:
-                result.add_result(self.__create_operation_result(bis))
+                result.add_result(self._create_operation_result(bis))
                 count += 1
         else:
             result.set_failed_operation_index(bis.read_byte())
-            result.add_result(self.__create_operation_result(bis))
+            result.add_result(self._create_operation_result(bis))
         return result
 
-    def __create_operation_result(self, bis):
-        op_result = self.__cls_operation_result()
+    def _create_operation_result(self, bis):
+        op_result = self._cls_operation_result()
         op_result.set_success(bis.read_boolean())
         if bis.read_boolean():
             op_result.set_version(BinaryProtocol.read_version(bis))

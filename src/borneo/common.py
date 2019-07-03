@@ -38,14 +38,14 @@ class ByteInputStream(object):
     """
 
     def __init__(self, content):
-        self.__content = content
+        self._content = content
 
     def read_boolean(self):
         res = bool(self.read_byte())
         return res
 
     def read_byte(self):
-        res = self.__content.pop(0)
+        res = self._content.pop(0)
         if res > 127:
             return res - 256
         else:
@@ -61,7 +61,7 @@ class ByteInputStream(object):
         if end is None:
             end = len(buf)
         for index in range(start, end):
-            buf[index] = self.__content.pop(0)
+            buf[index] = self._content.pop(0)
 
     def read_int(self):
         buf = bytearray(4)
@@ -89,10 +89,10 @@ class ByteOutputStream(object):
     """
 
     def __init__(self, content):
-        self.__content = content
+        self._content = content
 
     def get_offset(self):
-        return len(self.__content)
+        return len(self._content)
 
     def write_boolean(self, value):
         val_s = pack('?', value)
@@ -106,7 +106,7 @@ class ByteOutputStream(object):
         if end is None:
             end = len(value)
         for index in range(start, end):
-            self.__content.append(value[index])
+            self._content.append(value[index])
 
     def write_float(self, value):
         val_s = pack('>d', value)
@@ -120,7 +120,7 @@ class ByteOutputStream(object):
         val_s = pack('>i', value)
         val_b = bytearray(val_s)
         for index in range(len(val_b)):
-            self.__content[offset + index] = val_b[index]
+            self._content[offset + index] = val_b[index]
 
     def write_short_int(self, value):
         val_s = pack('>h', value)
@@ -250,17 +250,17 @@ class FieldRange(object):
     def __init__(self, field_path):
         # Create a value based on a specific field.
         CheckValue.check_str(field_path, 'field_path')
-        self.__field_path = field_path
-        self.__start = None
-        self.__start_inclusive = False
-        self.__end = None
-        self.__end_inclusive = False
+        self._field_path = field_path
+        self._start = None
+        self._start_inclusive = False
+        self._end = None
+        self._end_inclusive = False
 
     def __str__(self):
-        return ('{Path=' + self.__field_path +
-                ', Start=' + str(self.__start) + ', End=' + str(self.__end) +
-                ', StartInclusive=' + str(self.__start_inclusive) +
-                ', EndInclusive=' + str(self.__end_inclusive) + '}')
+        return ('{Path=' + self._field_path + ', Start=' + str(self._start) +
+                ', End=' + str(self._end) + ', StartInclusive=' +
+                str(self._start_inclusive) + ', EndInclusive=' +
+                str(self._end_inclusive) + '}')
 
     def get_field_path(self):
         """
@@ -268,7 +268,7 @@ class FieldRange(object):
 
         :returns: the name of the field.
         """
-        return self.__field_path
+        return self._field_path
 
     def set_start(self, value, is_inclusive):
         """
@@ -283,8 +283,8 @@ class FieldRange(object):
         """
         CheckValue.check_not_none(value, 'value')
         CheckValue.check_boolean(is_inclusive, 'is_inclusive')
-        self.__start = value
-        self.__start_inclusive = is_inclusive
+        self._start = value
+        self._start_inclusive = is_inclusive
         return self
 
     def get_start(self):
@@ -294,7 +294,7 @@ class FieldRange(object):
 
         :returns: the start field value.
         """
-        return self.__start
+        return self._start
 
     def get_start_inclusive(self):
         """
@@ -304,7 +304,7 @@ class FieldRange(object):
 
         :returns: True if the start value is inclusive.
         """
-        return self.__start_inclusive
+        return self._start_inclusive
 
     def set_end(self, value, is_inclusive):
         """
@@ -319,8 +319,8 @@ class FieldRange(object):
         """
         CheckValue.check_not_none(value, 'value')
         CheckValue.check_boolean(is_inclusive, 'is_inclusive')
-        self.__end = value
-        self.__end_inclusive = is_inclusive
+        self._end = value
+        self._end_inclusive = is_inclusive
         return self
 
     def get_end(self):
@@ -330,7 +330,7 @@ class FieldRange(object):
 
         :returns: the end field value.
         """
-        return self.__end
+        return self._end
 
     def get_end_inclusive(self):
         """
@@ -340,14 +340,14 @@ class FieldRange(object):
 
         :returns: True if the end value is inclusive.
         """
-        return self.__end_inclusive
+        return self._end_inclusive
 
     def validate(self):
         # Ensures that the object is self-consistent and if not, throws
         # IllegalArgumentException. Validation of the range values themselves is
         # done remotely.
-        start_type = None if self.__start is None else type(self.__start)
-        end_type = None if self.__end is None else type(self.__end)
+        start_type = None if self._start is None else type(self._start)
+        end_type = None if self._end is None else type(self._end)
         if start_type is None and end_type is None:
             raise IllegalArgumentException(
                 'FieldRange: must specify a start or end value.')
@@ -369,17 +369,17 @@ class HttpConstants(object):
     DATA_PATH_NAME = 'data'
 
     # Creates a URI path from the arguments
-    def __make_path(*args):
+    def _make_path(*args):
         path = args[0]
         for index in range(1, len(args)):
             path += '/' + args[index]
         return path
 
     # The service name of the nosql prefix
-    NOSQL_PREFIX = __make_path(NOSQL_VERSION, NOSQL_PATH_NAME)
+    NOSQL_PREFIX = _make_path(NOSQL_VERSION, NOSQL_PATH_NAME)
 
     # The path denoting a NoSQL request
-    NOSQL_DATA_PATH = __make_path(NOSQL_PREFIX, DATA_PATH_NAME)
+    NOSQL_DATA_PATH = _make_path(NOSQL_PREFIX, DATA_PATH_NAME)
 
 
 class IndexInfo(object):
@@ -390,12 +390,12 @@ class IndexInfo(object):
     """
 
     def __init__(self, index_name, field_names):
-        self.__index_name = index_name
-        self.__field_names = field_names
+        self._index_name = index_name
+        self._field_names = field_names
 
     def __str__(self):
-        return ('IndexInfo [indexName=' + self.__index_name + ', fields=[' +
-                ','.join(self.__field_names) + ']]')
+        return ('IndexInfo [indexName=' + self._index_name + ', fields=[' +
+                ','.join(self._field_names) + ']]')
 
     def get_index_name(self):
         """
@@ -404,7 +404,7 @@ class IndexInfo(object):
         :returns: the index name.
         :rtype: str
         """
-        return self.__index_name
+        return self._index_name
 
     def get_field_names(self):
         """
@@ -413,59 +413,54 @@ class IndexInfo(object):
         :returns: the field names.
         :rtype: list(str)
         """
-        return self.__field_names
+        return self._field_names
 
 
 class LogUtils(object):
     # Utility methods to facilitate Logging.
     def __init__(self, logger=None):
-        self.__logger = logger
+        self._logger = logger
 
     def log_critical(self, msg):
-        if self.__logger is not None:
-            self.__logger.critical(ctime() + '[CRITICAL]' + msg)
+        if self._logger is not None:
+            self._logger.critical(ctime() + '[CRITICAL]' + msg)
 
     def log_error(self, msg):
-        if self.__logger is not None:
-            self.__logger.error(ctime() + '[ERROR]' + msg)
+        if self._logger is not None:
+            self._logger.error(ctime() + '[ERROR]' + msg)
 
     def log_warning(self, msg):
-        if self.__logger is not None:
-            self.__logger.warning(ctime() + '[WARNING]' + msg)
+        if self._logger is not None:
+            self._logger.warning(ctime() + '[WARNING]' + msg)
 
     def log_info(self, msg):
-        if self.__logger is not None:
-            self.__logger.info(ctime() + '[INFO]' + msg)
+        if self._logger is not None:
+            self._logger.info(ctime() + '[INFO]' + msg)
 
     def log_debug(self, msg):
-        if self.__logger is not None:
-            self.__logger.debug(ctime() + '[DEBUG]' + msg)
-
-    # Trace == debug
-    def log_trace(self, msg):
-        if self.__logger is not None:
-            self.__logger.debug(ctime() + '[DEBUG]' + msg)
+        if self._logger is not None:
+            self._logger.debug(ctime() + '[DEBUG]' + msg)
 
     def is_enabled_for(self, level):
-        return self.__logger is not None and self.__logger.isEnabledFor(level)
+        return self._logger is not None and self._logger.isEnabledFor(level)
 
 
 class Memoize(object):
     # A cache that used for saving the access token.
     def __init__(self, duration=60):
-        self.__cache = {}
-        self.__duration = duration
+        self._cache = {}
+        self._duration = duration
 
     def set(self, key, value):
-        self.__cache[key] = {'value': value, 'time': time()}
+        self._cache[key] = {'value': value, 'time': time()}
 
     def get(self, key):
-        if key in self.__cache and not self.__is_obsolete(self.__cache[key]):
-            return self.__cache[key]['value']
+        if key in self._cache and not self._is_obsolete(self._cache[key]):
+            return self._cache[key]['value']
         return None
 
-    def __is_obsolete(self, entry):
-        return time() - entry['time'] > self.__duration
+    def _is_obsolete(self, entry):
+        return time() - entry['time'] > self._duration
 
 
 class PackedInteger(object):
@@ -924,43 +919,43 @@ class PreparedStatement(object):
             raise IllegalArgumentException(
                 'Invalid prepared query, cannot be None.')
 
-        self.__sql_text = sql_text
-        self.__query_plan = query_plan
+        self._sql_text = sql_text
+        self._query_plan = query_plan
         # Applicable to advanced queries only.
-        self.__topology_info = topology_info
+        self._topology_info = topology_info
         # The serialized PreparedStatement created at the backend store. It is
         # opaque for the driver. It is received from the proxy and sent back to
         # the proxy every time a new batch of results is needed.
-        self.__proxy_statement = proxy_statement
+        self._proxy_statement = proxy_statement
         # The part of the query plan that must be executed at the driver. It is
         # received from the proxy when the query is prepared there. It is
         # deserialized by the driver and not sent back to the proxy again.
         # Applicable to advanced queries only.
-        self.__driver_query_plan = driver_plan
+        self._driver_query_plan = driver_plan
         # The number of iterators in the full query plan
         # Applicable to advanced queries only.
-        self.__num_iterators = num_iterators
+        self._num_iterators = num_iterators
         # The number of registers required to run the full query plan.
         # Applicable to advanced queries only.
-        self.__num_registers = num_registers
+        self._num_registers = num_registers
         # Maps the name of each external variable to its id, which is a position
         # in a field value array stored in the RuntimeControlBlock and holding
         # the values of the variables. Applicable to advanced queries only.
-        self.__variables = external_vars
+        self._variables = external_vars
         # The values for the external variables of the query. This dict is
         # populated by the application. It is sent to the proxy every time a new
         # batch of results is needed. The values in this dict are also placed in
         # the RuntimeControlBlock field value array, just before the query
         # starts its execution at the driver.
-        self.__bound_variables = None
+        self._bound_variables = None
         self.lock = Lock()
 
     def clear_variables(self):
         """
         Clears all bind variables from the statement.
         """
-        if self.__bound_variables is not None:
-            self.__bound_variables.clear()
+        if self._bound_variables is not None:
+            self._bound_variables.clear()
 
     def copy_statement(self):
         """
@@ -972,12 +967,12 @@ class PreparedStatement(object):
         :rtype: PreparedStatement
         """
         return PreparedStatement(
-            self.__sql_text, self.__query_plan, self.__topology_info,
-            self.__proxy_statement, self.__driver_query_plan,
-            self.__num_iterators, self.__num_registers, self.__variables)
+            self._sql_text, self._query_plan, self._topology_info,
+            self._proxy_statement, self._driver_query_plan, self._num_iterators,
+            self._num_registers, self._variables)
 
     def driver_plan(self):
-        return self.__driver_query_plan
+        return self._driver_query_plan
 
     def get_query_plan(self):
         """
@@ -987,7 +982,7 @@ class PreparedStatement(object):
         :returns: the string representation of the query execution plan.
         :rtype: bool
         """
-        return self.__query_plan
+        return self._query_plan
 
     def get_sql_text(self):
         """
@@ -996,11 +991,11 @@ class PreparedStatement(object):
         :returns: the SQL text of this PreparedStatement.
         :rtype: str
         """
-        return self.__sql_text
+        return self._sql_text
 
     def get_statement(self):
         # internal use to return the serialized, prepared query, opaque
-        return self.__proxy_statement
+        return self._proxy_statement
 
     def get_variables(self):
         """
@@ -1010,38 +1005,38 @@ class PreparedStatement(object):
         :returns: the dictionary.
         :rtype: dict
         """
-        return self.__bound_variables
+        return self._bound_variables
 
     def get_variable_values(self):
-        if self.__bound_variables is None:
+        if self._bound_variables is None:
             return None
-        values = [0] * len(self.__bound_variables)
-        for key in self.__bound_variables:
-            varid = self.__variables.get(key)
-            values[varid] = self.__bound_variables[key]
+        values = [0] * len(self._bound_variables)
+        for key in self._bound_variables:
+            varid = self._variables.get(key)
+            values[varid] = self._bound_variables[key]
         return values
 
     def is_simple_query(self):
-        return self.__driver_query_plan is None
+        return self._driver_query_plan is None
 
     def num_iterators(self):
-        return self.__num_iterators
+        return self._num_iterators
 
     def num_registers(self):
-        return self.__num_registers
+        return self._num_registers
 
     def print_driver_plan(self):
-        return self.__driver_query_plan.display()
+        return self._driver_query_plan.display()
 
     @synchronized
     def set_topology_info(self, topology_info):
         if topology_info is None:
             return
-        if self.__topology_info is None:
-            self.__topology_info = topology_info
+        if self._topology_info is None:
+            self._topology_info = topology_info
             return
-        if self.__topology_info.get_seq_num() < topology_info.get_seq_num():
-            self.__topology_info = topology_info
+        if self._topology_info.get_seq_num() < topology_info.get_seq_num():
+            self._topology_info = topology_info
 
     def set_variable(self, name, value):
         """
@@ -1058,21 +1053,21 @@ class PreparedStatement(object):
             string.
         """
         CheckValue.check_str(name, 'name')
-        if self.__bound_variables is None:
-            self.__bound_variables = dict()
-        if self.__variables is not None and self.__variables.get(name) is None:
+        if self._bound_variables is None:
+            self._bound_variables = dict()
+        if self._variables is not None and self._variables.get(name) is None:
             raise IllegalArgumentException(
                 'The query doesn\'t contain the variable: ' + name)
-        self.__bound_variables[name] = value
+        self._bound_variables[name] = value
         return self
 
     def topology_info(self):
-        return self.__topology_info
+        return self._topology_info
 
     @synchronized
     def topology_seq_num(self):
-        return (-1 if self.__topology_info is None else
-                self.__topology_info.get_seq_num())
+        return (-1 if self._topology_info is None else
+                self._topology_info.get_seq_num())
 
 
 class PutOption(object):
@@ -1147,7 +1142,7 @@ class SizeOf(object):
         return (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
                 SizeOf.byte_array_size(2 * len(s)))
 
-    def __byte_array_size(*args):
+    def _byte_array_size(*args):
         size = args[1]
         if args[0] > args[2]:
             size += (args[0] - args[2] + 7) / 8 * 8
@@ -1162,7 +1157,7 @@ class SizeOf(object):
         HASHSET_OVERHEAD = HASHSET_OVERHEAD_64
         OBJECT_OVERHEAD = OBJECT_OVERHEAD_64
         OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_64
-        ARRAYLIST_OVERHEAD = (64 - __byte_array_size(
+        ARRAYLIST_OVERHEAD = (64 - _byte_array_size(
             0 * OBJECT_REF_OVERHEAD, ARRAY_OVERHEAD, ARRAY_SIZE_INCLUDED))
     else:
         ARRAY_OVERHEAD = ARRAY_OVERHEAD_32
@@ -1173,7 +1168,7 @@ class SizeOf(object):
         HASHSET_OVERHEAD = HASHSET_OVERHEAD_32
         OBJECT_OVERHEAD = OBJECT_OVERHEAD_32
         OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_32
-        ARRAYLIST_OVERHEAD = (40 - __byte_array_size(
+        ARRAYLIST_OVERHEAD = (40 - _byte_array_size(
             0 * OBJECT_REF_OVERHEAD, ARRAY_OVERHEAD, ARRAY_SIZE_INCLUDED))
 
 
@@ -1235,13 +1230,13 @@ class TableLimits(object):
         CheckValue.check_int(read_units, 'read_units')
         CheckValue.check_int(write_units, 'write_units')
         CheckValue.check_int(storage_gb, 'storage_gb')
-        self.__read_units = read_units
-        self.__write_units = write_units
-        self.__storage_gb = storage_gb
+        self._read_units = read_units
+        self._write_units = write_units
+        self._storage_gb = storage_gb
 
     def __str__(self):
-        return ('[' + str(self.__read_units) + ', ' + str(self.__write_units) +
-                ', ' + str(self.__storage_gb) + ']')
+        return ('[' + str(self._read_units) + ', ' + str(self._write_units) +
+                ', ' + str(self._storage_gb) + ']')
 
     def set_read_units(self, read_units):
         """
@@ -1253,7 +1248,7 @@ class TableLimits(object):
             not a integer.
         """
         CheckValue.check_int(read_units, 'read_units')
-        self.__read_units = read_units
+        self._read_units = read_units
         return self
 
     def get_read_units(self):
@@ -1262,7 +1257,7 @@ class TableLimits(object):
 
         :returns: the read units.
         """
-        return self.__read_units
+        return self._read_units
 
     def set_write_units(self, write_units):
         """
@@ -1274,7 +1269,7 @@ class TableLimits(object):
             not a integer.
         """
         CheckValue.check_int(write_units, 'write_units')
-        self.__write_units = write_units
+        self._write_units = write_units
         return self
 
     def get_write_units(self):
@@ -1283,7 +1278,7 @@ class TableLimits(object):
 
         :returns: the write units.
         """
-        return self.__write_units
+        return self._write_units
 
     def set_storage_gb(self, storage_gb):
         """
@@ -1295,7 +1290,7 @@ class TableLimits(object):
             not a integer.
         """
         CheckValue.check_int(storage_gb, 'storage_gb')
-        self.__storage_gb = storage_gb
+        self._storage_gb = storage_gb
         return self
 
     def get_storage_gb(self):
@@ -1304,11 +1299,11 @@ class TableLimits(object):
 
         :returns: the storage capacity in gigabytes.
         """
-        return self.__storage_gb
+        return self._storage_gb
 
     def validate(self):
-        if (self.__read_units <= 0 or self.__write_units <= 0 or
-                self.__storage_gb <= 0):
+        if (self._read_units <= 0 or self._write_units <= 0 or
+                self._storage_gb <= 0):
             raise IllegalArgumentException(
                 'TableLimits values must be non-negative.')
 
@@ -1325,25 +1320,24 @@ class TableUsage(object):
                  write_units, storage_gb, read_throttle_count,
                  write_throttle_count, storage_throttle_count):
         # Internal use only.
-        self.__start_time_ms = start_time_ms
-        self.__seconds_in_period = seconds_in_period
-        self.__read_units = read_units
-        self.__write_units = write_units
-        self.__storage_gb = storage_gb
-        self.__read_throttle_count = read_throttle_count
-        self.__write_throttle_count = write_throttle_count
-        self.__storage_throttle_count = storage_throttle_count
+        self._start_time_ms = start_time_ms
+        self._seconds_in_period = seconds_in_period
+        self._read_units = read_units
+        self._write_units = write_units
+        self._storage_gb = storage_gb
+        self._read_throttle_count = read_throttle_count
+        self._write_throttle_count = write_throttle_count
+        self._storage_throttle_count = storage_throttle_count
 
     def __str__(self):
-        return ('TableUsage [start_time_ms=' + str(self.__start_time_ms) +
-                ', seconds_in_period=' + str(self.__seconds_in_period) +
-                ', read_units=' + str(self.__read_units) +
-                ', write_units=' + str(self.__write_units) +
-                ', storage_gb=' + str(self.__storage_gb) +
-                ', read_throttle_count=' + str(self.__read_throttle_count) +
-                ', write_throttle_count=' + str(self.__write_throttle_count) +
-                ', storage_throttle_count=' +
-                str(self.__storage_throttle_count) + ']')
+        return ('TableUsage [start_time_ms=' + str(self._start_time_ms) +
+                ', seconds_in_period=' + str(self._seconds_in_period) +
+                ', read_units=' + str(self._read_units) + ', write_units=' +
+                str(self._write_units) + ', storage_gb=' +
+                str(self._storage_gb) + ', read_throttle_count=' +
+                str(self._read_throttle_count) + ', write_throttle_count=' +
+                str(self._write_throttle_count) + ', storage_throttle_count=' +
+                str(self._storage_throttle_count) + ']')
 
     def get_start_time(self):
         """
@@ -1352,7 +1346,7 @@ class TableUsage(object):
 
         :returns: the start time.
         """
-        return self.__start_time_ms
+        return self._start_time_ms
 
     def get_start_time_string(self):
         """
@@ -1361,10 +1355,10 @@ class TableUsage(object):
 
         :returns: the start time, or None if not set.
         """
-        if self.__start_time_ms == 0:
+        if self._start_time_ms == 0:
             return None
         return datetime.fromtimestamp(
-            float(self.__start_time_ms) / 1000).isoformat()
+            float(self._start_time_ms) / 1000).isoformat()
 
     def get_seconds_in_period(self):
         """
@@ -1372,7 +1366,7 @@ class TableUsage(object):
 
         :returns: the number of seconds.
         """
-        return self.__seconds_in_period
+        return self._seconds_in_period
 
     def get_read_units(self):
         """
@@ -1380,7 +1374,7 @@ class TableUsage(object):
 
         :returns: the read units.
         """
-        return self.__read_units
+        return self._read_units
 
     def get_write_units(self):
         """
@@ -1388,7 +1382,7 @@ class TableUsage(object):
 
         :returns: the write units.
         """
-        return self.__write_units
+        return self._write_units
 
     def get_storage_gb(self):
         """
@@ -1397,7 +1391,7 @@ class TableUsage(object):
 
         :returns: the size in gigabytes.
         """
-        return self.__storage_gb
+        return self._storage_gb
 
     def get_read_throttle_count(self):
         """
@@ -1406,7 +1400,7 @@ class TableUsage(object):
 
         :returns: the number of throttling exceptions.
         """
-        return self.__read_throttle_count
+        return self._read_throttle_count
 
     def get_write_throttle_count(self):
         """
@@ -1415,7 +1409,7 @@ class TableUsage(object):
 
         :returns: the number of throttling exceptions.
         """
-        return self.__write_throttle_count
+        return self._write_throttle_count
 
     def get_storage_throttle_count(self):
         """
@@ -1424,7 +1418,7 @@ class TableUsage(object):
 
         :returns: the number of throttling exceptions.
         """
-        return self.__storage_throttle_count
+        return self._storage_throttle_count
 
 
 class TimeUnit(object):
@@ -1466,12 +1460,12 @@ class TimeToLive(object):
             raise IllegalArgumentException(
                 'Invalid time unit in TimeToLive construction. Must be ' +
                 'not-none and should be DAYS or HOURS.')
-        self.__value = value
-        self.__timeunit = timeunit
+        self._value = value
+        self._timeunit = timeunit
 
     def __str__(self):
-        timeunit = 'HOURS' if self.__timeunit == TimeUnit.HOURS else 'DAYS'
-        return str(self.__value) + ' ' + timeunit
+        timeunit = 'HOURS' if self._timeunit == TimeUnit.HOURS else 'DAYS'
+        return str(self._value) + ' ' + timeunit
 
     @staticmethod
     def of_hours(hours):
@@ -1507,8 +1501,8 @@ class TimeToLive(object):
 
         :returns: the number of days.
         """
-        return (self.__value if self.__timeunit == TimeUnit.DAYS else
-                self.__value // 24)
+        return (self._value if self._timeunit == TimeUnit.DAYS else
+                self._value // 24)
 
     def to_hours(self):
         """
@@ -1516,8 +1510,8 @@ class TimeToLive(object):
 
         :returns: the number of hours.
         """
-        return (self.__value if self.__timeunit == TimeUnit.HOURS
-                else self.__value * 24)
+        return (self._value if self._timeunit == TimeUnit.HOURS else
+                self._value * 24)
 
     def to_expiration_time(self, reference_time):
         """
@@ -1534,10 +1528,10 @@ class TimeToLive(object):
             is not positive.
         """
         CheckValue.check_int_gt_zero(reference_time, 'reference_time')
-        if self.__value == 0:
+        if self._value == 0:
             return 0
-        hours = 24 if self.__timeunit == TimeUnit.DAYS else 1
-        return reference_time + hours * self.__value * 60 * 60 * 1000
+        hours = 24 if self._timeunit == TimeUnit.DAYS else 1
+        return reference_time + hours * self._value * 60 * 60 * 1000
 
     def get_value(self):
         """
@@ -1545,7 +1539,7 @@ class TimeToLive(object):
 
         :returns: the duration value, independent of unit.
         """
-        return self.__value
+        return self._value
 
     def get_unit(self):
         """
@@ -1553,13 +1547,13 @@ class TimeToLive(object):
 
         :returns: the timeunit.
         """
-        return self.__timeunit
+        return self._timeunit
 
     def unit_is_days(self):
-        return self.__timeunit == TimeUnit.DAYS
+        return self._timeunit == TimeUnit.DAYS
 
     def unit_is_hours(self):
-        return self.__timeunit == TimeUnit.HOURS
+        return self._timeunit == TimeUnit.HOURS
 
 
 class Version(object):
@@ -1580,8 +1574,8 @@ class Version(object):
     """
 
     def __init__(self, version):
-        Version.__check_version(version)
-        self.__version = version
+        Version._check_version(version)
+        self._version = version
 
     def get_bytes(self):
         """
@@ -1589,7 +1583,7 @@ class Version(object):
 
         :returns: the bytearray from the Version.
         """
-        return self.__version
+        return self._version
 
     @staticmethod
     def create_version(version):
@@ -1606,7 +1600,7 @@ class Version(object):
         return Version(version)
 
     @staticmethod
-    def __check_version(version):
+    def _check_version(version):
         if not isinstance(version, bytearray):
             raise IllegalArgumentException(
                 'version must be an bytearray. Got:' + str(version))

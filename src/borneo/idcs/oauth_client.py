@@ -7,7 +7,6 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-from __future__ import print_function
 from argparse import ArgumentParser
 from json import loads
 from logging import FileHandler, INFO, WARNING, getLogger
@@ -149,24 +148,25 @@ class OAuthClient(object):
     _VERBOSE_FLAG = '-verbose'
 
     def __init__(self):
-        self.__parse_args()
-        url = urlparse(self.__idcs_url)
-        self.__host = url.hostname
+        self._parse_args()
+        url = urlparse(self._idcs_url)
+        self._host = url.hostname
         # logger used for HTTP request logging
-        self.__logger = self.__get_logger()
-        self.__logutils = LogUtils(self.__logger)
-        self.__sess = Session()
-        self.__request_utils = RequestUtils(self.__sess, self.__logutils)
+        self._logger = self._get_logger()
+        self._logutils = LogUtils(self._logger)
+        self._sess = Session()
+        self._request_utils = RequestUtils(self._sess, self._logutils)
 
     def execute_commands(self):
+        # noinspection PyBroadException
         try:
-            if self.__delete:
-                self.__do_delete()
-            elif self.__create:
-                self.__do_create()
+            if self._delete:
+                self._do_delete()
+            elif self._create:
+                self._do_create()
             else:
                 errors = list()
-                self.__do_verify(errors)
+                self._do_verify(errors)
                 if len(errors) != 0:
                     print('Verification failed: ')
                     for err in errors:
@@ -174,25 +174,25 @@ class OAuthClient(object):
         except Exception:
             print(format_exc())
         finally:
-            if self.__sess is not None:
-                self.__sess.close()
+            if self._sess is not None:
+                self._sess.close()
 
-    def __add_app(self, auth, payload):
+    def _add_app(self, auth, payload):
         # Add the custom OAuth client
-        response = self.__request_utils.do_post_request(
-            self.__idcs_url + Utils.APP_ENDPOINT,
-            Utils.scim_headers(self.__host, auth), payload, self.__timeout_ms)
-        self.__check_not_none(response, 'response of adding OAuth client')
+        response = self._request_utils.do_post_request(
+            self._idcs_url + Utils.APP_ENDPOINT,
+            Utils.scim_headers(self._host, auth), payload, self._timeout_ms)
+        self._check_not_none(response, 'response of adding OAuth client')
         response_code = response.get_status_code()
         content = response.get_content()
         if response_code == codes.conflict:
             raise IllegalStateException(
-                'OAuth Client ' + self.__name + ' already exists. To ' +
-                'recreate, run with ' + OAuthClient._DELETE_FLAG + '. To ' +
-                'verify if existing client is configured correctly, run with ' +
+                'OAuth Client ' + self._name + ' already exists. To recreate,' +
+                ' run with ' + OAuthClient._DELETE_FLAG + '. To verify if ' +
+                'existing client is configured correctly, run with ' +
                 OAuthClient._VERIFY_FLAG)
         elif response_code >= codes.multiple_choices:
-            OAuthClient.__idcs_errors(response, 'Adding custom client')
+            OAuthClient._idcs_errors(response, 'Adding custom client')
         app_id = 'id'
         oauth_id = 'name'
         secret = 'clientSecret'
@@ -206,16 +206,16 @@ class OAuthClient(object):
                            app_id, oauth_id, secret))
         return OAuthClient.Client(app_id_value, oauth_id_value, secret_value)
 
-    def __check_not_none(self, response, action):
+    def _check_not_none(self, response, action):
         if response is None:
             raise IllegalStateException(
                 'Error ' + action + ' from Oracle Identity Cloud Service, ' +
                 'no response')
 
-    def __creds_template(self, client_id, secret):
+    def _creds_template(self, client_id, secret):
         file_dir = ((path.abspath(path.dirname(argv[0])) if
-                     self.__temp_file_dir is None else
-                     self.__temp_file_dir) + sep + OAuthClient._CREDS_TMP)
+                     self._temp_file_dir is None else self._temp_file_dir) +
+                    sep + OAuthClient._CREDS_TMP)
         if path.exists(file_dir):
             remove(file_dir)
         with open(file_dir, 'w') as f:
@@ -228,115 +228,114 @@ class OAuthClient(object):
             f.write(PropertiesCredentialsProvider.PWD_PROP + '=\n')
         return file_dir
 
-    def __deactivate_app(self, auth, app_id):
+    def _deactivate_app(self, auth, app_id):
         # Deactivate OAuth client
-        response = self.__request_utils.do_put_request(
-            self.__idcs_url + Utils.STATUS_ENDPOINT + sep + app_id,
-            Utils.scim_headers(self.__host, auth), OAuthClient._DEACTIVATE,
-            self.__timeout_ms)
-        self.__check_not_none(
+        response = self._request_utils.do_put_request(
+            self._idcs_url + Utils.STATUS_ENDPOINT + sep + app_id,
+            Utils.scim_headers(self._host, auth), OAuthClient._DEACTIVATE,
+            self._timeout_ms)
+        self._check_not_none(
             response, 'response of deactivating OAuth client')
         if codes.ok <= response.get_status_code() < codes.multiple_choices:
             return
-        OAuthClient.__idcs_errors(
-            response, 'deactivating OAuth client ' + self.__name)
+        OAuthClient._idcs_errors(
+            response, 'deactivating OAuth client ' + self._name)
 
-    def __do_create(self):
-        self.__output('Creating OAuth Client ' + self.__name)
+    def _do_create(self):
+        self._output('Creating OAuth Client ' + self._name)
         try:
             # Find PSM and ANDC fqs
-            auth = 'Bearer ' + self.__get_bootstrap_token()
-            psm_fqs = self.__get_psm_audience(auth) + Utils.PSM_SCOPE
-            andc = self.__get_andc_info(auth)
+            auth = 'Bearer ' + self._get_bootstrap_token()
+            psm_fqs = self._get_psm_audience(auth) + Utils.PSM_SCOPE
+            andc = self._get_andc_info(auth)
             andc_fqs = andc.audience + AccessTokenProvider.SCOPE
-            self.__log_verbose('Found scopes ' + psm_fqs + ', ' + andc_fqs)
+            self._log_verbose('Found scopes ' + psm_fqs + ', ' + andc_fqs)
             # Add custom client
-            add_app = OAuthClient._CLIENT.format(
-                self.__name, psm_fqs, andc_fqs)
-            client_info = self.__add_app(auth, add_app)
-            self.__log_verbose('Added OAuth client ' + self.__name)
+            add_app = OAuthClient._CLIENT.format(self._name, psm_fqs, andc_fqs)
+            client_info = self._add_app(auth, add_app)
+            self._log_verbose('Added OAuth client ' + self._name)
             # Find ANDC role id
-            role_id = self.__get_id(
-                auth, self.__idcs_url + OAuthClient._ANDC_ROLE_EP, 'role')
-            self.__log_verbose('Found role id ' + role_id)
+            role_id = self._get_id(
+                auth, self._idcs_url + OAuthClient._ANDC_ROLE_EP, 'role')
+            self._log_verbose('Found role id ' + role_id)
             # Grant ANDC_FullAccessRole to custom client
             grant = OAuthClient._GRANT.format(
                 andc.app_id, role_id, client_info.app_id)
-            self.__grant_role(auth, grant)
-            self.__log_verbose('Granted role to OAuth client')
-            self.__output(self.__name + ' is created\nClient ID: ' +
-                          client_info.oauth_id + '\nClient secret: ' +
-                          client_info.secret)
-            creds_path = self.__creds_template(client_info.oauth_id,
-                                               client_info.secret)
-            self.__output('Credential template file ' + creds_path)
+            self._grant_role(auth, grant)
+            self._log_verbose('Granted role to OAuth client')
+            self._output(
+                self._name + ' is created\nClient ID: ' + client_info.oauth_id +
+                '\nClient secret: ' + client_info.secret)
+            creds_path = self._creds_template(
+                client_info.oauth_id, client_info.secret)
+            self._output('Credential template file ' + creds_path)
         except Exception as e:
-            self.__output('Failed to create OAuth client ' + self.__name)
+            self._output('Failed to create OAuth client ' + self._name)
             raise e
 
-    def __do_delete(self):
-        self.__output('Deleting OAuth Client ' + self.__name)
+    def _do_delete(self):
+        self._output('Deleting OAuth Client ' + self._name)
         try:
-            auth = 'Bearer ' + self.__get_bootstrap_token()
+            auth = 'Bearer ' + self._get_bootstrap_token()
             # Find OAuth client AppId
-            app_id = self.__get_id(
-                auth, self.__idcs_url + OAuthClient._CLIENT_EP + self.__name +
+            app_id = self._get_id(
+                auth, self._idcs_url + OAuthClient._CLIENT_EP + self._name +
                 '%22', 'client')
-            self.__log_verbose('Found OAuth client AppId: ' + app_id)
+            self._log_verbose('Found OAuth client AppId: ' + app_id)
             # Deactivate the OAuth client
-            self.__deactivate_app(auth, app_id)
-            self.__log_verbose('OAuth client deactivated')
+            self._deactivate_app(auth, app_id)
+            self._log_verbose('OAuth client deactivated')
             # Remove the OAuth client
-            self.__remove_client(auth, app_id)
-            self.__output(self.__name + ' is deleted')
+            self._remove_client(auth, app_id)
+            self._output(self._name + ' is deleted')
         except Exception as e:
-            self.__output('Failed to remove OAuth client ' + self.__name)
+            self._output('Failed to remove OAuth client ' + self._name)
             raise e
 
-    def __do_verify(self, errors):
-        self.__output('Verifying OAuth Client ' + self.__name)
+    def _do_verify(self, errors):
+        self._output('Verifying OAuth Client ' + self._name)
         try:
-            auth = 'Bearer ' + self.__get_bootstrap_token()
-            response = self.__request_utils.do_get_request(
-                self.__idcs_url + OAuthClient._CLIENT_EP + self.__name + '%22',
-                Utils.scim_headers(self.__host, auth), self.__timeout_ms)
-            self.__check_not_none(response, 'client metadata')
+            auth = 'Bearer ' + self._get_bootstrap_token()
+            response = self._request_utils.do_get_request(
+                self._idcs_url + OAuthClient._CLIENT_EP + self._name + '%22',
+                Utils.scim_headers(self._host, auth), self._timeout_ms)
+            self._check_not_none(response, 'client metadata')
             response_code = response.get_status_code()
             content = response.get_content()
             if response_code >= codes.multiple_choices:
-                OAuthClient.__idcs_errors(
-                    response, 'Getting client ' + self.__name)
+                OAuthClient._idcs_errors(
+                    response, 'Getting client ' + self._name)
             grants = Utils.get_field(content, 'allowedGrants')
             if grants is None:
                 # No results in response
                 raise IllegalStateException(
-                    'OAuth Client ' + self.__name + ' doesn\'t exist, or the ' +
+                    'OAuth Client ' + self._name + ' doesn\'t exist, or the ' +
                     'token file is invalid, user who downloads the token ' +
                     'must have Identity Domain Administrator role')
             # Verify if client has required grants
-            self.__verify_grants(grants, errors)
+            self._verify_grants(grants, errors)
             # Verify if client has PSM and ANDC FQS
-            self.__verify_scopes(
+            self._verify_scopes(
                 Utils.get_field(content, 'allowedScopes', 'fqs'), errors)
             # Verify if client has ANDC role
-            self.__verify_role(
+            self._verify_role(
                 Utils.get_field(content, 'grantedAppRoles', 'display'), errors)
             if len(errors) > 0:
                 return
-            self.__output('Verification succeed')
+            self._output('Verification succeed')
         except Exception as e:
-            self.__output('Verification failed of OAuth client ' + self.__name)
+            self._output('Verification failed of OAuth client ' + self._name)
             raise e
 
-    def __get_andc_info(self, auth):
+    def _get_andc_info(self, auth):
         # Get App ANDC metadata from IDCS
-        response = self.__request_utils.do_get_request(
-            self.__idcs_url + OAuthClient._ANDC_APP_EP,
-            Utils.scim_headers(self.__host, auth), self.__timeout_ms)
-        self.__check_not_none(response, 'getting service metadata')
+        response = self._request_utils.do_get_request(
+            self._idcs_url + OAuthClient._ANDC_APP_EP,
+            Utils.scim_headers(self._host, auth), self._timeout_ms)
+        self._check_not_none(response, 'getting service metadata')
         content = response.get_content()
         if response.get_status_code() >= codes.multiple_choices:
-            OAuthClient.__idcs_errors(response, 'Getting service metadata')
+            OAuthClient._idcs_errors(response, 'Getting service metadata')
         audience = 'audience'
         app_id = 'id'
         audience_value = Utils.get_field(content, audience)
@@ -347,9 +346,9 @@ class OAuthClient(object):
                            audience, app_id))
         return OAuthClient.ANDC(app_id_value, audience_value)
 
-    def __get_bootstrap_token(self):
+    def _get_bootstrap_token(self):
         # Read access token from given file
-        with open(self.__at_file, 'r') as at_file:
+        with open(self._at_file, 'r') as at_file:
             content = at_file.read()
         bootstrap_token = loads(content)
         field = 'app_access_token'
@@ -359,21 +358,21 @@ class OAuthClient(object):
                 'Access token file contains invalid value: ' + content)
         return app_access_token
 
-    def __get_id(self, auth, url, resource):
-        response = self.__request_utils.do_get_request(
-            url, Utils.scim_headers(self.__host, auth), self.__timeout_ms)
-        self.__check_not_none(response, 'getting ' + resource + ' id')
+    def _get_id(self, auth, url, resource):
+        response = self._request_utils.do_get_request(
+            url, Utils.scim_headers(self._host, auth), self._timeout_ms)
+        self._check_not_none(response, 'getting ' + resource + ' id')
         if response.get_status_code() >= codes.multiple_choices:
-            OAuthClient.__idcs_errors(response, 'Getting id of ' + resource)
+            OAuthClient._idcs_errors(response, 'Getting id of ' + resource)
         return str(Utils.get_field(
             response.get_content(), 'id', allow_none=False))
 
-    def __get_logger(self):
+    def _get_logger(self):
         """
         Returns the logger used for OAuthClient.
         """
         logger = getLogger(self.__class__.__name__)
-        if self.__verbose:
+        if self._verbose:
             logger.setLevel(WARNING)
         else:
             logger.setLevel(INFO)
@@ -383,35 +382,34 @@ class OAuthClient(object):
         logger.addHandler(FileHandler(log_dir + sep + 'oauth.log'))
         return logger
 
-    def __get_psm_audience(self, auth):
-        response = self.__request_utils.do_get_request(
-            self.__idcs_url + OAuthClient._PSM_APP_EP,
-            Utils.scim_headers(self.__host, auth), self.__timeout_ms)
-        self.__check_not_none(response, 'getting account metadata')
+    def _get_psm_audience(self, auth):
+        response = self._request_utils.do_get_request(
+            self._idcs_url + OAuthClient._PSM_APP_EP,
+            Utils.scim_headers(self._host, auth), self._timeout_ms)
+        self._check_not_none(response, 'getting account metadata')
         if response.get_status_code() >= codes.multiple_choices:
-            OAuthClient.__idcs_errors(response, 'Getting account metadata')
+            OAuthClient._idcs_errors(response, 'Getting account metadata')
         return str(Utils.get_field(
             response.get_content(), 'audience', allow_none=False))
 
-    def __grant_role(self, auth, payload):
+    def _grant_role(self, auth, payload):
         # Grant ANDC_FullAccessRole to OAuth client
-        response = self.__request_utils.do_post_request(
-            self.__idcs_url + Utils.GRANT_ENDPOINT,
-            Utils.scim_headers(self.__host, auth), payload,
-            self.__timeout_ms)
-        self.__check_not_none(response, ' response of granting role')
+        response = self._request_utils.do_post_request(
+            self._idcs_url + Utils.GRANT_ENDPOINT,
+            Utils.scim_headers(self._host, auth), payload, self._timeout_ms)
+        self._check_not_none(response, ' response of granting role')
         if codes.ok <= response.get_status_code() < codes.multiple_choices:
             return
-        OAuthClient.__idcs_errors(response, 'Granting required role to client')
+        OAuthClient._idcs_errors(response, 'Granting required role to client')
 
-    def __log_verbose(self, msg):
-        if self.__verbose:
+    def _log_verbose(self, msg):
+        if self._verbose:
             print(msg)
 
-    def __output(self, msg):
+    def _output(self, msg):
         print(msg)
 
-    def __parse_args(self):
+    def _parse_args(self):
         parser = ArgumentParser(prog='OAuthClient')
         parser.add_argument(
             OAuthClient._IDCS_URL_FLAG, required=True, help='The idcs_url.',
@@ -447,34 +445,34 @@ class OAuthClient(object):
             help='To log verbose information.')
 
         args = parser.parse_args()
-        self.__idcs_url = args.idcs_url
-        self.__at_file = args.token
-        self.__name = args.name
-        self.__temp_file_dir = args.credsdir
-        self.__timeout_ms = args.timeout
-        self.__create = args.create
-        self.__delete = args.delete
-        self.__verify = args.verify
-        self.__verbose = args.verbose
+        self._idcs_url = args.idcs_url
+        self._at_file = args.token
+        self._name = args.name
+        self._temp_file_dir = args.credsdir
+        self._timeout_ms = args.timeout
+        self._create = args.create
+        self._delete = args.delete
+        self._verify = args.verify
+        self._verbose = args.verbose
 
-        if not (self.__create or self.__delete or self.__verify):
+        if not (self._create or self._delete or self._verify):
             parser.error(
                 'Missing required argument ' + OAuthClient._CREATE_FLAG +
                 ' | ' + OAuthClient._DELETE_FLAG + ' | ' +
                 OAuthClient._VERIFY_FLAG)
 
-    def __remove_client(self, auth, app_id):
-        response = self.__request_utils.do_delete_request(
-            self.__idcs_url + Utils.APP_ENDPOINT + sep + app_id,
-            Utils.scim_headers(self.__host, auth), self.__timeout_ms)
-        self.__check_not_none(response, 'response of deleting OAuth client')
+    def _remove_client(self, auth, app_id):
+        response = self._request_utils.do_delete_request(
+            self._idcs_url + Utils.APP_ENDPOINT + sep + app_id,
+            Utils.scim_headers(self._host, auth), self._timeout_ms)
+        self._check_not_none(response, 'response of deleting OAuth client')
         if codes.ok <= response.get_status_code() < codes.multiple_choices:
             return
-        OAuthClient.__idcs_errors(
-            response, 'removing OAuth client ' + self.__name)
+        OAuthClient._idcs_errors(
+            response, 'removing OAuth client ' + self._name)
 
-    def __verify_grants(self, grants, errors):
-        self.__log_verbose('OAuth client allowed grants: ' + str(grants))
+    def _verify_grants(self, grants, errors):
+        self._log_verbose('OAuth client allowed grants: ' + str(grants))
         match = 0
         for grant in grants:
             if (grant.lower() == 'password' or
@@ -483,23 +481,23 @@ class OAuthClient(object):
         if match != 2:
             errors.append('Missing required allowed grants, require Resource ' +
                           'Owner and Client Credentials')
-        self.__log_verbose('Grants verification succeed')
+        self._log_verbose('Grants verification succeed')
 
-    def __verify_role(self, roles, errors):
+    def _verify_role(self, roles, errors):
         if roles is None:
             raise IllegalStateException(
-                'OAuth client ' + self.__name + ' doesn\'t have roles')
-        self.__log_verbose('OAuth client allowed roles: ' + str(roles))
+                'OAuth client ' + self._name + ' doesn\'t have roles')
+        self._log_verbose('OAuth client allowed roles: ' + str(roles))
         match = 0
         for role in roles:
             if role == 'ANDC_FullAccessRole':
                 match += 1
         if match != 1:
             errors.append('Missing required role ANDC_FullAccessRole')
-        self.__log_verbose('Role verification succeed')
+        self._log_verbose('Role verification succeed')
 
-    def __verify_scopes(self, fqs_list, errors):
-        self.__log_verbose('OAuth client allowed scopes: ' + str(fqs_list))
+    def _verify_scopes(self, fqs_list, errors):
+        self._log_verbose('OAuth client allowed scopes: ' + str(fqs_list))
         match = 0
         for fqs in fqs_list:
             if Utils.PSM_SCOPE in fqs or AccessTokenProvider.SCOPE in fqs:
@@ -507,10 +505,10 @@ class OAuthClient(object):
         if match != 2:
             errors.append('Missing required OAuth scopes, client only have ' +
                           str(fqs_list))
-        self.__log_verbose('Scope verification succeed')
+        self._log_verbose('Scope verification succeed')
 
     @staticmethod
-    def __idcs_errors(response, action):
+    def _idcs_errors(response, action):
         Utils.handle_idcs_errors(
             response, action, ' Access token in the token file expired,' +
             ' or the token file is generated with incorrect scopes,' +

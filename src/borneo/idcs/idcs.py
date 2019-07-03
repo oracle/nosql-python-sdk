@@ -61,7 +61,7 @@ class Utils(object):
         value = content.get(field)
         values = None
         if value is None:
-            value = Utils.__get_field_recursively(content, field)
+            value = Utils._get_field_recursively(content, field)
             if not allow_none and value is None:
                 raise IllegalStateException(
                     field + ' doesn\'t exist in ' + content_str)
@@ -114,15 +114,15 @@ class Utils(object):
     @staticmethod
     def scim_headers(host, auth):
         # Default HTTP headers with SCIM content type
-        return Utils.__headers(host, auth, Utils._SCIM_CONTENT)
+        return Utils._headers(host, auth, Utils._SCIM_CONTENT)
 
     @staticmethod
     def token_headers(host, auth):
         # Default HTTP headers with URL-encoded content type
-        return Utils.__headers(host, auth, Utils._TOKEN_REQUEST_CONTENT_TYPE)
+        return Utils._headers(host, auth, Utils._TOKEN_REQUEST_CONTENT_TYPE)
 
     @staticmethod
-    def __get_field_recursively(content, field):
+    def _get_field_recursively(content, field):
         field_value = None
         try:
             items = content.iteritems()
@@ -135,12 +135,11 @@ class Utils(object):
             elif isinstance(value, list):
                 for item in value:
                     if isinstance(item, dict):
-                        field_value = Utils.__get_field_recursively(
-                            item, field)
+                        field_value = Utils._get_field_recursively(item, field)
         return field_value
 
     @staticmethod
-    def __headers(host, auth, content_type):
+    def _headers(host, auth, content_type):
         headers = {'Host': host,
                    'Content-Type': content_type,
                    'Authorization': auth,
@@ -153,8 +152,8 @@ class AccessTokenProvider(AuthorizationProvider):
     """
     AccessTokenProvider is an instance of
     :py:meth:`borneo.AuthorizationProvider` that uses access tokens (ATs)
-    obtained from the Oracle
-    Identity Cloud Service (IDCS) as authorization information.
+    obtained from the Oracle Identity Cloud Service (IDCS) as authorization
+    information.
 
     An instance of this class is supplied to the driver via
     :py:meth:`borneo.NoSQLHandleConfig.set_authorization_provider`.
@@ -210,20 +209,20 @@ class AccessTokenProvider(AuthorizationProvider):
         a current token is not available or expired. Setting the duration too
         small means that there may be unnecessary overhead due to token renewal.
         """
-        self.__timer = None
+        self._timer = None
         # Refresh time before AT expired from cache.
-        self.__refresh_ahead_s = refresh_ahead
+        self._refresh_ahead_s = refresh_ahead
         CheckValue.check_int_gt_zero(duration_seconds, 'duration_seconds')
         if duration_seconds > AccessTokenProvider.MAX_ENTRY_LIFE_TIME:
             raise IllegalArgumentException(
                 'Access token cannot be cached longer than ' +
                 str(AccessTokenProvider.MAX_ENTRY_LIFE_TIME) + ' seconds')
-        self.__duration_seconds = duration_seconds
-        self.__at_cache = Memoize(self.__duration_seconds)
+        self._duration_seconds = duration_seconds
+        self._at_cache = Memoize(self._duration_seconds)
         # AT refresh interval, if zero, no refresh will be scheduled.
-        self.__refresh_interval_s = (
-            self.__duration_seconds - self.__refresh_ahead_s if
-            self.__duration_seconds > self.__refresh_ahead_s else 0)
+        self._refresh_interval_s = (
+            self._duration_seconds - self._refresh_ahead_s if
+            self._duration_seconds > self._refresh_ahead_s else 0)
 
     def get_authorization_string(self, request=None):
         """
@@ -237,12 +236,12 @@ class AccessTokenProvider(AuthorizationProvider):
             raise IllegalArgumentException(
                 'get_authorization_string requires an instance of Request as ' +
                 'parameter.')
-        need_account_at = self.__need_account_at(request)
+        need_account_at = self._need_account_at(request)
         key = (AccessTokenProvider.ACCOUNT_AT_KEY if need_account_at else
                AccessTokenProvider.SERVICE_AT_KEY)
-        auth_string = self.__at_cache.get(key)
+        auth_string = self._at_cache.get(key)
         if auth_string is None:
-            auth_string = self.__get_at(key)
+            auth_string = self._get_at(key)
         return auth_string
 
     @abstractmethod
@@ -288,13 +287,13 @@ class AccessTokenProvider(AuthorizationProvider):
         """
         Closes the authorization provider.
         """
-        if self.__timer is not None:
-            self.__timer.cancel()
-            self.__timer = None
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
 
-    def __get_at(self, key):
+    def _get_at(self, key):
         # Check if at is already present.
-        at = self.__at_cache.get(key)
+        at = self._at_cache.get(key)
         if at is not None:
             return at
         if key == AccessTokenProvider.ACCOUNT_AT_KEY:
@@ -304,13 +303,13 @@ class AccessTokenProvider(AuthorizationProvider):
         value = None
         if at is not None:
             value = AccessTokenProvider.TOKEN_PREFIX + at
-            self.__at_cache.set(key, value)
+            self._at_cache.set(key, value)
             # Only schedule refresh ANDC AT used for DML requests.
             if key == AccessTokenProvider.SERVICE_AT_KEY:
-                self.__schedule_refresh()
+                self._schedule_refresh()
         return value
 
-    def __need_account_at(self, request):
+    def _need_account_at(self, request):
         """
         Requests need account access token.
 
@@ -334,29 +333,30 @@ class AccessTokenProvider(AuthorizationProvider):
                     AccessTokenProvider.DROP_TABLE_KEYWORD)
         return False
 
-    def __refresh_task(self):
+    def _refresh_task(self):
+        # noinspection PyBroadException
         try:
             at = self.get_service_access_token()
             if at is not None:
                 value = AccessTokenProvider.TOKEN_PREFIX + at
-                self.__at_cache.set(AccessTokenProvider.SERVICE_AT_KEY, value)
-                self.__schedule_refresh()
+                self._at_cache.set(AccessTokenProvider.SERVICE_AT_KEY, value)
+                self._schedule_refresh()
         except Exception:
             # Ignore the failure of refresh. The driver would try to
             # acquire/refresh the AT in the next request if AT is not available,
             # the failure would be reported at that moment.
-            self.__timer.cancel()
-            self.__timer = None
+            self._timer.cancel()
+            self._timer = None
 
-    def __schedule_refresh(self):
+    def _schedule_refresh(self):
         # If refresh interval is 0, don't schedule a refresh.
-        if self.__refresh_interval_s == 0:
+        if self._refresh_interval_s == 0:
             return
-        if self.__timer is not None:
-            self.__timer.cancel()
-            self.__timer = None
-        self.__timer = Timer(self.__refresh_interval_s, self.__refresh_task)
-        self.__timer.start()
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+        self._timer = Timer(self._refresh_interval_s, self._refresh_task)
+        self._timer.start()
 
 
 class DefaultAccessTokenProvider(AccessTokenProvider):
@@ -446,39 +446,38 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         if idcs_url is None:
             CheckValue.check_str(idcs_props_file, 'idcs_props_file')
             super(DefaultAccessTokenProvider, self).__init__()
-            self.__idcs_url = self.__get_idcs_url(idcs_props_file)
-            entitlement = self.__get_entitlement_id(idcs_props_file)
-            self.__creds_provider = (
+            self._idcs_url = self._get_idcs_url(idcs_props_file)
+            entitlement = self._get_entitlement_id(idcs_props_file)
+            self._creds_provider = (
                 PropertiesCredentialsProvider().set_properties_file(
-                    self.__get_credential_file(idcs_props_file)))
-            self.__timeout_ms = Utils.DEFAULT_TIMEOUT_MS
+                    self._get_credential_file(idcs_props_file)))
+            self._timeout_ms = Utils.DEFAULT_TIMEOUT_MS
         else:
             CheckValue.check_str(idcs_url, 'idcs_url')
-            self.__is_credentials_provider(creds_provider)
+            self._is_credentials_provider(creds_provider)
             CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
             CheckValue.check_int_gt_zero(cache_duration_seconds,
                                          'cache_duration_seconds')
             CheckValue.check_int_gt_zero(refresh_ahead, 'refresh_ahead')
             super(DefaultAccessTokenProvider, self).__init__(
                 cache_duration_seconds, refresh_ahead)
-            self.__idcs_url = idcs_url
+            self._idcs_url = idcs_url
             entitlement = entitlement_id
-            self.__creds_provider = (PropertiesCredentialsProvider() if
-                                     creds_provider is None else creds_provider)
-            self.__timeout_ms = timeout_ms
-        url = urlparse(self.__idcs_url)
-        self.__host = url.hostname
-        self.__andc_fqs = None
+            self._creds_provider = (PropertiesCredentialsProvider() if
+                                    creds_provider is None else creds_provider)
+            self._timeout_ms = timeout_ms
+        url = urlparse(self._idcs_url)
+        self._host = url.hostname
+        self._andc_fqs = None
         if entitlement is not None:
             CheckValue.check_str(entitlement, 'entitlement_id')
-            self.__andc_fqs = (
-                AccessTokenProvider.ANDC_AUD_PREFIX + entitlement +
-                AccessTokenProvider.SCOPE)
-        self.__psm_fqs = None
-        self.__logger = None
-        self.__logutils = LogUtils()
-        self.__sess = Session()
-        self.__request_utils = RequestUtils(self.__sess, self.__logutils)
+            self._andc_fqs = (AccessTokenProvider.ANDC_AUD_PREFIX +
+                              entitlement + AccessTokenProvider.SCOPE)
+        self._psm_fqs = None
+        self._logger = None
+        self._logutils = LogUtils()
+        self._sess = Session()
+        self._request_utils = RequestUtils(self._sess, self._logutils)
 
     def set_credentials_provider(self, provider):
         """
@@ -489,67 +488,67 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         :raises IllegalArgumentException: raises the exception if provider is
             not an instance of CredentialsProvider.
         """
-        self.__is_credentials_provider(provider)
-        self.__creds_provider = provider
+        self._is_credentials_provider(provider)
+        self._creds_provider = provider
         return self
 
     def set_logger(self, logger):
         CheckValue.check_logger(logger, 'logger')
-        self.__logger = logger
-        self.__logutils = LogUtils(logger)
-        self.__request_utils = RequestUtils(self.__sess, self.__logutils)
+        self._logger = logger
+        self._logutils = LogUtils(logger)
+        self._request_utils = RequestUtils(self._sess, self._logutils)
         return self
 
     def get_logger(self):
-        return self.__logger
+        return self._logger
 
     def get_account_access_token(self):
-        self.__ensure_creds_provider()
-        self.__find_oauth_scopes()
-        if self.__psm_fqs is not None:
-            return self.__get_at_by_password(self.__psm_fqs)
-        return self.__get_at_by_psm_app()
+        self._ensure_creds_provider()
+        self._find_oauth_scopes()
+        if self._psm_fqs is not None:
+            return self._get_at_by_password(self._psm_fqs)
+        return self._get_at_by_psm_app()
 
     def get_service_access_token(self):
-        self.__ensure_creds_provider()
-        if self.__andc_fqs is None:
-            self.__find_oauth_scopes()
-        if self.__andc_fqs is None:
+        self._ensure_creds_provider()
+        if self._andc_fqs is None:
+            self._find_oauth_scopes()
+        if self._andc_fqs is None:
             raise IllegalStateException(
                 'Unable to find service scope from OAuth Client, retry with ' +
                 'service entitlement id.')
-        return self.__get_at_by_password(self.__andc_fqs)
+        return self._get_at_by_password(self._andc_fqs)
 
     def close(self):
         super(DefaultAccessTokenProvider, self).close()
-        if self.__sess is not None:
-            self.__sess.close()
+        if self._sess is not None:
+            self._sess.close()
 
-    def __ensure_creds_provider(self):
-        if self.__creds_provider is None:
+    def _ensure_creds_provider(self):
+        if self._creds_provider is None:
             raise IllegalArgumentException(
                 'CredentialsProvider unavailable.')
 
-    def __find_oauth_scopes(self):
+    def _find_oauth_scopes(self):
         # Find PSM and ANDC FQS from allowed scopes of OAuth client.
-        if self.__andc_fqs is not None and self.__psm_fqs is not None:
+        if self._andc_fqs is not None and self._psm_fqs is not None:
             return
-        creds = self.__get_client_creds()
+        creds = self._get_client_creds()
         oauth_id = creds.get_credential_alias()
-        auth = self.__get_auth_header(oauth_id, creds.get_secret())
+        auth = self._get_auth_header(oauth_id, creds.get_secret())
         try:
-            auth = 'Bearer ' + self.__get_access_token(
+            auth = 'Bearer ' + self._get_access_token(
                 auth, DefaultAccessTokenProvider._CLIENT_GRANT_PAYLOAD,
                 DefaultAccessTokenProvider._IDCS_SCOPE)
         except InvalidAuthorizationException as iae:
-            self.__logutils.log_info(
+            self._logutils.log_info(
                 str.format('Unable to find FQS from OAuth client {0}: {1}.',
                            oauth_id, str(iae)))
             return
-        response = self.__request_utils.do_get_request(
-            self.__idcs_url + Utils.APP_ENDPOINT +
-            DefaultAccessTokenProvider._CLIENT_FILTER + '%22' + oauth_id + '%22',
-            Utils.scim_headers(self.__host, auth), self.__timeout_ms)
+        response = self._request_utils.do_get_request(
+            self._idcs_url + Utils.APP_ENDPOINT +
+            DefaultAccessTokenProvider._CLIENT_FILTER + '%22' + oauth_id +
+            '%22', Utils.scim_headers(self._host, auth), self._timeout_ms)
         if response is None:
             raise IllegalStateException(
                 'Error getting client metadata from Identity Cloud Service, ' +
@@ -564,37 +563,37 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             return
         for fqs in fqs_list:
             if fqs.startswith(AccessTokenProvider.ANDC_AUD_PREFIX):
-                self.__andc_fqs = fqs
+                self._andc_fqs = fqs
             elif fqs.endswith(Utils.PSM_SCOPE):
-                self.__psm_fqs = fqs
+                self._psm_fqs = fqs
 
-    def __get_access_token(self, auth_header, payload, fqs):
-        response = self.__request_utils.do_post_request(
-            self.__idcs_url + Utils.TOKEN_ENDPOINT, Utils.token_headers(
-                self.__host, auth_header), payload, self.__timeout_ms)
+    def _get_access_token(self, auth_header, payload, fqs):
+        response = self._request_utils.do_post_request(
+            self._idcs_url + Utils.TOKEN_ENDPOINT, Utils.token_headers(
+                self._host, auth_header), payload, self._timeout_ms)
         if response is None:
             raise IllegalStateException('Error acquiring access token with '
                                         'scope ' + fqs + ', no response')
         response_code = response.get_status_code()
         content = response.get_content()
         if response_code >= codes.multiple_choices:
-            self.__handle_token_error_response(response_code, content)
-        return self.__parse_access_token_response(content)
+            self._handle_token_error_response(response_code, content)
+        return self._parse_access_token_response(content)
 
-    def __get_at_by_password(self, fqs):
-        user_creds = self.__get_user_creds()
-        client_creds = self.__get_client_creds()
+    def _get_at_by_password(self, fqs):
+        user_creds = self._get_user_creds()
+        client_creds = self._get_client_creds()
         # URL encode fqs.
         encoded_fqs = quote(fqs.encode())
-        auth_header = self.__get_auth_header(
-            client_creds.get_credential_alias(), client_creds.get_secret())
+        auth_header = self._get_auth_header(client_creds.get_credential_alias(),
+                                            client_creds.get_secret())
         replaced = str.format(DefaultAccessTokenProvider._RO_GRANT_FORMAT,
                               user_creds.get_credential_alias(), encoded_fqs)
         # Build the actual payload to acquire access token.
         payload = replaced + user_creds.get_secret()
-        return self.__get_access_token(auth_header, payload, fqs)
+        return self._get_access_token(auth_header, payload, fqs)
 
-    def __get_at_by_psm_app(self):
+    def _get_at_by_psm_app(self):
         """
         Acquiring account access token using PSMApp provisioned by Oracle for
         each tenant. Keeping this path to remain the backward compatibility if
@@ -603,7 +602,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         Applications. This will be deprecated eventually.
         """
         # 1. acquire IDCS AT
-        result = self.__get_at_by_password(
+        result = self._get_at_by_password(
             DefaultAccessTokenProvider._IDCS_SCOPE)
         if result is None:
             raise IllegalStateException(
@@ -611,22 +610,22 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
                 'to get metadata to proceed acquiring account access token.')
         # 2. look up audience, client id and secret of PSMApp
         auth_header = 'Bearer ' + result
-        psm_info = self.__get_psm_app(auth_header)
+        psm_info = self._get_psm_app(auth_header)
         if psm_info is None:
             raise IllegalStateException(
                 'Error finding required metadata from Identity Cloud Service,' +
                 ' unable to proceed acquiring account access token.')
         # 3. acquire PSM AT
-        auth_header = self.__get_auth_header(psm_info.client_id,
-                                             psm_info.client_secret)
+        auth_header = self._get_auth_header(psm_info.client_id,
+                                            psm_info.client_secret)
         psm_fqs = psm_info.audience + Utils.PSM_SCOPE
-        user_creds = self.__get_user_creds()
+        user_creds = self._get_user_creds()
         replaced = str.format(DefaultAccessTokenProvider._RO_GRANT_FORMAT,
                               user_creds.get_credential_alias(), psm_fqs)
         payload = replaced + user_creds.get_secret()
-        return self.__get_access_token(auth_header, payload, psm_fqs)
+        return self._get_access_token(auth_header, payload, psm_fqs)
 
-    def __get_auth_header(self, client_id, secret):
+    def _get_auth_header(self, client_id, secret):
         # Return authorization header in form of 'Basic <clientId:secret>'.
         pair = client_id + ':' + secret
         try:
@@ -634,25 +633,25 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         except TypeError:
             return 'Basic ' + b64encode(pair.encode()).decode()
 
-    def __get_client_creds(self):
-        creds = self.__creds_provider.get_oauth_client_credentials()
+    def _get_client_creds(self):
+        creds = self._creds_provider.get_oauth_client_credentials()
         if creds is None:
             raise IllegalArgumentException(
                 'OAuth client credentials unavailable.')
         return creds
 
-    def __get_credential_file(self, properties_file):
+    def _get_credential_file(self, properties_file):
         creds_file = PropertiesCredentialsProvider.get_property_from_file(
             properties_file, DefaultAccessTokenProvider._CREDS_FILE_PROP)
         if creds_file is None:
             return PropertiesCredentialsProvider._DEFAULT_CREDS_FILE
         return creds_file
 
-    def __get_entitlement_id(self, properties_file):
+    def _get_entitlement_id(self, properties_file):
         return PropertiesCredentialsProvider.get_property_from_file(
             properties_file, DefaultAccessTokenProvider._ENTITLEMENT_ID_PROP)
 
-    def __get_idcs_url(self, properties_file):
+    def _get_idcs_url(self, properties_file):
         # Methods used to fetch IDCS-related properties from given file.
         idcs_url = PropertiesCredentialsProvider.get_property_from_file(
             properties_file, DefaultAccessTokenProvider._IDCS_URL_PROP)
@@ -661,17 +660,17 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
                 'Must specify IDCS URL in IDCS properties file.')
         return idcs_url
 
-    def __get_psm_app(self, auth_header):
+    def _get_psm_app(self, auth_header):
         """
         Get PSMApp metadata from IDCS. The secret of PSMApp will be hidden by
         IDCS, if no secret, return an error to ask users create custom client.
         This will be deprecated eventually.
         """
         # Get PSMApp metadata from IDCS.
-        response = self.__request_utils.do_get_request(
-            self.__idcs_url + Utils.APP_ENDPOINT +
+        response = self._request_utils.do_get_request(
+            self._idcs_url + Utils.APP_ENDPOINT +
             DefaultAccessTokenProvider._PSM_APP_FILTER,
-            Utils.token_headers(self.__host, auth_header), self.__timeout_ms)
+            Utils.token_headers(self._host, auth_header), self._timeout_ms)
         if response is None:
             raise IllegalStateException(
                 'Error getting required metadata from Identity Cloud Service,' +
@@ -705,15 +704,15 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         return DefaultAccessTokenProvider.PSMAppInfo(
             oauth_id_value, secret_value, audience_value)
 
-    def __get_user_creds(self):
-        user_creds = self.__creds_provider.get_user_credentials()
+    def _get_user_creds(self):
+        user_creds = self._creds_provider.get_user_credentials()
         if user_creds is None:
             raise IllegalArgumentException('User credentials unavailable.')
         return user_creds
 
-    def __handle_token_error_response(self, response_code, content):
+    def _handle_token_error_response(self, response_code, content):
         if response_code >= codes.server_error:
-            self.__logutils.log_info(
+            self._logutils.log_info(
                 'Error acquiring access token, expected to retry, error ' +
                 'response: ' + content + ', status code: ' + str(response_code))
             raise RequestTimeoutException(
@@ -732,13 +731,13 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
                 'IDCS error response: ' + content + ', status code: ' +
                 str(response_code))
 
-    def __is_credentials_provider(self, provider):
+    def _is_credentials_provider(self, provider):
         if (provider is not None and
                 not isinstance(provider, CredentialsProvider)):
             raise IllegalArgumentException('provider must be an instance of ' +
                                            'CredentialsProvider.')
 
-    def __parse_access_token_response(self, response):
+    def _parse_access_token_response(self, response):
         """
         A valid response from IDCS is in JSON format and must contains the field
         "access_token" and "expires_in".
@@ -749,7 +748,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
             raise IllegalStateException(
                 'Access token response contains invalid value, response: ' +
                 str(response))
-        self.__logutils.log_debug('Acquired access token ' + access_token)
+        self._logutils.log_debug('Acquired access token ' + access_token)
         return access_token
 
     class PSMAppInfo(object):
@@ -773,8 +772,8 @@ class IDCSCredentials(object):
         # Construct a new instance
         CheckValue.check_str(alias, 'alias')
         CheckValue.check_str(secret, 'secret')
-        self.__alias = alias
-        self.__secret = secret
+        self._alias = alias
+        self._secret = secret
 
     def get_credential_alias(self):
         """
@@ -782,7 +781,7 @@ class IDCSCredentials(object):
 
         :returns: the name of the alias associated with the credentials.
         """
-        return self.__alias
+        return self._alias
 
     def get_secret(self):
         """
@@ -790,7 +789,7 @@ class IDCSCredentials(object):
 
         :returns: the secret for the credentials object.
         """
-        return self.__secret
+        return self._secret
 
 
 class CredentialsProvider(object):
@@ -858,7 +857,7 @@ class PropertiesCredentialsProvider(CredentialsProvider):
         path.expanduser('~') + sep + '.andc' + sep + 'credentials')
 
     def __init__(self):
-        self.__properties_file = (
+        self._properties_file = (
             PropertiesCredentialsProvider._DEFAULT_CREDS_FILE)
 
     def set_properties_file(self, file_path):
@@ -872,22 +871,22 @@ class PropertiesCredentialsProvider(CredentialsProvider):
         if not path.exists(file_path):
             raise IllegalArgumentException(
                 'Path: \'' + file_path + '\' not found.')
-        self.__properties_file = file_path
+        self._properties_file = file_path
         return self
 
     def get_oauth_client_credentials(self):
-        client_id = self.__get_property_from_file(
+        client_id = self._get_property_from_file(
             PropertiesCredentialsProvider.CLIENT_ID_PROP)
-        client_secret = self.__get_property_from_file(
+        client_secret = self._get_property_from_file(
             PropertiesCredentialsProvider.CLIENT_SECRET_PROP)
         if client_id is None or client_secret is None:
             return None
         return IDCSCredentials(client_id, client_secret)
 
     def get_user_credentials(self):
-        user_name = self.__get_property_from_file(
+        user_name = self._get_property_from_file(
             PropertiesCredentialsProvider.USER_NAME_PROP)
-        password = self.__get_property_from_file(
+        password = self._get_property_from_file(
             PropertiesCredentialsProvider.PWD_PROP)
         if user_name is None or password is None:
             return None
@@ -915,6 +914,6 @@ class PropertiesCredentialsProvider(CredentialsProvider):
                     return value
             return None
 
-    def __get_property_from_file(self, property_name):
+    def _get_property_from_file(self, property_name):
         return PropertiesCredentialsProvider.get_property_from_file(
-            self.__properties_file, property_name)
+            self._properties_file, property_name)

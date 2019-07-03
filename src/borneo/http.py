@@ -23,18 +23,18 @@ from .serde import BinaryProtocol
 class HttpResponse(object):
     # Class to package HTTP response output and status code.
     def __init__(self, content, status_code):
-        self.__content = content
-        self.__status_code = status_code
+        self._content = content
+        self._status_code = status_code
 
     def __str__(self):
-        return ('HttpResponse [content=' + self.__content + ', status_code=' +
-                str(self.__status_code) + ']')
+        return ('HttpResponse [content=' + self._content + ', status_code=' +
+                str(self._status_code) + ']')
 
     def get_content(self):
-        return self.__content
+        return self._content
 
     def get_status_code(self):
-        return self.__status_code
+        return self._status_code
 
 
 class RequestUtils(object):
@@ -49,13 +49,13 @@ class RequestUtils(object):
         :param request: request to execute.
         :param retry_handler: the retry handler.
         """
-        self.__sess = sess
-        self.__logutils = logutils
-        self.__request = request
-        self.__retry_handler = retry_handler
-        self.__client = client
-        self.__max_request_id = 1
-        self.__auth_provider = (
+        self._sess = sess
+        self._logutils = logutils
+        self._request = request
+        self._retry_handler = retry_handler
+        self._client = client
+        self._max_request_id = 1
+        self._auth_provider = (
             client.get_auth_provider() if client is not None else None)
         self.lock = Lock()
 
@@ -75,8 +75,8 @@ class RequestUtils(object):
         :param timeout_ms: request timeout in milliseconds.
         :returns: HTTP response, a object encapsulate status code and response.
         """
-        return self.__do_request('DELETE', uri, headers, None, timeout_ms,
-                                 sec_timeout_ms=0)
+        return self._do_request('DELETE', uri, headers, None, timeout_ms,
+                                sec_timeout_ms=0)
 
     def do_get_request(self, uri, headers, timeout_ms):
         """
@@ -94,8 +94,8 @@ class RequestUtils(object):
         :param timeout_ms: request timeout in milliseconds.
         :returns: HTTP response, a object encapsulate status code and response.
         """
-        return self.__do_request('GET', uri, headers, None, timeout_ms,
-                                 sec_timeout_ms=0)
+        return self._do_request('GET', uri, headers, None, timeout_ms,
+                                sec_timeout_ms=0)
 
     def do_post_request(self, uri, headers, payload, timeout_ms,
                         sec_timeout_ms=0):
@@ -117,8 +117,8 @@ class RequestUtils(object):
             available in milliseconds.
         :returns: HTTP response, a object encapsulate status code and response.
         """
-        return self.__do_request('POST', uri, headers, payload, timeout_ms,
-                                 sec_timeout_ms)
+        return self._do_request('POST', uri, headers, payload, timeout_ms,
+                                sec_timeout_ms)
 
     def do_put_request(self, uri, headers, payload, timeout_ms,
                        sec_timeout_ms=0):
@@ -140,11 +140,11 @@ class RequestUtils(object):
             available in milliseconds.
         :returns: HTTP response, a object encapsulate status code and response.
         """
-        return self.__do_request('PUT', uri, headers, payload, timeout_ms,
-                                 sec_timeout_ms)
+        return self._do_request('PUT', uri, headers, payload, timeout_ms,
+                                sec_timeout_ms)
 
-    def __do_request(self, method, uri, headers, payload, timeout_ms,
-                     sec_timeout_ms):
+    def _do_request(self, method, uri, headers, payload, timeout_ms,
+                    sec_timeout_ms):
         start_ms = int(round(time() * 1000))
         timeout_s = timeout_ms // 1000
         if timeout_s == 0:
@@ -153,37 +153,37 @@ class RequestUtils(object):
         num_retried = 0
         exception = None
         while True:
-            if self.__auth_provider is not None:
-                auth_string = self.__auth_provider.get_authorization_string(
-                    self.__request)
-                self.__auth_provider.validate_auth_string(auth_string)
+            if self._auth_provider is not None:
+                auth_string = self._auth_provider.get_authorization_string(
+                    self._request)
+                self._auth_provider.validate_auth_string(auth_string)
                 if auth_string is not None:
                     headers['Authorization'] = auth_string
             if num_retried > 0:
-                self.__log_retried(num_retried, exception)
+                self._log_retried(num_retried, exception)
             response = None
             try:
-                if self.__request is not None:
-                    request_id = str(self.__next_request_id())
+                if self._request is not None:
+                    request_id = str(self._next_request_id())
                     headers['x-nosql-request-id'] = request_id
                 elif payload is not None:
                     payload = payload.encode()
                 if payload is None:
-                    response = self.__sess.request(
+                    response = self._sess.request(
                         method, uri, headers=headers, timeout=timeout_s)
                 else:
                     # wrap the payload to make it compatible with pyOpenSSL,
                     # there maybe small cost to wrap it.
-                    response = self.__sess.request(
+                    response = self._sess.request(
                         method, uri, headers=headers, data=memoryview(payload),
                         timeout=timeout_s)
-                if self.__logutils.is_enabled_for(DEBUG):
-                    self.__logutils.log_trace(
-                        'Response: ' + self.__request.__class__.__name__ +
+                if self._logutils.is_enabled_for(DEBUG):
+                    self._logutils.log_debug(
+                        'Response: ' + self._request.__class__.__name__ +
                         ', status: ' + str(response.status_code))
-                if self.__request is not None:
-                    return self.__process_response(
-                        self.__request, response.content, response.status_code)
+                if self._request is not None:
+                    return self._process_response(
+                        self._request, response.content, response.status_code)
                 else:
                     res = HttpResponse(response.content.decode(),
                                        response.status_code)
@@ -192,7 +192,7 @@ class RequestUtils(object):
                     indicates server internal error.
                     """
                     if res.get_status_code() >= codes.server_error:
-                        self.__logutils.log_debug(
+                        self._logutils.log_debug(
                             'Remote server temporarily unavailable, status ' +
                             'code ' + str(res.get_status_code()) +
                             ' , response ' + res.get_content())
@@ -200,17 +200,17 @@ class RequestUtils(object):
                         continue
                     return res
             except AuthenticationException as ae:
-                if (self.__auth_provider is not None and isinstance(
-                        self.__auth_provider, StoreAccessTokenProvider)):
-                    self.__auth_provider.bootstrap_login()
+                if (self._auth_provider is not None and isinstance(
+                        self._auth_provider, StoreAccessTokenProvider)):
+                    self._auth_provider.bootstrap_login()
                     exception = ae
                     num_retried += 1
                     continue
-                self.__logutils.log_info(
+                self._logutils.log_info(
                     'Unexpected authentication exception: ' + str(ae))
                 raise NoSQLException('Unexpected exception: ' + str(ae), ae)
             except RetryableException as re:
-                self.__logutils.log_debug('Retryable exception: ' + str(re))
+                self._logutils.log_debug('Retryable exception: ' + str(re))
                 """
                 Handle automatic retries. If this does not throw an error, then
                 the delay (if any) will have been performed and the request
@@ -219,8 +219,8 @@ class RequestUtils(object):
                 If there have been too many retries this method will throw the
                 original exception.
                 """
-                retried = self.__handle_retry(re, self.__request,
-                                              throttle_retried)
+                retried = self._handle_retry(
+                    re, self._request, throttle_retried)
                 """
                 Don't count retries for security info not ready as throttle
                 retires.
@@ -230,30 +230,30 @@ class RequestUtils(object):
                 exception = re
                 num_retried += 1
             except NoSQLException as nse:
-                self.__logutils.log_error(
+                self._logutils.log_error(
                     'Client execution NoSQLException: ' + str(nse))
                 raise nse
             except RuntimeError as re:
-                self.__logutils.log_error(
+                self._logutils.log_error(
                     'Client execution RuntimeError: ' + str(re))
                 raise re
             except ConnectionError as ce:
-                self.__logutils.log_error(
+                self._logutils.log_error(
                     'HTTP request execution ConnectionError: ' + str(ce))
                 raise ce
             except Timeout as t:
-                if self.__request is not None:
-                    self.__logutils.log_error('Timeout exception: ' + str(t))
+                if self._request is not None:
+                    self._logutils.log_error('Timeout exception: ' + str(t))
                     break  # fall through to exception below
                 raise RuntimeError('Timeout exception: ' + str(t))
             finally:
                 if response is not None:
                     response.close()
-            if self.__timeout_request(
+            if self._timeout_request(
                     start_ms, timeout_ms, sec_timeout_ms, exception):
                 break
         actual_timeout = timeout_ms
-        if (self.__request is not None and
+        if (self._request is not None and
                 isinstance(exception, SecurityInfoNotReadyException)):
             actual_timeout = sec_timeout_ms
         raise RequestTimeoutException(
@@ -261,38 +261,38 @@ class RequestUtils(object):
             (' retry.' if num_retried == 0 or num_retried == 1
              else ' retries.'), actual_timeout, exception)
 
-    def __handle_retry(self, re, request, throttle_retried):
+    def _handle_retry(self, re, request, throttle_retried):
         throttle_retried += 1
         msg = ('Retry for request ' + request.__class__.__name__ + ', num ' +
                'retries: ' + str(throttle_retried) + ', exception: ' + str(re))
-        self.__logutils.log_debug(msg)
-        handler = self.__retry_handler
+        self._logutils.log_debug(msg)
+        handler = self._retry_handler
         if not handler.do_retry(request, throttle_retried, re):
-            self.__logutils.log_debug(
+            self._logutils.log_debug(
                 'Operation not retry-able or too many retries.')
             raise re
         handler.delay(throttle_retried, re)
         return throttle_retried
 
-    def __log_retried(self, num_retried, exception):
+    def _log_retried(self, num_retried, exception):
         msg = ('Client, doing retry: ' + str(num_retried) +
                ('' if exception is None else ', exception: ' + str(exception)))
-        if (self.__request is not None and
+        if (self._request is not None and
                 isinstance(exception, SecurityInfoNotReadyException)):
-            self.__logutils.log_debug(msg)
+            self._logutils.log_debug(msg)
         else:
-            self.__logutils.log_info(msg)
+            self._logutils.log_info(msg)
 
     @synchronized
-    def __next_request_id(self):
+    def _next_request_id(self):
         """
         Get the next client-scoped request id. It needs to be combined with the
         client id to obtain a globally unique scope.
         """
-        self.__max_request_id += 1
-        return self.__max_request_id
+        self._max_request_id += 1
+        return self._max_request_id
 
-    def __process_response(self, request, content, status):
+    def _process_response(self, request, content, status):
         """
         Convert the url_response into a suitable return value.
 
@@ -303,12 +303,12 @@ class RequestUtils(object):
         """
         if status == codes.ok:
             bis = ByteInputStream(bytearray(content))
-            return self.__process_ok_response(bis, request)
-        self.__process_not_ok_response(content, status)
+            return self._process_ok_response(bis, request)
+        self._process_not_ok_response(content, status)
         raise IllegalStateException('Unexpected http response status: ' +
                                     str(status))
 
-    def __process_ok_response(self, bis, request):
+    def _process_ok_response(self, bis, request):
         """
         Process an OK response.
 
@@ -323,7 +323,7 @@ class RequestUtils(object):
                 request, bis, BinaryProtocol.SERIAL_VERSION)
             if request.is_query_request():
                 if not request.is_simple_query():
-                    request.get_driver().set_client(self.__client)
+                    request.get_driver().set_client(self._client)
             return res
 
         """
@@ -333,7 +333,7 @@ class RequestUtils(object):
         err = BinaryProtocol.read_string(bis)
         raise BinaryProtocol.map_exception(code, err)
 
-    def __process_not_ok_response(self, content, status):
+    def _process_not_ok_response(self, content, status):
         """
         Process not OK response. The method typically throws an appropriate
         exception. A normal return indicates that the method declined to handle
@@ -349,8 +349,8 @@ class RequestUtils(object):
             raise NoSQLException('Error response: ' + err_msg)
         raise NoSQLException('Error response = ' + str(status))
 
-    def __timeout_request(self, start_time, request_timeout, sec_timeout_ms,
-                          exception):
+    def _timeout_request(self, start_time, request_timeout, sec_timeout_ms,
+                         exception):
         """
         Determine if the request should be timed out. If the last exception if
         the SecurityInfoNotReadyException, use its specific timeout to

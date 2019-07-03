@@ -235,7 +235,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         for idx in range(num_records):
-            self.assertEqual(records[idx], self.__expected_row(1, idx))
+            self.assertEqual(records[idx], self._expected_row(1, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_records + prepare_cost,
                         num_records * 2 + prepare_cost, 0, 0)
@@ -247,7 +247,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), limit)
         for idx in range(limit):
-            self.assertEqual(records[idx], self.__expected_row(1, idx))
+            self.assertEqual(records[idx], self._expected_row(1, idx))
         self.assertIsNotNone(result.get_continuation_key())
         self.check_cost(
             result, limit + prepare_cost, limit * 2 + prepare_cost, 0, 0)
@@ -260,7 +260,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), max_read_kb + 1)
         for idx in range(len(records)):
-            self.assertEqual(records[idx], self.__expected_row(1, idx))
+            self.assertEqual(records[idx], self._expected_row(1, idx))
         self.assertIsNotNone(result.get_continuation_key())
         self.check_cost(result, max_read_kb + prepare_cost + 1,
                         max_read_kb * 2 + prepare_cost + 2, 0, 0)
@@ -273,7 +273,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         for idx in range(num_records):
-            self.assertEqual(records[idx], self.__expected_row(1, idx))
+            self.assertEqual(records[idx], self._expected_row(1, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_records + prepare_cost,
                         num_records * 2 + prepare_cost, 0, 0)
@@ -298,7 +298,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.assertEqual(len(records), num_get)
             for idx in range(num_get):
                 self.assertEqual(records[idx],
-                                 self.__expected_row(1, completed + idx))
+                                 self._expected_row(1, completed + idx))
             self.check_cost(
                 result, read_kb + (prepare_cost if count == 0 else 0),
                 read_kb * 2 + (prepare_cost if count == 0 else 0), 0, 0)
@@ -317,7 +317,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         for idx in range(num_records):
-            self.assertEqual(records[idx], self.__expected_row(1, idx))
+            self.assertEqual(records[idx], self._expected_row(1, idx))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, num_records + prepare_cost,
                         num_records * 2 + prepare_cost, 0, 0)
@@ -355,7 +355,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0],
-                         self.__expected_row(fld_sid, fld_id, fld_long))
+                         self._expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -382,7 +382,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0],
-                         self.__expected_row(fld_sid, fld_id, fld_long))
+                         self._expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNotNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -414,7 +414,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0],
-                         self.__expected_row(fld_sid, fld_id, fld_long))
+                         self._expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -441,7 +441,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0],
-                         self.__expected_row(fld_sid, fld_id, fld_long))
+                         self._expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -488,7 +488,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), num_records)
         self.assertEqual(records[0],
-                         self.__expected_row(fld_sid, fld_id, fld_long))
+                         self._expected_row(fld_sid, fld_id, fld_long))
         if limit <= num_records:
             self.assertIsNotNone(result.get_continuation_key())
         else:
@@ -518,7 +518,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         records = result.get_results()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0],
-                         self.__expected_row(fld_sid, fld_id, fld_long))
+                         self._expected_row(fld_sid, fld_id, fld_long))
         self.assertIsNone(result.get_continuation_key())
         self.check_cost(result, 1, 2, 0, 0)
 
@@ -562,7 +562,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for idx in range(num_records):
                     self.assertEqual(
                         records[idx],
-                        self.__expected_row(idx // num_ids, idx % num_ids))
+                        self._expected_row(idx // num_ids, idx % num_ids))
                 self.assertIsNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0)
                 break
@@ -1053,7 +1053,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertIsNotNone(result.get_continuation_key())
                 self.check_cost(result, 0, 0, 0, 0, True)
 
-    def __expected_row(self, fld_sid, fld_id, fld_long=None):
+    def _expected_row(self, fld_sid, fld_id, fld_long=None):
         expected_row = OrderedDict()
         expected_row['fld_sid'] = fld_sid
         expected_row['fld_id'] = fld_id

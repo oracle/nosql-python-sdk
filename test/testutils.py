@@ -283,23 +283,23 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
 
     def __init__(self):
         super(KeystoreAccessTokenProvider, self).__init__()
-        self.__ks_user_id = 'TestUser'
-        self.__ks_client_id = 'TestClient'
-        self.__ks_tenant_id = 'TestTenant'
-        self.__ks_entitlement_id = 'TestEntitlement'
-        self.__ks_expires_in = 3471321600
+        self._ks_user_id = 'TestUser'
+        self._ks_client_id = 'TestClient'
+        self._ks_tenant_id = 'TestTenant'
+        self._ks_entitlement_id = 'TestEntitlement'
+        self._ks_expires_in = 3471321600
         if keystore is None or not path.exists(keystore):
             raise IllegalArgumentException('Missing keystore')
 
     def set_tenant(self, ks_tenant_id):
-        self.__ks_tenant_id = ks_tenant_id
+        self._ks_tenant_id = ks_tenant_id
         return self
 
     def get_account_access_token(self):
         try:
-            at = self.__build_psm_access_token(
-                self.__ks_tenant_id, self.__ks_user_id, self.__ks_client_id,
-                self.__ks_expires_in)
+            at = self._build_psm_access_token(
+                self._ks_tenant_id, self._ks_user_id, self._ks_client_id,
+                self._ks_expires_in)
             return at
         except Exception as e:
             raise IllegalStateException(
@@ -307,30 +307,30 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
 
     def get_service_access_token(self):
         try:
-            at = self.__build_andc_access_token(
-                self.__ks_tenant_id, self.__ks_user_id, self.__ks_client_id,
-                self.__ks_entitlement_id, self.__ks_expires_in)
+            at = self._build_andc_access_token(
+                self._ks_tenant_id, self._ks_user_id, self._ks_client_id,
+                self._ks_entitlement_id, self._ks_expires_in)
             return at
         except Exception as e:
             raise IllegalStateException(
                 'Error getting ANDC access token: ', str(e))
 
-    def __build_andc_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                                  ks_entitlement_id, ks_expires_in):
-        return self.__build_access_token(
+    def _build_andc_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
+                                 ks_entitlement_id, ks_expires_in):
+        return self._build_access_token(
             ks_tenant_id, ks_user_id, ks_client_id,
             AccessTokenProvider.ANDC_AUD_PREFIX + ks_entitlement_id,
             AccessTokenProvider.SCOPE, ks_expires_in)
 
-    def __build_psm_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                                 ks_expires_in):
-        return self.__build_access_token(
+    def _build_psm_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
+                                ks_expires_in):
+        return self._build_access_token(
             ks_tenant_id, ks_user_id, ks_client_id,
             KeystoreAccessTokenProvider.PSM_AUD,
             KeystoreAccessTokenProvider.PSM_SCOPE, ks_expires_in)
 
-    def __build_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                             audience, scope, ks_expires_in):
+    def _build_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
+                            audience, scope, ks_expires_in):
         header = dict()
         header[KeystoreAccessTokenProvider.ALGORITHM_NAME] = (
             KeystoreAccessTokenProvider.IDCS_SUPPORTED_ALGORITHM)
@@ -353,10 +353,10 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
             signing_content = (
                 urlsafe_b64encode(header.encode()).decode() + '.' +
                 urlsafe_b64encode(payload.encode()).decode())
-        signature = self.__sign(signing_content)
+        signature = self._sign(signing_content)
         return signing_content + '.' + signature
 
-    def __sign(self, content):
+    def _sign(self, content):
         if keystore is None or not path.exists(keystore):
             raise IllegalArgumentException(
                 'Unable to find the keystore: ' + keystore)
@@ -373,10 +373,10 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
 class NoSecurityAccessTokenProvider(AccessTokenProvider):
     def __init__(self, ns_tenant_id):
         super(NoSecurityAccessTokenProvider, self).__init__()
-        self.__ns_tenant_id = ns_tenant_id
+        self._ns_tenant_id = ns_tenant_id
 
     def get_account_access_token(self):
-        return self.__ns_tenant_id
+        return self._ns_tenant_id
 
     def get_service_access_token(self):
-        return self.__ns_tenant_id
+        return self._ns_tenant_id

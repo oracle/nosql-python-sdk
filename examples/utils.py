@@ -25,13 +25,13 @@ class NoSecurityAccessTokenProvider(AccessTokenProvider):
 
     def __init__(self, tenant_id):
         super(NoSecurityAccessTokenProvider, self).__init__()
-        self.__tenant_id = tenant_id
+        self._tenant_id = tenant_id
 
     def get_account_access_token(self):
-        return self.__tenant_id
+        return self._tenant_id
 
     def get_service_access_token(self):
-        return self.__tenant_id
+        return self._tenant_id
 
 
 def create_access_token_provider(tenant_id):

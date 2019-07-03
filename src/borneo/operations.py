@@ -38,14 +38,14 @@ class Request(object):
     """
 
     def __init__(self):
-        self.__timeout_ms = 0
+        self._timeout_ms = 0
 
     def _set_timeout_internal(self, timeout_ms):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
-        self.__timeout_ms = timeout_ms
+        self._timeout_ms = timeout_ms
 
     def _get_timeout_internal(self):
-        return self.__timeout_ms
+        return self._timeout_ms
 
     def is_query_request(self):
         return False
@@ -66,8 +66,8 @@ class Request(object):
             raise IllegalArgumentException(
                 'set_defaults requires an instance of NoSQLHandleConfig as ' +
                 'parameter.')
-        if self.__timeout_ms == 0:
-            self.__timeout_ms = cfg.get_default_timeout()
+        if self._timeout_ms == 0:
+            self._timeout_ms = cfg.get_default_timeout()
         return self
 
     def should_retry(self):
@@ -88,22 +88,22 @@ class WriteRequest(Request):
 
     def __init__(self):
         super(WriteRequest, self).__init__()
-        self.__table_name = None
-        self.__return_row = False
+        self._table_name = None
+        self._return_row = False
 
     def set_table_name_internal(self, table_name):
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
 
     def get_table_name_internal(self):
-        return self.__table_name
+        return self._table_name
 
     def set_return_row_internal(self, return_row):
         CheckValue.check_boolean(return_row, 'return_row')
-        self.__return_row = return_row
+        self._return_row = return_row
 
     def get_return_row_internal(self):
-        return self.__return_row
+        return self._return_row
 
     def validate_write_request(self, request_name):
         if request_name is None:
@@ -124,30 +124,30 @@ class ReadRequest(Request):
 
     def __init__(self):
         super(ReadRequest, self).__init__()
-        self.__table_name = None
-        self.__consistency = None
+        self._table_name = None
+        self._consistency = None
 
     def set_table_name_internal(self, table_name):
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
 
     def get_table_name_internal(self):
-        return self.__table_name
+        return self._table_name
 
     def set_consistency_internal(self, consistency):
-        self.__consistency = consistency
+        self._consistency = consistency
 
     def get_consistency_internal(self):
-        return self.__consistency
+        return self._consistency
 
     def set_defaults(self, cfg):
         super(ReadRequest, self).set_defaults(cfg)
-        if self.__consistency is None:
-            self.__consistency = cfg.get_default_consistency()
+        if self._consistency is None:
+            self._consistency = cfg.get_default_consistency()
         return self
 
     def validate_read_request(self, request_name):
-        if self.__table_name is None:
+        if self._table_name is None:
             raise IllegalArgumentException(
                 request_name + ' requires table name.')
 
@@ -176,8 +176,8 @@ class DeleteRequest(WriteRequest):
 
     def __init__(self):
         super(DeleteRequest, self).__init__()
-        self.__key = None
-        self.__match_version = None
+        self._key = None
+        self._match_version = None
 
     def __str__(self):
         return 'DeleteRequest'
@@ -194,7 +194,7 @@ class DeleteRequest(WriteRequest):
             dictionary.
         """
         CheckValue.check_dict(key, 'key')
-        self.__key = key
+        self._key = key
         return self
 
     def set_key_from_json(self, json_key):
@@ -209,7 +209,7 @@ class DeleteRequest(WriteRequest):
             not a string.
         """
         CheckValue.check_str(json_key, 'json_key')
-        self.__key = loads(json_key)
+        self._key = loads(json_key)
         return self
 
     def get_key(self):
@@ -219,7 +219,7 @@ class DeleteRequest(WriteRequest):
         :return: the key value, or None if not set.
         :rtype: dict
         """
-        return self.__key
+        return self._key
 
     def set_match_version(self, version):
         """
@@ -238,7 +238,7 @@ class DeleteRequest(WriteRequest):
         if not isinstance(version, Version):
             raise IllegalArgumentException('set_match_version requires an ' +
                                            'instance of Version as parameter.')
-        self.__match_version = version
+        self._match_version = version
         return self
 
     def get_match_version(self):
@@ -249,7 +249,7 @@ class DeleteRequest(WriteRequest):
         :return: the Version or None if not set.
         :rtype: Version
         """
-        return self.__match_version
+        return self._match_version
 
     def set_timeout(self, timeout_ms):
         """
@@ -329,7 +329,7 @@ class DeleteRequest(WriteRequest):
     def validate(self):
         # Validates the state of the object when complete.
         super(DeleteRequest, self).validate_write_request('DeleteRequest')
-        if self.__key is None:
+        if self._key is None:
             raise IllegalArgumentException('DeleteRequest requires a key.')
 
     def create_serializer(self):
@@ -350,8 +350,8 @@ class GetIndexesRequest(Request):
 
     def __init__(self):
         super(GetIndexesRequest, self).__init__()
-        self.__table_name = None
-        self.__index_name = None
+        self._table_name = None
+        self._index_name = None
 
     def set_table_name(self, table_name):
         """
@@ -364,7 +364,7 @@ class GetIndexesRequest(Request):
             not a string.
         """
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -374,7 +374,7 @@ class GetIndexesRequest(Request):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_index_name(self, index_name):
         """
@@ -388,7 +388,7 @@ class GetIndexesRequest(Request):
             not a string.
         """
         CheckValue.check_str(index_name, 'index_name')
-        self.__index_name = index_name
+        self._index_name = index_name
         return self
 
     def get_index_name(self):
@@ -398,7 +398,7 @@ class GetIndexesRequest(Request):
         :return: the index name.
         :rtype: str
         """
-        return self.__index_name
+        return self._index_name
 
     def set_timeout(self, timeout_ms):
         """
@@ -430,7 +430,7 @@ class GetIndexesRequest(Request):
         return False
 
     def validate(self):
-        if self.__table_name is None:
+        if self._table_name is None:
             raise IllegalArgumentException(
                 'GetIndexesRequest requires a table name.')
 
@@ -451,7 +451,7 @@ class GetRequest(ReadRequest):
 
     def __init__(self):
         super(GetRequest, self).__init__()
-        self.__key = None
+        self._key = None
 
     def set_key(self, key):
         """
@@ -465,7 +465,7 @@ class GetRequest(ReadRequest):
             dictionary.
         """
         CheckValue.check_dict(key, 'key')
-        self.__key = key
+        self._key = key
         return self
 
     def set_key_from_json(self, json_key):
@@ -479,7 +479,7 @@ class GetRequest(ReadRequest):
             not a string.
         """
         CheckValue.check_str(json_key, 'json_key')
-        self.__key = loads(json_key)
+        self._key = loads(json_key)
         return self
 
     def get_key(self):
@@ -490,7 +490,7 @@ class GetRequest(ReadRequest):
         :return: the key.
         :rtype: dict
         """
-        return self.__key
+        return self._key
 
     def set_table_name(self, table_name):
         """
@@ -563,7 +563,7 @@ class GetRequest(ReadRequest):
     def validate(self):
         # Validates the state of the members of this class for use.
         super(GetRequest, self).validate_read_request('GetRequest')
-        if self.__key is None:
+        if self._key is None:
             raise IllegalArgumentException('GetRequest requires a key.')
 
     def create_serializer(self):
@@ -586,8 +586,8 @@ class GetTableRequest(Request):
 
     def __init__(self):
         super(GetTableRequest, self).__init__()
-        self.__table_name = None
-        self.__operation_id = None
+        self._table_name = None
+        self._operation_id = None
 
     def set_table_name(self, table_name):
         """
@@ -600,7 +600,7 @@ class GetTableRequest(Request):
             not a string.
         """
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -610,7 +610,7 @@ class GetTableRequest(Request):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_operation_id(self, operation_id):
         """
@@ -632,7 +632,7 @@ class GetTableRequest(Request):
         if operation_id is not None and not CheckValue.is_str(operation_id):
             raise IllegalArgumentException(
                 'operation_id must be a string type.')
-        self.__operation_id = operation_id
+        self._operation_id = operation_id
         return self
 
     def get_operation_id(self):
@@ -642,7 +642,7 @@ class GetTableRequest(Request):
         :return: the operation id.
         :rtype: int
         """
-        return self.__operation_id
+        return self._operation_id
 
     def set_timeout(self, timeout_ms):
         """
@@ -674,7 +674,7 @@ class GetTableRequest(Request):
         return False
 
     def validate(self):
-        if self.__table_name is None:
+        if self._table_name is None:
             raise IllegalArgumentException(
                 'GetTableRequest requires a table name.')
 
@@ -697,8 +697,8 @@ class ListTablesRequest(Request):
 
     def __init__(self):
         super(ListTablesRequest, self).__init__()
-        self.__start_index = 0
-        self.__limit = 0
+        self._start_index = 0
+        self._limit = 0
 
     def set_start_index(self, start_index):
         """
@@ -714,7 +714,7 @@ class ListTablesRequest(Request):
             a negative number.
         """
         CheckValue.check_int_ge_zero(start_index, 'start_index')
-        self.__start_index = start_index
+        self._start_index = start_index
         return self
 
     def get_start_index(self):
@@ -727,7 +727,7 @@ class ListTablesRequest(Request):
         :return: the start index.
         :rtype: int
         """
-        return self.__start_index
+        return self._start_index
 
     def set_limit(self, limit):
         """
@@ -741,7 +741,7 @@ class ListTablesRequest(Request):
             negative number.
         """
         CheckValue.check_int_ge_zero(limit, 'limit')
-        self.__limit = limit
+        self._limit = limit
         return self
 
     def get_limit(self):
@@ -752,7 +752,7 @@ class ListTablesRequest(Request):
         :return: the maximum number of tables to return in a single request.
         :rtype: int
         """
-        return self.__limit
+        return self._limit
 
     def set_timeout(self, timeout_ms):
         """
@@ -784,7 +784,7 @@ class ListTablesRequest(Request):
         return False
 
     def validate(self):
-        if self.__start_index < 0 or self.__limit < 0:
+        if self._start_index < 0 or self._limit < 0:
             raise IllegalArgumentException(
                 'ListTables: start index and number of tables must be ' +
                 'non-negative.')
@@ -821,11 +821,11 @@ class MultiDeleteRequest(Request):
 
     def __init__(self):
         super(MultiDeleteRequest, self).__init__()
-        self.__table_name = None
-        self.__key = None
-        self.__continuation_key = None
-        self.__range = None
-        self.__max_write_kb = 0
+        self._table_name = None
+        self._key = None
+        self._continuation_key = None
+        self._range = None
+        self._max_write_kb = 0
 
     def set_table_name(self, table_name):
         """
@@ -839,7 +839,7 @@ class MultiDeleteRequest(Request):
             not a string.
         """
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -849,7 +849,7 @@ class MultiDeleteRequest(Request):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_key(self, key):
         """
@@ -863,7 +863,7 @@ class MultiDeleteRequest(Request):
             dictionary.
         """
         CheckValue.check_dict(key, 'key')
-        self.__key = key
+        self._key = key
         return self
 
     def get_key(self):
@@ -873,7 +873,7 @@ class MultiDeleteRequest(Request):
         :return: the key.
         :rtype: dict
         """
-        return self.__key
+        return self._key
 
     def set_continuation_key(self, continuation_key):
         """
@@ -890,7 +890,7 @@ class MultiDeleteRequest(Request):
                 not isinstance(continuation_key, bytearray)):
             raise IllegalArgumentException(
                 'set_continuation_key requires bytearray as parameter.')
-        self.__continuation_key = continuation_key
+        self._continuation_key = continuation_key
         return self
 
     def get_continuation_key(self):
@@ -900,7 +900,7 @@ class MultiDeleteRequest(Request):
         :return: the continuation key.
         :rtype: bytearray
         """
-        return self.__continuation_key
+        return self._continuation_key
 
     def set_max_write_kb(self, max_write_kb):
         """
@@ -926,7 +926,7 @@ class MultiDeleteRequest(Request):
             raise IllegalArgumentException(
                 'max_write_kb can not exceed ' +
                 str(BinaryProtocol.WRITE_KB_LIMIT))
-        self.__max_write_kb = max_write_kb
+        self._max_write_kb = max_write_kb
         return self
 
     def get_max_write_kb(self):
@@ -938,7 +938,7 @@ class MultiDeleteRequest(Request):
         :return: the limit, or 0 if not set.
         :rtype: int
         """
-        return self.__max_write_kb
+        return self._max_write_kb
 
     def set_range(self, field_range):
         """
@@ -955,7 +955,7 @@ class MultiDeleteRequest(Request):
             raise IllegalArgumentException(
                 'set_range requires an instance of FieldRange or None as ' +
                 'parameter.')
-        self.__range = field_range
+        self._range = field_range
         return self
 
     def get_range(self):
@@ -965,7 +965,7 @@ class MultiDeleteRequest(Request):
         :return: the range, None if no range is to be used.
         :rtype: FieldRange
         """
-        return self.__range
+        return self._range
 
     def set_timeout(self, timeout_ms):
         """
@@ -993,14 +993,14 @@ class MultiDeleteRequest(Request):
         return super(MultiDeleteRequest, self)._get_timeout_internal()
 
     def validate(self):
-        if self.__table_name is None:
+        if self._table_name is None:
             raise IllegalArgumentException(
                 'MultiDeleteRequest requires table name.')
-        if self.__key is None:
+        if self._key is None:
             raise IllegalArgumentException(
                 'MultiDeleteRequest requires a key.')
-        if self.__range is not None:
-            self.__range.validate()
+        if self._range is not None:
+            self._range.validate()
 
     def create_serializer(self):
         return MultiDeleteRequestSerializer()
@@ -1025,8 +1025,8 @@ class PrepareRequest(Request):
 
     def __init__(self):
         super(PrepareRequest, self).__init__()
-        self.__statement = None
-        self.__get_query_plan = False
+        self._statement = None
+        self._get_query_plan = False
 
     def set_statement(self, statement):
         """
@@ -1039,7 +1039,7 @@ class PrepareRequest(Request):
             not a string.
         """
         CheckValue.check_str(statement, 'statement')
-        self.__statement = statement
+        self._statement = statement
         return self
 
     def get_statement(self):
@@ -1049,7 +1049,7 @@ class PrepareRequest(Request):
         :return: the statement, or None if it has not been set.
         :rtype: str
         """
-        return self.__statement
+        return self._statement
 
     def set_get_query_plan(self, get_query_plan):
         """
@@ -1064,7 +1064,7 @@ class PrepareRequest(Request):
             is not a boolean.
         """
         CheckValue.check_boolean(get_query_plan, 'get_query_plan')
-        self.__get_query_plan = get_query_plan
+        self._get_query_plan = get_query_plan
         return self
 
     def get_query_plan(self):
@@ -1076,7 +1076,7 @@ class PrepareRequest(Request):
             include in the :py:class:`PrepareResult`.
         :rtype: bool
         """
-        return self.__get_query_plan
+        return self._get_query_plan
 
     def set_timeout(self, timeout_ms):
         """
@@ -1103,7 +1103,7 @@ class PrepareRequest(Request):
         return super(PrepareRequest, self)._get_timeout_internal()
 
     def validate(self):
-        if self.__statement is None:
+        if self._statement is None:
             raise IllegalArgumentException(
                 'PrepareRequest requires a statement.')
 
@@ -1143,13 +1143,13 @@ class PutRequest(WriteRequest):
 
     def __init__(self):
         super(PutRequest, self).__init__()
-        self.__value = None
-        self.__option = None
-        self.__match_version = None
-        self.__ttl = None
-        self.__update_ttl = False
-        self.__exact_match = False
-        self.__identity_cache_size = 0
+        self._value = None
+        self._option = None
+        self._match_version = None
+        self._ttl = None
+        self._update_ttl = False
+        self._exact_match = False
+        self._identity_cache_size = 0
 
     def __str__(self):
         return 'PutRequest'
@@ -1167,7 +1167,7 @@ class PutRequest(WriteRequest):
             a dictionary.
         """
         CheckValue.check_dict(value, 'value')
-        self.__value = value
+        self._value = value
         return self
 
     def set_value_from_json(self, json_value):
@@ -1184,7 +1184,7 @@ class PutRequest(WriteRequest):
             not a string.
         """
         CheckValue.check_str(json_value, 'json_value')
-        self.__value = loads(json_value)
+        self._value = loads(json_value)
         return self
 
     def get_value(self):
@@ -1194,7 +1194,7 @@ class PutRequest(WriteRequest):
         :return: the value, or None if not set.
         :rtype: dict
         """
-        return self.__value
+        return self._value
 
     def set_option(self, option):
         """
@@ -1204,7 +1204,7 @@ class PutRequest(WriteRequest):
         :type option: PutOption
         :return: self.
         """
-        self.__option = option
+        self._option = option
         return self
 
     def get_option(self):
@@ -1214,7 +1214,7 @@ class PutRequest(WriteRequest):
         :return: the option specified.
         :rtype: PutOption
         """
-        return self.__option
+        return self._option
 
     def set_match_version(self, version):
         """
@@ -1235,9 +1235,9 @@ class PutRequest(WriteRequest):
         if not isinstance(version, Version):
             raise IllegalArgumentException('set_match_version requires an ' +
                                            'instance of Version as parameter.')
-        if self.__option is None:
-            self.__option = PutOption.IF_VERSION
-        self.__match_version = version
+        if self._option is None:
+            self._option = PutOption.IF_VERSION
+        self._match_version = version
         return self
 
     def get_match_version(self):
@@ -1247,7 +1247,7 @@ class PutRequest(WriteRequest):
         :return: the Version or None if not set.
         :rtype: Version
         """
-        return self.__match_version
+        return self._match_version
 
     def set_ttl(self, ttl):
         """
@@ -1264,7 +1264,7 @@ class PutRequest(WriteRequest):
         if ttl is not None and not isinstance(ttl, TimeToLive):
             raise IllegalArgumentException('set_ttl requires an instance of ' +
                                            'TimeToLive or None as parameter.')
-        self.__ttl = ttl
+        self._ttl = ttl
         return self
 
     def get_ttl(self):
@@ -1274,7 +1274,7 @@ class PutRequest(WriteRequest):
         :return: the :py:class:`TimeToLive` if set, None otherwise.
         :rtype: TimeToLive
         """
-        return self.__ttl
+        return self._ttl
 
     def set_use_table_default_ttl(self, update_ttl):
         """
@@ -1290,7 +1290,7 @@ class PutRequest(WriteRequest):
             not True or False.
         """
         CheckValue.check_boolean(update_ttl, 'update_ttl')
-        self.__update_ttl = update_ttl
+        self._update_ttl = update_ttl
         return self
 
     def get_use_table_default_ttl(self):
@@ -1303,7 +1303,7 @@ class PutRequest(WriteRequest):
             value if the row exists.
         :rtype: bool
         """
-        return self.__update_ttl
+        return self._update_ttl
 
     def get_update_ttl(self):
         """
@@ -1312,7 +1312,7 @@ class PutRequest(WriteRequest):
         :return: True if the operation should update the ttl.
         :rtype: bool
         """
-        return self.__update_ttl or self.__ttl is not None
+        return self._update_ttl or self._ttl is not None
 
     def set_exact_match(self, exact_match):
         """
@@ -1328,7 +1328,7 @@ class PutRequest(WriteRequest):
             not True or False.
         """
         CheckValue.check_boolean(exact_match, 'exact_match')
-        self.__exact_match = exact_match
+        self._exact_match = exact_match
         return self
 
     def get_exact_match(self):
@@ -1339,7 +1339,7 @@ class PutRequest(WriteRequest):
         :return: the value.
         :rtype: bool
         """
-        return self.__exact_match
+        return self._exact_match
 
     def set_identity_cache_size(self, identity_cache_size):
         """
@@ -1357,7 +1357,7 @@ class PutRequest(WriteRequest):
             identity_cache_size is not an integer.
         """
         CheckValue.check_int(identity_cache_size, 'identity_cache_size')
-        self.__identity_cache_size = identity_cache_size
+        self._identity_cache_size = identity_cache_size
         return self
 
     def get_identity_cache_size(self):
@@ -1368,7 +1368,7 @@ class PutRequest(WriteRequest):
         :return: the identity cache size.
         :rtype: int
         """
-        return self.__identity_cache_size
+        return self._identity_cache_size
 
     def set_timeout(self, timeout_ms):
         """
@@ -1448,24 +1448,24 @@ class PutRequest(WriteRequest):
     def validate(self):
         # Validates the state of the object when complete.
         super(PutRequest, self).validate_write_request('PutRequest')
-        if self.__value is None:
+        if self._value is None:
             raise IllegalArgumentException('PutRequest requires a value')
-        self.__validate_if_options()
+        self._validate_if_options()
 
-    def __validate_if_options(self):
+    def _validate_if_options(self):
         # Ensures that only one of ifAbsent, ifPresent, or match_version is
         # set.
-        if (self.__option == PutOption.IF_VERSION and
-                self.__match_version is None):
+        if (self._option == PutOption.IF_VERSION and
+                self._match_version is None):
             raise IllegalArgumentException(
                 'PutRequest: match_version must be specified when ' +
                 'PutOption.IF_VERSION is used.')
-        if (self.__option != PutOption.IF_VERSION and
-                self.__match_version is not None):
+        if (self._option != PutOption.IF_VERSION and
+                self._match_version is not None):
             raise IllegalArgumentException(
                 'PutRequest: match_version is specified, the option is not ' +
                 'PutOption.IF_VERSION.')
-        if self.__update_ttl and self.__ttl is not None:
+        if self._update_ttl and self._ttl is not None:
             raise IllegalArgumentException(
                 'PutRequest: only one of set_use_table_default_ttl or set_ttl' +
                 ' may be specified')
@@ -1525,20 +1525,20 @@ class QueryRequest(Request):
 
     def __init__(self):
         super(QueryRequest, self).__init__()
-        self.__trace_level = 0
-        self.__limit = 0
-        self.__max_read_kb = 0
-        self.__max_write_kb = 0
-        self.__max_memory_consumption = 1024 * 1024 * 1024
-        self.__math_context = Context(prec=7, rounding=ROUND_HALF_EVEN)
-        self.__consistency = None
-        self.__statement = None
-        self.__prepared_statement = None
-        self.__continuation_key = None
+        self._trace_level = 0
+        self._limit = 0
+        self._max_read_kb = 0
+        self._max_write_kb = 0
+        self._max_memory_consumption = 1024 * 1024 * 1024
+        self._math_context = Context(prec=7, rounding=ROUND_HALF_EVEN)
+        self._consistency = None
+        self._statement = None
+        self._prepared_statement = None
+        self._continuation_key = None
         # If shardId is >= 0, the QueryRequest should be executed only at the
         # shard with this id. This is the case only for advanced queries that do
         # sorting.
-        self.__shard_id = -1
+        self._shard_id = -1
         # The QueryDriver, for advanced queries only.
         self.driver = None
         # An "internal" request is one created and submitted for execution by
@@ -1550,14 +1550,14 @@ class QueryRequest(Request):
         # request.
         internal_req = QueryRequest()
         internal_req.set_timeout(self.get_timeout())
-        internal_req.set_trace_level(self.__trace_level)
-        internal_req.set_limit(self.__limit)
-        internal_req.set_max_read_kb(self.__max_read_kb)
-        internal_req.set_max_write_kb(self.__max_write_kb)
-        internal_req.set_max_memory_consumption(self.__max_memory_consumption)
-        internal_req.set_math_context(self.__math_context)
-        internal_req.set_consistency(self.__consistency)
-        internal_req.set_prepared_statement(self.__prepared_statement)
+        internal_req.set_trace_level(self._trace_level)
+        internal_req.set_limit(self._limit)
+        internal_req.set_max_read_kb(self._max_read_kb)
+        internal_req.set_max_write_kb(self._max_write_kb)
+        internal_req.set_max_memory_consumption(self._max_memory_consumption)
+        internal_req.set_math_context(self._math_context)
+        internal_req.set_consistency(self._consistency)
+        internal_req.set_prepared_statement(self._prepared_statement)
         internal_req.driver = self.driver
         internal_req.is_internal = True
         return internal_req
@@ -1578,17 +1578,17 @@ class QueryRequest(Request):
         :return: Whether the query execution is finished or not.
         :rtype: bool
         """
-        return self.__continuation_key is None
+        return self._continuation_key is None
 
     def set_trace_level(self, trace_level):
         CheckValue.check_int_ge_zero(trace_level, 'trace_level')
         if trace_level > 32:
             raise IllegalArgumentException('trace level must be <= 32')
-        self.__trace_level = trace_level
+        self._trace_level = trace_level
         return self
 
     def get_trace_level(self):
-        return self.__trace_level
+        return self._trace_level
 
     def set_limit(self, limit):
         """
@@ -1602,7 +1602,7 @@ class QueryRequest(Request):
             negative number.
         """
         CheckValue.check_int_ge_zero(limit, 'limit')
-        self.__limit = limit
+        self._limit = limit
         return self
 
     def get_limit(self):
@@ -1613,7 +1613,7 @@ class QueryRequest(Request):
         :return: the limit, or 0 if not set.
         :rtype: int
         """
-        return self.__limit
+        return self._limit
 
     def set_max_read_kb(self, max_read_kb):
         """
@@ -1643,7 +1643,7 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'max_read_kb can not exceed ' +
                 str(BinaryProtocol.READ_KB_LIMIT))
-        self.__max_read_kb = max_read_kb
+        self._max_read_kb = max_read_kb
         return self
 
     def get_max_read_kb(self):
@@ -1655,7 +1655,7 @@ class QueryRequest(Request):
         :return: the limit, or 0 if not set.
         :rtype: int
         """
-        return self.__max_read_kb
+        return self._max_read_kb
 
     def set_max_write_kb(self, max_write_kb):
         """
@@ -1681,7 +1681,7 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'max_write_kb can not exceed ' +
                 str(BinaryProtocol.WRITE_KB_LIMIT))
-        self.__max_write_kb = max_write_kb
+        self._max_write_kb = max_write_kb
         return self
 
     def get_max_write_kb(self):
@@ -1693,7 +1693,7 @@ class QueryRequest(Request):
         :return: the limit, or 0 if not set.
         :rtype: int
         """
-        return self.__max_write_kb
+        return self._max_write_kb
 
     def set_max_memory_consumption(self, memory_consumption):
         """
@@ -1712,7 +1712,7 @@ class QueryRequest(Request):
             memory_consumption is a negative number or 0.
         """
         CheckValue.check_int_ge_zero(memory_consumption, 'memory_consumption')
-        self.__max_memory_consumption = memory_consumption
+        self._max_memory_consumption = memory_consumption
         return self
 
     def get_max_memory_consumption(self):
@@ -1728,7 +1728,7 @@ class QueryRequest(Request):
         :return: the maximum number of memory bytes.
         :rtype: long
         """
-        return self.__max_memory_consumption
+        return self._max_memory_consumption
 
     def set_math_context(self, math_context):
         """
@@ -1744,7 +1744,7 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'set_math_context requires an instance of decimal.Context as ' +
                 'parameter.')
-        self.__math_context = math_context
+        self._math_context = math_context
         return self
 
     def get_math_context(self):
@@ -1754,7 +1754,7 @@ class QueryRequest(Request):
         :return: the Context used for Decimal operations.
         :rtype: Context
         """
-        return self.__math_context
+        return self._math_context
 
     def set_consistency(self, consistency):
         """
@@ -1771,7 +1771,7 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'set_consistency requires Consistency.ABSOLUTE or ' +
                 'Consistency.EVENTUAL as parameter.')
-        self.__consistency = consistency
+        self._consistency = consistency
         return self
 
     def get_consistency(self):
@@ -1781,7 +1781,7 @@ class QueryRequest(Request):
         :return: the consistency
         :rtype: Consistency
         """
-        return self.__consistency
+        return self._consistency
 
     def set_continuation_key(self, continuation_key):
         """
@@ -1807,18 +1807,18 @@ class QueryRequest(Request):
         :return: the key.
         :rtype: bytearray
         """
-        return self.__continuation_key
+        return self._continuation_key
 
     def set_cont_key(self, continuation_key):
-        self.__continuation_key = continuation_key
+        self._continuation_key = continuation_key
         if (self.driver is not None and not self.is_internal and
-                self.__continuation_key is None):
+                self._continuation_key is None):
             self.driver.close()
             self.driver = None
         return self
 
     def get_cont_key(self):
-        return self.__continuation_key
+        return self._continuation_key
 
     def set_statement(self, statement):
         """
@@ -1831,11 +1831,11 @@ class QueryRequest(Request):
             not a string.
         """
         CheckValue.check_str(statement, 'statement')
-        if (self.__prepared_statement is not None and
-                statement != self.__prepared_statement.get_sql_text()):
+        if (self._prepared_statement is not None and
+                statement != self._prepared_statement.get_sql_text()):
             raise IllegalArgumentException(
                 'The query text is not equal to the prepared one.')
-        self.__statement = statement
+        self._statement = statement
         return self
 
     def get_statement(self):
@@ -1845,7 +1845,7 @@ class QueryRequest(Request):
         :return: the statement, or None if it has not been set.
         :rtype: str
         """
-        return self.__statement
+        return self._statement
 
     def set_prepared_statement(self, value):
         """
@@ -1863,14 +1863,12 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'set_prepared_statement requires an instance of PrepareResult' +
                 ' or PreparedStatement as parameter.')
-        if (isinstance(value, PreparedStatement) and
-                self.__statement is not None and
-                self.__statement != value.get_sql_text()):
+        if (isinstance(value, PreparedStatement) and self._statement is not None
+                and self._statement != value.get_sql_text()):
             raise IllegalArgumentException(
                 'The query text is not equal to the prepared one.')
-        self.__prepared_statement = (
-            value.get_prepared_statement() if isinstance(value, PrepareResult)
-            else value)
+        self._prepared_statement = (value.get_prepared_statement() if
+                                    isinstance(value, PrepareResult) else value)
         return self
 
     def get_prepared_statement(self):
@@ -1880,13 +1878,13 @@ class QueryRequest(Request):
         :return: the statement, or None if it has not been set.
         :rtype: PreparedStatement
         """
-        return self.__prepared_statement
+        return self._prepared_statement
 
     def set_shard_id(self, shard_id):
-        self.__shard_id = shard_id
+        self._shard_id = shard_id
 
     def get_shard_id(self):
-        return self.__shard_id
+        return self._shard_id
 
     def set_driver(self, driver):
         if self.driver is not None:
@@ -1925,32 +1923,32 @@ class QueryRequest(Request):
 
     def set_defaults(self, cfg):
         super(QueryRequest, self).set_defaults(cfg)
-        if self.__consistency is None:
-            self.__consistency = cfg.get_default_consistency()
+        if self._consistency is None:
+            self._consistency = cfg.get_default_consistency()
         return self
 
     def has_driver(self):
         return self.driver is not None
 
     def is_prepared(self):
-        return self.__prepared_statement is not None
+        return self._prepared_statement is not None
 
     def is_query_request(self):
         return not self.is_internal
 
     def is_simple_query(self):
-        return self.__prepared_statement.is_simple_query()
+        return self._prepared_statement.is_simple_query()
 
     def topology_info(self):
-        return (None if self.__prepared_statement is None else
-                self.__prepared_statement.topology_info())
+        return (None if self._prepared_statement is None else
+                self._prepared_statement.topology_info())
 
     def topology_seq_num(self):
-        return (-1 if self.__prepared_statement is None else
-                self.__prepared_statement.topology_seq_num())
+        return (-1 if self._prepared_statement is None else
+                self._prepared_statement.topology_seq_num())
 
     def validate(self):
-        if self.__statement is None and self.__prepared_statement is None:
+        if self._statement is None and self._prepared_statement is None:
             raise IllegalArgumentException(
                 'Either statement or prepared statement should be set.')
 
@@ -1987,14 +1985,13 @@ class TableRequest(Request):
 
     def __init__(self):
         super(TableRequest, self).__init__()
-        self.__statement = None
-        self.__limits = None
-        self.__table_name = None
+        self._statement = None
+        self._limits = None
+        self._table_name = None
 
     def __str__(self):
-        return ('TableRequest: [name=' + str(self.__table_name) +
-                ', statement=' + str(self.__statement) + ', limits=' +
-                str(self.__limits))
+        return ('TableRequest: [name=' + str(self._table_name) + ', statement='
+                + str(self._statement) + ', limits=' + str(self._limits))
 
     def set_statement(self, statement):
         """
@@ -2008,7 +2005,7 @@ class TableRequest(Request):
             not a string.
         """
         CheckValue.check_str(statement, 'statement')
-        self.__statement = statement
+        self._statement = statement
         return self
 
     def get_statement(self):
@@ -2018,7 +2015,7 @@ class TableRequest(Request):
         :return: the statement.
         :rtype: str
         """
-        return self.__statement
+        return self._statement
 
     def set_table_limits(self, table_limits):
         """
@@ -2036,7 +2033,7 @@ class TableRequest(Request):
             raise IllegalArgumentException(
                 'set_table_limits requires an instance of TableLimits as ' +
                 'parameter.')
-        self.__limits = table_limits
+        self._limits = table_limits
         return self
 
     def get_table_limits(self):
@@ -2046,7 +2043,7 @@ class TableRequest(Request):
         :return: the limits.
         :rtype: TableLimits
         """
-        return self.__limits
+        return self._limits
 
     def set_table_name(self, table_name):
         """
@@ -2061,7 +2058,7 @@ class TableRequest(Request):
             not a string.
         """
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -2071,7 +2068,7 @@ class TableRequest(Request):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_timeout(self, timeout_ms):
         """
@@ -2116,15 +2113,15 @@ class TableRequest(Request):
         return False
 
     def validate(self):
-        if self.__statement is None and self.__table_name is None:
+        if self._statement is None and self._table_name is None:
             raise IllegalArgumentException(
                 'TableRequest requires statement or TableLimits and name.')
-        if self.__statement is not None and self.__table_name is not None:
+        if self._statement is not None and self._table_name is not None:
             raise IllegalArgumentException(
                 'TableRequest cannot have both table name and statement.')
 
-        if self.__limits is not None:
-            self.__limits.validate()
+        if self._limits is not None:
+            self._limits.validate()
 
     def create_serializer(self):
         return TableRequestSerializer()
@@ -2153,10 +2150,10 @@ class TableUsageRequest(Request):
 
     def __init__(self):
         super(TableUsageRequest, self).__init__()
-        self.__table_name = None
-        self.__start_time = 0
-        self.__end_time = 0
-        self.__limit = 0
+        self._table_name = None
+        self._start_time = 0
+        self._end_time = 0
+        self._limit = 0
 
     def set_table_name(self, table_name):
         """
@@ -2170,7 +2167,7 @@ class TableUsageRequest(Request):
             not a string.
         """
         CheckValue.check_str(table_name, 'table_name')
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -2180,7 +2177,7 @@ class TableUsageRequest(Request):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_start_time(self, start_time):
         """
@@ -2197,10 +2194,10 @@ class TableUsageRequest(Request):
         :raises IllegalArgumentException: raises the exception if start_time is
             a negative number and is not an ISO 8601 formatted string.
         """
-        self.__check_time(start_time)
+        self._check_time(start_time)
         if isinstance(start_time, str):
-            start_time = self.__iso_time_to_timestamp(start_time)
-        self.__start_time = start_time
+            start_time = self._iso_time_to_timestamp(start_time)
+        self._start_time = start_time
         return self
 
     def get_start_time(self):
@@ -2211,7 +2208,7 @@ class TableUsageRequest(Request):
         :return: the start time.
         :rtype: int
         """
-        return self.__start_time
+        return self._start_time
 
     def get_start_time_string(self):
         """
@@ -2222,10 +2219,10 @@ class TableUsageRequest(Request):
         :rtype: str
         """
 
-        if self.__start_time == 0:
+        if self._start_time == 0:
             return None
         return datetime.fromtimestamp(
-            float(self.__start_time) / 1000).isoformat()
+            float(self._start_time) / 1000).isoformat()
 
     def set_end_time(self, end_time):
         """
@@ -2242,10 +2239,10 @@ class TableUsageRequest(Request):
         :raises IllegalArgumentException: raises the exception if end_time is a
             negative number and is not an ISO 8601 formatted string.
         """
-        self.__check_time(end_time)
+        self._check_time(end_time)
         if isinstance(end_time, str):
-            end_time = self.__iso_time_to_timestamp(end_time)
-        self.__end_time = end_time
+            end_time = self._iso_time_to_timestamp(end_time)
+        self._end_time = end_time
         return self
 
     def get_end_time(self):
@@ -2256,7 +2253,7 @@ class TableUsageRequest(Request):
         :return: the end time.
         :rtype: int
         """
-        return self.__end_time
+        return self._end_time
 
     def get_end_time_string(self):
         """
@@ -2266,10 +2263,9 @@ class TableUsageRequest(Request):
         :return: the end time, or None if not set.
         :rtype: str
         """
-        if self.__end_time == 0:
+        if self._end_time == 0:
             return None
-        return datetime.fromtimestamp(
-            float(self.__end_time) / 1000).isoformat()
+        return datetime.fromtimestamp(float(self._end_time) / 1000).isoformat()
 
     def set_limit(self, limit):
         """
@@ -2284,7 +2280,7 @@ class TableUsageRequest(Request):
             negative number.
         """
         CheckValue.check_int_ge_zero(limit, 'limit')
-        self.__limit = limit
+        self._limit = limit
         return self
 
     def get_limit(self):
@@ -2294,7 +2290,7 @@ class TableUsageRequest(Request):
         :return: the numeric limit.
         :rtype: int
         """
-        return self.__limit
+        return self._limit
 
     def set_timeout(self, timeout_ms):
         """
@@ -2325,7 +2321,7 @@ class TableUsageRequest(Request):
         return False
 
     def validate(self):
-        if self.__table_name is None:
+        if self._table_name is None:
             raise IllegalArgumentException(
                 'TableUsageRequest requires a table name.')
 
@@ -2335,14 +2331,14 @@ class TableUsageRequest(Request):
     def create_deserializer(self):
         return TableUsageRequestSerializer(TableUsageResult)
 
-    def __check_time(self, dt):
+    def _check_time(self, dt):
         if (not (CheckValue.is_int(dt) or CheckValue.is_str(dt)) or
                 CheckValue.is_int(dt) and dt < 0):
             raise IllegalArgumentException(
                 'dt must be an integer that is not negative or an ISO ' +
                 '8601 formatted string. Got:' + str(dt))
 
-    def __iso_time_to_timestamp(self, dt):
+    def _iso_time_to_timestamp(self, dt):
         dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
         return int(mktime(dt.timetuple()) * 1000)
 
@@ -2373,8 +2369,8 @@ class WriteMultipleRequest(Request):
     def __init__(self):
         # Constructs an empty request.
         super(WriteMultipleRequest, self).__init__()
-        self.__table_name = None
-        self.__ops = list()
+        self._table_name = None
+        self._ops = list()
 
     def get_table_name(self):
         """
@@ -2383,7 +2379,7 @@ class WriteMultipleRequest(Request):
         :return: the table name, or None if no operation.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def add(self, request, abort_if_unsuccessful):
         """
@@ -2410,21 +2406,20 @@ class WriteMultipleRequest(Request):
                 'DeleteRequest as parameter. Got: ' + str(request))
         CheckValue.check_boolean(abort_if_unsuccessful,
                                  'abort_if_unsuccessful')
-        if len(self.__ops) == BinaryProtocol.BATCH_OP_NUMBER_LIMIT:
+        if len(self._ops) == BinaryProtocol.BATCH_OP_NUMBER_LIMIT:
             raise BatchOperationNumberLimitException(
                 'The number of sub requests reached the max number of ' +
                 str(BinaryProtocol.BATCH_OP_NUMBER_LIMIT))
-        if self.__table_name is None:
-            self.__table_name = request.get_table_name_internal()
+        if self._table_name is None:
+            self._table_name = request.get_table_name_internal()
         else:
             if (request.get_table_name_internal().lower() !=
-                    self.__table_name.lower()):
+                    self._table_name.lower()):
                 raise IllegalArgumentException(
                     'The table_name used for the operation is different from ' +
-                    'that of others: ' + self.__table_name)
+                    'that of others: ' + self._table_name)
         request.validate()
-        self.__ops.append(self.OperationRequest(
-            request, abort_if_unsuccessful))
+        self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
 
     def get_request(self, index):
@@ -2442,11 +2437,11 @@ class WriteMultipleRequest(Request):
             negative number.
         """
         CheckValue.check_int_ge_zero(index, 'index')
-        return self.__ops[index].get_request()
+        return self._ops[index].get_request()
 
     def get_operations(self):
         # Returns the request lists, internal for now
-        return self.__ops
+        return self._ops
 
     def get_num_operations(self):
         """
@@ -2455,7 +2450,7 @@ class WriteMultipleRequest(Request):
         :return: the number of Requests.
         :rtype: int
         """
-        return len(self.__ops)
+        return len(self._ops)
 
     def set_timeout(self, timeout_ms):
         """
@@ -2486,11 +2481,11 @@ class WriteMultipleRequest(Request):
         """
         Removes all of the operations from the WriteMultiple request.
         """
-        self.__table_name = None
-        self.__ops = list()
+        self._table_name = None
+        self._ops = list()
 
     def validate(self):
-        if not self.__ops:
+        if not self._ops:
             raise IllegalArgumentException('The requests list is empty.')
 
     def create_serializer(self):
@@ -2504,14 +2499,14 @@ class WriteMultipleRequest(Request):
         # A wrapper of WriteRequest that contains an additional flag
         # abort_if_unsuccessful. Internal for now
         def __init__(self, request, abort_if_unsuccessful):
-            self.__request = request
-            self.__abort_if_unsuccessful = abort_if_unsuccessful
+            self._request = request
+            self._abort_if_unsuccessful = abort_if_unsuccessful
 
         def get_request(self):
-            return self.__request
+            return self._request
 
         def is_abort_if_unsuccessful(self):
-            return self.__abort_if_unsuccessful
+            return self._abort_if_unsuccessful
 
 
 class Result(object):
@@ -2522,36 +2517,36 @@ class Result(object):
 
     def __init__(self):
         """
-        __read_units and __read_units will be different in the case of Absolute
-        Consistency. _write_units and _write_kb will always be equal.
+        read_kb and read_units will be different in the case of Absolute
+        Consistency. write_kb and write_units will always be equal.
         """
-        self.__read_kb = 0
-        self.__read_units = 0
-        self.__write_kb = 0
+        self._read_kb = 0
+        self._read_units = 0
+        self._write_kb = 0
 
     def set_read_kb(self, read_kb):
-        self.__read_kb = read_kb
+        self._read_kb = read_kb
         return self
 
     def _get_read_kb_internal(self):
-        return self.__read_kb
+        return self._read_kb
 
     def set_read_units(self, read_units):
-        self.__read_units = read_units
+        self._read_units = read_units
         return self
 
     def _get_read_units_internal(self):
-        return self.__read_units
+        return self._read_units
 
     def set_write_kb(self, write_kb):
-        self.__write_kb = write_kb
+        self._write_kb = write_kb
         return self
 
     def _get_write_kb_internal(self):
-        return self.__write_kb
+        return self._write_kb
 
     def _get_write_units_internal(self):
-        return self.__write_kb
+        return self._write_kb
 
 
 class WriteResult(Result):
@@ -2562,22 +2557,22 @@ class WriteResult(Result):
 
     def __init__(self):
         super(WriteResult, self).__init__()
-        self.__existing_version = None
-        self.__existing_value = None
+        self._existing_version = None
+        self._existing_value = None
 
     def set_existing_version(self, existing_version):
-        self.__existing_version = existing_version
+        self._existing_version = existing_version
         return self
 
     def get_existing_version_internal(self):
-        return self.__existing_version
+        return self._existing_version
 
     def set_existing_value(self, existing_value):
-        self.__existing_value = existing_value
+        self._existing_value = existing_value
         return self
 
     def get_existing_value_internal(self):
-        return self.__existing_value
+        return self._existing_value
 
 
 class DeleteResult(WriteResult):
@@ -2592,13 +2587,13 @@ class DeleteResult(WriteResult):
 
     def __init__(self):
         super(DeleteResult, self).__init__()
-        self.__success = False
+        self._success = False
 
     def __str__(self):
-        return str(self.__success)
+        return str(self._success)
 
     def set_success(self, success):
-        self.__success = success
+        self._success = success
         return self
 
     def get_success(self):
@@ -2608,7 +2603,7 @@ class DeleteResult(WriteResult):
         :return: True if the operation succeeded.
         :rtype: bool
         """
-        return self.__success
+        return self._success
 
     def get_existing_value(self):
         """
@@ -2688,16 +2683,16 @@ class GetResult(Result):
 
     def __init__(self):
         super(GetResult, self).__init__()
-        self.__value = None
-        self.__version = None
-        self.__expiration_time = 0
+        self._value = None
+        self._version = None
+        self._expiration_time = 0
 
     def __str__(self):
-        return 'None' if self.__value is None else str(self.__value)
+        return 'None' if self._value is None else str(self._value)
 
     def set_value(self, value):
         # Sets the value of this object, internal.
-        self.__value = value
+        self._value = value
         return self
 
     def get_value(self):
@@ -2708,11 +2703,11 @@ class GetResult(Result):
         :return: the value of the row, or None if it does not exist.
         :rtype: dict
         """
-        return self.__value
+        return self._value
 
     def set_version(self, version):
         # Sets the version, internal.
-        self.__version = version
+        self._version = version
         return self
 
     def get_version(self):
@@ -2723,11 +2718,11 @@ class GetResult(Result):
         :return: the version of the row, or None if the row does not exist.
         :rtype: Version
         """
-        return self.__version
+        return self._version
 
     def set_expiration_time(self, expiration_time):
         # Sets the expiration time, internal
-        self.__expiration_time = expiration_time
+        self._expiration_time = expiration_time
         return self
 
     def get_expiration_time(self):
@@ -2740,7 +2735,7 @@ class GetResult(Result):
             zero if the row never expires or the row does not exist.
         :rtype: int
         """
-        return self.__expiration_time
+        return self._expiration_time
 
     def get_read_kb(self):
         """
@@ -2791,18 +2786,18 @@ class GetIndexesResult(Result):
 
     def __init__(self):
         super(GetIndexesResult, self).__init__()
-        self.__indexes = None
+        self._indexes = None
 
     def __str__(self):
         idxes = ''
-        for index in range(len(self.__indexes)):
-            idxes += str(self.__indexes[index])
-            if index < len(self.__indexes) - 1:
+        for index in range(len(self._indexes)):
+            idxes += str(self._indexes[index])
+            if index < len(self._indexes) - 1:
                 idxes += ','
         return '[' + idxes + ']'
 
     def set_indexes(self, indexes):
-        self.__indexes = indexes
+        self._indexes = indexes
         return self
 
     def get_indexes(self):
@@ -2812,7 +2807,7 @@ class GetIndexesResult(Result):
         :return: the indexes information.
         :rtype: list(IndexInfo)
         """
-        return self.__indexes
+        return self._indexes
 
 
 class ListTablesResult(Result):
@@ -2826,14 +2821,14 @@ class ListTablesResult(Result):
 
     def __init__(self):
         super(ListTablesResult, self).__init__()
-        self.__tables = None
-        self.__last_index_returned = 0
+        self._tables = None
+        self._last_index_returned = 0
 
     def __str__(self):
-        return '[' + ','.join(self.__tables) + ']'
+        return '[' + ','.join(self._tables) + ']'
 
     def set_tables(self, tables):
-        self.__tables = tables
+        self._tables = tables
         return self
 
     def get_tables(self):
@@ -2843,10 +2838,10 @@ class ListTablesResult(Result):
         :return: the table names.
         :rtype: list(str)
         """
-        return self.__tables
+        return self._tables
 
     def set_last_index_returned(self, last_index_returned):
-        self.__last_index_returned = last_index_returned
+        self._last_index_returned = last_index_returned
         return self
 
     def get_last_returned_index(self):
@@ -2858,7 +2853,7 @@ class ListTablesResult(Result):
         :return: the index.
         :rtype: int
         """
-        return self.__last_index_returned
+        return self._last_index_returned
 
 
 class MultiDeleteResult(Result):
@@ -2873,14 +2868,14 @@ class MultiDeleteResult(Result):
 
     def __init__(self):
         super(MultiDeleteResult, self).__init__()
-        self.__continuation_key = None
-        self.__num_deleted = 0
+        self._continuation_key = None
+        self._num_deleted = 0
 
     def __str__(self):
-        return 'Deleted ' + str(self.__num_deleted) + ' rows.'
+        return 'Deleted ' + str(self._num_deleted) + ' rows.'
 
     def set_continuation_key(self, continuation_key):
-        self.__continuation_key = continuation_key
+        self._continuation_key = continuation_key
         return self
 
     def get_continuation_key(self):
@@ -2892,10 +2887,10 @@ class MultiDeleteResult(Result):
             delete.
         :rtype: bytearray
         """
-        return self.__continuation_key
+        return self._continuation_key
 
     def set_num_deletions(self, num_deleted):
-        self.__num_deleted = num_deleted
+        self._num_deleted = num_deleted
         return self
 
     def get_num_deletions(self):
@@ -2905,7 +2900,7 @@ class MultiDeleteResult(Result):
         :return: the number of rows deleted.
         :rtype: int
         """
-        return self.__num_deleted
+        return self._num_deleted
 
     def get_read_kb(self):
         """
@@ -2958,11 +2953,11 @@ class PrepareResult(Result):
 
     def __init__(self):
         super(PrepareResult, self).__init__()
-        self.__prepared_statement = None
+        self._prepared_statement = None
 
     def set_prepared_statement(self, prepared_statement):
         # Sets the prepared statement.
-        self.__prepared_statement = prepared_statement
+        self._prepared_statement = prepared_statement
         return self
 
     def get_prepared_statement(self):
@@ -2972,7 +2967,7 @@ class PrepareResult(Result):
         :return: the value of the prepared statement.
         :rtype: PreparedStatement
         """
-        return self.__prepared_statement
+        return self._prepared_statement
 
     def get_read_kb(self):
         """
@@ -3030,15 +3025,14 @@ class PutResult(WriteResult):
 
     def __init__(self):
         super(PutResult, self).__init__()
-        self.__version = None
-        self.__generated_value = None
+        self._version = None
+        self._generated_value = None
 
     def __str__(self):
-        return ('None Version' if self.__version is None else
-                str(self.__version))
+        return 'None Version' if self._version is None else str(self._version)
 
     def set_version(self, version):
-        self.__version = version
+        self._version = version
         return self
 
     def get_version(self):
@@ -3049,10 +3043,10 @@ class PutResult(WriteResult):
         :return: the :py:class:`Version` on success, None on failure.
         :rtype: Version
         """
-        return self.__version
+        return self._version
 
     def set_generated_value(self, value):
-        self.__generated_value = value
+        self._generated_value = value
         return self
 
     def get_generated_value(self):
@@ -3064,7 +3058,7 @@ class PutResult(WriteResult):
 
         :return: the generated value.
         """
-        return self.__generated_value
+        return self._generated_value
 
     def get_existing_version(self):
         """
@@ -3156,37 +3150,37 @@ class QueryResult(Result):
 
     def __init__(self, request, computed=True):
         super(QueryResult, self).__init__()
-        self.__request = request
-        self.__results = None
-        self.__continuation_key = None
+        self._request = request
+        self._results = None
+        self._continuation_key = None
         # The following 6 fields are used only for "internal" QueryResults,
         # i.e., those received and processed by the ReceiveIter.
 
-        self.__reached_limit = False
-        self.__is_computed = computed
+        self._reached_limit = False
+        self._is_computed = computed
         # The following 4 fields are used during phase 1 of a sorting
-        # ALL_PARTITIONS query. In this case, self.__results may store results
-        # from multiple partitions. If so, self.__results are grouped by
-        # partition and self.__pids, self.__num_results_per_pid, and
-        # self.__continuation_keys fields store the partition id, the number
-        # of results, and the continuation key per partition. Finally, the
-        # self.__is_in_phase1 specifies whether phase 1 is done.
-        self.__is_in_phase1 = False
-        self.__num_results_per_pid = None
-        self.__continuation_keys = None
-        self.__pids = None
+        # ALL_PARTITIONS query. In this case, self._results may store results
+        # from multiple partitions. If so, self._results are grouped by
+        # partition and self._pids, self._num_results_per_pid, and
+        # self._continuation_keys fields store the partition id, the number of
+        # results, and the continuation key per partition. Finally, the
+        # self._is_in_phase1 specifies whether phase 1 is done.
+        self._is_in_phase1 = False
+        self._num_results_per_pid = None
+        self._continuation_keys = None
+        self._pids = None
 
     def __str__(self):
-        self.__compute()
-        if self.__results is None:
+        self._compute()
+        if self._results is None:
             return None
-        res = 'Number of query results: ' + str(len(self.__results))
-        for result in self.__results:
+        res = 'Number of query results: ' + str(len(self._results))
+        for result in self._results:
             res += '\n' + str(result)
         return res + '\n'
 
     def set_results(self, results):
-        self.__results = results
+        self._results = results
         return self
 
     def get_results(self):
@@ -3197,14 +3191,14 @@ class QueryResult(Result):
         :return: a list of results for the query.
         :rtype: list(dict)
         """
-        self.__compute()
-        return self.__results
+        self._compute()
+        return self._results
 
     def get_results_internal(self):
-        return self.__results
+        return self._results
 
     def set_continuation_key(self, continuation_key):
-        self.__continuation_key = continuation_key
+        self._continuation_key = continuation_key
         return self
 
     def get_continuation_key(self):
@@ -3216,49 +3210,49 @@ class QueryResult(Result):
             to return.
         :rtype: bytearray
         """
-        self.__compute()
-        return self.__continuation_key
+        self._compute()
+        return self._continuation_key
 
     def set_reached_limit(self, reached_limit):
-        self.__reached_limit = reached_limit
+        self._reached_limit = reached_limit
         return self
 
     def reached_limit(self):
-        return self.__reached_limit
+        return self._reached_limit
 
     def get_request(self):
-        return self.__request
+        return self._request
 
     def set_computed(self, computed):
-        self.__is_computed = computed
+        self._is_computed = computed
         return self
 
     def set_is_in_phase1(self, is_in_phase1):
-        self.__is_in_phase1 = is_in_phase1
+        self._is_in_phase1 = is_in_phase1
 
     def is_in_phase1(self):
-        return self.__is_in_phase1
+        return self._is_in_phase1
 
     def set_num_results_per_pid(self, num_results_per_pid):
-        self.__num_results_per_pid = num_results_per_pid
+        self._num_results_per_pid = num_results_per_pid
 
     def get_num_partition_results(self, i):
-        return self.__num_results_per_pid[i]
+        return self._num_results_per_pid[i]
 
     def set_partition_cont_keys(self, continuation_keys):
-        self.__continuation_keys = continuation_keys
+        self._continuation_keys = continuation_keys
 
     def get_partition_cont_key(self, i):
-        return self.__continuation_keys[i]
+        return self._continuation_keys[i]
 
     def set_pids(self, pids):
-        self.__pids = pids
+        self._pids = pids
 
     def get_num_pids(self):
-        return 0 if self.__pids is None else len(self.__pids)
+        return 0 if self._pids is None else len(self._pids)
 
     def get_pid(self, i):
-        return self.__pids[i]
+        return self._pids[i]
 
     def get_read_kb(self):
         """
@@ -3270,7 +3264,7 @@ class QueryResult(Result):
         :return: the read KBytes consumed.
         :rtype: int
         """
-        self.__compute()
+        self._compute()
         return super(QueryResult, self)._get_read_kb_internal()
 
     def get_read_units(self):
@@ -3282,7 +3276,7 @@ class QueryResult(Result):
         :return: the read units consumed.
         :rtype: int
         """
-        self.__compute()
+        self._compute()
         return super(QueryResult, self)._get_read_units_internal()
 
     def get_write_kb(self):
@@ -3292,7 +3286,7 @@ class QueryResult(Result):
         :return: the write KBytes consumed.
         :rtype: int
         """
-        self.__compute()
+        self._compute()
         return super(QueryResult, self)._get_write_kb_internal()
 
     def get_write_units(self):
@@ -3302,15 +3296,15 @@ class QueryResult(Result):
         :return: the write units consumed.
         :rtype: int
         """
-        self.__compute()
+        self._compute()
         return super(QueryResult, self)._get_write_units_internal()
 
-    def __compute(self):
-        if self.__is_computed:
+    def _compute(self):
+        if self._is_computed:
             return
-        driver = self.__request.get_driver()
+        driver = self._request.get_driver()
         driver.compute(self)
-        self.__is_computed = True
+        self._is_computed = True
 
 
 class TableResult(Result):
@@ -3333,19 +3327,19 @@ class TableResult(Result):
 
     def __init__(self):
         super(TableResult, self).__init__()
-        self.__table_name = None
-        self.__state = None
-        self.__limits = None
-        self.__schema = None
-        self.__operation_id = None
+        self._table_name = None
+        self._state = None
+        self._limits = None
+        self._schema = None
+        self._operation_id = None
 
     def __str__(self):
-        return ('table ' + str(self.__table_name) + '[' + str(self.__state) +
-                '] ' + str(self.__limits) + ' schema [' + str(self.__schema) +
-                '] operation_id = ' + str(self.__operation_id))
+        return ('table ' + str(self._table_name) + '[' + str(self._state) +
+                '] ' + str(self._limits) + ' schema [' + str(self._schema) +
+                '] operation_id = ' + str(self._operation_id))
 
     def set_table_name(self, table_name):
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -3355,10 +3349,10 @@ class TableResult(Result):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_state(self, state):
-        self.__state = state
+        self._state = state
         return self
 
     def get_state(self):
@@ -3369,10 +3363,10 @@ class TableResult(Result):
         :return: the state.
         :rtype: State
         """
-        return self.__state
+        return self._state
 
     def set_table_limits(self, limits):
-        self.__limits = limits
+        self._limits = limits
         return self
 
     def get_table_limits(self):
@@ -3382,10 +3376,10 @@ class TableResult(Result):
         :return: the limits.
         :rtype: TableLimits
         """
-        return self.__limits
+        return self._limits
 
     def set_schema(self, schema):
-        self.__schema = schema
+        self._schema = schema
         return self
 
     def get_schema(self):
@@ -3395,10 +3389,10 @@ class TableResult(Result):
         :return: the schema for the table.
         :rtype: str
         """
-        return self.__schema
+        return self._schema
 
     def set_operation_id(self, operation_id):
-        self.__operation_id = operation_id
+        self._operation_id = operation_id
         return self
 
     def get_operation_id(self):
@@ -3411,7 +3405,7 @@ class TableResult(Result):
         :return: the operation id for an asynchronous operation.
         :rtype: int
         """
-        return self.__operation_id
+        return self._operation_id
 
     def wait_for_state_with_res(self, handle, state, wait_millis, delay_millis,
                                 operation_id=None):
@@ -3526,23 +3520,23 @@ class TableUsageResult(Result):
 
     def __init__(self):
         super(TableUsageResult, self).__init__()
-        self.__table_name = None
-        self.__usage_records = None
+        self._table_name = None
+        self._usage_records = None
 
     def __str__(self):
-        if self.__usage_records is None:
+        if self._usage_records is None:
             records_str = 'None'
         else:
             records_str = ''
-            for index in range(len(self.__usage_records)):
-                records_str += str(self.__usage_records[index])
-                if index < len(self.__usage_records) - 1:
+            for index in range(len(self._usage_records)):
+                records_str += str(self._usage_records[index])
+                if index < len(self._usage_records) - 1:
                     records_str += ', '
-        return ('TableUsageResult [table=' + str(self.__table_name) +
+        return ('TableUsageResult [table=' + str(self._table_name) +
                 '] [table_usage=[' + records_str + ']]')
 
     def set_table_name(self, table_name):
-        self.__table_name = table_name
+        self._table_name = table_name
         return self
 
     def get_table_name(self):
@@ -3552,10 +3546,10 @@ class TableUsageResult(Result):
         :return: the table name.
         :rtype: str
         """
-        return self.__table_name
+        return self._table_name
 
     def set_usage_records(self, records):
-        self.__usage_records = records
+        self._usage_records = records
         return self
 
     def get_usage_records(self):
@@ -3566,7 +3560,7 @@ class TableUsageResult(Result):
         :return: an list of usage records.
         :type: list(TableUsage)
         """
-        return self.__usage_records
+        return self._usage_records
 
 
 class WriteMultipleResult(Result):
@@ -3585,17 +3579,17 @@ class WriteMultipleResult(Result):
 
     def __init__(self):
         super(WriteMultipleResult, self).__init__()
-        self.__results = list()
-        self.__failed_operation_index = -1
+        self._results = list()
+        self._failed_operation_index = -1
 
     def __str__(self):
         if self.get_success():
-            return 'WriteMultiple, num results: ' + str(len(self.__results))
+            return 'WriteMultiple, num results: ' + str(len(self._results))
         return ('WriteMultiple aborted, the failed operation index: ' +
-                str(self.__failed_operation_index))
+                str(self._failed_operation_index))
 
     def add_result(self, result):
-        self.__results.append(result)
+        self._results.append(result)
 
     def get_results(self):
         """
@@ -3604,7 +3598,7 @@ class WriteMultipleResult(Result):
         :return: the list of execution results.
         :rtype: list(OperationResult)
         """
-        return self.__results
+        return self._results
 
     def get_failed_operation_result(self):
         """
@@ -3613,12 +3607,12 @@ class WriteMultipleResult(Result):
 
         :return: the result of the operation, None if not set.
         """
-        if self.__failed_operation_index == -1 or not self.__results:
+        if self._failed_operation_index == -1 or not self._results:
             return None
-        return self.__results[0]
+        return self._results[0]
 
     def set_failed_operation_index(self, index):
-        self.__failed_operation_index = index
+        self._failed_operation_index = index
 
     def get_failed_operation_index(self):
         """
@@ -3628,7 +3622,7 @@ class WriteMultipleResult(Result):
         :return: the index of operation, -1 if not set.
         :rtype: int
         """
-        return self.__failed_operation_index
+        return self._failed_operation_index
 
     def get_success(self):
         """
@@ -3642,7 +3636,7 @@ class WriteMultipleResult(Result):
         :return: True if the operation succeeded.
         :rtype: bool
         """
-        return self.__failed_operation_index == -1
+        return self._failed_operation_index == -1
 
     def size(self):
         """
@@ -3650,7 +3644,7 @@ class WriteMultipleResult(Result):
 
         :return: the number of results.
         """
-        return len(self.__results)
+        return len(self._results)
 
     def get_read_kb(self):
         """
@@ -3703,19 +3697,19 @@ class WriteMultipleResult(Result):
 
         def __init__(self):
             super(WriteMultipleResult.OperationResult, self).__init__()
-            self.__version = None
-            self.__success = False
-            self.__generated_value = None
+            self._version = None
+            self._success = False
+            self._generated_value = None
 
         def __str__(self):
-            return ('Success: ' + str(self.__success) + ', version: ' +
-                    str(self.__version) + ', existing version: ' +
+            return ('Success: ' + str(self._success) + ', version: ' +
+                    str(self._version) + ', existing version: ' +
                     str(self.get_existing_version()) + ', existing value: ' +
                     str(self.get_existing_value()) + ', generated value: ' +
-                    str(self.__generated_value))
+                    str(self._generated_value))
 
         def set_version(self, version):
-            self.__version = version
+            self._version = version
             return self
 
         def get_version(self):
@@ -3726,10 +3720,10 @@ class WriteMultipleResult(Result):
             :return: the version.
             :rtype: Version
             """
-            return self.__version
+            return self._version
 
         def set_success(self, success):
-            self.__success = success
+            self._success = success
             return self
 
         def get_success(self):
@@ -3741,10 +3735,10 @@ class WriteMultipleResult(Result):
             :return: True if the operation succeeded.
             :rtype: bool
             """
-            return self.__success
+            return self._success
 
         def set_generated_value(self, value):
-            self.__generated_value = value
+            self._generated_value = value
             return self
 
         def get_generated_value(self):
@@ -3759,7 +3753,7 @@ class WriteMultipleResult(Result):
 
             :return: the generated value.
             """
-            return self.__generated_value
+            return self._generated_value
 
         def get_existing_version(self):
             """

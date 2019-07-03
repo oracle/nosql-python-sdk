@@ -119,16 +119,16 @@ class DefaultRetryHandler(RetryHandler):
     def __init__(self, num_retries=10, delay_s=1):
         CheckValue.check_int_ge_zero(num_retries, 'num_retries')
         CheckValue.check_int_ge_zero(delay_s, 'delay_s')
-        self.__num_retries = num_retries
-        self.__delay_s = delay_s
+        self._num_retries = num_retries
+        self._delay_s = delay_s
 
     def get_num_retries(self):
-        return self.__num_retries
+        return self._num_retries
 
     def do_retry(self, request, num_retried, re):
-        self.__check_request(request)
+        self._check_request(request)
         CheckValue.check_int_gt_zero(num_retried, 'num_retried')
-        self.__check_retryable_exception(re)
+        self._check_retryable_exception(re)
         if isinstance(re, OperationThrottlingException):
             return False
         elif isinstance(re, SecurityInfoNotReadyException):
@@ -136,29 +136,29 @@ class DefaultRetryHandler(RetryHandler):
             return True
         elif not request.should_retry():
             return False
-        return num_retried < self.__num_retries
+        return num_retried < self._num_retries
 
     def delay(self, num_retried, re):
         CheckValue.check_int_gt_zero(num_retried, 'num_retried')
-        self.__check_retryable_exception(re)
-        sec = self.__delay_s
+        self._check_retryable_exception(re)
+        sec = self._delay_s
         if sec == 0:
-            sec = self.__compute_backoff_delay(num_retried, 1000)
+            sec = self._compute_backoff_delay(num_retried, 1000)
         if isinstance(re, SecurityInfoNotReadyException):
-            sec = self.__sec_info_not_ready_delay(num_retried)
+            sec = self._sec_info_not_ready_delay(num_retried)
         sleep(sec)
 
-    def __check_request(self, request):
+    def _check_request(self, request):
         if not isinstance(request, Request):
             raise IllegalArgumentException(
                 'The parameter request should be an instance of Request.')
 
-    def __check_retryable_exception(self, re):
+    def _check_retryable_exception(self, re):
         if not isinstance(re, RetryableException):
             raise IllegalArgumentException(
                 're must be an instance of RetryableException.')
 
-    def __compute_backoff_delay(self, num_retried, base_delay):
+    def _compute_backoff_delay(self, num_retried, base_delay):
         """
         Use an exponential backoff algorithm to compute time of delay.
 
@@ -169,7 +169,7 @@ class DefaultRetryHandler(RetryHandler):
         msec += (random() * base_delay)
         return msec // 1000
 
-    def __sec_info_not_ready_delay(self, num_retried):
+    def _sec_info_not_ready_delay(self, num_retried):
         """
         Handle security information not ready retries. If number of retries is
         smaller than 10, delay for DefaultRetryHandler._SEC_ERROR_DELAY_MS.
@@ -177,7 +177,7 @@ class DefaultRetryHandler(RetryHandler):
         """
         msec = DefaultRetryHandler._SEC_ERROR_DELAY_MS
         if num_retried > 10:
-            msec = self.__compute_backoff_delay(
+            msec = self._compute_backoff_delay(
                 num_retried - 10, DefaultRetryHandler._SEC_ERROR_DELAY_MS)
         return msec // 1000
 
@@ -232,21 +232,21 @@ class NoSQLHandleConfig(object):
     def __init__(self, endpoint):
         # Inits a NoSQLHandleConfig object.
         CheckValue.check_str(endpoint, 'endpoint')
-        self.__service_url = NoSQLHandleConfig.create_url(endpoint, '/')
-        self.__timeout = 0
-        self.__table_request_timeout = 0
-        self.__sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
-        self.__consistency = None
-        self.__pool_connections = 2
-        self.__pool_maxsize = 10
-        self.__max_content_length = 1024 * 1024
-        self.__retry_handler = None
-        self.__auth_provider = None
-        self.__proxy_host = None
-        self.__proxy_port = 0
-        self.__proxy_username = None
-        self.__proxy_password = None
-        self.__logger = None
+        self._service_url = NoSQLHandleConfig.create_url(endpoint, '/')
+        self._timeout = 0
+        self._table_request_timeout = 0
+        self._sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
+        self._consistency = None
+        self._pool_connections = 2
+        self._pool_maxsize = 10
+        self._max_content_length = 1024 * 1024
+        self._retry_handler = None
+        self._auth_provider = None
+        self._proxy_host = None
+        self._proxy_port = 0
+        self._proxy_username = None
+        self._proxy_password = None
+        self._logger = None
 
     def get_service_url(self):
         """
@@ -254,7 +254,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the url.
         """
-        return self.__service_url
+        return self._service_url
 
     def get_default_timeout(self):
         """
@@ -264,8 +264,8 @@ class NoSQLHandleConfig(object):
 
         :returns: the default timeout, in milliseconds.
         """
-        return (NoSQLHandleConfig._DEFAULT_TIMEOUT if self.__timeout == 0 else
-                self.__timeout)
+        return (NoSQLHandleConfig._DEFAULT_TIMEOUT if self._timeout == 0 else
+                self._timeout)
 
     def get_default_table_request_timeout(self):
         """
@@ -276,8 +276,8 @@ class NoSQLHandleConfig(object):
         :returns: the default timeout, in milliseconds.
         """
         return (NoSQLHandleConfig._DEFAULT_TABLE_REQ_TIMEOUT if
-                self.__table_request_timeout == 0 else
-                self.__table_request_timeout)
+                self._table_request_timeout == 0 else
+                self._table_request_timeout)
 
     def get_default_consistency(self):
         """
@@ -287,7 +287,7 @@ class NoSQLHandleConfig(object):
         :returns: the default consistency.
         """
         return (NoSQLHandleConfig._DEFAULT_CONSISTENCY if
-                self.__consistency is None else self.__consistency)
+                self._consistency is None else self._consistency)
 
     def set_timeout(self, timeout):
         """
@@ -300,7 +300,7 @@ class NoSQLHandleConfig(object):
             negative number.
         """
         CheckValue.check_int_gt_zero(timeout, 'timeout')
-        self.__timeout = timeout
+        self._timeout = timeout
         return self
 
     def get_timeout(self):
@@ -310,7 +310,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
         """
-        return self.__timeout
+        return self._timeout
 
     def set_table_request_timeout(self, table_request_timeout):
         """
@@ -327,7 +327,7 @@ class NoSQLHandleConfig(object):
         """
         CheckValue.check_int_gt_zero(table_request_timeout,
                                      'table_request_timeout')
-        self.__table_request_timeout = table_request_timeout
+        self._table_request_timeout = table_request_timeout
         return self
 
     def get_table_request_timeout(self):
@@ -339,7 +339,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
         """
-        return self.__table_request_timeout
+        return self._table_request_timeout
 
     def set_sec_info_timeout(self, sec_info_timeout):
         """
@@ -352,7 +352,7 @@ class NoSQLHandleConfig(object):
             sec_info_timeout is a negative number.
         """
         CheckValue.check_int_gt_zero(sec_info_timeout, 'sec_info_timeout')
-        self.__sec_info_timeout = sec_info_timeout
+        self._sec_info_timeout = sec_info_timeout
         return self
 
     def get_sec_info_timeout(self):
@@ -362,7 +362,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
         """
-        return self.__sec_info_timeout
+        return self._sec_info_timeout
 
     def set_consistency(self, consistency):
         """
@@ -379,7 +379,7 @@ class NoSQLHandleConfig(object):
             raise IllegalArgumentException(
                 'Consistency must be Consistency.ABSOLUTE or ' +
                 'Consistency.EVENTUAL')
-        self.__consistency = consistency
+        self._consistency = consistency
         return self
 
     def get_consistency(self):
@@ -389,7 +389,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the consistency, or None if it has not been configured.
         """
-        return self.__consistency
+        return self._consistency
 
     def set_pool_connections(self, pool_connections):
         """
@@ -401,7 +401,7 @@ class NoSQLHandleConfig(object):
             pool_connections is not a positive number.
         """
         CheckValue.check_int_gt_zero(pool_connections, 'pool_connections')
-        self.__pool_connections = pool_connections
+        self._pool_connections = pool_connections
         return self
 
     def get_pool_connections(self):
@@ -410,7 +410,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the number of connection pools.
         """
-        return self.__pool_connections
+        return self._pool_connections
 
     def set_pool_maxsize(self, pool_maxsize):
         """
@@ -426,7 +426,7 @@ class NoSQLHandleConfig(object):
             is not a positive number.
         """
         CheckValue.check_int_gt_zero(pool_maxsize, 'pool_maxsize')
-        self.__pool_maxsize = pool_maxsize
+        self._pool_maxsize = pool_maxsize
         return self
 
     def get_pool_maxsize(self):
@@ -439,7 +439,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the pool size.
         """
-        return self.__pool_maxsize
+        return self._pool_maxsize
 
     def get_max_content_length(self):
         """
@@ -448,7 +448,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the size.
         """
-        return self.__max_content_length
+        return self._max_content_length
 
     def set_retry_handler(self, retry_handler):
         """
@@ -464,7 +464,7 @@ class NoSQLHandleConfig(object):
         if not isinstance(retry_handler, RetryHandler):
             raise IllegalArgumentException(
                 'retry_handler must be an instance of RetryHandler.')
-        self.__retry_handler = retry_handler
+        self._retry_handler = retry_handler
         return self
 
     def configure_default_retry_handler(self, num_retries, delay_s):
@@ -490,7 +490,7 @@ class NoSQLHandleConfig(object):
         :raises IllegalArgumentException: raises the exception if num_retries or
             delay_s is a negative number.
         """
-        self.__retry_handler = DefaultRetryHandler(num_retries, delay_s)
+        self._retry_handler = DefaultRetryHandler(num_retries, delay_s)
         return self
 
     def get_retry_handler(self):
@@ -500,7 +500,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the handler.
         """
-        return self.__retry_handler
+        return self._retry_handler
 
     def set_authorization_provider(self, provider):
         """
@@ -515,7 +515,7 @@ class NoSQLHandleConfig(object):
         if not isinstance(provider, AuthorizationProvider):
             raise IllegalArgumentException(
                 'provider must be an instance of AuthorizationProvider.')
-        self.__auth_provider = provider
+        self._auth_provider = provider
         return self
 
     def get_authorization_provider(self):
@@ -525,7 +525,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the AuthorizationProvider.
         """
-        return self.__auth_provider
+        return self._auth_provider
 
     def set_proxy_host(self, proxy_host):
         """
@@ -539,7 +539,7 @@ class NoSQLHandleConfig(object):
             not a string.
         """
         CheckValue.check_str(proxy_host, 'proxy_host')
-        self.__proxy_host = proxy_host
+        self._proxy_host = proxy_host
         return self
 
     def get_proxy_host(self):
@@ -548,7 +548,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the host, or None.
         """
-        return self.__proxy_host
+        return self._proxy_host
 
     def set_proxy_port(self, proxy_port):
         """
@@ -562,7 +562,7 @@ class NoSQLHandleConfig(object):
             a negative number.
         """
         CheckValue.check_int_ge_zero(proxy_port, 'proxy_port')
-        self.__proxy_port = proxy_port
+        self._proxy_port = proxy_port
         return self
 
     def get_proxy_port(self):
@@ -571,7 +571,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the proxy port.
         """
-        return self.__proxy_port
+        return self._proxy_port
 
     def set_proxy_username(self, proxy_username):
         """
@@ -585,7 +585,7 @@ class NoSQLHandleConfig(object):
             is not a string.
         """
         CheckValue.check_str(proxy_username, 'proxy_username')
-        self.__proxy_username = proxy_username
+        self._proxy_username = proxy_username
         return self
 
     def get_proxy_username(self):
@@ -594,7 +594,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the user name, or None.
         """
-        return self.__proxy_username
+        return self._proxy_username
 
     def set_proxy_password(self, proxy_password):
         """
@@ -608,7 +608,7 @@ class NoSQLHandleConfig(object):
             is not a string.
         """
         CheckValue.check_str(proxy_password, 'proxy_password')
-        self.__proxy_password = proxy_password
+        self._proxy_password = proxy_password
         return self
 
     def get_proxy_password(self):
@@ -617,7 +617,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the password, or None.
         """
-        return self.__proxy_password
+        return self._proxy_password
 
     def set_logger(self, logger):
         """
@@ -629,7 +629,7 @@ class NoSQLHandleConfig(object):
             an instance of Logger.
         """
         CheckValue.check_logger(logger, 'logger')
-        self.__logger = logger
+        self._logger = logger
         return self
 
     def get_logger(self):
@@ -638,7 +638,7 @@ class NoSQLHandleConfig(object):
 
         :returns: the logger.
         """
-        return self.__logger
+        return self._logger
 
     def clone(self):
         """
@@ -646,15 +646,15 @@ class NoSQLHandleConfig(object):
 
         :returns: the copy of the instance.
         """
-        auth_provider = self.__auth_provider
-        logger = self.__logger
-        self.__auth_provider = None
-        self.__logger = None
+        auth_provider = self._auth_provider
+        logger = self._logger
+        self._auth_provider = None
+        self._logger = None
         clone_config = deepcopy(self)
         clone_config.set_authorization_provider(
             auth_provider).set_logger(logger)
-        self.__logger = logger
-        self.__auth_provider = auth_provider
+        self._logger = logger
+        self._auth_provider = auth_provider
         return clone_config
 
     #

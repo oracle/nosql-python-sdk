@@ -44,7 +44,6 @@
 #    $ python example3.py
 #
 
-from __future__ import print_function
 import traceback
 
 from borneo import (

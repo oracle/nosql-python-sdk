@@ -82,9 +82,9 @@ class NoSQLHandle(object):
         if not isinstance(config, NoSQLHandleConfig):
             raise IllegalArgumentException(
                 'config must be an instance of NoSQLHandleConfig.')
-        logger = self.__get_logger(config)
-        self.__config_auth_provider_logging(config, logger)
-        self.__client = Client(config, logger)
+        logger = self._get_logger(config)
+        self._config_auth_provider_logging(config, logger)
+        self._client = Client(config, logger)
 
     def delete(self, request):
         """
@@ -117,8 +117,7 @@ class NoSQLHandle(object):
         if not isinstance(request, DeleteRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of DeleteRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get(self, request):
         """
@@ -143,8 +142,7 @@ class NoSQLHandle(object):
         if not isinstance(request, GetRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get_indexes(self, request):
         """
@@ -162,8 +160,7 @@ class NoSQLHandle(object):
         if not isinstance(request, GetIndexesRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetIndexesRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get_table(self, request):
         """
@@ -183,8 +180,7 @@ class NoSQLHandle(object):
         if not isinstance(request, GetTableRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetTableRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get_table_usage(self, request):
         """
@@ -205,8 +201,7 @@ class NoSQLHandle(object):
         if not isinstance(request, TableUsageRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of TableUsageRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def list_tables(self, request):
         """
@@ -225,8 +220,7 @@ class NoSQLHandle(object):
         if not isinstance(request, ListTablesRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of ListTablesRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def multi_delete(self, request):
         """
@@ -244,8 +238,7 @@ class NoSQLHandle(object):
         if not isinstance(request, MultiDeleteRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of MultiDeleteRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def prepare(self, request):
         """
@@ -266,8 +259,7 @@ class NoSQLHandle(object):
         if not isinstance(request, PrepareRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of PrepareRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def put(self, request):
         """
@@ -320,8 +312,7 @@ class NoSQLHandle(object):
         if not isinstance(request, PutRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of PutRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def query(self, request):
         """
@@ -358,8 +349,7 @@ class NoSQLHandle(object):
         if not isinstance(request, QueryRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of QueryRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def table_request(self, request):
         """
@@ -380,8 +370,7 @@ class NoSQLHandle(object):
         if not isinstance(request, TableRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of TableRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def write_multiple(self, request):
         """
@@ -409,28 +398,28 @@ class NoSQLHandle(object):
         if not isinstance(request, WriteMultipleRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of WriteMultipleRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def close(self):
         """
         Close the NoSQLHandle.
         """
-        self.__check_client()
-        self.__client.shut_down()
-        self.__client = None
+        if self._client is not None:
+            self._client.shut_down()
+            self._client = None
 
-    def __check_client(self):
-        # Ensure that the client exists and hasn't been closed.
-        if self.__client is None:
-            raise IllegalStateException('NoSQLHandle has been closed.')
-
-    def __config_auth_provider_logging(self, config, logger):
+    def _config_auth_provider_logging(self, config, logger):
         provider = config.get_authorization_provider()
         if provider.get_logger() is None:
             provider.set_logger(logger)
 
-    def __get_logger(self, config):
+    def _execute(self, request):
+        # Ensure that the client exists and hasn't been closed.
+        if self._client is None:
+            raise IllegalStateException('NoSQLHandle has been closed.')
+        return self._client.execute(request)
+
+    def _get_logger(self, config):
         """
         Returns the logger used for the driver. If no logger is specified,
         create one based on this class name.

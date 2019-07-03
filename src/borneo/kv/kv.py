@@ -78,51 +78,51 @@ class StoreAccessTokenProvider(AuthorizationProvider):
     _HTTP_TIMEOUT_MS = 30000
 
     def __init__(self, endpoint=None, user_name=None, password=None):
-        self.__auth_string = None
-        self.__auto_renew = True
-        self.__disable_ssl_hook = False
-        self.__is_closed = False
+        self._auth_string = None
+        self._auto_renew = True
+        self._disable_ssl_hook = False
+        self._is_closed = False
         # The base path for security related services.
-        self.__base_path = '/V0/nosql/security'
-        self.__logger = None
-        self.__logutils = LogUtils(self.__logger)
-        self.__sess = Session()
-        self.__request_utils = borneo.http.RequestUtils(
-            self.__sess, self.__logutils)
-        self.__lock = Lock()
-        self.__timer = None
+        self._base_path = '/V0/nosql/security'
+        self._logger = None
+        self._logutils = LogUtils(self._logger)
+        self._sess = Session()
+        self._request_utils = borneo.http.RequestUtils(
+            self._sess, self._logutils)
+        self._lock = Lock()
+        self._timer = None
 
         if endpoint is None and user_name is None and password is None:
             # Used to access to a store without security enabled.
-            self.__is_secure = False
+            self._is_secure = False
         else:
             if endpoint is None or user_name is None or password is None:
                 raise IllegalArgumentException('Invalid input arguments.')
             CheckValue.check_str(endpoint, 'endpoint')
             CheckValue.check_str(user_name, 'user_name')
             CheckValue.check_str(password, 'password')
-            self.__is_secure = True
+            self._is_secure = True
             # The url to reach the authenticating entity (proxy).
-            self.__url = NoSQLHandleConfig.create_url(endpoint, '')
-            if self.__url.scheme.lower() != 'https':
+            self._url = NoSQLHandleConfig.create_url(endpoint, '')
+            if self._url.scheme.lower() != 'https':
                 raise IllegalArgumentException(
                     'StoreAccessTokenProvider requires use of https')
-            self.__user_name = user_name
-            self.__password = password
+            self._user_name = user_name
+            self._password = password
 
     def bootstrap_login(self):
         # Bootstrap login using the provided credentials.
-        if not self.__is_secure or self.__is_closed:
+        if not self._is_secure or self._is_closed:
             return
         # Convert the username:password pair in base 64 format.
-        pair = self.__user_name + ':' + self.__password
+        pair = self._user_name + ':' + self._password
         try:
             encoded_pair = b64encode(pair)
         except TypeError:
             encoded_pair = b64encode(pair.encode()).decode()
         try:
             # Send request to server for login token.
-            response = self.__send_request(
+            response = self._send_request(
                 StoreAccessTokenProvider._BASIC_PREFIX + encoded_pair,
                 StoreAccessTokenProvider._LOGIN_SERVICE)
             content = response.get_content()
@@ -130,13 +130,13 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             if response.get_status_code() != codes.ok:
                 raise InvalidAuthorizationException(
                     'Fail to login to service: ' + content)
-            if self.__is_closed:
+            if self._is_closed:
                 return
             # Generate the authentication string using login token.
-            self.__auth_string = (StoreAccessTokenProvider._BEARER_PREFIX +
-                                  content)
+            self._auth_string = (
+                StoreAccessTokenProvider._BEARER_PREFIX + content)
             # Schedule login token renew thread.
-            self.__schedule_refresh()
+            self._schedule_refresh()
         except InvalidAuthorizationException as iae:
             print(format_exc())
             raise iae
@@ -149,42 +149,42 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         Close the provider, releasing resources such as a stored login token.
         """
         # Don't do anything for non-secure case.
-        if not self.__is_secure or self.__is_closed:
+        if not self._is_secure or self._is_closed:
             return
         # Send request for logout.
         try:
-            response = self.__send_request(
-                self.__auth_string, StoreAccessTokenProvider._LOGOUT_SERVICE)
+            response = self._send_request(
+                self._auth_string, StoreAccessTokenProvider._LOGOUT_SERVICE)
             if response.get_status_code() != codes.ok:
-                self.__logutils.log_info(
-                    'Failed to logout user ' + self.__user_name + ': ' +
+                self._logutils.log_info(
+                    'Failed to logout user ' + self._user_name + ': ' +
                     response.get_content())
         except Exception as e:
-            self.__logutils.log_info(
-                'Failed to logout user ' + self.__user_name + ': ' + str(e))
+            self._logutils.log_info(
+                'Failed to logout user ' + self._user_name + ': ' + str(e))
 
         # Clean up.
-        self.__is_closed = True
-        self.__auth_string = None
-        self.__password = None
-        if self.__timer is not None:
-            self.__timer.cancel()
-            self.__timer = None
-        if self.__sess is not None:
-            self.__sess.close()
+        self._is_closed = True
+        self._auth_string = None
+        self._password = None
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+        if self._sess is not None:
+            self._sess.close()
 
     def get_authorization_string(self, request=None):
         if request is not None and not isinstance(request, Request):
             raise IllegalArgumentException(
                 'get_authorization_string requires an instance of Request or ' +
                 'None as parameter.')
-        if not self.__is_secure or self.__is_closed:
+        if not self._is_secure or self._is_closed:
             return None
         # If there is no cached auth string, re-authentication to retrieve the
         # login token and generate the auth string.
-        if self.__auth_string is None:
+        if self._auth_string is None:
             self.bootstrap_login()
-        return self.__auth_string
+        return self._auth_string
 
     def is_secure(self):
         """
@@ -193,7 +193,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         :return: True if accessing a secure store, otherwise False.
         :rtype: bool
         """
-        return self.__is_secure
+        return self._is_secure
 
     def set_auto_renew(self, auto_renew):
         """
@@ -207,7 +207,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             not True or False.
         """
         CheckValue.check_boolean(auto_renew, 'auto_renew')
-        self.__auto_renew = auto_renew
+        self._auto_renew = auto_renew
         return self
 
     def is_auto_renew(self):
@@ -217,33 +217,33 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         :return: True if auto-renew is set, otherwise False.
         :rtype: bool
         """
-        return self.__auto_renew
+        return self._auto_renew
 
     def set_logger(self, logger):
         CheckValue.check_logger(logger, 'logger')
-        self.__logger = logger
-        self.__logutils = LogUtils(logger)
-        self.__request_utils = borneo.http.RequestUtils(
-            self.__sess, self.__logutils)
+        self._logger = logger
+        self._logutils = LogUtils(logger)
+        self._request_utils = borneo.http.RequestUtils(
+            self._sess, self._logutils)
         return self
 
     def get_logger(self):
-        return self.__logger
+        return self._logger
 
     def set_url_for_test(self):
-        self.__url = urlparse(self.__url.geturl().replace('https', 'http'))
+        self._url = urlparse(self._url.geturl().replace('https', 'http'))
         return self
 
     def validate_auth_string(self, auth_string):
-        if self.__is_secure and auth_string is None:
+        if self._is_secure and auth_string is None:
             raise IllegalArgumentException(
                 'Secured StoreAccessProvider requires a non-none string.')
 
-    def __get_expiration_time_from_token(self):
+    def _get_expiration_time_from_token(self):
         # Retrieve login token from authentication string.
-        if self.__auth_string is None:
+        if self._auth_string is None:
             return -1
-        token = self.__auth_string[
+        token = self._auth_string[
             len(StoreAccessTokenProvider._BEARER_PREFIX):]
         buf = bytearray.fromhex(token)
         bis = ByteInputStream(buf)
@@ -252,59 +252,59 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         expire_at = bis.read_long()
         return expire_at
 
-    def __refresh_task(self):
+    def _refresh_task(self):
         """
         This task sends a request to the server for login session extension.
         Depending on the server policy, a new login token with new expiration
         time may or may not be granted.
         """
-        if not self.__is_secure or not self.__auto_renew or self.__is_closed:
+        if not self._is_secure or not self._auto_renew or self._is_closed:
             return
         try:
-            old_auth = self.__auth_string
-            response = self.__send_request(
+            old_auth = self._auth_string
+            response = self._send_request(
                 old_auth, StoreAccessTokenProvider._RENEW_SERVICE)
             content = response.get_content()
             if response.get_status_code() != codes.ok:
                 raise InvalidAuthorizationException(content)
-            if self.__is_closed:
+            if self._is_closed:
                 return
-            with self.__lock:
-                if self.__auth_string == old_auth:
-                    self.__auth_string = (
+            with self._lock:
+                if self._auth_string == old_auth:
+                    self._auth_string = (
                         StoreAccessTokenProvider._BEARER_PREFIX + content)
-            self.__schedule_refresh()
+            self._schedule_refresh()
         except Exception as e:
-            self.__logutils.log_info('Failed to renew login token: ' + str(e))
-            if self.__timer is not None:
-                self.__timer.cancel()
-                self.__timer = None
+            self._logutils.log_info('Failed to renew login token: ' + str(e))
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
 
-    def __schedule_refresh(self):
+    def _schedule_refresh(self):
         # Schedule a login token renew when half of the token life time is
         # reached.
-        if not self.__is_secure or not self.__auto_renew:
+        if not self._is_secure or not self._auto_renew:
             return
         # Clean up any existing timer
-        if self.__timer is not None:
-            self.__timer.cancel()
-            self.__timer = None
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
         acquire_time = int(round(time() * 1000))
-        expire_time = self.__get_expiration_time_from_token()
+        expire_time = self._get_expiration_time_from_token()
         if expire_time < 0:
             return
         # If it is 10 seconds before expiration, don't do further renew to avoid
         # to many renew request in the last few seconds.
         if expire_time > acquire_time + 10000:
             renew_time = acquire_time + (expire_time - acquire_time) // 2
-            self.__timer = Timer(
-                (renew_time - acquire_time) // 1000, self.__refresh_task)
-            self.__timer.start()
+            self._timer = Timer(
+                (renew_time - acquire_time) // 1000, self._refresh_task)
+            self._timer.start()
 
-    def __send_request(self, auth_header, service_name):
+    def _send_request(self, auth_header, service_name):
         # Send HTTPS request to login/renew/logout service location with proper
         # authentication information.
         headers = {'Authorization': auth_header}
-        return self.__request_utils.do_get_request(
-            self.__url.geturl() + self.__base_path + service_name, headers,
+        return self._request_utils.do_get_request(
+            self._url.geturl() + self._base_path + service_name, headers,
             StoreAccessTokenProvider._HTTP_TIMEOUT_MS)

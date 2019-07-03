@@ -154,7 +154,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         global GET_INFO, POST_INFO
         GET_INFO = CLIENT_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -168,13 +168,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_authorization_string(TableRequest())
         self.assertIsNotNone(result)
         self.assertEqual(result, 'Bearer ' + SERVICE_AT)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderGetAccountAccessToken(self):
         global GET_INFO, POST_INFO
         GET_INFO = CLIENT_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         # connect to illegal idcs url
         self.base = 'http://localhost:80'
@@ -191,13 +191,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_account_access_token()
         self.assertIsNotNone(result)
         self.assertEqual(result, ACCOUNT_AT)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderGetServiceAccessToken(self):
         global GET_INFO, POST_INFO
         GET_INFO = CLIENT_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         # connect to illegal idcs url
         self.base = 'http://localhost:80'
@@ -214,13 +214,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_service_access_token()
         self.assertIsNotNone(result)
         self.assertEqual(result, SERVICE_AT)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderNoClientInfo(self):
         global GET_INFO, POST_INFO
         GET_INFO = PSM_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -240,13 +240,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         # get account access toke
         self.assertEqual(
             self.token_provider.get_account_access_token(), ACCOUNT_AT)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderNoSecret(self):
         global GET_INFO, POST_INFO
         GET_INFO = NEW_PSM_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -261,13 +261,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 IllegalStateException,
                 'Account metadata doesn\'t have a secret,.*$',
                 self.token_provider.get_account_access_token)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderWithServerError(self):
         global GET_INFO, POST_INFO
         GET_INFO = CLIENT_INFO
         POST_INFO = '{"server_error"}'
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -283,13 +283,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 InvalidAuthorizationException,
                 '^.*IDCS error response: \{"server_error"\}.*$',
                 self.token_provider.get_service_access_token)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderNoPSMInfo(self):
         global GET_INFO, POST_INFO
         GET_INFO = EMPTY_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -305,13 +305,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 IllegalStateException,
                 'Account metadata response contains invalid value: .*$',
                 self.token_provider.get_account_access_token)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderOldPath(self):
         global GET_INFO, POST_INFO
         GET_INFO = PSM_INFO
         POST_INFO = None
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -326,7 +326,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_authorization_string(TableRequest())
         self.assertIsNotNone(result)
         self.assertEqual(result, 'Bearer ' + SERVICE_AT)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     if idcs_url() is not None:
         def testRealCloudGetAuthorizationStringAndToken(self):
@@ -348,7 +348,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             result = self.token_provider.get_service_access_token()
             self.assertIsNotNone(result)
 
-    def __find_port_start_server(self, token_handler):
+    def _find_port_start_server(self, token_handler):
         port = 8000
         while True:
             try:
@@ -362,7 +362,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         thread.start()
         return httpd, port
 
-    def __stop_server(self, httpd):
+    def _stop_server(self, httpd):
         httpd.shutdown()
         httpd.server_close()
 

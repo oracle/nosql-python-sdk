@@ -16,11 +16,11 @@ class IllegalArgumentException(RuntimeError):
     """
 
     def __init__(self, message=None, cause=None):
-        self.__message = message
-        self.__cause = cause
+        self._message = message
+        self._cause = cause
 
     def __str__(self):
-        return self.__message
+        return self._message
 
     def get_cause(self):
         """
@@ -28,7 +28,7 @@ class IllegalArgumentException(RuntimeError):
 
         :returns: the cause of the exception.
         """
-        return self.__cause
+        return self._cause
 
 
 class IllegalStateException(RuntimeError):
@@ -38,11 +38,11 @@ class IllegalStateException(RuntimeError):
     """
 
     def __init__(self, message=None, cause=None):
-        self.__message = message
-        self.__cause = cause
+        self._message = message
+        self._cause = cause
 
     def __str__(self):
-        return self.__message
+        return self._message
 
     def get_cause(self):
         """
@@ -50,7 +50,7 @@ class IllegalStateException(RuntimeError):
 
         :returns: the cause of the exception.
         """
-        return self.__cause
+        return self._cause
 
 
 class NoSQLException(RuntimeError):
@@ -59,11 +59,11 @@ class NoSQLException(RuntimeError):
     """
 
     def __init__(self, message, cause=None):
-        self.__message = message
-        self.__cause = cause
+        self._message = message
+        self._cause = cause
 
     def __str__(self):
-        return self.__message
+        return self._message
 
     def get_cause(self):
         """
@@ -71,7 +71,7 @@ class NoSQLException(RuntimeError):
 
         :returns: the cause of the exception.
         """
-        return self.__cause
+        return self._cause
 
     def ok_to_retry(self):
         """
@@ -92,15 +92,15 @@ class QueryException(RuntimeError):
     """
 
     def __init__(self, message=None, cause=None, location=None):
-        self.__message = message
-        self.__cause = cause
-        self.__location = location
+        self._message = message
+        self._cause = cause
+        self._location = location
 
     def __str__(self):
-        return ('Error:' + ('' if self.__location is None else ' at (' +
-                            str(self.__location.get_start_line()) + ', ' +
-                            str(self.__location.get_start_column()) + ')') +
-                ' ' + self.__message)
+        return ('Error:' + ('' if self._location is None else ' at (' +
+                            str(self._location.get_start_line()) + ', ' +
+                            str(self._location.get_start_column()) + ')') +
+                ' ' + self._message)
 
     def get_illegal_argument(self):
         # Get this exception as a simple IAE, not wrapped. This is used on the
@@ -110,7 +110,7 @@ class QueryException(RuntimeError):
     def get_location(self):
         # Returns the location associated with this exception. May be None if
         # not available.
-        return self.__location
+        return self._location
 
     class Location(object):
         """
@@ -119,34 +119,34 @@ class QueryException(RuntimeError):
         """
 
         def __init__(self, start_line, start_column, end_line, end_column):
-            self.__start_line = start_line
-            self.__start_column = start_column
-            self.__end_line = end_line
-            self.__end_column = end_column
+            self._start_line = start_line
+            self._start_column = start_column
+            self._end_line = end_line
+            self._end_column = end_column
             assert start_line >= 0
             assert start_column >= 0
             assert end_line >= 0
             assert end_column >= 0
 
         def __str__(self):
-            return (str(self.__start_line) + ':' + str(self.__start_column) +
-                    '-' + str(self.__end_line) + ':' + str(self.__end_column))
+            return (str(self._start_line) + ':' + str(self._start_column) +
+                    '-' + str(self._end_line) + ':' + str(self._end_column))
 
         def get_end_column(self):
             # Returns the end column as its char position in line.
-            return self.__end_column
+            return self._end_column
 
         def get_end_line(self):
             # Returns the end line.
-            return self.__end_line
+            return self._end_line
 
         def get_start_column(self):
             # Returns the start column as its char position in line.
-            return self.__start_column
+            return self._start_column
 
         def get_start_line(self):
             # Returns the start line.
-            return self.__start_line
+            return self._start_line
 
 
 class QueryStateException(IllegalStateException):
@@ -217,12 +217,12 @@ class RequestTimeoutException(NoSQLException):
 
     def __init__(self, message, timeout_ms=0, cause=None):
         super(RequestTimeoutException, self).__init__(message, cause)
-        self.__timeout_ms = timeout_ms
+        self._timeout_ms = timeout_ms
 
     def __str__(self):
         msg = super(RequestTimeoutException, self).__str__()
-        if self.__timeout_ms != 0:
-            msg += '  Timeout: ' + str(self.__timeout_ms) + ' ms.'
+        if self._timeout_ms != 0:
+            msg += '  Timeout: ' + str(self._timeout_ms) + ' ms.'
         cause = self.get_cause()
         if cause is not None:
             msg += ('\nCaused by: ' + cause.__class__.__name__ + ': ' +
@@ -236,7 +236,7 @@ class RequestTimeoutException(NoSQLException):
         :returns: the timeout that was in effect for the operation, in
             milliseconds.
         """
-        return self.__timeout_ms
+        return self._timeout_ms
 
 
 class ResourceLimitException(NoSQLException):

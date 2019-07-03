@@ -426,7 +426,7 @@ class PlanIter(object):
         """
 
         def __init__(self, kvcode):
-            self.__kvcode = kvcode
+            self._kvcode = kvcode
 
         CONST = 0
         VAR_REF = 1
@@ -485,61 +485,61 @@ class ArithOpIter(PlanIter):
 
     def __init__(self, bis):
         super(ArithOpIter, self).__init__(bis)
-        self.__ordinal = bis.read_short_int()
-        self.__code = self.__ordinal
+        self._ordinal = bis.read_short_int()
+        self._code = self._ordinal
         """
         Whether this iterator performs addition/subtraction or
         multiplication/division.
         """
-        self.__args = self.deserialize_iters(bis)
-        self.__ops = serde.BinaryProtocol.read_string(bis)
+        self._args = self.deserialize_iters(bis)
+        self._ops = serde.BinaryProtocol.read_string(bis)
         """
-        If self.__code == PlanIter.FUNC_CODE.OP_ADD_SUB, self.__ops is a string
-        of '+' and/or '-' chars, containing one such char per input value. For
+        If self._code == PlanIter.FUNC_CODE.OP_ADD_SUB, self._ops is a string of
+        '+' and/or '-' chars, containing one such char per input value. For
         example, if the arithmetic expression is (arg1 + arg2 - arg3 + arg4)
-        self.__ops is '++-+'.
+        self._ops is '++-+'.
 
-        If self.__code == PlanIter.FUNC_CODE.OP_MULT_DIV, self.__ops is a string
+        If self._code == PlanIter.FUNC_CODE.OP_MULT_DIV, self._ops is a string
         of '*', '/', and/or 'd' chars, containing one such char per input value.
         For example, if the arithmetic expression is (arg1 * arg2 * arg3 / arg4)
-        self.__ops is '***/'. The 'd' char is used for the div operator.
+        self._ops is '***/'. The 'd' char is used for the div operator.
         """
-        self.__init_result = (
-            0 if self.__code == PlanIter.FUNC_CODE.OP_ADD_SUB else 1)
+        self._init_result = (
+            0 if self._code == PlanIter.FUNC_CODE.OP_ADD_SUB else 1)
         # Whether div is any of the operations to be performed by this
         # ArithOpIter.
-        self.__have_real_div = self.__ops.find('d') != -1
-        assert len(self.__ops) == len(self.__args),\
-            ('Not enough operations: ops:' + str(len(self.__ops) - 1) +
-             ' args:' + str(len(self.__args)))
+        self._have_real_div = self._ops.find('d') != -1
+        assert len(self._ops) == len(self._args),\
+            ('Not enough operations: ops:' + str(len(self._ops) - 1) +
+             ' args:' + str(len(self._args)))
 
     def get_func_code(self):
-        return self.__code
+        return self._code
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state is None:
             return
-        for arg_iter in self.__args:
+        for arg_iter in self._args:
             arg_iter.close(rcb)
         state.close()
 
     def display_content(self, output, formatter):
-        for i in range(len(self.__args)):
+        for i in range(len(self._args)):
             output = formatter.indent(output)
-            if self.__code == PlanIter.FUNC_CODE.OP_ADD_SUB:
-                if self.__ops[i] == '+':
+            if self._code == PlanIter.FUNC_CODE.OP_ADD_SUB:
+                if self._ops[i] == '+':
                     output += '+'
                 else:
                     output += '-'
             else:
-                if self.__ops[i] == '*':
+                if self._ops[i] == '*':
                     output += '*'
                 else:
                     output += '/'
             output += ',\n'
-            output = self.__args[i].display(output, formatter)
-            if i < len(self.__args) - 1:
+            output = self._args[i].display(output, formatter)
+            if i < len(self._args) - 1:
                 output += ',\n'
         return output
 
@@ -550,16 +550,16 @@ class ArithOpIter(PlanIter):
         state = rcb.get_state(self.state_pos)
         if state.is_done():
             return False
-        res_type = (serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE if
-                    self.__have_real_div else
-                    serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER)
+        res_type = (
+            serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE if self._have_real_div
+            else serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER)
         # Determine the type of the result for the expression by iterating its
         # components, enforcing the promotion rules for numeric types.
         #
         # Start with INTEGER, unless we have any div operator, in which case
         # start with DOUBLE.
-        for i in range(len(self.__args)):
-            arg_iter = self.__args[i]
+        for i in range(len(self._args)):
+            arg_iter = self._args[i]
             op_next = arg_iter.next(rcb)
             if not op_next:
                 state.done()
@@ -589,18 +589,18 @@ class ArithOpIter(PlanIter):
         if (res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE or
                 res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER or
                 res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG):
-            res = self.__init_result
+            res = self._init_result
         elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER:
             res = None
         else:
             raise QueryStateException(
                 'Invalid result type code: ' + str(res_type))
-        for i in range(len(self.__args)):
-            arg_iter = self.__args[i]
+        for i in range(len(self._args)):
+            arg_iter = self._args[i]
             arg_val = rcb.get_reg_val(arg_iter.get_result_reg())
             assert arg_val is not None
-            if self.__code == PlanIter.FUNC_CODE.OP_ADD_SUB:
-                if self.__ops[i] == '+':
+            if self._code == PlanIter.FUNC_CODE.OP_ADD_SUB:
+                if self._ops[i] == '+':
                     if ((res_type ==
                          serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
                         (res_type ==
@@ -629,7 +629,7 @@ class ArithOpIter(PlanIter):
                         else:
                             res -= arg_val
             else:
-                if self.__ops[i] == '*':
+                if self._ops[i] == '*':
                     if ((res_type ==
                          serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
                         (res_type ==
@@ -663,11 +663,11 @@ class ArithOpIter(PlanIter):
 
     def open(self, rcb):
         rcb.set_state(self.state_pos, PlanIterState())
-        for arg_iter in self.__args:
+        for arg_iter in self._args:
             arg_iter.open(rcb)
 
     def reset(self, rcb):
-        for arg_iter in self.__args:
+        for arg_iter in self._args:
             arg_iter.reset(rcb)
         state = rcb.get_state(self.state_pos)
         state.reset()
@@ -682,7 +682,7 @@ class ConstIter(PlanIter):
 
     def __init__(self, bis):
         super(ConstIter, self).__init__(bis)
-        self.__value = serde.BinaryProtocol.read_field_value(bis)
+        self._value = serde.BinaryProtocol.read_field_value(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -692,14 +692,14 @@ class ConstIter(PlanIter):
 
     def display_content(self, output, formatter):
         output = formatter.indent(output)
-        output += str(self.__value)
+        output += str(self._value)
         return output
 
     def get_kind(self):
         return ArithOpIter.PlanIterKind.CONST
 
     def get_value(self):
-        return self.__value
+        return self._value
 
     def next(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -710,7 +710,7 @@ class ConstIter(PlanIter):
 
     def open(self, rcb):
         rcb.set_state(self.state_pos, PlanIterState())
-        rcb.set_reg_val(self.result_reg, self.__value)
+        rcb.set_reg_val(self.result_reg, self._value)
 
     def reset(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -726,19 +726,19 @@ class ExternalVarRefIter(PlanIter):
     ExternalVarRefIter simply returns the value that the variable is currently
     bound to. This value is set by the app via the methods of QueryRequest.
 
-    self.__name:\n
+    self._name:\n
     The name of the variable. Used only when displaying the execution plan and
     in error messages.
 
-    self.__id:\n
+    self._id:\n
     The variable id. It is used as an index into an array of field values in the
     RCB that stores the values of the external vars.
     """
 
     def __init__(self, bis):
         super(ExternalVarRefIter, self).__init__(bis)
-        self.__name = serde.BinaryProtocol.read_string(bis)
-        self.__id = PlanIter.read_positive_int(bis)
+        self._name = serde.BinaryProtocol.read_string(bis)
+        self._id = PlanIter.read_positive_int(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -756,8 +756,7 @@ class ExternalVarRefIter(PlanIter):
         return output
 
     def display_content(self, output, formatter):
-        output += 'EXTERNAL_VAR_REF(' + self.__name + \
-            ', ' + str(self.__id) + ')'
+        output += 'EXTERNAL_VAR_REF(' + self._name + ', ' + str(self._id) + ')'
         return output
 
     def get_kind(self):
@@ -767,7 +766,7 @@ class ExternalVarRefIter(PlanIter):
         state = rcb.get_state(self.state_pos)
         if state.is_done():
             return False
-        val = rcb.get_external_var(self.__id)
+        val = rcb.get_external_var(self._id)
         # val should not be none, because we check before starting query
         # execution that all the external vars have been bound. So this is a
         # sanity check.* val should not be none, because we check before
@@ -775,7 +774,7 @@ class ExternalVarRefIter(PlanIter):
         # So this is a sanity check.
         if val is None:
             raise QueryStateException(
-                'Variable ' + self.__name + ' has not been set.')
+                'Variable ' + self._name + ' has not been set.')
         rcb.set_reg_val(self.result_reg, val)
         state.done()
         return True
@@ -796,21 +795,21 @@ class FieldStepIter(PlanIter):
 
     def __init__(self, bis):
         super(FieldStepIter, self).__init__(bis)
-        self.__input_iter = self.deserialize_iter(bis)
-        self.__field_name = serde.BinaryProtocol.read_string(bis)
+        self._input_iter = self.deserialize_iter(bis)
+        self._field_name = serde.BinaryProtocol.read_string(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state is None:
             return
-        self.__input_iter.close(rcb)
+        self._input_iter.close(rcb)
         state.close()
 
     def display_content(self, output, formatter):
-        output = self.__input_iter.display(output, formatter)
+        output = self._input_iter.display(output, formatter)
         output += ', \n'
         output = formatter.indent(output)
-        output += self.__field_name
+        output += self._field_name
         return output
 
     def get_kind(self):
@@ -818,10 +817,10 @@ class FieldStepIter(PlanIter):
 
     def open(self, rcb):
         rcb.set_state(self.state_pos, PlanIterState())
-        self.__input_iter.open(rcb)
+        self._input_iter.open(rcb)
 
     def reset(self, rcb):
-        self.__input_iter.reset(rcb)
+        self._input_iter.reset(rcb)
         state = rcb.get_state(self.state_pos)
         state.reset()
 
@@ -829,9 +828,9 @@ class FieldStepIter(PlanIter):
         state = rcb.get_state(self.state_pos)
         if state.is_done():
             return False
-        input_reg = self.__input_iter.get_result_reg()
+        input_reg = self._input_iter.get_result_reg()
         while True:
-            more = self.__input_iter.next(rcb)
+            more = self._input_iter.next(rcb)
             ctx_item = rcb.get_reg_val(input_reg)
             if not more or ctx_item is None:
                 state.done()
@@ -845,7 +844,7 @@ class FieldStepIter(PlanIter):
                 raise QueryStateException(
                     'Input value in field step has invalid type.\n' +
                     str(ctx_item))
-            result = ctx_item.get(self.__field_name)
+            result = ctx_item.get(self._field_name)
             if result is None:
                 continue
             rcb.set_reg_val(self.result_reg, result)
@@ -864,18 +863,18 @@ class FuncMinMaxIter(PlanIter):
 
     def __init__(self, bis):
         super(FuncMinMaxIter, self).__init__(bis)
-        self.__func_code = bis.read_short_int()
-        self.__input_iter = self.deserialize_iter(bis)
+        self._func_code = bis.read_short_int()
+        self._input_iter = self.deserialize_iter(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state is None:
             return
-        self.__input_iter.close(rcb)
+        self._input_iter.close(rcb)
         state.close()
 
     def display_content(self, output, formatter):
-        return self.__input_iter.display(output, formatter)
+        return self._input_iter.display(output, formatter)
 
     def get_aggr_value(self, rcb, reset):
         state = rcb.get_state(self.state_pos)
@@ -885,10 +884,10 @@ class FuncMinMaxIter(PlanIter):
         return res
 
     def get_func_code(self):
-        return self.__func_code
+        return self._func_code
 
     def get_input_iter(self):
-        return self.__input_iter
+        return self._input_iter
 
     def get_kind(self):
         return ArithOpIter.PlanIterKind.FN_MIN_MAX
@@ -899,25 +898,25 @@ class FuncMinMaxIter(PlanIter):
         if state is None:
             return False
         while True:
-            more = self.__input_iter.next(rcb)
+            more = self._input_iter.next(rcb)
             if not more:
                 return True
-            val = rcb.get_reg_val(self.__input_iter.get_result_reg())
+            val = rcb.get_reg_val(self._input_iter.get_result_reg())
             if val is None:
                 continue
-            FuncMinMaxIter.__minmax_new_val(rcb, state, self.__func_code, val)
+            FuncMinMaxIter._minmax_new_val(rcb, state, self._func_code, val)
 
     def open(self, rcb):
         rcb.set_state(self.state_pos, AggrIterState())
-        self.__input_iter.open(rcb)
+        self._input_iter.open(rcb)
 
     def reset(self, rcb):
         # Don't reset the state of 'self'. Resetting the state is done in method
         # get_aggr_value above.
-        self.__input_iter.reset(rcb)
+        self._input_iter.reset(rcb)
 
     @staticmethod
-    def __minmax_new_val(rcb, state, fncode, val):
+    def _minmax_new_val(rcb, state, fncode, val):
         if state.min_max is None:
             state.min_max = val
             return
@@ -950,17 +949,17 @@ class FuncSumIter(PlanIter):
 
     def __init__(self, bis):
         super(FuncSumIter, self).__init__(bis)
-        self.__input_iter = self.deserialize_iter(bis)
+        self._input_iter = self.deserialize_iter(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state is None:
             return
-        self.__input_iter.close(rcb)
+        self._input_iter.close(rcb)
         state.close()
 
     def display_content(self, output, formatter):
-        return self.__input_iter.display(output, formatter)
+        return self._input_iter.display(output, formatter)
 
     def get_aggr_value(self, rcb, reset):
         """
@@ -986,35 +985,35 @@ class FuncSumIter(PlanIter):
         return ArithOpIter.PlanIterKind.FN_SUM
 
     def get_input_iter(self):
-        return self.__input_iter
+        return self._input_iter
 
     def next(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state.is_done():
             return False
         while True:
-            more = self.__input_iter.next(rcb)
+            more = self._input_iter.next(rcb)
             if not more:
                 return True
-            val = rcb.get_reg_val(self.__input_iter.get_result_reg())
+            val = rcb.get_reg_val(self._input_iter.get_result_reg())
             if rcb.get_trace_level() >= 2:
                 rcb.trace('Summing up value ' + str(val))
             if val is None:
                 continue
             state.none_input_only = False
-            FuncSumIter.__sum_new_value(state, val)
+            FuncSumIter._sum_new_value(state, val)
 
     def open(self, rcb):
         rcb.set_state(self.state_pos, AggrIterState())
-        self.__input_iter.open(rcb)
+        self._input_iter.open(rcb)
 
     def reset(self, rcb):
         # Don't reset the state of 'self'. Resetting the state is done in method
         # get_aggr_value above.
-        self.__input_iter.reset(rcb)
+        self._input_iter.reset(rcb)
 
     @staticmethod
-    def __sum_new_value(state, val):
+    def _sum_new_value(state, val):
         if (CheckValue.is_int(val) or isinstance(val, float) or
                 isinstance(val, Decimal)):
             state.count += 1
@@ -1052,7 +1051,7 @@ class ReceiveIter(PlanIter):
         # Used for duplicate elimination. It specifies the names of the
         # top-level fields that contain the primary-key values within the
         # received results .
-        self.__prim_key_fields = serde.BinaryProtocol.read_string_array(bis)
+        self._prim_key_fields = serde.BinaryProtocol.read_string_array(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -1072,19 +1071,19 @@ class ReceiveIter(PlanIter):
                 if i < num_sort_fields - 1:
                     output += ', '
             output += ',\n'
-        if self.__prim_key_fields is not None:
+        if self._prim_key_fields is not None:
             output = formatter.indent(output)
             output += 'Primary Key Fields : '
-            num_primkey_fields = len(self.__prim_key_fields)
+            num_primkey_fields = len(self._prim_key_fields)
             for i in range(num_primkey_fields):
-                output += self.__prim_key_fields[i]
+                output += self._prim_key_fields[i]
                 if i < num_primkey_fields - 1:
                     output += ', '
             output += ',\n'
         return output
 
     def does_dup_elim(self):
-        return self.__prim_key_fields is not None
+        return self._prim_key_fields is not None
 
     def does_sort(self):
         return self.sort_fields is not None
@@ -1099,8 +1098,8 @@ class ReceiveIter(PlanIter):
                 rcb.trace('ReceiveIter.next() : done')
             return False
         if not self.does_sort():
-            return self.__simple_next(rcb, state)
-        return self.__sorting_next(rcb, state)
+            return self._simple_next(rcb, state)
+        return self._sorting_next(rcb, state)
 
     def open(self, rcb):
         state = ReceiveIter.ReceiveIterState(self, rcb, self)
@@ -1126,14 +1125,14 @@ class ReceiveIter(PlanIter):
         if not inserted:
             sorted_scanners.append(scanner)
 
-    def __check_duplicate(self, rcb, state, res):
-        if self.__prim_key_fields is None:
+    def _check_duplicate(self, rcb, state, res):
+        if self._prim_key_fields is None:
             return False
-        bin_prim_key = self.__create_binary_primkey(res)
+        bin_prim_key = self._create_binary_primkey(res)
         if bin_prim_key in state.prim_keys_set:
             if rcb.get_trace_level() >= 1:
                 rcb.trace(
-                    'ReceiveIter.__check_duplicate() : result was duplicate')
+                    'ReceiveIter._check_duplicate() : result was duplicate')
             return True
         else:
             state.prim_keys_set.append(bin_prim_key)
@@ -1143,15 +1142,15 @@ class ReceiveIter(PlanIter):
         rcb.inc_memory_consumption(sz)
         return False
 
-    def __create_binary_primkey(self, result):
+    def _create_binary_primkey(self, result):
         binary_primkey = bytearray()
         out = ByteOutputStream(binary_primkey)
-        for i in range(len(self.__prim_key_fields)):
-            fval = result.get(self.__prim_key_fields[i])
-            self.__write_value(out, fval, i)
+        for i in range(len(self._prim_key_fields)):
+            fval = result.get(self._prim_key_fields[i])
+            self._write_value(out, fval, i)
         return binary_primkey
 
-    def __handle_topology_change(self, rcb, state):
+    def _handle_topology_change(self, rcb, state):
         new_topo_info = rcb.get_topology_info()
         if ((self.distribution_kind ==
              ReceiveIter.DISTRIBUTION_KIND.ALL_PARTITIONS) or
@@ -1183,7 +1182,7 @@ class ReceiveIter(PlanIter):
                     break
         state.topo_info = new_topo_info
 
-    def __init_partition_sort(self, rcb, state):
+    def _init_partition_sort(self, rcb, state):
         """
         Make sure we receive (and cache) at least one result per partition
         (except from partitions that do not contain any results at all).
@@ -1206,7 +1205,7 @@ class ReceiveIter(PlanIter):
             rcb.tally_read_units(result.get_read_units())
             rcb.tally_write_kb(result.get_write_kb())
             if rcb.get_trace_level() >= 1:
-                rcb.trace('ReceiveIter.__init_partition_sort() : got result\n' +
+                rcb.trace('ReceiveIter._init_partition_sort() : got result\n' +
                           'reached limit = ' + str(result.reached_limit()) +
                           ' in phase 1 = ' + str(result.is_in_phase1()))
             # For each partition P that was accessed during the execution of the
@@ -1231,7 +1230,7 @@ class ReceiveIter(PlanIter):
                 ReceiveIter.add_scanner(state.sorted_scanners, scanner)
             if rcb.get_trace_level() >= 1:
                 rcb.trace(
-                    'ReceiveIter.__init_partition_sort() : ' +
+                    'ReceiveIter._init_partition_sort() : ' +
                     'memory consumption =  ' + str(state.memory_consumption))
             if result.reached_limit():
                 break
@@ -1240,30 +1239,30 @@ class ReceiveIter(PlanIter):
         # do it.
         rcb.set_reached_limit(True)
 
-    def __simple_next(self, rcb, state):
+    def _simple_next(self, rcb, state):
         while True:
             res = state.scanner.next()
             if res is not None:
                 if rcb.get_trace_level() >= 1:
-                    rcb.trace('ReceiveIter.__simple_next() : got result :\n' +
+                    rcb.trace('ReceiveIter._simple_next() : got result :\n' +
                               str(res))
-                if self.__check_duplicate(rcb, state, res):
+                if self._check_duplicate(rcb, state, res):
                     continue
                 rcb.set_reg_val(self.result_reg, res)
                 return True
             break
         if rcb.get_trace_level() >= 1:
-            rcb.trace('ReceiveIter.__simple_next() : no result. Reached ' +
-                      'limit = ' + str(rcb.reached_limit()))
+            rcb.trace('ReceiveIter._simple_next() : no result. Reached limit=' +
+                      str(rcb.reached_limit()))
         if not rcb.reached_limit():
             state.done()
         return False
 
-    def __sorting_next(self, rcb, state):
+    def _sorting_next(self, rcb, state):
         if ((self.distribution_kind ==
              ReceiveIter.DISTRIBUTION_KIND.ALL_PARTITIONS) and
                 state.is_in_sort_phase1):
-            self.__init_partition_sort(rcb, state)
+            self._init_partition_sort(rcb, state)
             return False
         while True:
             try:
@@ -1274,7 +1273,7 @@ class ReceiveIter(PlanIter):
             res = scanner.next_local()
             if res is not None:
                 if rcb.get_trace_level() >= 1:
-                    rcb.trace('ReceiveIter.__sorting_next() : got result :\n' +
+                    rcb.trace('ReceiveIter._sorting_next() : got result :\n' +
                               str(res))
                 rcb.set_reg_val(self.result_reg, res)
                 if not scanner.is_done():
@@ -1282,9 +1281,9 @@ class ReceiveIter(PlanIter):
                 else:
                     if rcb.get_trace_level() >= 1:
                         rcb.trace(
-                            'ReceiveIter.__sorting_next() : done with ' +
+                            'ReceiveIter._sorting_next() : done with ' +
                             'partition/shard ' + str(scanner.shard_or_part_id))
-                if self.__check_duplicate(rcb, state, res):
+                if self._check_duplicate(rcb, state, res):
                     continue
                 return True
             # Scanner had no cached results. If it may have remote results, send
@@ -1307,9 +1306,9 @@ class ReceiveIter(PlanIter):
             else:
                 if rcb.get_trace_level() >= 1:
                     rcb.trace(
-                        'ReceiveIter.__sorting_next() : done with ' +
+                        'ReceiveIter._sorting_next() : done with ' +
                         'partition/shard ' + str(scanner.shard_or_part_id))
-            self.__handle_topology_change(rcb, state)
+            self._handle_topology_change(rcb, state)
             # For simplicity, we don't want to allow the possibility of another
             # remote fetch during the same batch, so whether or not the batch
             # limit was reached during the above fetch, we set limit flag to
@@ -1317,7 +1316,7 @@ class ReceiveIter(PlanIter):
             rcb.set_reached_limit(True)
             return False
 
-    def __write_value(self, out, value, i):
+    def _write_value(self, out, value, i):
         if isinstance(value, float):
             out.write_float(value)
         elif CheckValue.is_int(value) and -pow(2, 31) <= value < pow(2, 31):
@@ -1428,7 +1427,7 @@ class ReceiveIter(PlanIter):
         """
 
         def __init__(self, out, rcb, state, is_for_shard, spid):
-            self.__out = out
+            self._out = out
             self.rcb = rcb
             self.state = state
             self.is_for_shard = is_for_shard
@@ -1444,7 +1443,7 @@ class ReceiveIter(PlanIter):
             self.results = results
             self.continuation_key = cont_key
             self.more_remote_results = cont_key is not None
-            self.__add_memory_consumption()
+            self._add_memory_consumption()
 
         def compare_to(self, other):
             if not self.has_local_results():
@@ -1456,9 +1455,8 @@ class ReceiveIter(PlanIter):
                 return 1
             v1 = self.results[self.next_result_pos]
             v2 = other.results[other.next_result_pos]
-            comp = Compare.sort_results(self.rcb, v1, v2,
-                                        self.__out.sort_fields,
-                                        self.__out.sort_specs, self.comp_res)
+            comp = Compare.sort_results(self.rcb, v1, v2, self._out.sort_fields,
+                                        self._out.sort_specs, self.comp_res)
             if comp == 0:
                 comp = (-1 if self.shard_or_part_id < other.shard_or_part_id
                         else 1)
@@ -1469,7 +1467,7 @@ class ReceiveIter(PlanIter):
             req.set_cont_key(self.continuation_key)
             req.set_shard_id(
                 self.shard_or_part_id if self.is_for_shard else -1)
-            if self.__out.does_sort() and not self.is_for_shard:
+            if self._out.does_sort() and not self.is_for_shard:
                 self.state.memory_consumption -= self.results_size
                 self.rcb.dec_memory_consumption(self.results_size)
                 num_results = ((req.get_max_memory_consumption() -
@@ -1496,10 +1494,10 @@ class ReceiveIter(PlanIter):
             # For simplicity, if the query is a sorting one, we consider the
             # current batch done as soon as we get the response back from the
             # proxy, even if the batch limit was not reached there.
-            if result.reached_limit() or self.__out.does_sort():
+            if result.reached_limit() or self._out.does_sort():
                 self.rcb.set_reached_limit(True)
-            if self.__out.does_sort() and not self.is_for_shard:
-                self.__add_memory_consumption()
+            if self._out.does_sort() and not self.is_for_shard:
+                self._add_memory_consumption()
             if self.rcb.get_trace_level() >= 1:
                 self.rcb.trace(
                     'RemoteScanner : got ' + str(len(self.results)) +
@@ -1547,10 +1545,10 @@ class ReceiveIter(PlanIter):
                 return res
             return None
 
-        def __add_memory_consumption(self):
+        def _add_memory_consumption(self):
             self.results_size = 0
             for res in self.results:
-                self.results_size += self.__out.sizeof(res)
+                self.results_size += self._out.sizeof(res)
             self.results_size += len(self.results) * SizeOf.OBJECT_REF_OVERHEAD
             self.state.total_num_results += len(self.results)
             self.state.total_results_size += self.results_size
@@ -1575,45 +1573,44 @@ class SFWIter(PlanIter):
 
     def __init__(self, bis):
         super(SFWIter, self).__init__(bis)
-        self.__column_names = serde.BinaryProtocol.read_string_array(bis)
-        self.__num_gb_columns = bis.read_int()
-        self.__from_var_name = serde.BinaryProtocol.read_string(bis)
-        self.__is_select_star = bis.read_boolean()
+        self._column_names = serde.BinaryProtocol.read_string_array(bis)
+        self._num_gb_columns = bis.read_int()
+        self._from_var_name = serde.BinaryProtocol.read_string(bis)
+        self._is_select_star = bis.read_boolean()
         self.column_iters = self.deserialize_iters(bis)
-        self.__from_iter = self.deserialize_iter(bis)
-        self.__offset_iter = self.deserialize_iter(bis)
-        self.__limit_iter = self.deserialize_iter(bis)
+        self._from_iter = self.deserialize_iter(bis)
+        self._offset_iter = self.deserialize_iter(bis)
+        self._limit_iter = self.deserialize_iter(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state is None:
             return
-        self.__from_iter.close(rcb)
+        self._from_iter.close(rcb)
         for column_iter in self.column_iters:
             column_iter.close(rcb)
-        if self.__offset_iter is not None:
-            self.__offset_iter.close(rcb)
-        if self.__limit_iter is not None:
-            self.__limit_iter.close(rcb)
+        if self._offset_iter is not None:
+            self._offset_iter.close(rcb)
+        if self._limit_iter is not None:
+            self._limit_iter.close(rcb)
         state.close()
 
     def display_content(self, output, formatter):
         output = formatter.indent(output)
         output += 'FROM:\n'
-        output = self.__from_iter.display(output, formatter)
-        output += ' as ' + self.__from_var_name + '\n\n'
-        if self.__num_gb_columns >= 0:
+        output = self._from_iter.display(output, formatter)
+        output += ' as ' + self._from_var_name + '\n\n'
+        if self._num_gb_columns >= 0:
             output = formatter.indent(output)
             output += 'GROUP BY:\n'
             output = formatter.indent(output)
-            if self.__num_gb_columns == 0:
+            if self._num_gb_columns == 0:
                 output += 'No grouping expressions'
-            elif self.__num_gb_columns == 1:
+            elif self._num_gb_columns == 1:
                 output += 'Grouping by the first expression in the SELECT list'
             else:
-                output += (
-                    'Grouping by the first ' + str(self.__num_gb_columns) +
-                    'expressions in the SELECT list')
+                output += ('Grouping by the first ' + str(self._num_gb_columns)
+                           + 'expressions in the SELECT list')
             output += '\n\n'
         output = formatter.indent(output)
         output += 'SELECT:\n'
@@ -1622,16 +1619,16 @@ class SFWIter(PlanIter):
             output = self.column_iters[i].display(output, formatter)
             if i < num_column_iters - 1:
                 output += ',\n'
-        if self.__offset_iter is not None:
+        if self._offset_iter is not None:
             output += '\n\n'
             output = formatter.indent(output)
             output += 'OFFSET:\n'
-            output = self.__offset_iter.display(output, formatter)
-        if self.__limit_iter is not None:
+            output = self._offset_iter.display(output, formatter)
+        if self._limit_iter is not None:
             output += '\n\n'
             output = formatter.indent(output)
             output += 'LIMIT:\n'
-            output = self.__limit_iter.display(output, formatter)
+            output = self._limit_iter.display(output, formatter)
         return output
 
     def get_kind(self):
@@ -1646,7 +1643,7 @@ class SFWIter(PlanIter):
             return False
         # while loop for skipping offset results.
         while True:
-            more = self.__compute_next_result(rcb, state)
+            more = self._compute_next_result(rcb, state)
             if not more:
                 return False
             """
@@ -1666,32 +1663,32 @@ class SFWIter(PlanIter):
     def open(self, rcb):
         state = SFWIter.SFWIterState(self)
         rcb.set_state(self.state_pos, state)
-        self.__from_iter.open(rcb)
+        self._from_iter.open(rcb)
         for column_iter in self.column_iters:
             column_iter.open(rcb)
-        self.__compute_offset_limit(rcb)
+        self._compute_offset_limit(rcb)
 
     def reset(self, rcb):
-        self.__from_iter.reset(rcb)
+        self._from_iter.reset(rcb)
         for column_iter in self.column_iters:
             column_iter.reset(rcb)
-        if self.__offset_iter is not None:
-            self.__offset_iter.reset(rcb)
-        if self.__limit_iter is not None:
-            self.__limit_iter.reset(rcb)
+        if self._offset_iter is not None:
+            self._offset_iter.reset(rcb)
+        if self._limit_iter is not None:
+            self._limit_iter.reset(rcb)
         state = rcb.get_state(self.state_pos)
         state.reset()
-        self.__compute_offset_limit(rcb)
+        self._compute_offset_limit(rcb)
 
-    def __compute_next_result(self, rcb, state):
+    def _compute_next_result(self, rcb, state):
         # while loop for group by.
         while True:
-            more = self.__from_iter.next(rcb)
+            more = self._from_iter.next(rcb)
             if not more:
                 if not rcb.reached_limit():
                     state.done()
-                if self.__num_gb_columns >= 0:
-                    return self.__produce_last_group(rcb, state)
+                if self._num_gb_columns >= 0:
+                    return self._produce_last_group(rcb, state)
                 return False
             """
             Compute the expressions in the SELECT list. If this is a grouping
@@ -1699,16 +1696,16 @@ class SFWIter(PlanIter):
             computation if this is not a grouping SFW and it has an offset that
             has not been reached yet.
             """
-            if self.__num_gb_columns < 0 < state.offset:
+            if self._num_gb_columns < 0 < state.offset:
                 return True
-            num_cols = (self.__num_gb_columns if self.__num_gb_columns >= 0 else
+            num_cols = (self._num_gb_columns if self._num_gb_columns >= 0 else
                         len(self.column_iters))
             done = False
             for i in range(num_cols):
                 column_iter = self.column_iters[i]
                 more = column_iter.next(rcb)
                 if not more:
-                    if self.__num_gb_columns > 0:
+                    if self._num_gb_columns > 0:
                         column_iter.reset(rcb)
                         done = True
                         break
@@ -1721,52 +1718,50 @@ class SFWIter(PlanIter):
                 column_iter.reset(rcb)
             if done:
                 continue
-            if self.__num_gb_columns < 0:
-                if self.__is_select_star:
+            if self._num_gb_columns < 0:
+                if self._is_select_star:
                     break
                 result = dict()
                 rcb.set_reg_val(self.result_reg, result)
                 for i in range(len(self.column_iters)):
                     column_iter = self.column_iters[i]
                     value = rcb.get_reg_val(column_iter.get_result_reg())
-                    result[self.__column_names[i]] = value
+                    result[self._column_names[i]] = value
                 break
-            if self.__group_input_tuple(rcb, state):
+            if self._group_input_tuple(rcb, state):
                 break
         return True
 
-    def __compute_offset_limit(self, rcb):
+    def _compute_offset_limit(self, rcb):
         state = rcb.get_state(self.state_pos)
         offset = 0
         limit = -1
-        if self.__offset_iter is not None:
-            self.__offset_iter.open(rcb)
-            self.__offset_iter.next(rcb)
-            offset = rcb.get_reg_val(self.__offset_iter.get_result_reg())
+        if self._offset_iter is not None:
+            self._offset_iter.open(rcb)
+            self._offset_iter.next(rcb)
+            offset = rcb.get_reg_val(self._offset_iter.get_result_reg())
             if offset < 0:
-                raise QueryException('Offset can not be a negative number ' +
-                                     str(self.__offset_iter.location))
+                raise QueryException('Offset can not be a negative number: ' +
+                                     str(self._offset_iter.location))
             if offset > pow(2, 31) - 1:
-                raise QueryException(
-                    'Offset can not be greater than 2^31 - 1 ' +
-                    str(self.__offset_iter.location))
-        if self.__limit_iter is not None:
-            self.__limit_iter.open(rcb)
-            self.__limit_iter.next(rcb)
-            limit = rcb.get_reg_val(self.__limit_iter.get_result_reg())
+                raise QueryException('Offset can not be greater than 2^31 - 1: '
+                                     + str(self._offset_iter.location))
+        if self._limit_iter is not None:
+            self._limit_iter.open(rcb)
+            self._limit_iter.next(rcb)
+            limit = rcb.get_reg_val(self._limit_iter.get_result_reg())
             if limit < 0:
-                raise QueryException('Limit can not be a negative number ' +
-                                     str(self.__limit_iter.location))
+                raise QueryException('Limit can not be a negative number: ' +
+                                     str(self._limit_iter.location))
             if limit > pow(2, 31) - 1:
-                raise QueryException(
-                    'Limit can not be greater than 2^31 - 1 ' +
-                    str(self.__limit_iter.location))
+                raise QueryException('Limit can not be greater than 2^31 - 1: '
+                                     + str(self._limit_iter.location))
         if limit < 0:
             limit = pow(2, 63) - 1
         state.offset = offset
         state.limit = limit
 
-    def __group_input_tuple(self, rcb, state):
+    def _group_input_tuple(self, rcb, state):
         """
         This method checks whether the current input tuple (a) starts the first
         group, i.e. it is the very 1st tuple in the input stream, or (b) belongs
@@ -1778,20 +1773,20 @@ class SFWIter(PlanIter):
         # If this is the very first input tuple, start the first group and go
         # back to compute next input tuple.
         if not state.have_gb_tuple:
-            for i in range(self.__num_gb_columns):
+            for i in range(self._num_gb_columns):
                 state.gb_tuple[i] = rcb.get_reg_val(
                     self.column_iters[i].get_result_reg())
-            for i in range(self.__num_gb_columns, num_cols):
+            for i in range(self._num_gb_columns, num_cols):
                 self.column_iters[i].next(rcb)
                 self.column_iters[i].reset(rcb)
             state.have_gb_tuple = True
             if rcb.get_trace_level() >= 2:
                 rcb.trace('SFW: Started first group:')
-                self.__trace_current_group(rcb, state)
+                self._trace_current_group(rcb, state)
             return False
         # Compare the current input tuple with the current group tuple.
         equal = True
-        for j in range(self.__num_gb_columns):
+        for j in range(self._num_gb_columns):
             newval = rcb.get_reg_val(self.column_iters[j].get_result_reg())
             curval = state.gb_tuple[j]
             if newval != curval:
@@ -1802,8 +1797,8 @@ class SFWIter(PlanIter):
         if equal:
             if rcb.get_trace_level() >= 2:
                 rcb.trace('SFW: Input tuple belongs to current group:')
-                self.__trace_current_group(rcb, state)
-            for i in range(self.__num_gb_columns, num_cols):
+                self._trace_current_group(rcb, state)
+            for i in range(self._num_gb_columns, num_cols):
                 self.column_iters[i].next(rcb)
                 self.column_iters[i].reset(rcb)
             return False
@@ -1813,7 +1808,7 @@ class SFWIter(PlanIter):
 
         # 1. Get the final aggregate values for the current group and store them
         # in gb_tuple.
-        for i in range(self.__num_gb_columns, num_cols):
+        for i in range(self._num_gb_columns, num_cols):
             state.gb_tuple[i] = self.column_iters[i].get_aggr_value(
                 rcb, True)
 
@@ -1821,25 +1816,25 @@ class SFWIter(PlanIter):
         result = dict()
         rcb.set_reg_val(self.result_reg, result)
         for i in range(len(self.column_iters)):
-            result[self.__column_names[i]] = state.gb_tuple[i]
+            result[self._column_names[i]] = state.gb_tuple[i]
         if rcb.get_trace_level() >= 2:
             rcb.trace('SFW: Current group done: ' + str(result))
 
         # 3. Put the values of the grouping columns into the GB tuple.
-        for i in range(self.__num_gb_columns):
+        for i in range(self._num_gb_columns):
             column_iter = self.column_iters[i]
             state.gb_tuple[i] = rcb.get_reg_val(column_iter.get_result_reg())
 
         # 4. Compute the values of the aggregate functions.
-        for i in range(self.__num_gb_columns, num_cols):
+        for i in range(self._num_gb_columns, num_cols):
             self.column_iters[i].next(rcb)
             self.column_iters[i].reset(rcb)
         if rcb.get_trace_level() >= 2:
             rcb.trace('SFW: Started new group:')
-            self.__trace_current_group(rcb, state)
+            self._trace_current_group(rcb, state)
         return True
 
-    def __produce_last_group(self, rcb, state):
+    def _produce_last_group(self, rcb, state):
         if rcb.reached_limit():
             return False
         # If there is no group, return False.
@@ -1847,19 +1842,19 @@ class SFWIter(PlanIter):
             return False
         result = dict()
         rcb.set_reg_val(self.result_reg, result)
-        for i in range(self.__num_gb_columns):
-            result[self.__column_names[i]] = state.gb_tuple[i]
-        for i in range(self.__num_gb_columns, len(self.column_iters)):
-            result[self.__column_names[i]] = (
+        for i in range(self._num_gb_columns):
+            result[self._column_names[i]] = state.gb_tuple[i]
+        for i in range(self._num_gb_columns, len(self.column_iters)):
+            result[self._column_names[i]] = (
                 self.column_iters[i].get_aggr_value(rcb, True))
         if rcb.get_trace_level() >= 2:
             rcb.trace('SFW: Produced last group : ' + str(result))
         return True
 
-    def __trace_current_group(self, rcb, state):
-        for i in range(self.__num_gb_columns):
+    def _trace_current_group(self, rcb, state):
+        for i in range(self._num_gb_columns):
             rcb.trace('SFW: Val ' + str(i) + ' = ' + state.gb_tuple[i])
-        for i in range(self.__num_gb_columns, len(self.column_iters)):
+        for i in range(self._num_gb_columns, len(self.column_iters)):
             rcb.trace('SFW: Val ' + str(i) + ' = ' +
                       str(self.column_iters[i].get_aggr_value(rcb, False)))
 
@@ -1890,24 +1885,24 @@ class SortIter(PlanIter):
 
     def __init__(self, bis):
         super(SortIter, self).__init__(bis)
-        self.__input = self.deserialize_iter(bis)
-        self.__sort_fields = serde.BinaryProtocol.read_string_array(bis)
-        self.__sort_specs = PlanIter.read_sort_specs(bis)
+        self._input = self.deserialize_iter(bis)
+        self._sort_fields = serde.BinaryProtocol.read_string_array(bis)
+        self._sort_specs = PlanIter.read_sort_specs(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
         if state is None:
             return
-        self.__input.close(rcb)
+        self._input.close(rcb)
         state.close()
 
     def display_content(self, output, formatter):
-        output = self.__input.display(output, formatter)
+        output = self._input.display(output, formatter)
         output = formatter.indent(output)
         output += 'Sort Fields : '
-        num_sort_fields = len(self.__sort_fields)
+        num_sort_fields = len(self._sort_fields)
         for i in range(num_sort_fields):
-            output += self.__sort_fields[i]
+            output += self._sort_fields[i]
             if i < num_sort_fields - 1:
                 output += ', '
         output += ',\n'
@@ -1921,14 +1916,14 @@ class SortIter(PlanIter):
         if state.is_done():
             return False
         if state.is_open():
-            more = self.__input.next(rcb)
+            more = self._input.next(rcb)
             while more:
-                val = rcb.get_reg_val(self.__input.get_result_reg())
-                self.__add_result(state.results, val, rcb, state.comp_res)
+                val = rcb.get_reg_val(self._input.get_result_reg())
+                self._add_result(state.results, val, rcb, state.comp_res)
                 size = self.sizeof(val) + SizeOf.OBJECT_REF_OVERHEAD
                 state.memory_consumption += size
                 rcb.inc_memory_consumption(size)
-                more = self.__input.next(rcb)
+                more = self._input.next(rcb)
             if rcb.reached_limit():
                 return False
             state.set_state(PlanIterState.StateEnum.RUNNING)
@@ -1943,23 +1938,23 @@ class SortIter(PlanIter):
         state = SortIter.SortIterState()
         rcb.set_state(self.state_pos, state)
         rcb.inc_memory_consumption(state.memory_consumption)
-        self.__input.open(rcb)
+        self._input.open(rcb)
 
     def reset(self, rcb):
-        self.__input.reset(rcb)
+        self._input.reset(rcb)
         state = rcb.get_state(self.state_pos)
         rcb.dec_memory_consumption(state.memory_consumption -
                                    SortIter.FIXED_MEMORY_CONSUMPTION)
         state.reset()
 
-    def __add_result(self, sorted_results, result, rcb, res):
+    def _add_result(self, sorted_results, result, rcb, res):
         inserted = False
         len_sorted_results = len(sorted_results)
         if len_sorted_results > 0:
             for index in range(len_sorted_results):
                 if Compare.sort_results(
-                        rcb, result, sorted_results[index], self.__sort_fields,
-                        self.__sort_specs, res) == -1:
+                        rcb, result, sorted_results[index], self._sort_fields,
+                        self._sort_specs, res) == -1:
                     sorted_results.insert(index, result)
                     inserted = True
                     break
@@ -2004,13 +1999,13 @@ class VarRefIter(PlanIter):
     reference this variable. This is analogous to the internal variable used in
     kvstore to represent the table alias in the FROM clause.
 
-    self.__name:
+    self._name:
     The name of the variable. Used only when displaying the execution plan.
     """
 
     def __init__(self, bis):
         super(VarRefIter, self).__init__(bis)
-        self.__name = serde.BinaryProtocol.read_string(bis)
+        self._name = serde.BinaryProtocol.read_string(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -2028,7 +2023,7 @@ class VarRefIter(PlanIter):
         return output
 
     def display_content(self, output, formatter):
-        return output + 'VAR_REF(' + self.__name + ')'
+        return output + 'VAR_REF(' + self._name + ')'
 
     def get_kind(self):
         return ArithOpIter.PlanIterKind.VAR_REF
@@ -2037,11 +2032,11 @@ class VarRefIter(PlanIter):
         state = rcb.get_state(self.state_pos)
         if state.is_done():
             if rcb.get_trace_level() >= 4:
-                rcb.trace('No Value for variable ' + self.__name +
+                rcb.trace('No Value for variable ' + self._name +
                           ' in register ' + str(self.result_reg))
             return False
         if rcb.get_trace_level() >= 4:
-            rcb.trace('Value for variable ' + self.__name + ' in register ' +
+            rcb.trace('Value for variable ' + self._name + ' in register ' +
                       str(self.result_reg) + ':\n' +
                       str(rcb.get_reg_val(self.result_reg)))
         state.done()
@@ -2143,126 +2138,125 @@ class QueryDriver(object):
     DUMMY_CONT_KEY = bytearray()
 
     def __init__(self, request):
-        self.__client = None
-        self.__request = request
+        self._client = None
+        self._request = request
         request.set_driver(self)
-        self.__continuation_key = None
-        self.__topology_info = None
-        self.__prep_cost = 0
-        self.__rcb = None
+        self._continuation_key = None
+        self._topology_info = None
+        self._prep_cost = 0
+        self._rcb = None
         # The max number of results the app will receive per NoSQLHandle.query()
         # invocation
-        self.__batch_size = (request.get_limit() if request.get_limit() > 0 else
-                             QueryDriver.BATCH_SIZE)
-        self.__results = None
-        self.__error = None
+        self._batch_size = (request.get_limit() if request.get_limit() > 0 else
+                            QueryDriver.BATCH_SIZE)
+        self._results = None
+        self._error = None
 
     def close(self):
-        self.__request.get_prepared_statement().driver_plan().close(self.__rcb)
-        if self.__results is not None:
-            del self.__results[:]
-            self.__results = None
+        self._request.get_prepared_statement().driver_plan().close(self._rcb)
+        if self._results is not None:
+            del self._results[:]
+            self._results = None
 
     def compute(self, result):
         # Computes a batch of results and fills-in the given QueryResult.
-        prep = self.__request.get_prepared_statement()
+        prep = self._request.get_prepared_statement()
         assert not prep.is_simple_query()
-        assert self.__request.get_driver() == self
-        # If non-none, self.__error stores a non-retriable exception thrown
-        # during a previous batch. In this case, we just rethrow that
-        # exception.
-        if self.__error is not None:
-            raise self.__error
-        # self.__results may be non-empty if a retryable exception was thrown
-        # during a previous batch. In this case, self.__results stores the
+        assert self._request.get_driver() == self
+        # If non-none, self._error stores a non-retriable exception thrown
+        # during a previous batch. In this case, we just rethrow that exception
+        if self._error is not None:
+            raise self._error
+        # self._results may be non-empty if a retryable exception was thrown
+        # during a previous batch. In this case, self._results stores the
         # results computed before the exception was thrown, and in this batch we
         # just return what we have.
-        if self.__results is not None:
-            self.__set_query_result(result)
+        if self._results is not None:
+            self._set_query_result(result)
             return
         op_iter = prep.driver_plan()
-        if self.__rcb is None:
-            self.__rcb = RuntimeControlBlock(
+        if self._rcb is None:
+            self._rcb = RuntimeControlBlock(
                 self, iter, prep.num_iterators(), prep.num_registers(),
                 prep.get_variable_values())
             # Tally the compilation cost
-            self.__rcb.tally_read_kb(self.__prep_cost)
-            self.__rcb.tally_read_units(self.__prep_cost)
-            op_iter.open(self.__rcb)
-        self.__results = list()
+            self._rcb.tally_read_kb(self._prep_cost)
+            self._rcb.tally_read_units(self._prep_cost)
+            op_iter.open(self._rcb)
+        self._results = list()
         try:
-            more = op_iter.next(self.__rcb)
+            more = op_iter.next(self._rcb)
             i = 0
             while more:
-                res = self.__rcb.get_reg_val(op_iter.get_result_reg())
+                res = self._rcb.get_reg_val(op_iter.get_result_reg())
                 if not isinstance(res, dict):
                     raise IllegalStateException(
                         'Query result is not a dict:\n' + str(res))
-                self.__results.append(res)
-                if self.__rcb.get_trace_level() >= 2:
-                    self.__rcb.trace('QueryDriver: got result : ' + str(res))
+                self._results.append(res)
+                if self._rcb.get_trace_level() >= 2:
+                    self._rcb.trace('QueryDriver: got result : ' + str(res))
                 i += 1
-                if i == self.__batch_size:
+                if i == self._batch_size:
                     break
-                more = op_iter.next(self.__rcb)
+                more = op_iter.next(self._rcb)
         except Exception as e:
             # If it's not a retryable exception, save it so that we throw it
             # again if the app resubmits the QueryRequest.
             if not isinstance(e, RetryableException):
-                self.__error = NoSQLException(
+                self._error = NoSQLException(
                     'QueryRequest cannot be continued after throwing a ' +
                     'non-retryable exception in a previous execution. ' +
                     'Set the continuation key to none in order to execute ' +
                     'the query from the beginning', e)
-                op_iter.close(self.__rcb)
-                del self.__results[:]
-                self.__results = None
+                op_iter.close(self._rcb)
+                del self._results[:]
+                self._results = None
             print(format_exc())
             raise e
         if not more:
-            if self.__rcb.reached_limit():
-                self.__continuation_key = QueryDriver.DUMMY_CONT_KEY
-                self.__rcb.set_reached_limit(False)
+            if self._rcb.reached_limit():
+                self._continuation_key = QueryDriver.DUMMY_CONT_KEY
+                self._rcb.set_reached_limit(False)
             else:
-                assert op_iter.is_done(self.__rcb)
-                self.__continuation_key = None
+                assert op_iter.is_done(self._rcb)
+                self._continuation_key = None
         else:
-            self.__continuation_key = QueryDriver.DUMMY_CONT_KEY
-        self.__set_query_result(result)
-        self.__request.set_cont_key(self.__continuation_key)
+            self._continuation_key = QueryDriver.DUMMY_CONT_KEY
+        self._set_query_result(result)
+        self._request.set_cont_key(self._continuation_key)
 
     def get_client(self):
-        return self.__client
+        return self._client
 
     def get_request(self):
-        return self.__request
+        return self._request
 
     def get_shard_id(self, i):
-        return self.__topology_info.get_shard_id(i)
+        return self._topology_info.get_shard_id(i)
 
     def get_topology_info(self):
-        return self.__topology_info
+        return self._topology_info
 
     def num_shards(self):
-        return self.__topology_info.num_shards()
+        return self._topology_info.num_shards()
 
     def set_client(self, client):
-        self.__client = client
+        self._client = client
 
     def set_prep_cost(self, prep_cost):
-        self.__prep_cost = prep_cost
+        self._prep_cost = prep_cost
 
     def set_topology_info(self, topology_info):
-        self.__topology_info = topology_info
+        self._topology_info = topology_info
 
-    def __set_query_result(self, result):
-        result.set_results(self.__results)
-        result.set_continuation_key(self.__continuation_key)
-        result.set_read_kb(self.__rcb.get_read_kb())
-        result.set_read_units(self.__rcb.get_read_units())
-        result.set_write_kb(self.__rcb.get_write_kb())
-        self.__results = None
-        self.__rcb.reset_kb_consumption()
+    def _set_query_result(self, result):
+        result.set_results(self._results)
+        result.set_continuation_key(self._continuation_key)
+        result.set_read_kb(self._rcb.get_read_kb())
+        result.set_read_units(self._rcb.get_read_units())
+        result.set_write_kb(self._rcb.get_write_kb())
+        self._results = None
+        self._rcb.reset_kb_consumption()
 
 
 class QueryFormatter(object):
@@ -2271,34 +2265,34 @@ class QueryFormatter(object):
     such as indent level. A new instance of this class is passed to display()
     methods.
 
-    self.__indent:\n
+    self._indent:\n
     The current number of space chars to be printed as indentation when
     displaying the expression tree or the query execution plan.
     """
 
     def __init__(self, indent_increment=2):
-        self.__indent_increment = indent_increment
-        self.__indent = 0
+        self._indent_increment = indent_increment
+        self._indent = 0
 
     def dec_indent(self):
-        self.__indent -= self.__indent_increment
+        self._indent -= self._indent_increment
 
     def get_indent(self):
-        return self.__indent
+        return self._indent
 
     def get_indent_increment(self):
-        return self.__indent_increment
+        return self._indent_increment
 
     def inc_indent(self):
-        self.__indent += self.__indent_increment
+        self._indent += self._indent_increment
 
     def indent(self, output):
-        for i in range(self.__indent):
+        for i in range(self._indent):
             output += ' '
         return output
 
     def set_indent(self, indent):
-        self.__indent = indent
+        self._indent = indent
 
 
 class RuntimeControlBlock(object):
@@ -2309,34 +2303,34 @@ class RuntimeControlBlock(object):
     """
 
     def __init__(self, driver, root_iter, num_iters, num_regs, external_vars):
-        self.__query_driver = driver
-        self.__root_iter = root_iter
-        self.__external_vars = external_vars
-        self.__iterator_states = [0] * num_iters
-        self.__registers = [0] * num_regs
-        self.__reached_limit = False
-        self.__read_kb = 0
-        self.__read_units = 0
-        self.__write_kb = 0
-        self.__memory_consumption = 0
+        self._query_driver = driver
+        self._root_iter = root_iter
+        self._external_vars = external_vars
+        self._iterator_states = [0] * num_iters
+        self._registers = [0] * num_regs
+        self._reached_limit = False
+        self._read_kb = 0
+        self._read_units = 0
+        self._write_kb = 0
+        self._memory_consumption = 0
 
     def dec_memory_consumption(self, v):
-        self.__memory_consumption -= v
-        assert self.__memory_consumption >= 0
+        self._memory_consumption -= v
+        assert self._memory_consumption >= 0
 
     def get_client(self):
-        return self.__query_driver.get_client()
+        return self._query_driver.get_client()
 
     def get_consistency(self):
         return self.get_request().get_consistency()
 
     def get_external_var(self, var_id):
-        if self.__external_vars is None:
+        if self._external_vars is None:
             return None
-        return self.__external_vars[var_id]
+        return self._external_vars[var_id]
 
     def get_external_vars(self):
-        return self.__external_vars
+        return self._external_vars
 
     def get_math_context(self):
         return self.get_request().get_math_context()
@@ -2348,71 +2342,71 @@ class RuntimeControlBlock(object):
         return self.get_request().get_max_read_kb()
 
     def get_read_kb(self):
-        return self.__read_kb
+        return self._read_kb
 
     def get_read_units(self):
-        return self.__read_units
+        return self._read_units
 
     def get_registers(self):
-        return self.__registers
+        return self._registers
 
     def get_reg_val(self, reg_id):
-        return self.__registers[reg_id]
+        return self._registers[reg_id]
 
     def get_request(self):
-        return self.__query_driver.get_request()
+        return self._query_driver.get_request()
 
     def get_root_iter(self):
-        return self.__root_iter
+        return self._root_iter
 
     def get_state(self, pos):
-        return self.__iterator_states[pos]
+        return self._iterator_states[pos]
 
     def get_timeout(self):
         return self.get_request().get_timeout()
 
     def get_topology_info(self):
-        return self.__query_driver.get_topology_info()
+        return self._query_driver.get_topology_info()
 
     def get_trace_level(self):
         return self.get_request().get_trace_level()
 
     def get_write_kb(self):
-        return self.__write_kb
+        return self._write_kb
 
     def inc_memory_consumption(self, v):
-        self.__memory_consumption += v
-        assert self.__memory_consumption >= 0
-        if self.__memory_consumption > self.get_max_memory_consumption():
+        self._memory_consumption += v
+        assert self._memory_consumption >= 0
+        if self._memory_consumption > self.get_max_memory_consumption():
             raise QueryStateException(
                 'Memory consumption at the client exceeded maximum ' +
                 'allowed value ' + str(self.get_max_memory_consumption()))
 
     def reached_limit(self):
-        return self.__reached_limit
+        return self._reached_limit
 
     def reset_kb_consumption(self):
-        self.__read_kb = 0
-        self.__read_units = 0
-        self.__write_kb = 0
+        self._read_kb = 0
+        self._read_units = 0
+        self._write_kb = 0
 
     def set_reached_limit(self, value):
-        self.__reached_limit = value
+        self._reached_limit = value
 
     def set_reg_val(self, reg_id, value):
-        self.__registers[reg_id] = value
+        self._registers[reg_id] = value
 
     def set_state(self, pos, state):
-        self.__iterator_states[pos] = state
+        self._iterator_states[pos] = state
 
     def tally_read_kb(self, nkb):
-        self.__read_kb += nkb
+        self._read_kb += nkb
 
     def tally_read_units(self, nkb):
-        self.__read_units += nkb
+        self._read_units += nkb
 
     def tally_write_kb(self, nkb):
-        self.__write_kb += nkb
+        self._write_kb += nkb
 
     def trace(self, msg):
         print('D-QUERY: ' + msg)
@@ -2435,20 +2429,20 @@ class SortSpec(object):
 
 class TopologyInfo(object):
     def __init__(self, seq_num, shard_ids):
-        self.__seq_num = seq_num
-        self.__shard_ids = shard_ids
+        self._seq_num = seq_num
+        self._shard_ids = shard_ids
 
     def get_seq_num(self):
-        return self.__seq_num
+        return self._seq_num
 
     def get_shard_id(self, i):
-        return self.__shard_ids[i]
+        return self._shard_ids[i]
 
     def get_shard_ids(self):
-        return self.__shard_ids
+        return self._shard_ids
 
     def hash_code(self):
-        return self.__seq_num
+        return self._seq_num
 
     def num_shards(self):
-        return len(self.__shard_ids)
+        return len(self._shard_ids)

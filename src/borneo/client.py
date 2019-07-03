@@ -27,35 +27,34 @@ class Client(object):
 
     # The HTTP driver client.
     def __init__(self, config, logger):
-        self.__logutils = LogUtils(logger)
-        self.__config = config
-        self.__url = config.get_service_url()
-        self.__request_uri = (self.__url.geturl() +
-                              HttpConstants.NOSQL_DATA_PATH)
-        self.__pool_connections = config.get_pool_connections()
-        self.__pool_maxsize = config.get_pool_maxsize()
-        self.__max_request_id = 1
-        self.__proxy_host = config.get_proxy_host()
-        self.__proxy_port = config.get_proxy_port()
-        self.__proxy_username = config.get_proxy_username()
-        self.__proxy_password = config.get_proxy_password()
-        self.__retry_handler = config.get_retry_handler()
-        if self.__retry_handler is None:
-            self.__retry_handler = DefaultRetryHandler()
-        self.__sec_info_timeout = config.get_sec_info_timeout()
-        self.__shut_down = False
-        self.__user_agent = self.__make_user_agent()
-        self.__auth_provider = config.get_authorization_provider()
-        if self.__auth_provider is None:
+        self._logutils = LogUtils(logger)
+        self._config = config
+        self._url = config.get_service_url()
+        self._request_uri = self._url.geturl() + HttpConstants.NOSQL_DATA_PATH
+        self._pool_connections = config.get_pool_connections()
+        self._pool_maxsize = config.get_pool_maxsize()
+        self._max_request_id = 1
+        self._proxy_host = config.get_proxy_host()
+        self._proxy_port = config.get_proxy_port()
+        self._proxy_username = config.get_proxy_username()
+        self._proxy_password = config.get_proxy_password()
+        self._retry_handler = config.get_retry_handler()
+        if self._retry_handler is None:
+            self._retry_handler = DefaultRetryHandler()
+        self._sec_info_timeout = config.get_sec_info_timeout()
+        self._shut_down = False
+        self._user_agent = self._make_user_agent()
+        self._auth_provider = config.get_authorization_provider()
+        if self._auth_provider is None:
             raise IllegalArgumentException(
                 'Must configure AuthorizationProvider.')
-        self.__sess = Session()
-        adapter = adapters.HTTPAdapter(pool_connections=self.__pool_connections,
-                                       pool_maxsize=self.__pool_maxsize,
+        self._sess = Session()
+        adapter = adapters.HTTPAdapter(pool_connections=self._pool_connections,
+                                       pool_maxsize=self._pool_maxsize,
                                        max_retries=5, pool_block=True)
-        self.__sess.mount(self.__url.scheme + '://', adapter)
-        if self.__proxy_host is not None:
-            self.__check_and_set_proxy(self.__sess)
+        self._sess.mount(self._url.scheme + '://', adapter)
+        if self._proxy_host is not None:
+            self._check_and_set_proxy(self._sess)
 
     def execute(self, request):
         """
@@ -79,7 +78,7 @@ class Client(object):
             None.
         """
         CheckValue.check_not_none(request, 'request')
-        request.set_defaults(self.__config)
+        request.set_defaults(self._config)
         request.validate()
         if request.is_query_request():
             """
@@ -91,7 +90,7 @@ class Client(object):
             when the app calls get_results() on the QueryResult.
             """
             if request.has_driver():
-                self.__trace('QueryRequest has QueryDriver', 2)
+                self._trace('QueryRequest has QueryDriver', 2)
                 return QueryResult(request, False)
             """
             If it is an advanced query and we are here, then this must be the
@@ -102,7 +101,7 @@ class Client(object):
             on the QueryResult.
             """
             if request.is_prepared() and not request.is_simple_query():
-                self.__trace(
+                self._trace(
                     'QueryRequest has no QueryDriver, but is prepared', 2)
                 driver = QueryDriver(request)
                 driver.set_client(self)
@@ -118,67 +117,68 @@ class Client(object):
             it with the QueryRequest (see QueryRequestSerializer.deserialize()),
             and return an empty QueryResult.
             """
-            self.__trace(
+            self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
         content = bytearray()
-        self.__write_content(request, content)
+        self._write_content(request, content)
         BinaryProtocol.check_request_size_limit(request, len(content))
-        headers = {'Host': self.__url.hostname,
+        headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
                    'Accept': 'application/octet-stream',
                    'Content-Length': str(len(content)),
-                   'User-Agent': self.__user_agent}
-        if self.__logutils.is_enabled_for(DEBUG):
-            self.__logutils.log_trace('Request: ' + request.__class__.__name__)
+                   'User-Agent': self._user_agent}
+        if self._logutils.is_enabled_for(DEBUG):
+            self._logutils.log_debug('Request: ' + request.__class__.__name__)
         request_utils = RequestUtils(
-            self.__sess, self.__logutils, request, self.__retry_handler, self)
+            self._sess, self._logutils, request, self._retry_handler, self)
         return request_utils.do_post_request(
-            self.__request_uri, headers, content, timeout_ms,
-            self.__sec_info_timeout)
+            self._request_uri, headers, content, timeout_ms,
+            self._sec_info_timeout)
 
     def get_auth_provider(self):
-        return self.__auth_provider
+        return self._auth_provider
 
     def shut_down(self):
         # Shutdown the client.
-        self.__logutils.log_info('Shutting down driver http client')
-        if self.__shut_down:
+        self._logutils.log_info('Shutting down driver http client')
+        if self._shut_down:
             return
-        self.__shut_down = True
-        if self.__auth_provider is not None:
-            self.__auth_provider.close()
-        if self.__sess is not None:
-            self.__sess.close()
+        self._shut_down = True
+        if self._auth_provider is not None:
+            self._auth_provider.close()
+        if self._sess is not None:
+            self._sess.close()
 
-    def __check_and_set_proxy(self, sess):
-        if (self.__proxy_host is not None and self.__proxy_port == 0 or
-                self.__proxy_host is None and self.__proxy_port != 0):
+    def _check_and_set_proxy(self, sess):
+        if (self._proxy_host is not None and self._proxy_port == 0 or
+                self._proxy_host is None and self._proxy_port != 0):
             raise IllegalArgumentException(
                 'To configure an HTTP proxy, both host and port are required.')
-        if (self.__proxy_username is not None and self.__proxy_password is None
-                or self.__proxy_username is None and
-                self.__proxy_password is not None):
+        if (self._proxy_username is not None and self._proxy_password is None or
+                self._proxy_username is None and
+                self._proxy_password is not None):
             raise IllegalArgumentException(
                 'To configure HTTP proxy authentication, both user name and ' +
                 'password are required')
-        if self.__proxy_host is not None:
-            if self.__proxy_username is None:
-                proxy_url = ('http://' + self.__proxy_host + ':' +
-                             str(self.__proxy_port))
-                sess.proxies = {'http': proxy_url, 'https': proxy_url}
-            elif self.__proxy_username is not None:
-                proxy_url = (self.__proxy_username + ':' +
-                             self.__proxy_password + '@http://' +
-                             self.__proxy_host + ':' + str(self.__proxy_port))
-                sess.proxies = {'http': proxy_url, 'https': proxy_url}
+        if self._proxy_host is not None:
+            if self._proxy_username is None:
+                proxy_url = (
+                    'http://' + self._proxy_host + ':' + str(self._proxy_port))
+            else:
+                assert self._proxy_password is not None
+                proxy_url = (
+                    'http://' + self._proxy_username + ':' +
+                    self._proxy_password + '@' + self._proxy_host + ':' +
+                    str(self._proxy_port))
+            sess.proxies = {'http': proxy_url, 'https': proxy_url}
 
-    def __trace(self, msg, level):
+    def _trace(self, msg, level):
         if level <= Client.TRACE_LEVEL:
             print('DRIVER: ' + msg)
 
-    def __make_user_agent(self):
+    def _make_user_agent(self):
         if version_info.major >= 3:
             pyversion = python_version()
         else:
@@ -186,7 +186,7 @@ class Client(object):
                                       version_info.micro)
         return '%s/%s (Python %s)' % ('NoSQL-PythonSDK', __version__, pyversion)
 
-    def __write_content(self, request, content):
+    def _write_content(self, request, content):
         """
         Serializes the request payload, sent as http content.
 
