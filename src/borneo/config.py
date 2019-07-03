@@ -11,17 +11,17 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from random import random
 from time import sleep
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
+from .auth import AuthorizationProvider
 from .common import CheckValue, Consistency
 from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException,
     SecurityInfoNotReadyException)
-try:
-    import auth
-    import operations
-except ImportError:
-    from . import auth
-    from . import operations
+from .operations import Request
 
 
 class RetryHandler(object):
@@ -149,7 +149,7 @@ class DefaultRetryHandler(RetryHandler):
         sleep(sec)
 
     def __check_request(self, request):
-        if not isinstance(request, operations.Request):
+        if not isinstance(request, Request):
             raise IllegalArgumentException(
                 'The parameter request should be an instance of Request.')
 
@@ -205,15 +205,16 @@ class NoSQLHandleConfig(object):
      * localhost:8080 - used for connecting to a Cloud Simulator instance
      * https\://ndcs.eucom-central-1.oraclecloud.com:443
 
-    If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
-    all other cases.
-
     If protocol is omitted, the endpoint uses http if the port is 8080, and
     https in all other cases.
 
+    If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
+    all other cases.
+
     See the documentation online for the complete set of available regions.
 
-    :param endpoint: The endpoint to use to connect to the service. Required.
+    :param endpoint: Identifies a server for use by the NoSQLHandle. This is a
+        required parameter.
     :type endpoint: str
     :raises IllegalArgumentException: raises the exception if the endpoint is
         None or malformed.
@@ -231,8 +232,7 @@ class NoSQLHandleConfig(object):
     def __init__(self, endpoint):
         # Inits a NoSQLHandleConfig object.
         CheckValue.check_str(endpoint, 'endpoint')
-        self.__endpoint = endpoint
-        self.__parse_endpoint()
+        self.__service_url = NoSQLHandleConfig.create_url(endpoint, '/')
         self.__timeout = 0
         self.__table_request_timeout = 0
         self.__sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
@@ -248,37 +248,13 @@ class NoSQLHandleConfig(object):
         self.__proxy_password = None
         self.__logger = None
 
-    def get_endpoint(self):
+    def get_service_url(self):
         """
-        Returns the endpoint string used to connect to the server
+        Returns the url to use for the :py:class:`NoSQLHandle` connection.
 
-        :returns: the endpoint.
+        :returns: the url.
         """
-        return self.__endpoint
-
-    def get_protocol(self):
-        """
-        Returns the protocol that is used to connect to the server.
-
-        :returns: the protocol that used to connect to the server.
-        """
-        return self.__protocol
-
-    def get_host(self):
-        """
-        Returns the host string used to connect to the server.
-
-        :returns: the host.
-        """
-        return self.__host
-
-    def get_port(self):
-        """
-        Returns the port that is used to connect to the service.
-
-        :returns: the port.
-        """
-        return self.__port
+        return self.__service_url
 
     def get_default_timeout(self):
         """
@@ -536,7 +512,7 @@ class NoSQLHandleConfig(object):
         :raises IllegalArgumentException: raises the exception if provider is
             not an instance of :py:class:`AuthorizationProvider`.
         """
-        if not isinstance(provider, auth.AuthorizationProvider):
+        if not isinstance(provider, AuthorizationProvider):
             raise IllegalArgumentException(
                 'provider must be an instance of AuthorizationProvider.')
         self.__auth_provider = provider
@@ -682,64 +658,69 @@ class NoSQLHandleConfig(object):
         return clone_config
 
     #
-    # Parse the endpoint, which has the following format:
-    #   [proto:]host[:port]
-    def __parse_endpoint(self):
-        """
-        Parse the endpoint string into host, port, protocol
-        """
-
-        # defaults
-        self.__protocol = 'https'
-        self.__port = 443
-
-        parts = self.__endpoint.split(':')
-
-        if len(parts) > 3:
-            raise IllegalArgumentException(
-                'Invalid endpoint: ' + self.__endpoint)
+    # Return a url from an endpoint string that has the format
+    # [protocol:][//]host[:port]
+    #
+    @staticmethod
+    def create_url(endpoint, path):
+        # The defaults for protocol and port.
+        protocol = 'https'
+        port = 443
+        #
+        # Possible formats are:
+        #     host
+        #     protocol:[//]host
+        #     host:port
+        #     protocol:[//]host:port
+        #
+        parts = endpoint.split(':')
 
         if len(parts) == 1:
-            # 1 part means only host
-            self.__host = self.__endpoint
+            # 1 part means endpoint is host only.
+            host = endpoint
         elif len(parts) == 2:
             # 2 parts:
-            #  proto:[//]host (default port based on proto)
-            #  host:port (default proto)
+            #  protocol:[//]host (default port based on protocol)
+            #  host:port (default protocol based on port)
             if parts[0].lower().startswith('http'):
-                # proto:[//]host
-                self.__protocol = parts[0].lower()
-                self.__host = parts[1]
-                # infer port
-                if self.__protocol == 'http':
-                    self.__port = 8080
+                # protocol:[//]host
+                protocol = parts[0].lower()
+                # May have slashes to strip out.
+                host = parts[1]
+                if protocol == 'http':
+                    # Override the default of 443.
+                    port = 8080
             else:
                 # host:port
-                self.__host = parts[0]
-                self.__port = self.__validate_port(parts[1])
-                # in this path infer proto from port
-                if self.__port != 443:
-                    self.__protocol = 'http'
+                host = parts[0]
+                port = NoSQLHandleConfig.validate_port(endpoint, parts[1])
+                if port == 8080:
+                    # Override the default of https.
+                    protocol = 'http'
         elif len(parts) == 3:
-            # 3 parts: proto:[//]host:port
-            self.__protocol = parts[0].lower()
-            self.__host = parts[1]
-            self.__port = self.__validate_port(parts[2])
+            # 3 parts: protocol:[//]host:port
+            protocol = parts[0].lower()
+            host = parts[1]
+            port = NoSQLHandleConfig.validate_port(endpoint, parts[2])
+        else:
+            raise IllegalArgumentException('Invalid endpoint: ' + endpoint)
 
-        # strip '//' if present in host
-        if self.__host.startswith('//'):
-            self.__host = self.__host[2:]
+        # Strip out any slashes if the format was protocol://host[:port]
+        if host.startswith('//'):
+            host = host[2:]
 
-        if self.__protocol != 'http' and self.__protocol != 'https':
+        if protocol != 'http' and protocol != 'https':
             raise IllegalArgumentException(
-                'Invalid endpoint, protocol must be http or https: ' +
-                self.__endpoint)
+                'Invalid endpoint, protocol must be http or https: ' + endpoint)
+        return urlparse(protocol + '://' + host + ':' + str(port) + path)
 
-    def __validate_port(self, portstring):
+    @staticmethod
+    def validate_port(endpoint, portstring):
+        # Check that a port is a valid, non negative integer.
         try:
             port = int(portstring)
             CheckValue.check_int_ge_zero(port, 'port')
+            return port
         except ValueError:
             raise IllegalArgumentException(
-                'Invalid endpoint: ' + self.__endpoint)
-        return port
+                'Invalid port value for : ' + endpoint)

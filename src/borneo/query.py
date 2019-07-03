@@ -8,10 +8,10 @@
 #
 
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal
 from sys import getsizeof, version_info
+from traceback import format_exc
 
 from .common import ByteOutputStream, CheckValue, SizeOf, enum
 from .exception import (
@@ -21,8 +21,6 @@ try:
     import serde
 except ImportError:
     from . import serde
-
-from traceback import format_exc
 
 
 class PlanIterState(object):
@@ -120,15 +118,15 @@ class PlanIter(object):
 
     In general, these calls are propagated top-down within the execution plan,
     and results flow bottom-up. More specifically, each next() call on the root
-    iterator produces one item (a FieldValue) in the result set of the query. If
-    there are no more results to be produced, the next() call will return False.
-    Actually, the same is True for all iterators: each next() call on a plan
-    iterator produces one item in the result set of that iterator or returns
-    False if there are no more results. So, in the most general case, the result
-    set of each iterator is a sequence of zero or more items.
+    iterator produces one item (a field value) in the result set of the query.
+    If there are no more results to be produced, the next() call will return
+    False. Actually, the same is True for all iterators: each next() call on a
+    plan iterator produces one item in the result set of that iterator or
+    returns False if there are no more results. So, in the most general case,
+    the result set of each iterator is a sequence of zero or more items.
 
-    The root iterator will always produce MapValues, but other iterators may
-    produces different kinds of values (instances of FieldValue).
+    The root iterator will always produce dict values, but other iterators may
+    produces different kinds of values.
 
     Iterator state and registers:
 
@@ -137,14 +135,13 @@ class PlanIter(object):
     directly. Instead, each iterator places its current result (the item
     produced by the current invocation of the next() call) in its "result
     register", where a consumer iterator can pick it up from. A "register" is
-    just an entry in an array of FieldValue instances. This array is created
-    during the creation of the RuntimeControlBlock (RCB) and is stored in the
-    RCB. Each iterator knows the position of its result register within the
-    array, and will provide this info to its parent (consuming) iterator. All
-    iterators have a result reg. Notice, however, that some iterators may share
-    the same result reg. For example, if an iterator A is just filtering the
-    result of another iterator B, A can use B's result reg as its own result reg
-    as well.
+    just an entry in an array of field values. This array is created during the
+    creation of the RuntimeControlBlock (RCB) and is stored in the RCB. Each
+    iterator knows the position of its result register within the array, and
+    will provide this info to its parent (consuming) iterator. All iterators
+    have a result reg. Notice, however, that some iterators may share the same
+    result reg. For example, if an iterator A is just filtering the result of
+    another iterator B, A can use B's result reg as its own result reg as well.
 
     Each iterator has some state that it needs to maintain across open()-next()-
     close() invocations. For each kind of iterator, its state is represented by
@@ -793,9 +790,8 @@ class ExternalVarRefIter(PlanIter):
 
 class FieldStepIter(PlanIter):
     """
-    FieldStepIter returns the value of a field in an input MapValue. It is used
-    by the driver to implement column references in the SELECT list
-    (see SFWIter).
+    FieldStepIter returns the value of a field in an input dict. It is used by
+    the driver to implement column references in the SELECT list (see SFWIter).
     """
 
     def __init__(self, bis):
@@ -1728,7 +1724,7 @@ class SFWIter(PlanIter):
             if self.__num_gb_columns < 0:
                 if self.__is_select_star:
                     break
-                result = OrderedDict()
+                result = dict()
                 rcb.set_reg_val(self.result_reg, result)
                 for i in range(len(self.column_iters)):
                     column_iter = self.column_iters[i]

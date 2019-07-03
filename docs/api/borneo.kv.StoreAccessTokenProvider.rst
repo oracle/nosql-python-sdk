@@ -1,7 +1,7 @@
 StoreAccessTokenProvider
 ========================
 
-.. currentmodule:: borneo.idcs
+.. currentmodule:: borneo.kv
 
 .. autoclass:: StoreAccessTokenProvider
    :show-inheritance:

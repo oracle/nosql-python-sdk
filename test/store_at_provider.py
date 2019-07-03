@@ -21,7 +21,7 @@ except ImportError:
     from socketserver import TCPServer
 
 from borneo import IllegalArgumentException
-from borneo.idcs import StoreAccessTokenProvider
+from borneo.kv import StoreAccessTokenProvider
 
 
 class TestDefaultAccessTokenProvider(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         RENEW_TOKEN = 'RENEW_TOKEN'
 
     def setUp(self):
-        self.base = 'http://localhost:' + str(8080)
+        self.base = 'localhost:' + str(8000)
         self.token_provider = None
 
     def tearDown(self):
@@ -52,25 +52,39 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             self.token_provider = None
 
     def testAccessTokenProviderIllegalInit(self):
+        # illegal endpoint
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          None, USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          {'endpoint': self.base}, USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'localhost:notanint', USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'localhost:-1', USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'localhost:8080', USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'ttp://localhost', USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'http://localhost', USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'localhost:8080:foo', USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          'https://localhost:-1:x', USER_NAME, PASSWORD)
+
         # illegal user name
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider, 0,
-                          PASSWORD, self.base)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          self.base, {'user_name': USER_NAME}, PASSWORD)
+        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
+                          self.base, '', PASSWORD)
         # illegal password
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          USER_NAME, 0, self.base)
-        # illegal login url
+                          self.base, USER_NAME, {'password': PASSWORD})
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          USER_NAME, PASSWORD, 0)
-        # illegal security base url
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          USER_NAME, PASSWORD, self.base, 0)
-        # illegal logger
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          USER_NAME, PASSWORD, self.base, 'SecurityBaseUrl',
-                          'IllegalLogger')
+                          self.base, USER_NAME, '')
         # one of the required parameters is None
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          None, PASSWORD, self.base)
+                          self.base, None, PASSWORD)
 
     def testAccessTokenProviderSetIllegalAutoRenew(self):
         self.token_provider = StoreAccessTokenProvider()
@@ -90,7 +104,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
     def testAccessTokenProviderGets(self):
         self.token_provider = StoreAccessTokenProvider(
-            USER_NAME, PASSWORD, self.base).set_auto_renew(False)
+            self.base, USER_NAME, PASSWORD).set_auto_renew(False)
         self.assertTrue(self.token_provider.is_secure())
         self.assertFalse(self.token_provider.is_auto_renew())
         self.assertIsNone(self.token_provider.get_logger())
@@ -98,9 +112,10 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
     def testAccessTokenProviderGetAuthorizationString(self):
         httpd, port = self.__find_port_start_server(TokenHandler)
 
-        self.base = 'http://localhost:' + str(port)
+        self.base = 'localhost:' + str(port)
         self.token_provider = StoreAccessTokenProvider(
-            USER_NAME, PASSWORD, self.base)
+            self.base, USER_NAME, PASSWORD)
+        self.token_provider.set_url_for_test()
         # get authorization string.
         result = self.token_provider.get_authorization_string()
         self.assertIsNotNone(result)

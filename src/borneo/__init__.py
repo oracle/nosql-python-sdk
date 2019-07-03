@@ -8,6 +8,7 @@
 #
 
 from . import idcs
+from . import kv
 from .auth import AuthorizationProvider
 from .common import (
     Consistency, FieldRange, PutOption, State, TableLimits, TimeToLive,
@@ -89,5 +90,5 @@ __all__ = ['AuthenticationException',
            'Version',
            'WriteMultipleRequest',
            'WriteMultipleResult',
-           'WriteThrottlingException',
+           'WriteThrottlingException'
            ]

@@ -25,7 +25,8 @@ from borneo import (
     NoSQLHandle, NoSQLHandleConfig)
 from borneo.idcs import (
     AccessTokenProvider, DefaultAccessTokenProvider,
-    PropertiesCredentialsProvider, StoreAccessTokenProvider)
+    PropertiesCredentialsProvider)
+from borneo.kv import StoreAccessTokenProvider
 from parameters import (
     consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
     is_minicloud, is_onprem, is_pod, is_prod_pod, logger_level, password,
@@ -166,10 +167,8 @@ def set_access_token_provider(config, tenant_id):
             if user_name is None or password is None:
                 raise IllegalArgumentException(
                     'Please set both the user_name and password.')
-            login_url = (config.get_protocol() + '://' + config.get_host() +
-                         ':' + str(config.get_port()))
             authorization_provider = StoreAccessTokenProvider(
-                user_name, password, login_url, logger=logger)
+                endpoint, user_name, password)
     else:
         raise IllegalArgumentException('Please set the test server.')
     config.set_authorization_provider(authorization_provider)

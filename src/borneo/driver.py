@@ -61,7 +61,7 @@ class NoSQLHandle(object):
     return Result objects. Errors are thrown as exceptions. Exceptions that may
     be retried may succeed on retry. These are instances of
     :py:class:`RetryableException`. Exceptions that may not be retried and if
-    retried, will fail again. Exceptions that may be retried return true for
+    retried, will fail again. Exceptions that may be retried return True for
     :py:meth:`RetryableException.ok_to_retry` while those that may not will
     return False. Examples of retryable exceptions are those which indicate
     resource consumption violations such as

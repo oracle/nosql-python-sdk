@@ -29,11 +29,9 @@ class Client(object):
     def __init__(self, config, logger):
         self.__logutils = LogUtils(logger)
         self.__config = config
-        self.__protocol = config.get_protocol()
-        self.__host = config.get_host()
-        self.__port = config.get_port()
-        self.__request_uri = self.__generate_uri(self.__protocol, self.__host,
-                                                 self.__port)
+        self.__url = config.get_service_url()
+        self.__request_uri = (self.__url.geturl() +
+                              HttpConstants.NOSQL_DATA_PATH)
         self.__pool_connections = config.get_pool_connections()
         self.__pool_maxsize = config.get_pool_maxsize()
         self.__max_request_id = 1
@@ -55,7 +53,7 @@ class Client(object):
         adapter = adapters.HTTPAdapter(pool_connections=self.__pool_connections,
                                        pool_maxsize=self.__pool_maxsize,
                                        max_retries=5, pool_block=True)
-        self.__sess.mount(self.__protocol + '://', adapter)
+        self.__sess.mount(self.__url.scheme + '://', adapter)
         if self.__proxy_host is not None:
             self.__check_and_set_proxy(self.__sess)
 
@@ -126,7 +124,7 @@ class Client(object):
         content = bytearray()
         self.__write_content(request, content)
         BinaryProtocol.check_request_size_limit(request, len(content))
-        headers = {'Host': self.__host,
+        headers = {'Host': self.__url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
                    'Accept': 'application/octet-stream',
@@ -175,11 +173,6 @@ class Client(object):
                              self.__proxy_password + '@http://' +
                              self.__proxy_host + ':' + str(self.__proxy_port))
                 sess.proxies = {'http': proxy_url, 'https': proxy_url}
-
-    def __generate_uri(self, protocol, host, port):
-        # Generate the uri for request.
-        return (protocol + '://' + host + ':' + str(port) + '/' +
-                HttpConstants.NOSQL_DATA_PATH)
 
     def __trace(self, msg, level):
         if level <= Client.TRACE_LEVEL:

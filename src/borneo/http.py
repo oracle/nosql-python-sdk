@@ -16,11 +16,8 @@ from .common import ByteInputStream, synchronized
 from .exception import (
     AuthenticationException, IllegalStateException, NoSQLException,
     RequestTimeoutException, RetryableException, SecurityInfoNotReadyException)
+from .kv import StoreAccessTokenProvider
 from .serde import BinaryProtocol
-try:
-    import idcs
-except ImportError:
-    from . import idcs
 
 
 class HttpResponse(object):
@@ -204,7 +201,7 @@ class RequestUtils(object):
                     return res
             except AuthenticationException as ae:
                 if (self.__auth_provider is not None and isinstance(
-                        self.__auth_provider, idcs.StoreAccessTokenProvider)):
+                        self.__auth_provider, StoreAccessTokenProvider)):
                     self.__auth_provider.bootstrap_login()
                     exception = ae
                     num_retried += 1
@@ -348,7 +345,7 @@ class RequestUtils(object):
         """
         if status == codes.bad:
             length = len(content)
-            err_msg = (content if length > 0 else status)
+            err_msg = (content if length > 0 else str(status))
             raise NoSQLException('Error response: ' + err_msg)
         raise NoSQLException('Error response = ' + str(status))
 

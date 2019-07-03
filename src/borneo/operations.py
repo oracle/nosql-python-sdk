@@ -15,14 +15,20 @@ from time import mktime, sleep, time
 from .common import (
     CheckValue, Consistency, FieldRange, PreparedStatement, PutOption, State,
     TableLimits, TimeToLive, Version)
-from .config import NoSQLHandleConfig
 from .exception import (
     BatchOperationNumberLimitException, IllegalArgumentException,
     RequestTimeoutException, TableNotFoundException)
+from .serde import (
+    BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
+    GetRequestSerializer, GetTableRequestSerializer,
+    ListTablesRequestSerializer, MultiDeleteRequestSerializer,
+    PrepareRequestSerializer, PutRequestSerializer, QueryRequestSerializer,
+    TableRequestSerializer, TableUsageRequestSerializer,
+    WriteMultipleRequestSerializer)
 try:
-    import serde
+    import config
 except ImportError:
-    from . import serde
+    from . import config
 
 
 class Request(object):
@@ -56,7 +62,7 @@ class Request(object):
         :raises IllegalArgumentException: raises the exception if cfg is not an
             instance of NoSQLHandleConfig.
         """
-        if not isinstance(cfg, NoSQLHandleConfig):
+        if not isinstance(cfg, config.NoSQLHandleConfig):
             raise IllegalArgumentException(
                 'set_defaults requires an instance of NoSQLHandleConfig as ' +
                 'parameter.')
@@ -327,10 +333,10 @@ class DeleteRequest(WriteRequest):
             raise IllegalArgumentException('DeleteRequest requires a key.')
 
     def create_serializer(self):
-        return serde.DeleteRequestSerializer()
+        return DeleteRequestSerializer()
 
     def create_deserializer(self):
-        return serde.DeleteRequestSerializer(cls_result=DeleteResult)
+        return DeleteRequestSerializer(cls_result=DeleteResult)
 
 
 class GetIndexesRequest(Request):
@@ -429,10 +435,10 @@ class GetIndexesRequest(Request):
                 'GetIndexesRequest requires a table name.')
 
     def create_serializer(self):
-        return serde.GetIndexesRequestSerializer()
+        return GetIndexesRequestSerializer()
 
     def create_deserializer(self):
-        return serde.GetIndexesRequestSerializer(GetIndexesResult)
+        return GetIndexesRequestSerializer(GetIndexesResult)
 
 
 class GetRequest(ReadRequest):
@@ -561,10 +567,10 @@ class GetRequest(ReadRequest):
             raise IllegalArgumentException('GetRequest requires a key.')
 
     def create_serializer(self):
-        return serde.GetRequestSerializer()
+        return GetRequestSerializer()
 
     def create_deserializer(self):
-        return serde.GetRequestSerializer(GetResult)
+        return GetRequestSerializer(GetResult)
 
 
 class GetTableRequest(Request):
@@ -673,10 +679,10 @@ class GetTableRequest(Request):
                 'GetTableRequest requires a table name.')
 
     def create_serializer(self):
-        return serde.GetTableRequestSerializer()
+        return GetTableRequestSerializer()
 
     def create_deserializer(self):
-        return serde.GetTableRequestSerializer(TableResult)
+        return GetTableRequestSerializer(TableResult)
 
 
 class ListTablesRequest(Request):
@@ -784,10 +790,10 @@ class ListTablesRequest(Request):
                 'non-negative.')
 
     def create_serializer(self):
-        return serde.ListTablesRequestSerializer()
+        return ListTablesRequestSerializer()
 
     def create_deserializer(self):
-        return serde.ListTablesRequestSerializer(ListTablesResult)
+        return ListTablesRequestSerializer(ListTablesResult)
 
 
 class MultiDeleteRequest(Request):
@@ -916,10 +922,10 @@ class MultiDeleteRequest(Request):
                 'set_max_write_kb requires integer as parameter.')
         elif max_write_kb < 0:
             raise IllegalArgumentException('max_write_kb must be >= 0')
-        elif max_write_kb > serde.BinaryProtocol.WRITE_KB_LIMIT:
+        elif max_write_kb > BinaryProtocol.WRITE_KB_LIMIT:
             raise IllegalArgumentException(
                 'max_write_kb can not exceed ' +
-                str(serde.BinaryProtocol.WRITE_KB_LIMIT))
+                str(BinaryProtocol.WRITE_KB_LIMIT))
         self.__max_write_kb = max_write_kb
         return self
 
@@ -997,10 +1003,10 @@ class MultiDeleteRequest(Request):
             self.__range.validate()
 
     def create_serializer(self):
-        return serde.MultiDeleteRequestSerializer()
+        return MultiDeleteRequestSerializer()
 
     def create_deserializer(self):
-        return serde.MultiDeleteRequestSerializer(MultiDeleteResult)
+        return MultiDeleteRequestSerializer(MultiDeleteResult)
 
 
 class PrepareRequest(Request):
@@ -1102,10 +1108,10 @@ class PrepareRequest(Request):
                 'PrepareRequest requires a statement.')
 
     def create_serializer(self):
-        return serde.PrepareRequestSerializer()
+        return PrepareRequestSerializer()
 
     def create_deserializer(self):
-        return serde.PrepareRequestSerializer(PrepareResult)
+        return PrepareRequestSerializer(PrepareResult)
 
 
 class PutRequest(WriteRequest):
@@ -1465,10 +1471,10 @@ class PutRequest(WriteRequest):
                 ' may be specified')
 
     def create_serializer(self):
-        return serde.PutRequestSerializer()
+        return PutRequestSerializer()
 
     def create_deserializer(self):
-        return serde.PutRequestSerializer(cls_result=PutResult)
+        return PutRequestSerializer(cls_result=PutResult)
 
 
 class QueryRequest(Request):
@@ -1633,10 +1639,10 @@ class QueryRequest(Request):
             BinaryProtocol.READ_KB_LIMIT.
         """
         CheckValue.check_int_ge_zero(max_read_kb, 'max_read_kb')
-        if max_read_kb > serde.BinaryProtocol.READ_KB_LIMIT:
+        if max_read_kb > BinaryProtocol.READ_KB_LIMIT:
             raise IllegalArgumentException(
                 'max_read_kb can not exceed ' +
-                str(serde.BinaryProtocol.READ_KB_LIMIT))
+                str(BinaryProtocol.READ_KB_LIMIT))
         self.__max_read_kb = max_read_kb
         return self
 
@@ -1671,10 +1677,10 @@ class QueryRequest(Request):
             BinaryProtocol.WRITE_KB_LIMIT.
         """
         CheckValue.check_int_ge_zero(max_write_kb, 'max_write_kb')
-        if max_write_kb > serde.BinaryProtocol.WRITE_KB_LIMIT:
+        if max_write_kb > BinaryProtocol.WRITE_KB_LIMIT:
             raise IllegalArgumentException(
                 'max_write_kb can not exceed ' +
-                str(serde.BinaryProtocol.WRITE_KB_LIMIT))
+                str(BinaryProtocol.WRITE_KB_LIMIT))
         self.__max_write_kb = max_write_kb
         return self
 
@@ -1949,10 +1955,10 @@ class QueryRequest(Request):
                 'Either statement or prepared statement should be set.')
 
     def create_serializer(self):
-        return serde.QueryRequestSerializer()
+        return QueryRequestSerializer()
 
     def create_deserializer(self):
-        return serde.QueryRequestSerializer(cls_result=QueryResult)
+        return QueryRequestSerializer(cls_result=QueryResult)
 
 
 class TableRequest(Request):
@@ -2096,7 +2102,7 @@ class TableRequest(Request):
         """
         Internal use only
         """
-        if not isinstance(cfg, NoSQLHandleConfig):
+        if not isinstance(cfg, config.NoSQLHandleConfig):
             raise IllegalArgumentException(
                 'set_defaults requires an instance of NoSQLHandleConfig as ' +
                 'parameter.')
@@ -2121,10 +2127,10 @@ class TableRequest(Request):
             self.__limits.validate()
 
     def create_serializer(self):
-        return serde.TableRequestSerializer()
+        return TableRequestSerializer()
 
     def create_deserializer(self):
-        return serde.TableRequestSerializer(TableResult)
+        return TableRequestSerializer(TableResult)
 
 
 class TableUsageRequest(Request):
@@ -2324,10 +2330,10 @@ class TableUsageRequest(Request):
                 'TableUsageRequest requires a table name.')
 
     def create_serializer(self):
-        return serde.TableUsageRequestSerializer()
+        return TableUsageRequestSerializer()
 
     def create_deserializer(self):
-        return serde.TableUsageRequestSerializer(TableUsageResult)
+        return TableUsageRequestSerializer(TableUsageResult)
 
     def __check_time(self, dt):
         if (not (CheckValue.is_int(dt) or CheckValue.is_str(dt)) or
@@ -2404,10 +2410,10 @@ class WriteMultipleRequest(Request):
                 'DeleteRequest as parameter. Got: ' + str(request))
         CheckValue.check_boolean(abort_if_unsuccessful,
                                  'abort_if_unsuccessful')
-        if len(self.__ops) == serde.BinaryProtocol.BATCH_OP_NUMBER_LIMIT:
+        if len(self.__ops) == BinaryProtocol.BATCH_OP_NUMBER_LIMIT:
             raise BatchOperationNumberLimitException(
                 'The number of sub requests reached the max number of ' +
-                str(serde.BinaryProtocol.BATCH_OP_NUMBER_LIMIT))
+                str(BinaryProtocol.BATCH_OP_NUMBER_LIMIT))
         if self.__table_name is None:
             self.__table_name = request.get_table_name_internal()
         else:
@@ -2488,10 +2494,10 @@ class WriteMultipleRequest(Request):
             raise IllegalArgumentException('The requests list is empty.')
 
     def create_serializer(self):
-        return serde.WriteMultipleRequestSerializer()
+        return WriteMultipleRequestSerializer()
 
     def create_deserializer(self):
-        return serde.WriteMultipleRequestSerializer(
+        return WriteMultipleRequestSerializer(
             WriteMultipleResult, WriteMultipleResult.OperationResult)
 
     class OperationRequest(object):

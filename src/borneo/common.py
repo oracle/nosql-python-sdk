@@ -289,8 +289,8 @@ class FieldRange(object):
 
     def get_start(self):
         """
-        Returns the FieldValue that defines lower bound of the range, or None if
-        no lower bound is enforced.
+        Returns the field value that defines lower bound of the range, or None
+        if no lower bound is enforced.
 
         :returns: the start field value.
         """
@@ -299,7 +299,7 @@ class FieldRange(object):
     def get_start_inclusive(self):
         """
         Returns whether start is included in the range, i.e., start is less than
-        or equal to the first FieldValue in the range. This value is valid only
+        or equal to the first field value in the range. This value is valid only
         if the start value is not None.
 
         :returns: True if the start value is inclusive.
@@ -325,8 +325,8 @@ class FieldRange(object):
 
     def get_end(self):
         """
-        Returns the FieldValue that defines upper bound of the range, or None if
-        no upper bound is enforced.
+        Returns the field value that defines upper bound of the range, or None
+        if no upper bound is enforced.
 
         :returns: the end field value.
         """
@@ -335,7 +335,7 @@ class FieldRange(object):
     def get_end_inclusive(self):
         """
         Returns whether end is included in the range, i.e., end is greater than
-        or equal to the last FieldValue in the range. This value is valid only
+        or equal to the last field value in the range. This value is valid only
         if the end value is not None.
 
         :returns: True if the end value is inclusive.

@@ -29,8 +29,11 @@ from .exception import (
     TableBusyException, TableExistsException, TableLimitException,
     TableNotFoundException, TableSizeException, UnauthorizedException,
     WriteThrottlingException)
-from .operations import WriteMultipleRequest
 from .query import PlanIter, QueryDriver, TopologyInfo
+try:
+    import operations
+except ImportError:
+    from . import operations
 
 
 class BinaryProtocol(object):
@@ -166,7 +169,7 @@ class BinaryProtocol(object):
         # Checks if the request size exceeds the limit.
         request_size_limit = (
             BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT if
-            isinstance(request, WriteMultipleRequest) else
+            isinstance(request, operations.WriteMultipleRequest) else
             BinaryProtocol.REQUEST_SIZE_LIMIT)
         if request_size > request_size_limit:
             raise RequestSizeLimitException(

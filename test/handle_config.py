@@ -15,8 +15,8 @@ from borneo import (
     DefaultRetryHandler, RetryableException, SecurityInfoNotReadyException,
     NoSQLHandle, NoSQLHandleConfig, TableRequest)
 from parameters import (
-    consistency, endpoint, pool_connections, pool_maxsize, table_name,
-    tenant_id, timeout, table_request_timeout)
+    consistency, pool_connections, pool_maxsize, table_name, tenant_id, timeout,
+    table_request_timeout)
 from testutils import (
     get_handle_config, get_simple_handle_config, proxy_host, proxy_port,
     proxy_username, proxy_password, retry_handler, sec_info_timeout)
@@ -150,59 +150,66 @@ class TestNoSQLHandleConfig(unittest.TestCase):
     def testNoSQLHandleEndpointConfig(self):
         # set only the host as endpoint
         config = get_simple_handle_config(tenant_id, 'ndcs.com')
-        self.assertEqual(config.get_protocol(), 'https')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 443)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'https')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 443)
         # set proto://host as endpoint
         config = get_simple_handle_config(tenant_id, 'Http://ndcs.com')
-        self.assertEqual(config.get_protocol(), 'http')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 8080)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'http')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 8080)
         config = get_simple_handle_config(tenant_id, 'https://ndcs.com')
-        self.assertEqual(config.get_protocol(), 'https')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 443)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'https')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 443)
         # set proto:host as endpoint
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com')
-        self.assertEqual(config.get_protocol(), 'http')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 8080)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'http')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 8080)
         config = get_simple_handle_config(tenant_id, 'https:ndcs.com')
-        self.assertEqual(config.get_protocol(), 'https')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 443)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'https')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 443)
         # set host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'localhost:8080')
-        self.assertEqual(config.get_protocol(), 'http')
-        self.assertEqual(config.get_host(), 'localhost')
-        self.assertEqual(config.get_port(), 8080)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'http')
+        self.assertEqual(service_url.hostname, 'localhost')
+        self.assertEqual(service_url.port, 8080)
         config = get_simple_handle_config(tenant_id, 'localhost:443')
-        self.assertEqual(config.get_protocol(), 'https')
-        self.assertEqual(config.get_host(), 'localhost')
-        self.assertEqual(config.get_port(), 443)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'https')
+        self.assertEqual(service_url.hostname, 'localhost')
+        self.assertEqual(service_url.port, 443)
         # set proto://host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'HTTPS://ndcs.com:8080')
-        self.assertEqual(config.get_protocol(), 'https')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 8080)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'https')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 8080)
         # set proto:host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com:443')
-        self.assertEqual(config.get_protocol(), 'http')
-        self.assertEqual(config.get_host(), 'ndcs.com')
-        self.assertEqual(config.get_port(), 443)
+        service_url = config.get_service_url()
+        self.assertEqual(service_url.scheme, 'http')
+        self.assertEqual(service_url.hostname, 'ndcs.com')
+        self.assertEqual(service_url.port, 443)
 
     def testNoSQLHandleConfigClone(self):
         max_content_length = 1024 * 1024
         config = get_handle_config(tenant_id)
         clone_config = config.clone()
-        self.assertEqual(clone_config.get_endpoint(), endpoint)
+        self.assertEqual(clone_config.get_service_url(),
+                         config.get_service_url())
         self.assertEqual(clone_config.get_default_timeout(), timeout)
         self.assertEqual(clone_config.get_default_table_request_timeout(),
                          table_request_timeout)
         self.assertEqual(clone_config.get_default_consistency(), consistency)
-        self.assertEqual(clone_config.get_protocol(), config.get_protocol())
-        self.assertEqual(clone_config.get_host(), config.get_host())
-        self.assertEqual(clone_config.get_port(), config.get_port())
         self.assertEqual(clone_config.get_timeout(), timeout)
         self.assertEqual(clone_config.get_table_request_timeout(),
                          table_request_timeout)
@@ -269,7 +276,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
     def testNoSQLHandleConfigGets(self):
         max_content_length = 1024 * 1024
         config = get_handle_config(tenant_id)
-        self.assertEqual(config.get_endpoint(), endpoint)
+        self.assertIsNotNone(config.get_service_url())
         self.assertEqual(config.get_default_timeout(), timeout)
         self.assertEqual(config.get_default_table_request_timeout(),
                          table_request_timeout)
