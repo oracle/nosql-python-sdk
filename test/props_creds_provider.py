@@ -44,8 +44,7 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
     def testCredentialsProviderGetOAuthClientCredentials(self):
         self.provider.set_properties_file(fake_credentials_file)
         creds = self.provider.get_oauth_client_credentials()
-        self.assertEqual(creds.get_credential_alias(), andc_client_id)
-        self.assertEqual(creds.get_secret(), andc_client_secret)
+        self._check_client_credentials(creds)
 
     def testCredentialsProviderGetUserCredentials(self):
         self.provider.set_properties_file(fake_credentials_file)
@@ -66,10 +65,13 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
         # check the get results.
         self.provider.set_properties_file(tmp)
         creds = self.provider.get_oauth_client_credentials()
-        self.assertEqual(creds.get_credential_alias(), andc_client_id)
-        self.assertEqual(creds.get_secret(), andc_client_secret)
+        self._check_client_credentials(creds)
         self.assertIsNone(self.provider.get_user_credentials())
         remove(tmp)
+
+    def _check_client_credentials(self, creds):
+        self.assertEqual(creds.get_credential_alias(), andc_client_id)
+        self.assertEqual(creds.get_secret(), andc_client_secret)
 
 
 if __name__ == '__main__':

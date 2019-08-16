@@ -24,41 +24,46 @@ except ImportError:
 
 
 class PlanIterState(object):
+    STATE = enum(OPEN=0,
+                 RUNNING=1,
+                 DONE=2,
+                 CLOSED=3)
+
     def __init__(self):
-        self.state = PlanIterState.StateEnum.OPEN
+        self.state = PlanIterState.STATE.OPEN
 
     def close(self):
-        self.set_state(PlanIterState.StateEnum.CLOSED)
+        self.set_state(PlanIterState.STATE.CLOSED)
 
     def done(self):
-        self.set_state(PlanIterState.StateEnum.DONE)
+        self.set_state(PlanIterState.STATE.DONE)
 
     def is_close(self):
-        return self.state == PlanIterState.StateEnum.CLOSED
+        return self.state == PlanIterState.STATE.CLOSED
 
     def is_done(self):
-        return self.state == PlanIterState.StateEnum.DONE
+        return self.state == PlanIterState.STATE.DONE
 
     def is_open(self):
-        return self.state == PlanIterState.StateEnum.OPEN
+        return self.state == PlanIterState.STATE.OPEN
 
     def reset(self):
-        self.set_state(PlanIterState.StateEnum.OPEN)
+        self.set_state(PlanIterState.STATE.OPEN)
 
     def set_state(self, state):
-        if self.state == PlanIterState.StateEnum.DONE:
-            if (state == PlanIterState.StateEnum.CLOSED or
-                    state == PlanIterState.StateEnum.OPEN):
+        if self.state == PlanIterState.STATE.DONE:
+            if (state == PlanIterState.STATE.CLOSED or
+                    state == PlanIterState.STATE.OPEN):
                 self.state = state
                 return
-        elif self.state == PlanIterState.StateEnum.RUNNING:
-            if (state == PlanIterState.StateEnum.CLOSED or
-                    state == PlanIterState.StateEnum.DONE or
-                    state == PlanIterState.StateEnum.OPEN or
-                    state == PlanIterState.StateEnum.RUNNING):
+        elif self.state == PlanIterState.STATE.RUNNING:
+            if (state == PlanIterState.STATE.CLOSED or
+                    state == PlanIterState.STATE.DONE or
+                    state == PlanIterState.STATE.OPEN or
+                    state == PlanIterState.STATE.RUNNING):
                 self.state = state
                 return
-        elif self.state == PlanIterState.StateEnum.OPEN:
+        elif self.state == PlanIterState.STATE.OPEN:
             """
             OPEN --> DONE transition is allowed for iterators that are 'done' on
             the 1st next() call after an open() or reset() call. In this case,
@@ -67,21 +72,15 @@ class PlanIterState(object):
             the same next() call, we allow a direct transition from OPEN to
             DONE.
             """
-            if (state == PlanIterState.StateEnum.CLOSED or
-                    state == PlanIterState.StateEnum.DONE or
-                    state == PlanIterState.StateEnum.OPEN or
-                    state == PlanIterState.StateEnum.RUNNING):
+            if (state == PlanIterState.STATE.CLOSED or
+                    state == PlanIterState.STATE.DONE or
+                    state == PlanIterState.STATE.OPEN or
+                    state == PlanIterState.STATE.RUNNING):
                 self.state = state
                 return
         raise QueryStateException(
             'Wrong state transition for iterator ' + str(self) +
             '. Current state: ' + self.state + ' New state: ' + state)
-
-    class StateEnum(object):
-        OPEN = 0
-        RUNNING = 1
-        DONE = 2
-        CLOSED = 3
 
 
 class AggrIterState(PlanIterState):
@@ -135,7 +134,7 @@ class PlanIter(object):
     directly. Instead, each iterator places its current result (the item
     produced by the current invocation of the next() call) in its "result
     register", where a consumer iterator can pick it up from. A "register" is
-    just an entry in an array of field values. This array is created during the
+    just an entry in a list of field values. This array is created during the
     creation of the RuntimeControlBlock (RCB) and is stored in the RCB. Each
     iterator knows the position of its result register within the array, and
     will provide this info to its parent (consuming) iterator. All iterators
@@ -439,18 +438,16 @@ class PlanIter(object):
         FN_MIN_MAX = 41
         SORT = 47
 
-        VALUES_TO_NAMES = {
-            0: 'CONST',
-            1: 'VAR_REF',
-            2: 'EXTERNAL_VAR_REF',
-            8: 'ARITH_OP',
-            11: 'FIELD_STEP',
-            14: 'SFW',
-            17: 'RECV',
-            39: 'FN_SUM',
-            41: 'FN_MIN_MAX',
-            47: 'SORT',
-        }
+        VALUES_TO_NAMES = {0: 'CONST',
+                           1: 'VAR_REF',
+                           2: 'EXTERNAL_VAR_REF',
+                           8: 'ARITH_OP',
+                           11: 'FIELD_STEP',
+                           14: 'SFW',
+                           17: 'RECV',
+                           39: 'FN_SUM',
+                           41: 'FN_MIN_MAX',
+                           47: 'SORT'}
 
         @staticmethod
         def value_of(kvcode):
@@ -731,7 +728,7 @@ class ExternalVarRefIter(PlanIter):
     in error messages.
 
     self._id:\n
-    The variable id. It is used as an index into an array of field values in the
+    The variable id. It is used as an index into a list of field values in the
     RCB that stores the values of the external vars.
     """
 
@@ -1187,56 +1184,54 @@ class ReceiveIter(PlanIter):
         Make sure we receive (and cache) at least one result per partition
         (except from partitions that do not contain any results at all).
         """
-        while state.is_in_sort_phase1:
-            # Create and execute a request to get at least one result from the
-            # partition whose id is specified in continuation_key and from any
-            # other partition that is co-located with that partition.
-            req = rcb.get_request().copy_internal()
-            req.set_cont_key(state.continuation_key)
-            if rcb.get_trace_level() >= 1:
-                rcb.trace('ReceiveIter : executing remote request for ' +
-                          'sorting phase 1.')
-            result = rcb.get_client().execute(req)
-            num_pids = result.get_num_pids()
-            results = result.get_results_internal()
-            state.is_in_sort_phase1 = result.is_in_phase1()
-            state.continuation_key = result.get_continuation_key()
-            rcb.tally_read_kb(result.get_read_kb())
-            rcb.tally_read_units(result.get_read_units())
-            rcb.tally_write_kb(result.get_write_kb())
-            if rcb.get_trace_level() >= 1:
-                rcb.trace('ReceiveIter._init_partition_sort() : got result\n' +
-                          'reached limit = ' + str(result.reached_limit()) +
-                          ' in phase 1 = ' + str(result.is_in_phase1()))
-            # For each partition P that was accessed during the execution of the
-            # above QueryRequest, collect the results for P and create a scanner
-            # that will be used during phase 2 to collect further results from P
-            # only.
-            for p in range(num_pids):
-                pid = result.get_pid(p)
-                num_results = result.get_num_partition_results(p)
-                cont_key = result.get_partition_cont_key(p)
-                assert num_results > 0
-                partition_results = list()
-                for i in range(num_results):
-                    res = results[p * num_results + i]
-                    partition_results.append(res)
-                    if rcb.get_trace_level() >= 1:
-                        rcb.trace('Added result for partition ' + str(pid) +
-                                  ':\n' + str(res))
-                scanner = ReceiveIter.RemoteScanner(
-                    self, rcb, state, False, pid)
-                scanner.add_results(partition_results, cont_key)
-                ReceiveIter.add_scanner(state.sorted_scanners, scanner)
-            if rcb.get_trace_level() >= 1:
-                rcb.trace(
-                    'ReceiveIter._init_partition_sort() : ' +
-                    'memory consumption =  ' + str(state.memory_consumption))
-            if result.reached_limit():
-                break
-        # For simplicity, if the size limit was not reached during the last
-        # batch of sort phase 1, we don't start a phase 2 batch. We let the app
-        # do it.
+        assert state.is_in_sort_phase1
+        # Create and execute a request to get at least one result from the
+        # partition whose id is specified in continuation_key and from any other
+        # partition that is co-located with that partition.
+        req = rcb.get_request().copy_internal()
+        req.set_cont_key(state.continuation_key)
+        if rcb.get_trace_level() >= 1:
+            rcb.trace('ReceiveIter : executing remote request for sorting ' +
+                      'phase 1.')
+        result = rcb.get_client().execute(req)
+        num_pids = result.get_num_pids()
+        results = result.get_results_internal()
+        state.is_in_sort_phase1 = result.is_in_phase1()
+        state.continuation_key = result.get_continuation_key()
+        rcb.tally_read_kb(result.get_read_kb())
+        rcb.tally_read_units(result.get_read_units())
+        rcb.tally_write_kb(result.get_write_kb())
+        if rcb.get_trace_level() >= 1:
+            rcb.trace('ReceiveIter._init_partition_sort() : got result\n' +
+                      'reached limit = ' + str(result.reached_limit()) +
+                      ' in phase 1 = ' + str(result.is_in_phase1()))
+        # For each partition P that was accessed during the execution of the
+        # above QueryRequest, collect the results for P and create a scanner
+        # that will be used during phase 2 to collect further results from P
+        # only.
+        for p in range(num_pids):
+            pid = result.get_pid(p)
+            num_results = result.get_num_partition_results(p)
+            cont_key = result.get_partition_cont_key(p)
+            assert num_results > 0
+            partition_results = list()
+            for i in range(num_results):
+                res = results[p * num_results + i]
+                partition_results.append(res)
+                if rcb.get_trace_level() >= 1:
+                    rcb.trace('Added result for partition ' + str(pid) + ':\n' +
+                              str(res))
+            scanner = ReceiveIter.RemoteScanner(self, rcb, state, False, pid)
+            scanner.add_results(partition_results, cont_key)
+            ReceiveIter.add_scanner(state.sorted_scanners, scanner)
+        if rcb.get_trace_level() >= 1:
+            rcb.trace('ReceiveIter._init_partition_sort() : ' +
+                      'memory consumption =  ' + str(state.memory_consumption))
+        # For simplicity, if the size limit was not reached during this batch of
+        # sort phase 1, we don't start a new batch. We let the app do it.
+        # Furthermore, this means that each remote fetch will be done with the
+        # max amount of read limit, which will reduce the total number of
+        # fetches.
         rcb.set_reached_limit(True)
 
     def _simple_next(self, rcb, state):
@@ -1926,7 +1921,7 @@ class SortIter(PlanIter):
                 more = self._input.next(rcb)
             if rcb.reached_limit():
                 return False
-            state.set_state(PlanIterState.StateEnum.RUNNING)
+            state.set_state(PlanIterState.STATE.RUNNING)
         if state.curr_result < len(state.results):
             rcb.set_reg_val(self.result_reg, state.results[state.curr_result])
             state.curr_result += 1
@@ -2132,6 +2127,11 @@ class Compare(object):
 
 
 class QueryDriver(object):
+    """
+    Drives the execution of "advanced" queries at the driver and contains all
+    the dynamic state needed for this execution. The state is preserved across
+    the query requests submitted by the application (i.e., across batches).
+    """
     QUERY_V2 = 2
     QUERY_VERSION = QUERY_V2
     BATCH_SIZE = 100

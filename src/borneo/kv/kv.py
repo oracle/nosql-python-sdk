@@ -8,7 +8,8 @@
 #
 
 from base64 import b64encode
-from requests import Session, codes
+from json import loads
+from requests import ConnectionError, Session, codes
 from threading import Lock, Timer
 from time import time
 from traceback import format_exc
@@ -19,7 +20,7 @@ except ImportError:
 
 import borneo.http
 from borneo.auth import AuthorizationProvider
-from borneo.common import ByteInputStream, CheckValue, LogUtils
+from borneo.common import CheckValue, LogUtils
 from borneo.config import NoSQLHandleConfig
 from borneo.exception import (
     IllegalArgumentException, InvalidAuthorizationException, NoSQLException)
@@ -28,6 +29,8 @@ from borneo.operations import Request
 
 class StoreAccessTokenProvider(AuthorizationProvider):
     """
+    On-premise only.
+
     StoreAccessTokenProvider is an :py:class:`borneo.AuthorizationProvider` that
     performs the following functions:
 
@@ -36,30 +39,25 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         Optionally renews the login token before it expires.\n
         Logs out of the store when closed.
 
+    If accessing an insecure instance of Oracle NoSQL Database the default
+    constructor is used, with no arguments.
+
+    If accessing a secure instance of Oracle NoSQL Database a user name and
+    password must be provided. That user must already exist in the NoSQL
+    Database and have sufficient permission to perform table operations. That
+    user's identity is used to authorize all database operations.
+
     To access to a store without security enabled, no parameter need to be set
     to the constructor.
 
-    To access to a secure store, the constructor requires an endpoint string
-    which is used to locate the entity responsible for proving the required
-    access token. This is usually the same as the server used to access the
-    proxy service. Endpoints must include the target address, and may include
-    protocol and port. The valid syntax is [http[s]://]host[:port].
+    To access to a secure store, the constructor requires a valid user name and
+    password to access the target store. The user must exist and have sufficient
+    permission to perform table operations required by the application. The user
+    identity is used to authorize all operations performed by the application.
 
-    For example, these are valid endpoint arguments:
-
-        localhost\n
-        https\://localhost\n
-        https\://localhost:443
-
-    If protocol is omitted, the endpoint uses https in all cases except for the
-    port is 8080. So please don't use 8080 as security proxy port. If protocol
-    is provided, it must be https.\n
-    If port is omitted, the endpoint defaults to 443.
-
-    Apart from endpoint, user_name and password are also required parameters.
-
-    :param endpoint: the endpoint string to use for the login operation.
-    :param user_name: the user name to use for the store.
+    :param user_name: the user name to use for the store. This user must exist
+        in the NoSQL Database and is the identity that is used for authorizing
+        all database operations.
     :param password: the password for the user.
     :raises IllegalArgumentException: raises the exception if one or more of the
         parameters is malformed or a required parameter is missing.
@@ -77,13 +75,17 @@ class StoreAccessTokenProvider(AuthorizationProvider):
     # Default timeout when sending http request to server
     _HTTP_TIMEOUT_MS = 30000
 
-    def __init__(self, endpoint=None, user_name=None, password=None):
+    def __init__(self, user_name=None, password=None):
+        self._endpoint = None
+        self._url = None
         self._auth_string = None
         self._auto_renew = True
         self._disable_ssl_hook = False
         self._is_closed = False
         # The base path for security related services.
         self._base_path = '/V0/nosql/security'
+        # The login token expiration time.
+        self._expiration_time = 0
         self._logger = None
         self._logutils = LogUtils(self._logger)
         self._sess = Session()
@@ -92,21 +94,15 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         self._lock = Lock()
         self._timer = None
 
-        if endpoint is None and user_name is None and password is None:
+        if user_name is None and password is None:
             # Used to access to a store without security enabled.
             self._is_secure = False
         else:
-            if endpoint is None or user_name is None or password is None:
+            if user_name is None or password is None:
                 raise IllegalArgumentException('Invalid input arguments.')
-            CheckValue.check_str(endpoint, 'endpoint')
             CheckValue.check_str(user_name, 'user_name')
             CheckValue.check_str(password, 'password')
             self._is_secure = True
-            # The url to reach the authenticating entity (proxy).
-            self._url = NoSQLHandleConfig.create_url(endpoint, '')
-            if self._url.scheme.lower() != 'https':
-                raise IllegalArgumentException(
-                    'StoreAccessTokenProvider requires use of https')
             self._user_name = user_name
             self._password = password
 
@@ -133,15 +129,15 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             if self._is_closed:
                 return
             # Generate the authentication string using login token.
-            self._auth_string = (
-                StoreAccessTokenProvider._BEARER_PREFIX + content)
+            self._auth_string = (StoreAccessTokenProvider._BEARER_PREFIX +
+                                 self._parse_json_result(content))
             # Schedule login token renew thread.
             self._schedule_refresh()
-        except InvalidAuthorizationException as iae:
-            print(format_exc())
-            raise iae
+        except (ConnectionError, InvalidAuthorizationException) as e:
+            self._logutils.log_debug(format_exc())
+            raise e
         except Exception as e:
-            print(format_exc())
+            self._logutils.log_debug(format_exc())
             raise NoSQLException('Bootstrap login fail.', e)
 
     def close(self):
@@ -166,6 +162,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         # Clean up.
         self._is_closed = True
         self._auth_string = None
+        self._expiration_time = 0
         self._password = None
         if self._timer is not None:
             self._timer.cancel()
@@ -219,6 +216,33 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         """
         return self._auto_renew
 
+    def set_endpoint(self, endpoint):
+        """
+        Sets the endpoint of the on-prem proxy.
+
+        :param endpoint: the endpoint.
+        :type endpoint: str
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if endpoint is
+            not a string.
+        """
+        CheckValue.check_str(endpoint, 'endpoint')
+        self._endpoint = endpoint
+        self._url = NoSQLHandleConfig.create_url(endpoint, '')
+        if self._is_secure and self._url.scheme.lower() != 'https':
+            raise IllegalArgumentException(
+                'StoreAccessTokenProvider requires use of https.')
+        return self
+
+    def get_endpoint(self):
+        """
+        Returns the endpoint of the on-prem proxy.
+
+        :return: the endpoint.
+        :rtype: str
+        """
+        return self._endpoint
+
     def set_logger(self, logger):
         CheckValue.check_logger(logger, 'logger')
         self._logger = logger
@@ -239,18 +263,13 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             raise IllegalArgumentException(
                 'Secured StoreAccessProvider requires a non-none string.')
 
-    def _get_expiration_time_from_token(self):
-        # Retrieve login token from authentication string.
-        if self._auth_string is None:
-            return -1
-        token = self._auth_string[
-            len(StoreAccessTokenProvider._BEARER_PREFIX):]
-        buf = bytearray.fromhex(token)
-        bis = ByteInputStream(buf)
-        # Read serial version first.
-        bis.read_short_int()
-        expire_at = bis.read_long()
-        return expire_at
+    def _parse_json_result(self, json_result):
+        # Retrieve login token from JSON string.
+        result = loads(json_result)
+        # Extract expiration time from JSON result.
+        self._expiration_time = result['expireAt']
+        # Extract login token from JSON result.
+        return result['token']
 
     def _refresh_task(self):
         """
@@ -264,15 +283,15 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             old_auth = self._auth_string
             response = self._send_request(
                 old_auth, StoreAccessTokenProvider._RENEW_SERVICE)
-            content = response.get_content()
+            token = self._parse_json_result(response.get_content())
             if response.get_status_code() != codes.ok:
-                raise InvalidAuthorizationException(content)
+                raise InvalidAuthorizationException(token)
             if self._is_closed:
                 return
             with self._lock:
                 if self._auth_string == old_auth:
                     self._auth_string = (
-                        StoreAccessTokenProvider._BEARER_PREFIX + content)
+                        StoreAccessTokenProvider._BEARER_PREFIX + token)
             self._schedule_refresh()
         except Exception as e:
             self._logutils.log_info('Failed to renew login token: ' + str(e))
@@ -290,13 +309,13 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self._timer.cancel()
             self._timer = None
         acquire_time = int(round(time() * 1000))
-        expire_time = self._get_expiration_time_from_token()
-        if expire_time < 0:
+        if self._expiration_time <= 0:
             return
         # If it is 10 seconds before expiration, don't do further renew to avoid
         # to many renew request in the last few seconds.
-        if expire_time > acquire_time + 10000:
-            renew_time = acquire_time + (expire_time - acquire_time) // 2
+        if self._expiration_time > acquire_time + 10000:
+            renew_time = (
+                acquire_time + (self._expiration_time - acquire_time) // 2)
             self._timer = Timer(
                 (renew_time - acquire_time) // 1000, self._refresh_task)
             self._timer.start()

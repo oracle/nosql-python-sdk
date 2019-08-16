@@ -7,17 +7,21 @@
 # appropriate download for a copy of the license and additional information.
 #
 
+from json import loads
 from logging import FileHandler, WARNING, getLogger
 from os import mkdir, path, sep
 from sys import argv
 
 from .client import Client
+from .common import UserInfo
 from .config import NoSQLHandleConfig
 from .exception import IllegalArgumentException, IllegalStateException
+from .kv import StoreAccessTokenProvider
 from .operations import (
     DeleteRequest, GetIndexesRequest, GetRequest, GetTableRequest,
     ListTablesRequest, MultiDeleteRequest, PrepareRequest, PutRequest,
-    QueryRequest, TableRequest, TableUsageRequest, WriteMultipleRequest)
+    QueryRequest, SystemRequest, SystemStatusRequest, TableRequest,
+    TableUsageRequest, WriteMultipleRequest)
 
 
 class NoSQLHandle(object):
@@ -26,6 +30,13 @@ class NoSQLHandle(object):
     create a connection represented by NoSQLHandle, request an instance using
     :py:class:`NoSQLHandleConfig`, which allows an application to specify
     default values and other configuration information to be used by the handle.
+
+    The same interface is available to both users of the Oracle NoSQL Database
+    Cloud Service and the on-premise Oracle NoSQL Database; however, some
+    methods and/or parameters are specific to each environment. The
+    documentation has notes about whether a class, method, or parameter is
+    environment-specific. Unless otherwise noted they are applicable to both
+    environments.
 
     A handle has memory and network resources associated with it. Consequently,
     the :py:meth:`close` method must be invoked to free up the resources when
@@ -83,7 +94,7 @@ class NoSQLHandle(object):
             raise IllegalArgumentException(
                 'config must be an instance of NoSQLHandleConfig.')
         logger = self._get_logger(config)
-        self._config_auth_provider_logging(config, logger)
+        self._config_auth_provider(config, logger)
         self._client = Client(config, logger)
 
     def delete(self, request):
@@ -164,9 +175,11 @@ class NoSQLHandle(object):
 
     def get_table(self, request):
         """
-        Gets static information about the specified table including its
+        Gets static information about the specified table including its state,
         provisioned throughput and capacity and schema. Dynamic information such
-        as usage is obtained using :py:meth:`get_table_usage`.
+        as usage is obtained using :py:meth:`get_table_usage`. Throughput,
+        capacity and usage information is only available when using the Cloud
+        Service and will be None or not defined on-premise.
 
         :param request: the input parameters for the operation.
         :returns: the result of the operation.
@@ -184,6 +197,8 @@ class NoSQLHandle(object):
 
     def get_table_usage(self, request):
         """
+        Cloud service only.
+
         Gets dynamic information about the specified table such as the current
         throughput usage. Usage information is collected in time slices and
         returned in individual usage records. It is possible to specify a
@@ -322,9 +337,10 @@ class NoSQLHandle(object):
         Queries that include a full shard key will execute much more efficiently
         than more distributed queries that must go to multiple shards.
 
-        DDL-style queries such as "CREATE TABLE ..." or "DROP TABLE .." are not
-        supported by this interfaces. Those operations must be performed using
-        :py:meth:`table_request`.
+        Table and system-style queries such as "CREATE TABLE ..." or "DROP TABLE
+        ..." are not supported by this interfaces. Those operations must be
+        performed using :py:meth:`table_request` or :py:meth:`system_request` as
+        appropriate.
 
         The amount of data read by a single query request is limited by a system
         default and can be further limited using
@@ -351,10 +367,60 @@ class NoSQLHandle(object):
                 'The parameter should be an instance of QueryRequest.')
         return self._execute(request)
 
+    def system_request(self, request):
+        """
+        On-premise only.
+
+        Performs a system operation on the system, such as administrative
+        operations that don't affect a specific table. For table-specific
+        operations use :py:meth:`table_request` or :py:meth:`do_table_request`.
+
+        Examples of statements in the :py:class:`SystemRequest` passed to this
+        method include:
+
+            CREATE NAMESPACE mynamespace\n
+            CREATE USER some_user IDENTIFIED BY password\n
+            CREATE ROLE some_role\n
+            GRANT ROLE some_role TO USER some_user
+
+        This operation is implicitly asynchronous. The caller must poll using
+        methods on :py:class:`SystemResult` to determine when it has completed.
+
+        :param request: the input parameters for the operation.
+        :returns: the result of the operation.
+        :raises IllegalArgumentException: raises the exception if request is not
+            an instance of :py:class:`SystemRequest`.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        if not isinstance(request, SystemRequest):
+            raise IllegalArgumentException(
+                'The parameter should be an instance of SystemRequest.')
+        return self._execute(request)
+
+    def system_status(self, request):
+        """
+        On-premise only.
+
+        Checks the status of an operation previously performed using
+        :py:meth:`system_request`.
+
+        :param request: the input parameters for the operation.
+        :returns: the result of the operation.
+        :raises IllegalArgumentException: raises the exception if request is not
+            an instance of :py:class:`SystemStatusRequest`.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        if not isinstance(request, SystemStatusRequest):
+            raise IllegalArgumentException(
+                'The parameter should be an instance of SystemStatusRequest.')
+        return self._execute(request)
+
     def table_request(self, request):
         """
-        Performs a DDL operation on a table. This method is used for creating
-        and dropping tables and indexes as well as altering tables. Only one
+        Performs an operation on a table. This method is used for creating and
+        dropping tables and indexes as well as altering tables. Only one
         operation is allowed on a table at any one time.
 
         This operation is implicitly asynchronous. The caller must poll using
@@ -408,10 +474,137 @@ class NoSQLHandle(object):
             self._client.shut_down()
             self._client = None
 
-    def _config_auth_provider_logging(self, config, logger):
+    def do_system_request(self, statement, timeout_ms=30000,
+                          poll_interval_ms=1000):
+        """
+        On-premise only.
+
+        A convenience method that performs a SystemRequest and waits for
+        completion of the operation. This is the same as calling
+        :py:meth:`system_request` then calling
+        :py:meth:`SystemResult.wait_for_completion`. If the operation fails an
+        exception is thrown.
+
+        System requests are those related to namespaces and security and are
+        generally independent of specific tables. Examples of statements include
+
+            CREATE NAMESPACE mynamespace\n
+            CREATE USER some_user IDENTIFIED BY password\n
+            CREATE ROLE some_role\n
+            GRANT ROLE some_role TO USER some_user
+
+        :param statement: the system statement for the operation.
+        :param timeout_ms: the amount of time to wait for completion, in
+            milliseconds.
+        :param poll_interval_ms: the polling interval for the wait operation.
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        dreq = SystemRequest().set_statement(statement)
+        dres = self.system_request(dreq)
+        dres.wait_for_completion(self, timeout_ms, poll_interval_ms)
+        return dres
+
+    def do_table_request(self, request, timeout_ms, poll_interval_ms):
+        """
+        A convenience method that performs a TableRequest and waits for
+        completion of the operation. This is the same as calling
+        :py:meth:`table_request` then calling
+        :py:meth:`TableResult.wait_for_completion`. If the operation fails an
+        exception is thrown. All parameters are required.
+
+        :param request: the :py:class:`TableRequest` to perform.
+        :param timeout_ms: the amount of time to wait for completion, in
+            milliseconds.
+        :param poll_interval_ms: the polling interval for the wait operation.
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        res = self.table_request(request)
+        res.wait_for_completion(self, timeout_ms, poll_interval_ms)
+        return res
+
+    def list_namespaces(self):
+        """
+        On-premise only.
+
+        Returns the namespaces in a store as a list of string.
+
+        :returns: the namespaces, or None if none are found.
+        """
+        dres = self.do_system_request('show as json namespaces')
+        json_res = dres.get_result_string()
+        if json_res is None:
+            return None
+        root = loads(json_res)
+        namespaces = root.get('namespaces')
+        if namespaces is None:
+            return None
+        results = list()
+        for namespace in namespaces:
+            results.append(namespace)
+        return results
+
+    def list_roles(self):
+        """
+        On-premise only.
+
+        Returns the roles in a store as a list of string.
+
+        :returns: the list of roles, or None if none are found.
+        """
+        dres = self.do_system_request('show as json roles')
+        json_res = dres.get_result_string()
+        if json_res is None:
+            return None
+        root = loads(json_res)
+        roles = root.get('roles')
+        if roles is None:
+            return None
+        results = list()
+        for role in roles:
+            results.append(role['name'])
+        return results
+
+    def list_users(self):
+        """
+        On-premise only.
+
+        Returns the users in a store as a list of :py:class:`UserInfo`.
+
+        :returns: the list of users, or None if none are found,
+        """
+        dres = self.do_system_request('show as json users')
+        json_res = dres.get_result_string()
+        if json_res is None:
+            return None
+        root = loads(json_res)
+        users = root.get('users')
+        if users is None:
+            return None
+        results = list()
+        for user in users:
+            results.append(UserInfo(user['id'], user['name']))
+        return results
+
+    def _config_auth_provider(self, config, logger):
         provider = config.get_authorization_provider()
         if provider.get_logger() is None:
             provider.set_logger(logger)
+        if (isinstance(provider, StoreAccessTokenProvider) and
+                provider.is_secure() and provider.get_endpoint() is None):
+            endpoint = config.get_service_url().geturl()
+            if endpoint.endswith('/'):
+                endpoint = endpoint[:len(endpoint) - 1]
+            provider.set_endpoint(endpoint)
 
     def _execute(self, request):
         # Ensure that the client exists and hasn't been closed.

@@ -10,7 +10,7 @@
 import unittest
 
 from borneo import (
-    GetIndexesRequest, IllegalArgumentException, IndexNotFoundException, State,
+    GetIndexesRequest, IllegalArgumentException, IndexNotFoundException,
     TableLimits, TableNotFoundException, TableRequest)
 from parameters import index_name, table_name, timeout
 from test_base import TestBase
@@ -42,7 +42,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
             limits = TableLimits(5000, 5000, 50)
             create_request = TableRequest().set_statement(
                 create_statement).set_table_limits(limits)
-            cls.table_request(create_request, State.ACTIVE)
+            cls.table_request(create_request)
 
             index_names.append(list())
             for index in range(table + num_indexes):
@@ -53,7 +53,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                     '(' + ','.join(index_fields[index]) + ')')
                 create_index_request = TableRequest().set_statement(
                     create_index_statement)
-                cls.table_request(create_index_request, State.ACTIVE)
+                cls.table_request(create_index_request)
 
     @classmethod
     def tearDownClass(cls):
@@ -110,24 +110,23 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         for table in range(len(table_names)):
             self.get_indexes_request.set_table_name(table_names[table])
             result = self.handle.get_indexes(self.get_indexes_request)
-            indexes = result.get_indexes()
-            self.assertEqual(len(indexes), table + num_indexes)
-            for index in range(len(indexes)):
-                self.assertEqual(indexes[index].get_index_name(),
-                                 index_names[table][index])
-                self.assertEqual(indexes[index].get_field_names(),
-                                 index_fields[index])
+            self._check_get_index_result(result, table, table + num_indexes)
 
     def testGetIndexesWithIndexName(self):
         for table in range(len(table_names)):
             self.get_indexes_request.set_table_name(
                 table_names[table]).set_index_name(index_names[table][0])
             result = self.handle.get_indexes(self.get_indexes_request)
-            indexes = result.get_indexes()
-            self.assertEqual(len(indexes), 1)
-            self.assertEqual(indexes[0].get_index_name(),
-                             index_names[table][0])
-            self.assertEqual(indexes[0].get_field_names(), index_fields[0])
+            self._check_get_index_result(result, table, 1)
+
+    def _check_get_index_result(self, result, table, num_idxes):
+        indexes = result.get_indexes()
+        self.assertEqual(len(indexes), num_idxes)
+        for index in range(len(indexes)):
+            self.assertEqual(indexes[index].get_index_name(),
+                             index_names[table][index])
+            self.assertEqual(indexes[index].get_field_names(),
+                             index_fields[index])
 
 
 if __name__ == '__main__':

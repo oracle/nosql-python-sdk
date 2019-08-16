@@ -167,6 +167,11 @@ class CheckValue(object):
             raise IllegalArgumentException(name + ' must be a list.')
 
     @staticmethod
+    def check_logger(data, name):
+        if not isinstance(data, Logger):
+            raise IllegalArgumentException(name + ' must be a Logger.')
+
+    @staticmethod
     def check_not_none(data, name):
         if data is None:
             raise IllegalArgumentException(name + ' must be not-none.')
@@ -174,12 +179,8 @@ class CheckValue(object):
     @staticmethod
     def check_str(data, name):
         if not CheckValue.is_str(data) or len(data) == 0:
-            raise IllegalArgumentException(name + ' must be a string type.')
-
-    @staticmethod
-    def check_logger(data, name):
-        if not isinstance(data, Logger):
-            raise IllegalArgumentException(name + ' must be a Logger.')
+            raise IllegalArgumentException(
+                name + ' must be a string that is not empty.')
 
     @staticmethod
     def is_int(data):
@@ -210,6 +211,21 @@ class Consistency(object):
     Set Consistency.EVENTUAL to use eventual consistency for read requests.
     This is the default value for operations.
     """
+
+
+class SystemState(object):
+    """
+    On-premise only.
+
+    The current state of the system request.
+    """
+    COMPLETE = 'COMPLETE'
+    """
+    The operation is complete and was successful. Failures are thrown as
+    exceptions.
+    """
+    WORKING = 'WORKING'
+    """The operation is in progress."""
 
 
 class FieldRange(object):
@@ -1191,6 +1207,8 @@ class State(object):
 
 class TableLimits(object):
     """
+    Cloud service only.
+
     A TableLimits instance is used during table creation to specify the
     throughput and capacity to be consumed by the table. It is also used in an
     operation to change the limits of an existing table.
@@ -1554,6 +1572,42 @@ class TimeToLive(object):
 
     def unit_is_hours(self):
         return self._timeunit == TimeUnit.HOURS
+
+
+class UserInfo(object):
+    """
+    On-premise only.
+
+    A class that encapsulates the information associated with a user including
+    the user id and name in the system.
+    """
+
+    def __init__(self, user_id, user_name):
+        """
+        Constructs an instance of UserInfo as result returned by
+        :py:meth:`NoSQLHandle.list_users`.
+        """
+        self._user_id = user_id
+        self._user_name = user_name
+
+    def __str__(self):
+        return 'id: ' + self._user_id + ', name: ' + self._user_name
+
+    def get_id(self):
+        """
+        Returns the id associated with the user.
+
+        :returns: the user id string.
+        """
+        return self._user_id
+
+    def get_name(self):
+        """
+        Returns the name associated with the user.
+
+        :returns: the user name string.
+        """
+        return self._user_name
 
 
 class Version(object):

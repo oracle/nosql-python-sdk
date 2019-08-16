@@ -23,6 +23,20 @@ from borneo import Consistency
 # started on the endpoint, localhost:8080, which is its default. If not, the
 # parameters in this file should be changed as needed.
 #
+# To run against the on-prem proxy, you need to start the kvstore and proxy
+# first. Then change the following parameters if you use non-security store.
+#
+#              endpoint = 'your_on_prem_proxy_endpoint'
+#              is_cloudsim = False
+#              is_onprem = True
+#
+# Change additional parameters below if your on-prem proxy is running against a
+# security store.
+#
+#              user_name = 'your_store_user_name'
+#              password = 'your_store_user_password'
+#              security = True
+#
 
 # A test tenant_id, only used for the Cloud Simulator.
 tenant_id = 'test_tenant'
@@ -34,9 +48,10 @@ table_prefix = 'pytest'
 table_name = table_prefix + 'Users'
 # The index name to use.
 index_name = 'idx'
-# The endpoint to use to connect to the service. This endpoint is for a
-# Cloud Simulator running on its default port (8080) on the local machine.
-# Unit tests are generally run against the Cloud Simulator.
+# The endpoint to use to connect to the service. This endpoint is for a Cloud
+# Simulator running on its default port (8080) on the local machine, or a
+# on-prem proxy started by the customer. Unit tests can be run against both the
+# Cloud Simulator and on-prem proxy.
 endpoint = 'localhost:8080'
 # User name for on-prem proxy, for non-secure store, use the default None.
 user_name = None
@@ -92,3 +107,11 @@ def is_pod():
 
 def not_cloudsim():
     return not is_cloudsim()
+
+
+def security():
+    return False
+
+
+def test_advanced_query():
+    return True

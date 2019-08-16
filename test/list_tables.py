@@ -11,8 +11,7 @@ import unittest
 from time import sleep
 
 from borneo import (
-    IllegalArgumentException, ListTablesRequest, State, TableLimits,
-    TableRequest)
+    IllegalArgumentException, ListTablesRequest, TableLimits, TableRequest)
 from parameters import (
     is_pod, not_cloudsim, table_name, table_prefix, tenant_id, timeout,
     wait_timeout)
@@ -50,9 +49,8 @@ class TestListTables(unittest.TestCase):
                     sleep(60)
                 drop_request = TableRequest().set_statement(
                     'DROP TABLE IF EXISTS ' + tb_name)
-                result = cls.handles[handle].table_request(drop_request)
-                result.wait_for_state(cls.handles[handle], tb_name,
-                                      State.DROPPED, wait_timeout, 1000)
+                cls.handles[handle].do_table_request(
+                    drop_request, wait_timeout, 1000)
                 create_statement = (
                     'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
@@ -63,9 +61,8 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 limits = TableLimits(5000, 5000, 50)
                 create_request = TableRequest().set_statement(
                     create_statement).set_table_limits(limits)
-                result = cls.handles[handle].table_request(create_request)
-                result.wait_for_state(cls.handles[handle], tb_name,
-                                      State.ACTIVE, wait_timeout, 1000)
+                cls.handles[handle].do_table_request(
+                    create_request, wait_timeout, 1000)
 
     @classmethod
     def tearDownClass(cls):
@@ -77,9 +74,8 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                     if table.startswith(table_prefix):
                         drop_request = TableRequest().set_statement(
                             'DROP TABLE IF EXISTS ' + table)
-                        result = handle.table_request(drop_request)
-                        result.wait_for_state(handle, table, State.DROPPED,
-                                              wait_timeout, 1000)
+                        handle.do_table_request(
+                            drop_request, wait_timeout, 1000)
             finally:
                 handle.close()
                 delete_tenant(tenant_id + str(handle))
@@ -118,10 +114,16 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
         self.assertRaises(IllegalArgumentException,
                           self.list_tables_request.set_start_index, -1)
 
+    def testListTablesSetIllegalNamespace(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.list_tables_request.set_namespace, {})
+
     def testListTablesGets(self):
-        self.list_tables_request.set_limit(5)
+        namespace = 'pyNamespace'
+        self.list_tables_request.set_limit(5).set_namespace(namespace)
         self.assertEqual(self.list_tables_request.get_start_index(), 0)
         self.assertEqual(self.list_tables_request.get_limit(), 5)
+        self.assertEqual(self.list_tables_request.get_namespace(), namespace)
 
     def testListTablesIllegalRequest(self):
         for handle in range(self.num_handles):
@@ -131,25 +133,13 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def testListTablesNormal(self):
         last_returned_index = [3, 4]
-        for handle in range(self.num_handles):
-            result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), table_names[handle])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+        self._check_list_tables_result(table_names, last_returned_index)
 
     def testListTablesWithStartIndex(self):
         last_returned_index = [3, 4]
         # set a start index larger than the number of tables
         self.list_tables_request.set_start_index(5)
-        for handle in range(self.num_handles):
-            result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), [])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+        self._check_list_tables_result([[], []], last_returned_index)
         # set start_index = 1
         part_table_names = [[make_table_name('Users1'),
                              make_table_name('Users2')],
@@ -157,29 +147,25 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                              make_table_name('Users2'),
                              make_table_name('Users3')]]
         self.list_tables_request.set_start_index(1)
-        for handle in range(self.num_handles):
-            result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), part_table_names[handle])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+        self._check_list_tables_result(part_table_names, last_returned_index)
 
     def testListTablesWithLimit(self):
         # set limit = 2
-        last_returned_index = 2
+        last_returned_index = [2, 2]
         part_table_names = [[make_table_name('Users0'),
                              make_table_name('Users1')],
                             [make_table_name('Users0'),
                              make_table_name('Users1')]]
         self.list_tables_request.set_limit(2)
+        self._check_list_tables_result(part_table_names, last_returned_index)
+
+    def _check_list_tables_result(self, names, last_returned_index):
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
             if not not_cloudsim():
-                self.assertEqual(result.get_tables(), part_table_names[handle])
+                self.assertEqual(result.get_tables(), names[handle])
                 self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index)
+                                 last_returned_index[handle])
 
 
 if __name__ == '__main__':

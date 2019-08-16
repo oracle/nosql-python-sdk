@@ -47,8 +47,8 @@
 import traceback
 
 from borneo import (
-    MultiDeleteRequest, PrepareRequest, PutRequest, QueryRequest, State,
-    TableLimits, TableRequest, WriteMultipleRequest)
+    MultiDeleteRequest, PrepareRequest, PutRequest, QueryRequest,  TableLimits,
+    TableRequest, WriteMultipleRequest)
 
 from parameters import drop_table, table_name, tenant_id
 from utils import get_handle
@@ -71,13 +71,7 @@ sid integer, name string, primary key(shard(sid), id))'
         print('Creating table: ' + statement)
         request = TableRequest().set_statement(statement).set_table_limits(
             TableLimits(30, 10, 1))
-        result = handle.table_request(request)
-
-        #
-        # Table creation can take time, depending on the state of the system.
-        # If if fails after 40s, re-run the program
-        #
-        result.wait_for_state(handle, table_name, State.ACTIVE, 50000, 3000)
+        handle.do_table_request(request, 50000, 3000)
         print('After create table')
 
         #
@@ -147,8 +141,7 @@ sid integer, name string, primary key(shard(sid), id))'
             # Table drop can take time, depending on the state of the system.
             # If this wait fails the table will still probably been dropped
             #
-            result.wait_for_state(handle, table_name, State.DROPPED, 40000,
-                                  2000)
+            result.wait_for_completion(handle, 40000, 2000)
             print('After drop table')
         else:
             print('Not dropping table')

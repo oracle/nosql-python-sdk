@@ -11,25 +11,28 @@ from . import idcs
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
-    Consistency, FieldRange, PutOption, State, TableLimits, TimeToLive,
-    TimeUnit, Version, IndexInfo, PreparedStatement)
+    Consistency, FieldRange, PutOption, State, SystemState, TableLimits,
+    TimeToLive, TimeUnit, UserInfo, Version, IndexInfo, PreparedStatement)
 from .config import DefaultRetryHandler, NoSQLHandleConfig, RetryHandler
 from .driver import NoSQLHandle
 from .exception import (
     AuthenticationException, BatchOperationNumberLimitException,
     IllegalArgumentException, IllegalStateException, IndexExistsException,
     IndexNotFoundException, InvalidAuthorizationException, NoSQLException,
-    OperationThrottlingException, ReadThrottlingException,
-    RequestTimeoutException, RetryableException, SecurityInfoNotReadyException,
-    SystemException, TableBusyException, TableExistsException,
-    TableNotFoundException, ThrottlingException, WriteThrottlingException)
+    OperationNotSupportedException, OperationThrottlingException,
+    ReadThrottlingException, RequestTimeoutException, ResourceExistsException,
+    ResourceNotFoundException, RetryableException,
+    SecurityInfoNotReadyException, SystemException, TableBusyException,
+    TableExistsException, TableNotFoundException, ThrottlingException,
+    WriteThrottlingException)
 from .operations import (
     DeleteRequest, DeleteResult, GetIndexesRequest, GetIndexesResult,
     GetRequest, GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
     MultiDeleteRequest, MultiDeleteResult, PrepareRequest, PrepareResult,
     PutRequest, PutResult, QueryRequest, QueryResult, Request, Result,
-    TableRequest, TableResult, TableUsageRequest, TableUsageResult,
-    WriteMultipleRequest, WriteMultipleResult)
+    SystemRequest, SystemResult, SystemStatusRequest, TableRequest, TableResult,
+    TableUsageRequest, TableUsageResult, WriteMultipleRequest,
+    WriteMultipleResult)
 from .version import __version__
 
 __all__ = ['AuthenticationException',
@@ -58,6 +61,7 @@ __all__ = ['AuthenticationException',
            'NoSQLException',
            'NoSQLHandle',
            'NoSQLHandleConfig',
+           'OperationNotSupportedException',
            'OperationThrottlingException',
            'PreparedStatement',
            'PrepareRequest',
@@ -70,12 +74,18 @@ __all__ = ['AuthenticationException',
            'ReadThrottlingException',
            'Request',
            'RequestTimeoutException',
+           'ResourceExistsException',
+           'ResourceNotFoundException',
            'Result',
            'RetryHandler',
            'RetryableException',
            'SecurityInfoNotReadyException',
            'State',
            'SystemException',
+           'SystemRequest',
+           'SystemResult',
+           'SystemState',
+           'SystemStatusRequest',
            'TableBusyException',
            'TableExistsException',
            'TableLimits',
@@ -87,6 +97,7 @@ __all__ = ['AuthenticationException',
            'ThrottlingException',
            'TimeToLive',
            'TimeUnit',
+           'UserInfo',
            'Version',
            'WriteMultipleRequest',
            'WriteMultipleResult',

@@ -14,15 +14,15 @@ from time import mktime, sleep, time
 
 from .common import (
     CheckValue, Consistency, FieldRange, PreparedStatement, PutOption, State,
-    TableLimits, TimeToLive, Version)
+    SystemState, TableLimits, TimeToLive, Version)
 from .exception import (
-    BatchOperationNumberLimitException, IllegalArgumentException,
-    RequestTimeoutException, TableNotFoundException)
+    IllegalArgumentException, RequestTimeoutException, TableNotFoundException)
 from .serde import (
     BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
     GetRequestSerializer, GetTableRequestSerializer,
     ListTablesRequestSerializer, MultiDeleteRequestSerializer,
     PrepareRequestSerializer, PutRequestSerializer, QueryRequestSerializer,
+    SystemRequestSerializer, SystemStatusRequestSerializer,
     TableRequestSerializer, TableUsageRequestSerializer,
     WriteMultipleRequestSerializer)
 try:
@@ -335,9 +335,6 @@ class DeleteRequest(WriteRequest):
     def create_serializer(self):
         return DeleteRequestSerializer()
 
-    def create_deserializer(self):
-        return DeleteRequestSerializer(cls_result=DeleteResult)
-
 
 class GetIndexesRequest(Request):
     """
@@ -436,9 +433,6 @@ class GetIndexesRequest(Request):
 
     def create_serializer(self):
         return GetIndexesRequestSerializer()
-
-    def create_deserializer(self):
-        return GetIndexesRequestSerializer(GetIndexesResult)
 
 
 class GetRequest(ReadRequest):
@@ -569,9 +563,6 @@ class GetRequest(ReadRequest):
     def create_serializer(self):
         return GetRequestSerializer()
 
-    def create_deserializer(self):
-        return GetRequestSerializer(GetResult)
-
 
 class GetTableRequest(Request):
     """
@@ -624,7 +615,7 @@ class GetTableRequest(Request):
         table is returned.
 
         :param operation_id: the operation id. This is optional.
-        :type operation_id: int
+        :type operation_id: str
         :return: self.
         :raises IllegalArgumentException: raises the exception if operation_id
             is a negative number.
@@ -640,7 +631,7 @@ class GetTableRequest(Request):
         Returns the operation id to use for the request, None if not set.
 
         :return: the operation id.
-        :rtype: int
+        :rtype: str
         """
         return self._operation_id
 
@@ -681,9 +672,6 @@ class GetTableRequest(Request):
     def create_serializer(self):
         return GetTableRequestSerializer()
 
-    def create_deserializer(self):
-        return GetTableRequestSerializer(TableResult)
-
 
 class ListTablesRequest(Request):
     """
@@ -699,6 +687,7 @@ class ListTablesRequest(Request):
         super(ListTablesRequest, self).__init__()
         self._start_index = 0
         self._limit = 0
+        self._namespace = None
 
     def set_start_index(self, start_index):
         """
@@ -754,6 +743,35 @@ class ListTablesRequest(Request):
         """
         return self._limit
 
+    def set_namespace(self, namespace):
+        """
+        On-premise only.
+
+        Sets the namespace to use for the list. If not set, all tables
+        accessible to the user will be returned. If set, only tables in the
+        namespace provided are returned.
+
+        :param namespace: the namespace to use.
+        :type namespace: str
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        """
+        CheckValue.check_str(namespace, 'namespace')
+        self._namespace = namespace
+        return self
+
+    def get_namespace(self):
+        """
+        On-premise only.
+
+        Returns the namespace to use for the list or None if not set.
+
+        :return: the namespace.
+        :rtype: str
+        """
+        return self._namespace
+
     def set_timeout(self, timeout_ms):
         """
         Sets the request timeout value, in milliseconds. This overrides any
@@ -791,9 +809,6 @@ class ListTablesRequest(Request):
 
     def create_serializer(self):
         return ListTablesRequestSerializer()
-
-    def create_deserializer(self):
-        return ListTablesRequestSerializer(ListTablesResult)
 
 
 class MultiDeleteRequest(Request):
@@ -906,26 +921,16 @@ class MultiDeleteRequest(Request):
         """
         Sets the limit on the total KB write during this operation, 0 means no
         application-defined limit. This value can only reduce the system defined
-        limit. An attempt to increase the limit beyond the system defined limit
-        will cause IllegalArgumentException.
+        limit.
 
         :param max_write_kb: the limit in terms of number of KB write during
             this operation.
         :type max_write_kb: int
         :return: self.
         :raises IllegalArgumentException: raises the exception if the
-            max_write_kb value is less than 0 or beyond the system defined
-            limit.
+            max_write_kb value is less than 0.
         """
-        if not isinstance(max_write_kb, int):
-            raise IllegalArgumentException(
-                'set_max_write_kb requires integer as parameter.')
-        elif max_write_kb < 0:
-            raise IllegalArgumentException('max_write_kb must be >= 0')
-        elif max_write_kb > BinaryProtocol.WRITE_KB_LIMIT:
-            raise IllegalArgumentException(
-                'max_write_kb can not exceed ' +
-                str(BinaryProtocol.WRITE_KB_LIMIT))
+        CheckValue.check_int_ge_zero(max_write_kb, 'max_write_kb')
         self._max_write_kb = max_write_kb
         return self
 
@@ -1004,9 +1009,6 @@ class MultiDeleteRequest(Request):
 
     def create_serializer(self):
         return MultiDeleteRequestSerializer()
-
-    def create_deserializer(self):
-        return MultiDeleteRequestSerializer(MultiDeleteResult)
 
 
 class PrepareRequest(Request):
@@ -1109,9 +1111,6 @@ class PrepareRequest(Request):
 
     def create_serializer(self):
         return PrepareRequestSerializer()
-
-    def create_deserializer(self):
-        return PrepareRequestSerializer(PrepareResult)
 
 
 class PutRequest(WriteRequest):
@@ -1473,9 +1472,6 @@ class PutRequest(WriteRequest):
     def create_serializer(self):
         return PutRequestSerializer()
 
-    def create_deserializer(self):
-        return PutRequestSerializer(cls_result=PutResult)
-
 
 class QueryRequest(Request):
     """
@@ -1618,10 +1614,8 @@ class QueryRequest(Request):
     def set_max_read_kb(self, max_read_kb):
         """
         Sets the limit on the total data read during this operation, in KB.
-        This value can only reduce the system defined limit. An attempt to
-        increase the limit beyond the system defined limit will cause
-        IllegalArgumentException. This limit is independent of read units
-        consumed by the operation.
+        This value can only reduce the system defined limit. This limit is
+        independent of read units consumed by the operation.
 
         It is recommended that for tables with relatively low provisioned read
         throughput that this limit be reduced to less than or equal to one half
@@ -1633,16 +1627,9 @@ class QueryRequest(Request):
         :type max_read_kb: int
         :return: self.
         :raises IllegalArgumentException: raises the exception if the
-            max_read_kb value is less than 0 or beyond the system defined limit.
-        :raises IllegalArgumentException: raises the exception if max_read_kb is
-            a negative number or max_read_kb is greater than
-            BinaryProtocol.READ_KB_LIMIT.
+            max_read_kb value is less than 0.
         """
         CheckValue.check_int_ge_zero(max_read_kb, 'max_read_kb')
-        if max_read_kb > BinaryProtocol.READ_KB_LIMIT:
-            raise IllegalArgumentException(
-                'max_read_kb can not exceed ' +
-                str(BinaryProtocol.READ_KB_LIMIT))
         self._max_read_kb = max_read_kb
         return self
 
@@ -1660,27 +1647,16 @@ class QueryRequest(Request):
     def set_max_write_kb(self, max_write_kb):
         """
         Sets the limit on the total data written during this operation, in KB.
-        This value can only reduce the system defined limit. An attempt to
-        increase the limit beyond the system defined limit will cause
-        IllegalArgumentException. This limit is independent of write units
-        consumed by the operation.
+        This limit is independent of write units consumed by the operation.
 
         :param max_write_kb: the limit in terms of number of KB written during
             this operation.
         :type max_write_kb: int
         :return: self.
         :raises IllegalArgumentException: raises the exception if the
-            max_write_kb value is less than 0 or beyond the system defined
-            limit.
-        :raises IllegalArgumentException: raises the exception if max_write_kb
-            is a negative number or max_write_kb is greater than
-            BinaryProtocol.WRITE_KB_LIMIT.
+            max_write_kb value is less than 0.
         """
         CheckValue.check_int_ge_zero(max_write_kb, 'max_write_kb')
-        if max_write_kb > BinaryProtocol.WRITE_KB_LIMIT:
-            raise IllegalArgumentException(
-                'max_write_kb can not exceed ' +
-                str(BinaryProtocol.WRITE_KB_LIMIT))
         self._max_write_kb = max_write_kb
         return self
 
@@ -1699,7 +1675,7 @@ class QueryRequest(Request):
         """
         Sets the maximum number of memory bytes that may be consumed by the
         statement at the driver for operations such as duplicate elimination
-        (which may be required due to the use of an index on an array or map)
+        (which may be required due to the use of an index on a list or map)
         and sorting. Such operations may consume a lot of memory as they need to
         cache the full result set or a large subset of it at the client memory.
         The default value is 1GB.
@@ -1719,7 +1695,7 @@ class QueryRequest(Request):
         """
         Returns the maximum number of memory bytes that may be consumed by the
         statement at the driver for operations such as duplicate elimination
-        (which may be required due to the use of an index on an array or map)
+        (which may be required due to the use of an index on a list or map)
         and sorting (sorting by distance when a query contains a geo_near()
         function). Such operations may consume a lot of memory as they need to
         cache the full result set at the client memory.
@@ -1955,8 +1931,226 @@ class QueryRequest(Request):
     def create_serializer(self):
         return QueryRequestSerializer()
 
-    def create_deserializer(self):
-        return QueryRequestSerializer(cls_result=QueryResult)
+
+class SystemRequest(Request):
+    """
+    On-premise only.
+
+    SystemRequest is an on-premise-only request used to perform any
+    table-independent administrative operation such as create/drop of namespaces
+    and security-relevant operations (create/drop users and roles). These
+    operations are asynchronous and completion needs to be checked.
+
+    Examples of statements used in this object include:
+
+        CREATE NAMESPACE mynamespace\n
+        CREATE USER some_user IDENTIFIED BY password\n
+        CREATE ROLE some_role\n
+        GRANT ROLE some_role TO USER some_user
+
+    Execution of operations specified by this request is implicitly
+    asynchronous. These are potentially long-running operations.
+    :py:meth:`NoSQLHandle.system_request` returns a :py:class:`SystemResult`
+    instance that can be used to poll until the operation succeeds or fails.
+    """
+
+    def __init__(self):
+        super(SystemRequest, self).__init__()
+        self._statement = None
+
+    def __str__(self):
+        return 'SystemRequest: [statement=' + self._statement + ']'
+
+    def set_statement(self, statement):
+        """
+        Sets the statement to use for the operation.
+
+        :param statement: the statement. This is a required parameter.
+        :type statement: str
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if statement is
+            not a string.
+        """
+        CheckValue.check_str(statement, 'statement')
+        self._statement = statement
+        return self
+
+    def get_statement(self):
+        """
+        Returns the statement, or None if not set.
+
+        :return: the statement.
+        :rtype: str
+        """
+        return self._statement
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        super(SystemRequest, self)._set_timeout_internal(timeout_ms)
+        return self
+
+    def get_timeout(self):
+        """
+        Returns the timeout to use for the operation, in milliseconds. A value
+        of 0 indicates that the timeout has not been set.
+
+        :return: the timeout value.
+        :rtype: int
+        """
+        return super(SystemRequest, self)._get_timeout_internal()
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        if not isinstance(cfg, config.NoSQLHandleConfig):
+            raise IllegalArgumentException(
+                'set_defaults requires an instance of NoSQLHandleConfig as ' +
+                'parameter.')
+        if super(SystemRequest, self)._get_timeout_internal() == 0:
+            super(SystemRequest, self)._set_timeout_internal(
+                cfg.get_default_table_request_timeout())
+        return self
+
+    def should_retry(self):
+        return False
+
+    def validate(self):
+        if self._statement is None:
+            raise IllegalArgumentException(
+                'SystemRequest requires a statement.')
+
+    def create_serializer(self):
+        return SystemRequestSerializer()
+
+
+class SystemStatusRequest(Request):
+    """
+    On-premise only.
+
+    SystemStatusRequest is an on-premise-only request used to check the status
+    of an operation started using a :py:class:`SystemRequest`.
+    """
+
+    def __init__(self):
+        super(SystemStatusRequest, self).__init__()
+        self._statement = None
+        self._operation_id = None
+
+    def __str__(self):
+        return ('SystemStatusRequest [statement=' + self._statement +
+                ', operation_id=' + self._operation_id + ']')
+
+    def set_operation_id(self, operation_id):
+        """
+        Sets the operation id to use for the request. The operation id can be
+        obtained via :py:meth:`SystemResult.get_operation_id`. This parameter is
+        not optional and represents an asynchronous operation that may be in
+        progress. It is used to examine the result of the operation and if the
+        operation has failed an exception will be thrown in response to a
+        :py:meth:`NoSQLHandle.system_status` operation. If the operation is in
+        progress or has completed successfully, the state of the operation is
+        returned.
+
+        :param operation_id: the operation id.
+        :type operation_id: str
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if operation_id
+            is a negative number.
+        """
+        CheckValue.check_str(operation_id, 'operation_id')
+        self._operation_id = operation_id
+        return self
+
+    def get_operation_id(self):
+        """
+        Returns the operation id to use for the request, None if not set.
+
+        :return: the operation id.
+        :rtype: str
+        """
+        return self._operation_id
+
+    def set_statement(self, statement):
+        """
+        Sets the statement that was used for the operation. This is optional and
+        is not used in any significant way. It is returned, unmodified, in the
+        :py:class:`SystemResult` for convenience.
+
+        :param statement: the statement. This is a optional parameter.
+        :type statement: str
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if statement is
+            not a string.
+        """
+        CheckValue.check_str(statement, 'statement')
+        self._statement = statement
+        return self
+
+    def get_statement(self):
+        """
+        Returns the statement set by :py:meth:`set_statement`, or None if not
+        set.
+
+        :return: the statement.
+        :rtype: str
+        """
+        return self._statement
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :return: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        super(SystemStatusRequest, self)._set_timeout_internal(timeout_ms)
+        return self
+
+    def get_timeout(self):
+        """
+        Returns the timeout to use for the operation, in milliseconds. A value
+        of 0 indicates that the timeout has not been set.
+
+        :return: the timeout value.
+        :rtype: int
+        """
+        return super(SystemStatusRequest, self)._get_timeout_internal()
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        if not isinstance(cfg, config.NoSQLHandleConfig):
+            raise IllegalArgumentException(
+                'set_defaults requires an instance of NoSQLHandleConfig as ' +
+                'parameter.')
+        if super(SystemStatusRequest, self)._get_timeout_internal() == 0:
+            super(SystemStatusRequest, self)._set_timeout_internal(
+                cfg.get_default_table_request_timeout())
+        return self
+
+    def should_retry(self):
+        return True
+
+    def validate(self):
+        if self._operation_id is None:
+            raise IllegalArgumentException(
+                'SystemStatusRequest requires an operation id.')
+
+    def create_serializer(self):
+        return SystemStatusRequestSerializer()
 
 
 class TableRequest(Request):
@@ -2019,9 +2213,13 @@ class TableRequest(Request):
 
     def set_table_limits(self, table_limits):
         """
+        Cloud service only.
+
         Sets the table limits to use for the operation. Limits are used in only
         2 cases -- table creation statements and limits modification operations.
         It is not used for other DDL operations.
+
+        If limits are set for an on-premise service they are silently ignored.
 
         :param table_limits: the limits.
         :type table_limits: TableLimits
@@ -2126,12 +2324,11 @@ class TableRequest(Request):
     def create_serializer(self):
         return TableRequestSerializer()
 
-    def create_deserializer(self):
-        return TableRequestSerializer(TableResult)
-
 
 class TableUsageRequest(Request):
     """
+    Cloud service only.
+
     Represents the argument of a :py:meth:`NoSQLHandle.get_table_usage`
     operation which returns dynamic information associated with a table, as
     returned in :py:class:`TableUsageResult`. This information includes a time
@@ -2328,9 +2525,6 @@ class TableUsageRequest(Request):
     def create_serializer(self):
         return TableUsageRequestSerializer()
 
-    def create_deserializer(self):
-        return TableUsageRequestSerializer(TableUsageResult)
-
     def _check_time(self, dt):
         if (not (CheckValue.is_int(dt) or CheckValue.is_str(dt)) or
                 CheckValue.is_int(dt) and dt < 0):
@@ -2406,10 +2600,6 @@ class WriteMultipleRequest(Request):
                 'DeleteRequest as parameter. Got: ' + str(request))
         CheckValue.check_boolean(abort_if_unsuccessful,
                                  'abort_if_unsuccessful')
-        if len(self._ops) == BinaryProtocol.BATCH_OP_NUMBER_LIMIT:
-            raise BatchOperationNumberLimitException(
-                'The number of sub requests reached the max number of ' +
-                str(BinaryProtocol.BATCH_OP_NUMBER_LIMIT))
         if self._table_name is None:
             self._table_name = request.get_table_name_internal()
         else:
@@ -2490,10 +2680,6 @@ class WriteMultipleRequest(Request):
 
     def create_serializer(self):
         return WriteMultipleRequestSerializer()
-
-    def create_deserializer(self):
-        return WriteMultipleRequestSerializer(
-            WriteMultipleResult, WriteMultipleResult.OperationResult)
 
     class OperationRequest(object):
         # A wrapper of WriteRequest that contains an additional flag
@@ -2780,7 +2966,7 @@ class GetIndexesResult(Result):
     """
     Represents the result of a :py:meth:`NoSQLHandle.get_indexes` operation.
 
-    On a successful operation the index information is returned in an array of
+    On a successful operation the index information is returned in a list of
     IndexInfo.
     """
 
@@ -2815,7 +3001,7 @@ class ListTablesResult(Result):
     Represents the result of a :py:meth:`NoSQLHandle.list_tables` operation.
 
     On a successful operation the table names are available as well as the
-    index of the last returned table. Tables are returned in an array, sorted
+    index of the last returned table. Tables are returned in a list, sorted
     alphabetically.
     """
 
@@ -3307,6 +3493,166 @@ class QueryResult(Result):
         self._is_computed = True
 
 
+class SystemResult(Result):
+    """
+    On-premise only.
+
+    SystemResult is returned from :py:meth:`NoSQLHandle.system_status` and
+    :py:meth:`NoSQLHandle.system_request` operations. It encapsulates the state
+    of the operation requested.
+
+    Some operations performed by :py:meth:`NoSQLHandle.system_request` are
+    asynchronous. When such an operation has been performed it is necessary to
+    call :py:meth:`NoSQLHandle.system_status` until the status of the operation
+    is known. The method :py:meth:`wait_for_completion` exists to perform this
+    task and should be used whenever possible.
+
+    Asynchronous operations (e.g. create namespace) can be distinguished from
+    synchronous system operations in this way:
+
+        Asynchronous operations may return a non-none operation id.\n
+        Asynchronous operations modify state, while synchronous operations are
+        read-only.\n
+        Synchronous operations return a state of STATE.COMPLETE and have a
+        non-none result string.
+
+    :py:meth:`NoSQLHandle.system_status` is synchronous, returning the known
+    state of the operation. It should only be called if the operation was
+    asynchronous and returned a non-none operation id.
+    """
+
+    def __init__(self):
+        super(SystemResult, self).__init__()
+        self._operation_id = None
+        self._result_string = None
+        self._state = 0
+        self._statement = None
+
+    def __str__(self):
+        return ('SystemResult [statement=' + self._statement + ', state=' +
+                BinaryProtocol.get_operation_state(self._state) +
+                ', operation_id=' + self._operation_id + ', result_string=' +
+                self._result_string + ']')
+
+    def set_operation_id(self, operation_id):
+        # Sets the operation id for the operation.
+        self._operation_id = operation_id
+        return self
+
+    def get_operation_id(self):
+        """
+        Returns the operation id for the operation if it was asynchronous. This
+        is None if the request did not generate a new operation and/or the
+        operation state is SystemState.COMPLETE. The value can be used in
+        :py:meth:`SystemStatusRequest.set_operation_id` to get status and find
+        potential errors resulting from the operation.
+
+        This method is only useful for the result of asynchronous operations.
+
+        :return: the operation id.
+        :rtype: str
+        """
+        return self._operation_id
+
+    def set_state(self, state):
+        # Sets the operation state.
+        self._state = state
+        return self
+
+    def get_operation_state(self):
+        """
+        Returns the operation state.
+
+        :return: the state.
+        :rtype: int
+        """
+        return self._state
+
+    def set_result_string(self, result_string):
+        # Sets the result string for the operation.
+        self._result_string = result_string
+        return self
+
+    def get_result_string(self):
+        """
+        Returns the result string for the operation. This is None if the request
+        was asynchronous or did not return an actual result. For example the
+        "show" operations return a non-none result string, but "create, drop,
+        grant, etc" operations return a none result string.
+
+        :return: the result string.
+        :rtype: str
+        """
+        return self._result_string
+
+    def set_statement(self, statement):
+        # Sets the statement to use for the operation.
+        self._statement = statement
+        return self
+
+    def get_statement(self):
+        """
+        Returns the statement used for the operation.
+
+        :return: the statement.
+        :rtype: str
+        """
+        return self._statement
+
+    def wait_for_completion(self, handle, wait_millis, delay_millis):
+        """
+        Waits for the operation to be complete. This is a blocking, polling
+        style wait that delays for the specified number of milliseconds between
+        each polling operation.
+
+        This instance is modified with any changes in state.
+
+        :param handle: the NoSQLHandle to use. This is required.
+        :type handle: NoSQLHandle
+        :param wait_millis: the total amount of time to wait, in milliseconds.
+            This value must be non-zero and greater than delay_millis. This is
+            required.
+        :type wait_millis: int
+        :param delay_millis: the amount of time to wait between polling
+            attempts, in milliseconds. If 0 it will default to 500. This is
+            required.
+        :type delay_millis: int
+        :raises IllegalArgumentException: raises the exception if the operation
+            times out or the parameters are not valid.
+        """
+        if self._state == SystemState.COMPLETE:
+            return
+        default_delay = 500
+        delay_ms = delay_millis if delay_millis != 0 else default_delay
+        if wait_millis < delay_millis:
+            raise IllegalArgumentException(
+                'Wait milliseconds must be a minimum of ' + str(default_delay) +
+                ' and greater than delay milliseconds.')
+        start_time = int(round(time() * 1000))
+        delay_s = delay_ms // 1000
+        if delay_s == 0:
+            delay_s = 1
+        system_status = SystemStatusRequest().set_operation_id(
+            self._operation_id)
+        res = None
+        while True:
+            cur_time = int(round(time() * 1000))
+            if cur_time - start_time > wait_millis:
+                raise RequestTimeoutException(
+                    'Operation not completed within timeout: ' +
+                    self._statement, wait_millis)
+            if res is not None:
+                # only delay after the first get_table.
+                sleep(delay_s)
+            res = handle.system_status(system_status)
+            # do partial copy of new state.
+            # statement and operation_id are not changed.
+            self._result_string = res.get_result_string()
+            self._state = res.get_operation_state()
+            if self._state == SystemState.COMPLETE:
+                break
+
+
 class TableResult(Result):
     """
     TableResult is returned from :py:meth:`NoSQLHandle.get_table` and
@@ -3334,8 +3680,8 @@ class TableResult(Result):
         self._operation_id = None
 
     def __str__(self):
-        return ('table ' + str(self._table_name) + '[' + str(self._state) +
-                '] ' + str(self._limits) + ' schema [' + str(self._schema) +
+        return ('table ' + str(self._table_name) + '[' + self._state + '] ' +
+                str(self._limits) + ' schema [' + str(self._schema) +
                 '] operation_id = ' + str(self._operation_id))
 
     def set_table_name(self, table_name):
@@ -3371,7 +3717,8 @@ class TableResult(Result):
 
     def get_table_limits(self):
         """
-        Returns the throughput and capacity limits for the table.
+        Returns the throughput and capacity limits for the table. Limits from an
+        on-premise service will always be None.
 
         :return: the limits.
         :rtype: TableLimits
@@ -3403,46 +3750,49 @@ class TableResult(Result):
         operation.
 
         :return: the operation id for an asynchronous operation.
-        :rtype: int
+        :rtype: str
         """
         return self._operation_id
 
-    def wait_for_state_with_res(self, handle, state, wait_millis, delay_millis,
-                                operation_id=None):
+    def wait_for_completion(self, handle, wait_millis, delay_millis):
         """
-        Waits for the specified table to reach the desired state. This is a
-        blocking, polling style wait that delays for the specified number of
-        milliseconds between each polling operation. The state of State.DROPPED
-        is treated specially in that it will be returned as success, even if the
-        table does not exist. Other states will throw an exception if the table
-        is not found.
+        Waits for a table operation to complete. Table operations are
+        asynchronous. This is a blocking, polling style wait that delays for the
+        specified number of milliseconds between each polling operation. This
+        call returns when the table reaches a *terminal* state, which is either
+        State.ACTIVE or State.DROPPED.
+
+        This instance must be the return value of a previous
+        :py:meth:`NoSQLHandle.table_request` and contain a non-none operation id
+        representing the in-progress operation unless the operation has already
+        completed.
+
+        This instance is modified with any change in table state or metadata.
 
         :param handle: the NoSQLHandle to use.
         :type handle: NoSQLHandle
-        :param state: the desired state.
-        :type state: State
         :param wait_millis: the total amount of time to wait, in milliseconds.
             This value must be non-zero and greater than delay_millis.
         :type wait_millis: int
         :param delay_millis: the amount of time to wait between polling
             attempts, in milliseconds. If 0 it will default to 500.
         :type delay_millis: int
-        :param operation_id: optional operation id.
-        :type operation_id: int
-        :return: the TableResult representing the table at the desired state.
-        :rtype: TableResult
-        :raises IllegalArgumentException: raises the exception if the operation
-            times out or the parameters are not valid.
-        :raises NoSQLException: raises the exception if the operation id used is
-            not None that the operation has failed for some reason.
+        :raises IllegalArgumentException: raises the exception if the parameters
+            are not valid.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
         """
-        return self.wait_for_state(handle, self.get_table_name(), state,
-                                   wait_millis, delay_millis,
-                                   operation_id)
+        terminal = [State.ACTIVE, State.DROPPED]
+        if self._state in terminal:
+            return
+        if self._operation_id is None:
+            raise IllegalArgumentException('Operation id must not be none.')
+        TableResult.wait_for_state(
+            handle, terminal, wait_millis, delay_millis, result=self)
 
     @staticmethod
-    def wait_for_state(handle, table_name, state, wait_millis, delay_millis,
-                       operation_id=None):
+    def wait_for_state(handle, state, wait_millis, delay_millis,
+                       table_name=None, operation_id=None, result=None):
         """
         Waits for the specified table to reach the desired state. This is a
         blocking, polling style wait that delays for the specified number of
@@ -3453,25 +3803,37 @@ class TableResult(Result):
 
         :param handle: the NoSQLHandle to use.
         :type handle: NoSQLHandle
-        :param table_name: the table name.
-        :type table_name: str
         :param state: the desired state.
-        :type state: State
         :param wait_millis: the total amount of time to wait, in milliseconds.
             This value must be non-zero and greater than delay_millis.
         :type wait_millis: int
         :param delay_millis: the amount of time to wait between polling
             attempts, in milliseconds. If 0 it will default to 500.
         :type delay_millis: int
-        :param operation_id: optional operation id.
-        :type operation_id: int
+        :param table_name: the optional table name.
+        :type table_name: str
+        :param operation_id: the optional operation id.
+        :type operation_id: str
+        :param result: a optional previously received TableResult.
+        :type result: TableResult
         :return: the TableResult representing the table at the desired state.
         :rtype: TableResult
-        :raises IllegalArgumentException: raises the exception if the operation
-            times out or the parameters are not valid.
-        :raises NoSQLException: raises the exception if the operation id used is
-            not None that the operation has failed for some reason.
+        :raises IllegalArgumentException: raises the exception if the parameters
+            are not valid.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
         """
+        if result is not None and table_name is None and operation_id is None:
+            table_name = result.get_table_name()
+            operation_id = result.get_operation_id()
+        elif result is None and table_name is not None:
+            pass
+        else:
+            raise IllegalArgumentException(
+                'Parameters are not valid, the optional parameters should be ' +
+                'set as:\n1 Set only result.\n2 Set only table_name.' +
+                '\n3 Set only table_name and operation_id.')
+
         default_delay = 500
         delay_ms = delay_millis if delay_millis != 0 else default_delay
         if wait_millis < delay_millis:
@@ -3488,32 +3850,54 @@ class TableResult(Result):
         while True:
             cur_time = int(round(time() * 1000))
             if cur_time - start_time > wait_millis:
-                raise RequestTimeoutException(
-                    'Expected state for table ' + table_name + ' not reached.',
-                    wait_millis)
+                if isinstance(state, list):
+                    raise RequestTimeoutException(
+                        'Operation not completed in expected time', wait_millis)
+                else:
+                    raise RequestTimeoutException(
+                        'Expected state for table ' + table_name +
+                        ' not reached.', wait_millis)
             # delay.
             try:
                 if res is not None:
                     # only delay after the first get_table.
                     sleep(delay_s)
                 res = handle.get_table(get_table)
-                # If using operation_id, re-acquire from the current result. It
-                # can change.
-                if operation_id is not None:
-                    get_table.set_operation_id(res.get_operation_id())
+                if isinstance(state, list):
+                    # partial "copy" of possibly modified state. Don't modify
+                    # operationId as that is what we are waiting to complete.
+                    assert result is not None
+                    result.set_state(res.get_state())
+                    result.set_table_limits(res.get_table_limits())
+                    result.set_schema(res.get_schema())
+                else:
+                    # If using operation_id, re-acquire from the current result.
+                    # It can change.
+                    if operation_id is not None:
+                        get_table.set_operation_id(res.get_operation_id())
             except TableNotFoundException as tnf:
-                # table not found is == DROPPED.
-                if state == State.DROPPED:
-                    return TableResult().set_table_name(table_name).set_state(
-                        State.DROPPED)
-                raise tnf
-            if state == res.get_state():
+                if isinstance(state, list):
+                    # The operation was probably a drop. There was an
+                    # operation_id, which means that the table existed when the
+                    # original request was made. Throwing tnf doesn't add value
+                    # here.
+                    result.set_state(State.DROPPED)
+                    res = result
+                else:
+                    # table not found is == DROPPED.
+                    if state == State.DROPPED:
+                        return TableResult().set_table_name(
+                            table_name).set_state(State.DROPPED)
+                    raise tnf
+            if res.get_state() == state or res.get_state() in state:
                 break
         return res
 
 
 class TableUsageResult(Result):
     """
+    Cloud service only.
+
     TableUsageResult is returned from :py:meth:`NoSQLHandle.get_table_usage`.
     It encapsulates the dynamic state of the requested table.
     """

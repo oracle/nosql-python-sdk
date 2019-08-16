@@ -7,14 +7,16 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-from borneo import NoSQLHandle, NoSQLHandleConfig
+from borneo import IllegalArgumentException, NoSQLHandle, NoSQLHandleConfig
 from borneo.idcs import (
     AccessTokenProvider, CredentialsProvider, DefaultAccessTokenProvider,
     IDCSCredentials, PropertiesCredentialsProvider)
+from borneo.kv import StoreAccessTokenProvider
 
 from parameters import (
-    credentials_file, endpoint, entitlement_id, idcs_url,
-    use_properties_credentials, using_cloud_sim)
+    credentials_file, endpoint, entitlement_id, idcs_url, password,
+    use_properties_credentials, user_name, using_cloud_sim, using_on_prem,
+    using_service)
 
 
 class NoSecurityAccessTokenProvider(AccessTokenProvider):
@@ -37,16 +39,29 @@ class NoSecurityAccessTokenProvider(AccessTokenProvider):
 def create_access_token_provider(tenant_id):
     # Creates an AccessTokenProvider instance based on the environment.
     if using_cloud_sim:
-        return NoSecurityAccessTokenProvider(tenant_id)
-
-    provider = DefaultAccessTokenProvider(
-        idcs_url=idcs_url, entitlement_id=entitlement_id)
-    if use_properties_credentials:
-        provider.set_credentials_provider(
-            PropertiesCredentialsProvider()
-            .set_properties_file(credentials_file))
+        provider = NoSecurityAccessTokenProvider(tenant_id)
+    elif using_service:
+        if use_properties_credentials:
+            if credentials_file is None:
+                raise IllegalArgumentException(
+                    'Must specify the credentials file path.')
+            creds_provider = PropertiesCredentialsProvider(
+            ).set_properties_file(credentials_file)
+        else:
+            creds_provider = MyCredentialsProvider()
+        provider = DefaultAccessTokenProvider(
+            idcs_url=idcs_url, entitlement_id=entitlement_id,
+            creds_provider=creds_provider)
+    elif using_on_prem:
+        if user_name is None and password is None:
+            provider = StoreAccessTokenProvider()
+        else:
+            if user_name is None or password is None:
+                raise IllegalArgumentException(
+                    'Please set both the user_name and password.')
+            provider = StoreAccessTokenProvider(user_name, password)
     else:
-        provider.set_credentials_provider(MyCredentialsProvider())
+        raise IllegalArgumentException('Please set the test server.')
     return provider
 
 

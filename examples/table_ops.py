@@ -49,10 +49,11 @@
 import traceback
 
 from borneo import (
-    GetIndexesRequest, GetTableRequest, ListTablesRequest, State, TableLimits,
+    GetIndexesRequest, GetTableRequest, ListTablesRequest, TableLimits,
     TableRequest, TableUsageRequest)
 
-from parameters import drop_table, index_name, table_name, tenant_id
+from parameters import (
+    drop_table, index_name, table_name, tenant_id, using_on_prem)
 from utils import get_handle
 
 
@@ -81,13 +82,7 @@ sid integer, name string, primary key(shard(sid), id))'
         print('Creating table: ' + statement)
         request = TableRequest().set_statement(statement).set_table_limits(
             TableLimits(30, 10, 1))
-        result = handle.table_request(request)
-
-        #
-        # Table creation can take time, depending on the state of the system.
-        # If if fails after 40s, re-run the program
-        #
-        result.wait_for_state(handle, table_name, State.ACTIVE, 40000, 3000)
+        handle.do_table_request(request, 40000, 3000)
         print('After create table')
 
         #
@@ -97,13 +92,7 @@ sid integer, name string, primary key(shard(sid), id))'
                      table_name + '(name)')
         print('Creating index: ' + statement)
         request = TableRequest().set_statement(statement)
-        result = handle.table_request(request)
-
-        #
-        # Index creation can take time, depending on the state of the system.
-        # If if fails after 40s, re-run the program
-        #
-        result.wait_for_state(handle, table_name, State.ACTIVE, 40000, 3000)
+        handle.do_table_request(request, 40000, 3000)
         print('After create index')
 
         #
@@ -123,13 +112,14 @@ sid integer, name string, primary key(shard(sid), id))'
             print('\t' + str(idx))
 
         #
-        # Get the table usage information
+        # Get the table usage information, on-prem mode not supported
         #
-        request = TableUsageRequest().set_table_name(table_name)
-        result = handle.get_table_usage(request)
-        print('The table usage information for: ' + table_name)
-        for record in result.get_usage_records():
-            print('\t' + str(record))
+        if not using_on_prem:
+            request = TableUsageRequest().set_table_name(table_name)
+            result = handle.get_table_usage(request)
+            print('The table usage information for: ' + table_name)
+            for record in result.get_usage_records():
+                print('\t' + str(record))
 
         #
         # Drop the table
@@ -137,14 +127,7 @@ sid integer, name string, primary key(shard(sid), id))'
         if drop_table:
             request = TableRequest().set_statement('drop table if exists ' +
                                                    table_name)
-            result = handle.table_request(request)
-
-            #
-            # Table drop can take time, depending on the state of the system.
-            # If this wait fails the table will still probably been dropped
-            #
-            result.wait_for_state(handle, table_name, State.DROPPED, 30000,
-                                  2000)
+            handle.do_table_request(request, 30000, 2000)
             print('After drop table')
         else:
             print('Not dropping table')

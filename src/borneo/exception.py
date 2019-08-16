@@ -165,6 +165,8 @@ class QueryStateException(IllegalStateException):
 
 class AuthenticationException(NoSQLException):
     """
+    On-premise only.
+
     This exception is thrown when use StoreAccessTokenProvider in following
     cases:
 
@@ -178,26 +180,6 @@ class AuthenticationException(NoSQLException):
         super(AuthenticationException, self).__init__(message, cause)
 
 
-class IndexExistsException(NoSQLException):
-    """
-    The operation attempted to create an index for a table but the named index
-    already exists.
-    """
-
-    def __init__(self, message):
-        super(IndexExistsException, self).__init__(message)
-
-
-class IndexNotFoundException(NoSQLException):
-    """
-    The operation attempted to access a index that does not exist or is not in
-    a visible state.
-    """
-
-    def __init__(self, message):
-        super(IndexNotFoundException, self).__init__(message)
-
-
 class InvalidAuthorizationException(NoSQLException):
     """
     The exception is thrown if the application presents an invalid authorization
@@ -206,6 +188,16 @@ class InvalidAuthorizationException(NoSQLException):
 
     def __init__(self, message):
         super(InvalidAuthorizationException, self).__init__(message)
+
+
+class OperationNotSupportedException(NoSQLException):
+    """
+    The operation attempted is not supported. This may be related to on-premise
+    vs cloud service configurations.
+    """
+
+    def __init__(self, message):
+        super(OperationNotSupportedException, self).__init__(message)
 
 
 class RequestTimeoutException(NoSQLException):
@@ -239,8 +231,19 @@ class RequestTimeoutException(NoSQLException):
         return self._timeout_ms
 
 
+class ResourceExistsException(NoSQLException):
+    """
+    The operation attempted to create a resource but it already exists.
+    """
+
+    def __init__(self, message):
+        super(ResourceExistsException, self).__init__(message)
+
+
 class ResourceLimitException(NoSQLException):
     """
+    Cloud service only.
+
     This is a base class for exceptions that result from reaching a limit for a
     particular resource, such as number of tables, indexes, or a size limit on
     data. It is never thrown directly.
@@ -248,6 +251,16 @@ class ResourceLimitException(NoSQLException):
 
     def __init__(self, message):
         super(ResourceLimitException, self).__init__(message)
+
+
+class ResourceNotFoundException(NoSQLException):
+    """
+    The operation attempted to access a resource that does not exist or is not
+    in a visible state.
+    """
+
+    def __init__(self, message):
+        super(ResourceNotFoundException, self).__init__(message)
 
 
 class RetryableException(NoSQLException):
@@ -261,26 +274,6 @@ class RetryableException(NoSQLException):
 
     def ok_to_retry(self):
         return True
-
-
-class TableExistsException(NoSQLException):
-    """
-    The operation attempted to create a table but the named table already
-    exists.
-    """
-
-    def __init__(self, message):
-        super(TableExistsException, self).__init__(message)
-
-
-class TableNotFoundException(NoSQLException):
-    """
-    The operation attempted to access a table that does not exist or is not in
-    a visible state.
-    """
-
-    def __init__(self, message):
-        super(TableNotFoundException, self).__init__(message)
 
 
 class TableSizeException(NoSQLException):
@@ -305,8 +298,30 @@ class UnauthorizedException(NoSQLException):
         super(UnauthorizedException, self).__init__(message)
 
 
+class IndexExistsException(ResourceExistsException):
+    """
+    The operation attempted to create an index for a table but the named index
+    already exists.
+    """
+
+    def __init__(self, message):
+        super(IndexExistsException, self).__init__(message)
+
+
+class TableExistsException(ResourceExistsException):
+    """
+    The operation attempted to create a table but the named table already
+    exists.
+    """
+
+    def __init__(self, message):
+        super(TableExistsException, self).__init__(message)
+
+
 class EvolutionLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that an attempt has been made to evolve the schema of a
     table more times than allowed by the system defined limit.
     """
@@ -317,6 +332,8 @@ class EvolutionLimitException(ResourceLimitException):
 
 class DeploymentException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that an attempt has been made to create or modify a table
     using limits that exceed the maximum allowed for a single table or that
     cause the tenant's aggregate resources to exceed the maximum allowed for a
@@ -329,6 +346,8 @@ class DeploymentException(ResourceLimitException):
 
 class IndexLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that an attempt has been made to create more indexes on a
     table than the system defined limit.
     """
@@ -339,6 +358,8 @@ class IndexLimitException(ResourceLimitException):
 
 class KeySizeLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that an attempt has been made to create a row with a
     primary key or index key size that exceeds the system defined limit.
     """
@@ -349,6 +370,8 @@ class KeySizeLimitException(ResourceLimitException):
 
 class RowSizeLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that an attempt has been made to create a row with a size
     that exceeds the system defined limit.
     """
@@ -359,6 +382,8 @@ class RowSizeLimitException(ResourceLimitException):
 
 class TableLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that an attempt has been made to create a number of
     tables that exceeds the system defined limit.
     """
@@ -369,6 +394,8 @@ class TableLimitException(ResourceLimitException):
 
 class BatchOperationNumberLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that the number of operations included in
     :py:meth:`NoSQLHandle.write_multiple` operation exceeds the system defined
     limit.
@@ -380,6 +407,8 @@ class BatchOperationNumberLimitException(ResourceLimitException):
 
 class RequestSizeLimitException(ResourceLimitException):
     """
+    Cloud service only.
+
     Thrown to indicate that the size of a Request exceeds the system defined
     limit.
     """
@@ -388,8 +417,30 @@ class RequestSizeLimitException(ResourceLimitException):
         super(RequestSizeLimitException, self).__init__(message)
 
 
+class IndexNotFoundException(ResourceNotFoundException):
+    """
+    The operation attempted to access a index that does not exist or is not in
+    a visible state.
+    """
+
+    def __init__(self, message):
+        super(IndexNotFoundException, self).__init__(message)
+
+
+class TableNotFoundException(ResourceNotFoundException):
+    """
+    The operation attempted to access a table that does not exist or is not in
+    a visible state.
+    """
+
+    def __init__(self, message):
+        super(TableNotFoundException, self).__init__(message)
+
+
 class SecurityInfoNotReadyException(RetryableException):
     """
+    Cloud service only.
+
     An exception that is thrown when security information is not ready in the
     system. This exception will occur as the system acquires security
     information and must be retried in order for authorization to work properly.
@@ -422,6 +473,8 @@ class TableBusyException(RetryableException):
 
 class ThrottlingException(RetryableException):
     """
+    Cloud service only.
+
     ThrottlingException is a base class for exceptions that indicate the
     application has exceeded a provisioned or implicit limit in terms of size
     of data accessed or frequency of operation.
@@ -440,6 +493,8 @@ class ThrottlingException(RetryableException):
 
 class OperationThrottlingException(ThrottlingException):
     """
+    Cloud service only.
+
     An exception that is thrown when a non-data operation is throttled. This can
     happen if an application attempts too many control operations such as table
     creation, deletion, or similar methods. Such operations do not use
@@ -457,6 +512,8 @@ class OperationThrottlingException(ThrottlingException):
 
 class ReadThrottlingException(ThrottlingException):
     """
+    Cloud service only.
+
     This exception indicates that the provisioned read throughput has been
     exceeded.
 
@@ -472,6 +529,8 @@ class ReadThrottlingException(ThrottlingException):
 
 class WriteThrottlingException(ThrottlingException):
     """
+    Cloud service only.
+
     This exception indicates that the provisioned write throughput has been
     exceeded.
 

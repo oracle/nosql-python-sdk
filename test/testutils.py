@@ -168,7 +168,7 @@ def set_access_token_provider(config, tenant_id):
                 raise IllegalArgumentException(
                     'Please set both the user_name and password.')
             authorization_provider = StoreAccessTokenProvider(
-                endpoint, user_name, password)
+                user_name, password)
     else:
         raise IllegalArgumentException('Please set the test server.')
     config.set_authorization_provider(authorization_provider)

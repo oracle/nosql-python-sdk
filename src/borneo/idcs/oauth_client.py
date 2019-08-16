@@ -30,6 +30,8 @@ except (ImportError, ValueError):
 
 class OAuthClient(object):
     """
+    Cloud service only.
+
     Utility to create a custom OAuth client.
 
     To connect and authenticate to the Oracle NoSQL Database Cloud Service, a

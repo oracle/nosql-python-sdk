@@ -319,7 +319,7 @@ class RequestUtils(object):
         """
         code = bis.read_byte()
         if code == 0:
-            res = request.create_deserializer().deserialize(
+            res = request.create_serializer().deserialize(
                 request, bis, BinaryProtocol.SERIAL_VERSION)
             if request.is_query_request():
                 if not request.is_simple_query():

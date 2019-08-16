@@ -12,7 +12,8 @@ import unittest
 from borneo import (
     GetTableRequest, IllegalArgumentException, State, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import not_cloudsim, table_name, timeout, wait_timeout
+from parameters import (
+    is_onprem, not_cloudsim, table_name, timeout, wait_timeout)
 from test_base import TestBase
 
 
@@ -31,7 +32,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         table_limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(table_limits)
-        cls.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request)
 
     @classmethod
     def tearDownClass(cls):
@@ -80,17 +81,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testGetTableNormal(self):
         self.get_table_request.set_table_name(table_name)
         result = self.handle.get_table(self.get_table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.ACTIVE)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(result.get_schema())
-        self.assertIsNone(result.get_operation_id())
+        self._check_get_table_result(result, State.ACTIVE, table_limits)
 
     def testGetTableWithOperationId(self):
         drop_request = TableRequest().set_statement(
@@ -99,18 +90,31 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.get_table_request.set_table_name(table_name).set_operation_id(
             table_result.get_operation_id())
         result = self.handle.get_table(self.get_table_request)
+        # TODO: A difference between old cloud proxy and new cloud proxy, during
+        # DROPPING phase, the table limit is not none for old proxy but none for
+        # new proxy.
+        self._check_get_table_result(result, State.DROPPING,
+                                     has_operation_id=True, check_limit=False)
+        table_result.wait_for_completion(self.handle, wait_timeout, 1000)
+
+    def _check_get_table_result(self, result, state, limits=None,
+                                has_operation_id=False, check_limit=True):
+        # check table name
         self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.DROPPING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         table_limits.get_storage_gb())
-        if not_cloudsim():
+        # check state
+        self.assertEqual(result.get_state(), state)
+        # check table limits
+        if check_limit:
+            self.check_table_limits(result, limits)
+        # check table schema
+        # TODO: For on-prem proxy, TableResult.get_schema() always return None,
+        # This is a known bug, when it is fixed, the test should be change.
+        if not_cloudsim() and not is_onprem():
             self.assertIsNotNone(result.get_schema())
-        table_result.wait_for_state(self.handle, table_name, State.DROPPED,
-                                    wait_timeout, 1000)
+        # check operation id
+        operation_id = result.get_operation_id()
+        (self.assertIsNotNone(operation_id) if has_operation_id
+         else self.assertIsNone(operation_id))
 
 
 if __name__ == '__main__':

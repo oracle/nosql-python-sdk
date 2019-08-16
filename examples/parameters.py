@@ -14,6 +14,20 @@
 # the local host. If non-default host or port are desired, use flags to
 # change them.
 #
+# To run against the on-prem proxy, you need to start the kvstore and proxy
+# first. Then change the following parameters if you use non-security store.
+#
+#              endpoint = 'your_on_prem_proxy_endpoint'
+#              is_cloudsim = False
+#              is_onprem = True
+#
+# Change additional parameters below if your on-prem proxy is running against a
+# security store.
+#
+#              user_name = 'your_store_user_name'
+#              password = 'your_store_user_password'
+#              security = True
+#
 # Run against Oracle NoSQL Database Cloud Service:
 #
 # Requires an Oracle Cloud account with a subscription to the Oracle NoSQL
@@ -72,13 +86,35 @@ table_name = 'pythontable'
 index_name = 'pythonindex'
 
 # Cloud Simulator: True
-# Service: False
+# Otherwise: False
 # using_cloud_sim = False
 using_cloud_sim = True
 
-# Cloud Simulator: 'localhost:8080' or the host running Cloud Simulator
+# Service: True
+# Otherwise: False
+# using_service = True
+using_service = False
+
+# On-prem proxy only:
+# On-prem: True
+# Otherwise: False
+# using_on_prem = True
+using_on_prem = False
+
+# Cloud Simulator: 'localhost:8080' or the host running Cloud Simulator or a
+# on-prem proxy started by the customer.
 # Service: 'ndcs.uscom-east-1.oraclecloud.com' or appropriate region host
 endpoint = 'localhost:8080'
+
+# On-prem proxy only:
+# Non-security store: None
+# Security store: your store user name
+user_name = None
+
+# On-prem proxy only:
+# Non-security store: None
+# Security store: your store user password
+password = None
 
 # Cloud Simulator: not used
 # Service: url for reaching IDCS

@@ -10,7 +10,7 @@
 from time import sleep
 from unittest import TestCase
 
-from borneo import ListTablesRequest, QueryResult, State, TableRequest
+from borneo import ListTablesRequest, QueryResult, TableRequest
 from parameters import is_onprem, is_pod, table_prefix, tenant_id, wait_timeout
 from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
 
@@ -47,6 +47,18 @@ class TestBase(object):
             self.assertEqual(result.get_write_kb(), write_kb)
             self.assertEqual(result.get_write_units(), write_units)
 
+    def check_table_limits(self, result, table_limits):
+        assert isinstance(self, TestCase)
+        if is_onprem() or table_limits is None:
+            self.assertIsNone(result.get_table_limits())
+        else:
+            self.assertEqual(result.get_table_limits().get_read_units(),
+                             table_limits.get_read_units())
+            self.assertEqual(result.get_table_limits().get_write_units(),
+                             table_limits.get_write_units())
+            self.assertEqual(result.get_table_limits().get_storage_gb(),
+                             table_limits.get_storage_gb())
+
     def set_up(self):
         self.handle = get_handle(tenant_id)
 
@@ -78,15 +90,14 @@ class TestBase(object):
     @classmethod
     def drop_table(cls, table):
         dtr = TableRequest().set_statement('DROP TABLE IF EXISTS ' + table)
-        return cls.table_request(dtr, State.DROPPED)
+        cls.table_request(dtr)
 
     @classmethod
-    def table_request(cls, request, state):
+    def table_request(cls, request):
         #
         # Optionally delay to handle the 4 DDL ops/minute limit
         # in the real service
         #
         if is_pod():
             sleep(20)
-        result = cls.handle.table_request(request)
-        result.wait_for_state_with_res(cls.handle, state, wait_timeout, 1000)
+        cls.handle.do_table_request(request, wait_timeout, 1000)

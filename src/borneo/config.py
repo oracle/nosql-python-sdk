@@ -195,23 +195,28 @@ class NoSQLHandleConfig(object):
     overridden in individual operations.
 
     Most of the configuration parameters are optional and have default values if
-    not specified. The only required configuration is the endpoint required by
-    the constructor. The endpoint is used to connect to the service. Endpoints
-    must include the target address, and may include protocol and port. The
-    valid syntax is [http[s]://]host[:port], For example, these are valid
+    not specified. The only required configuration is the service endpoint
+    required by the constructor. The endpoint is used to connect to the Oracle
+    NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL Database
+    proxy server.
+
+    Endpoint must include the target address, and may include protocol and port.
+    The valid syntax is [http[s]://]host[:port], For example, these are valid
     endpoint arguments:
 
      * ndcs.uscom-east-1.oracle.cloud.com
      * localhost:8080 - used for connecting to a Cloud Simulator instance
      * https\://ndcs.eucom-central-1.oraclecloud.com:443
+     * https\://machine-hosting-proxy:443
 
-    If protocol is omitted, the endpoint uses http if the port is 8080, and
-    https in all other cases.
+    If protocol is omitted, the endpoint uses https if the port is 443, and
+    http in all other cases.
 
     If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
     all other cases.
 
-    See the documentation online for the complete set of available regions.
+    If using the Cloud Service see the documentation online for the complete set
+    of available regions.
 
     :param endpoint: Identifies a server for use by the NoSQLHandle. This is a
         required parameter.
@@ -281,8 +286,9 @@ class NoSQLHandleConfig(object):
 
     def get_default_consistency(self):
         """
-        Returns the default consistency. If there is a configured consistency it
-        is returned. If not a default value of Consistency.EVENTUAL is used.
+        Returns the default consistency value that will be used by the system.
+        If consistency has been set using :py:meth:`set_consistency`, that will
+        be returned. If not a default value of Consistency.EVENTUAL is returned.
 
         :returns: the default consistency.
         """
@@ -366,8 +372,9 @@ class NoSQLHandleConfig(object):
 
     def set_consistency(self, consistency):
         """
-        Sets the default request :py:class:`Consistency`. The default
-        consistency is Consistency.EVENTUAL.
+        Sets the default request :py:class:`Consistency`. If not set in this
+        object or by a specific request, the default consistency used is
+        Consistency.EVENTUAL.
 
         :param consistency: the consistency.
         :returns: self.
@@ -694,7 +701,7 @@ class NoSQLHandleConfig(object):
                 # host:port
                 host = parts[0]
                 port = NoSQLHandleConfig.validate_port(endpoint, parts[1])
-                if port == 8080:
+                if port != 443:
                     # Override the default of https.
                     protocol = 'http'
         elif len(parts) == 3:

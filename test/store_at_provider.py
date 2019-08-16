@@ -10,7 +10,6 @@
 import unittest
 from requests import codes
 from socket import error
-from struct import pack, unpack
 from threading import Thread
 from time import sleep, time
 try:
@@ -43,7 +42,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         RENEW_TOKEN = 'RENEW_TOKEN'
 
     def setUp(self):
-        self.base = 'localhost:' + str(8000)
+        self.base = 'https://localhost:' + str(8000)
         self.token_provider = None
 
     def tearDown(self):
@@ -52,44 +51,49 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             self.token_provider = None
 
     def testAccessTokenProviderIllegalInit(self):
-        # illegal endpoint
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          None, USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          {'endpoint': self.base}, USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'localhost:notanint', USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'localhost:-1', USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'localhost:8080', USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'ttp://localhost', USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'http://localhost', USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'localhost:8080:foo', USER_NAME, PASSWORD)
-        self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          'https://localhost:-1:x', USER_NAME, PASSWORD)
-
         # illegal user name
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          self.base, {'user_name': USER_NAME}, PASSWORD)
+                          {'user_name': USER_NAME}, PASSWORD)
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          self.base, '', PASSWORD)
+                          '', PASSWORD)
         # illegal password
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          self.base, USER_NAME, {'password': PASSWORD})
+                          USER_NAME, {'password': PASSWORD})
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          self.base, USER_NAME, '')
+                          USER_NAME, '')
         # one of the required parameters is None
         self.assertRaises(IllegalArgumentException, StoreAccessTokenProvider,
-                          self.base, None, PASSWORD)
+                          None, PASSWORD)
 
     def testAccessTokenProviderSetIllegalAutoRenew(self):
         self.token_provider = StoreAccessTokenProvider()
         self.assertRaises(IllegalArgumentException,
                           self.token_provider.set_auto_renew, 'IllegalRenew')
+
+    def testAccessTokenProviderSetIllegalEndpoint(self):
+        self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint, None)
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint,
+                          {'endpoint': self.base})
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint,
+                          'localhost:notanint')
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint, 'localhost:-1')
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint, 'localhost:8080')
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint, 'ttp://localhost')
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint, 'http://localhost')
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint,
+                          'localhost:8080:foo')
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.set_endpoint,
+                          'https://localhost:-1:x')
 
     def testAccessTokenProviderSetIllegalLogger(self):
         self.token_provider = StoreAccessTokenProvider()
@@ -104,27 +108,28 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
 
     def testAccessTokenProviderGets(self):
         self.token_provider = StoreAccessTokenProvider(
-            self.base, USER_NAME, PASSWORD).set_auto_renew(False)
+            USER_NAME, PASSWORD).set_auto_renew(False).set_endpoint(self.base)
         self.assertTrue(self.token_provider.is_secure())
         self.assertFalse(self.token_provider.is_auto_renew())
+        self.assertEqual(self.token_provider.get_endpoint(), self.base)
         self.assertIsNone(self.token_provider.get_logger())
 
     def testAccessTokenProviderGetAuthorizationString(self):
         httpd, port = self._find_port_start_server(TokenHandler)
 
-        self.base = 'localhost:' + str(port)
-        self.token_provider = StoreAccessTokenProvider(
-            self.base, USER_NAME, PASSWORD)
+        self.base = 'https://localhost:' + str(port)
+        self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
+        self.token_provider.set_endpoint(self.base)
         self.token_provider.set_url_for_test()
         # get authorization string.
         result = self.token_provider.get_authorization_string()
         self.assertIsNotNone(result)
         self.assertTrue(result.startswith(AUTH_TOKEN_PREFIX))
-        self.assertEqual(self._read_token_from_auth(result), LOGIN_TOKEN)
+        self.assertEqual(result[len(AUTH_TOKEN_PREFIX):], LOGIN_TOKEN)
         # Wait for the refresh to complete
         sleep(10)
         result = self.token_provider.get_authorization_string()
-        self.assertEqual(self._read_token_from_auth(result), RENEW_TOKEN)
+        self.assertEqual(result[len(AUTH_TOKEN_PREFIX):], RENEW_TOKEN)
         self.token_provider.close()
         self.assertIsNone(self.token_provider.get_authorization_string())
         self._stop_server(httpd)
@@ -143,72 +148,9 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         thread.start()
         return httpd, port
 
-    def _read_token_from_auth(self, auth_string):
-        token = auth_string[len(AUTH_TOKEN_PREFIX):]
-        buf = bytearray.fromhex(token)
-        bis = ByteInputStream(buf)
-        bis.read_short_int()
-        bis.read_long()
-        return bis.read_all().decode()
-
     def _stop_server(self, httpd):
         httpd.shutdown()
         httpd.server_close()
-
-
-class ByteInputStream(object):
-    """
-    The ByteInputStream provides methods to get data with different type from
-    a bytearray.
-    """
-
-    def __init__(self, content):
-        self._content = content
-
-    def read_all(self):
-        return self._content
-
-    def read_fully(self, buf):
-        for index in range(len(buf)):
-            buf[index] = self._content.pop(0)
-
-    def read_long(self):
-        buf = bytearray(8)
-        self.read_fully(buf)
-        res, = unpack('>q', buf)
-        return res
-
-    def read_short_int(self):
-        buf = bytearray(2)
-        self.read_fully(buf)
-        res, = unpack('>h', buf)
-        return res
-
-
-class ByteOutputStream(object):
-    """
-    The ByteOutputStream provides methods to write data with different type into
-    a bytearray.
-    """
-
-    def __init__(self, content):
-        self._content = content
-
-    def write_bytearray(self, value):
-        for index in range(len(value)):
-            self._content.append(value[index])
-
-    def write_long(self, value):
-        val_s = pack('>q', value)
-        self.write_value(val_s)
-
-    def write_short_int(self, value):
-        val_s = pack('>h', value)
-        self.write_value(val_s)
-
-    def write_value(self, value):
-        val_b = bytearray(value)
-        self.write_bytearray(val_b)
 
 
 class TokenHandler(SimpleHTTPRequestHandler, object):
@@ -229,23 +171,13 @@ class TokenHandler(SimpleHTTPRequestHandler, object):
         pass
 
     def _generate_login_token(self, token_text):
-        content = bytearray()
-        bos = ByteOutputStream(content)
-        bos.write_short_int(1)
-        bos.write_long(int(round(time() * 1000)) + 15000)
-        try:
-            buf = bytearray(token_text.encode())
-        except UnicodeDecodeError:
-            buf = bytearray(token_text)
-        bos.write_bytearray(buf)
-        try:
-            hex_str = str(content).encode('hex')
-        except LookupError:
-            hex_str = content.hex()
+        expire_time = int(round(time() * 1000)) + 15000
+        content = ('{"token": "' + token_text + '", "expireAt": ' +
+                   str(expire_time) + '}')
         self.send_response(codes.ok)
-        self.send_header('Content-Length', str(len(hex_str)))
+        self.send_header('Content-Length', str(len(content)))
         self.end_headers()
-        self.wfile.write(hex_str.encode())
+        self.wfile.write(content.encode())
 
 
 if __name__ == '__main__':

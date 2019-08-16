@@ -10,7 +10,7 @@
 import unittest
 
 from borneo import (
-    DeleteRequest, GetRequest, IllegalArgumentException, PutRequest, State,
+    DeleteRequest, GetRequest, IllegalArgumentException, PutRequest,
     TableLimits, TableNotFoundException, TableRequest)
 from parameters import table_name, timeout
 from test_base import TestBase
@@ -30,7 +30,7 @@ fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
-        cls.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request)
         global hour_in_milliseconds
         hour_in_milliseconds = 60 * 60 * 1000
 
@@ -111,22 +111,16 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
     def testDeleteNormal(self):
         self.delete_request.set_return_row(True)
         result = self.handle.delete(self.delete_request)
-        self.assertTrue(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
+        self._check_delete_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
+        self._check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteNonExisting(self):
         self.delete_request.set_key({'fld_id': 2})
         result = self.handle.delete(self.delete_request)
-        self.assertFalse(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
+        self._check_delete_result(result, False)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersion(self):
@@ -136,26 +130,18 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         # delete failed because version not match
         self.delete_request.set_match_version(self.version)
         result = self.handle.delete(self.delete_request)
-        self.assertFalse(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
+        self._check_delete_result(result, False)
         self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), self.row)
-        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
-        self.assertNotEqual(result.get_expiration_time(), 0)
+        self._check_get_result(result, self.row, version, False)
         self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
         result = self.handle.delete(self.delete_request)
-        self.assertTrue(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
+        self._check_delete_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
+        self._check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersionWithReturnRow(self):
@@ -166,28 +152,42 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.delete_request.set_match_version(
             self.version).set_return_row(True)
         result = self.handle.delete(self.delete_request)
-        self.assertFalse(result.get_success())
-        self.assertEqual(result.get_existing_value(), self.row)
-        self.assertEqual(result.get_existing_version().get_bytes(),
-                         version.get_bytes())
+        self._check_delete_result(result, False, self.row, version.get_bytes())
         self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), self.row)
-        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
-        self.assertNotEqual(result.get_expiration_time(), 0)
+        self._check_get_result(result, self.row, version, False)
         self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
         result = self.handle.delete(self.delete_request)
-        self.assertTrue(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
+        self._check_delete_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
+        self._check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
+
+    def _check_delete_result(self, result, success=True, value=None,
+                             version=None):
+        # check whether success
+        self.assertEqual(result.get_success(), success)
+        # check existing value
+        self.assertEqual(result.get_existing_value(), value)
+        # check existing version
+        ver = result.get_existing_version()
+        (self.assertIsNone(ver) if version is None
+         else self.assertEqual(ver.get_bytes(), version))
+
+    def _check_get_result(self, result, value=None, version=None, deleted=True):
+        # check value
+        self.assertEqual(result.get_value(), value)
+        # check version
+        ver = result.get_version()
+        (self.assertIsNone(ver) if version is None
+         else self.assertEqual(ver.get_bytes(), version.get_bytes()))
+        # check expiration time
+        expiration_time = result.get_expiration_time()
+        (self.assertEqual(expiration_time, 0) if deleted
+         else self.assertNotEqual(expiration_time, 0))
 
 
 if __name__ == '__main__':

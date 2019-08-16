@@ -150,6 +150,8 @@ class Utils(object):
 
 class AccessTokenProvider(AuthorizationProvider):
     """
+    Cloud service only.
+
     AccessTokenProvider is an instance of
     :py:meth:`borneo.AuthorizationProvider` that uses access tokens (ATs)
     obtained from the Oracle Identity Cloud Service (IDCS) as authorization
@@ -361,6 +363,8 @@ class AccessTokenProvider(AuthorizationProvider):
 
 class DefaultAccessTokenProvider(AccessTokenProvider):
     """
+    Cloud service only.
+
     An instance of :py:class:`AccessTokenProvider` that acquires access tokens
     from Oracle Identity Cloud Service (IDCS) using information provided by
     :py:class:`CredentialsProvider`. By default the
@@ -760,6 +764,8 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
 
 class IDCSCredentials(object):
     """
+    Cloud service only.
+
     A credentials object that bundles a string alias and char array secret used
     to authenticate with IDCS for token acquisition.
 
@@ -794,6 +800,8 @@ class IDCSCredentials(object):
 
 class CredentialsProvider(object):
     """
+    Cloud service only.
+
     CredentialsProvider returns 2 types of :py:class:`IDCSCredentials`
     Credentials encapsulating user name and password
     Credentials encapsulating client id and secret
@@ -826,6 +834,8 @@ class CredentialsProvider(object):
 
 class PropertiesCredentialsProvider(CredentialsProvider):
     """
+    Cloud service only.
+
     A credentials provider that fetches credentials stored in a properties file.
     The property name and value must be written in the form of key=value. This
     provider parses each line of the specified file, extracting properties.
