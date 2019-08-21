@@ -9,40 +9,40 @@
 
 #
 # This is a simple example to demonstrate use of the Python driver for the
-# Oracle NoSQL Database Cloud Service. It can be used to run against the
-# cloud service itself or against the Cloud Simulator, which can be downloaded
-# and run locally. See the comments in parameters.py about running in different
-# environments. By default the example is ready to run against the Cloud
-# Simulator.
+# Oracle NoSQL Database. It can be used to run against the Oracle NoSQL Database
+# cloud service, against the Cloud Simulator, or against an on-premise Oracle
+# NoSQL database.
+#
+# See the comments in parameters.py about running in different environments. By
+# default the example is ready to run against the Cloud Simulator.
 #
 # The example demonstrates:
 # o configuring and creating a handle to access the service
-# o list the tables
 # o create a table
-# o put, get and delete of simple data
-# o query data
+# o put, multiple write and multiple delete of simple data
+# o prepare statement and query data
 # o drop the table
 #
 # This example is not intended to be an exhaustive overview of the API, which
 # has a number of additional operations.
 #
 # Requirements:
-#  1. Python 2.7
+#  1. Python 2.7 or 3.5+
 #  2. Python dependencies (install using pip or other mechanism):
 #   o requests
 #  3. If running against the Cloud Simulator, it can be downloaded from here:
 #   http://www.oracle.com/technetwork/topics/cloud/downloads/index.html#nosqlsdk
 #  It requires Java
-#  4. If running against the Oracle NoSQL Database Cloud Service an account
-#  must be used along with additional authentication information. See
-#  instructions in the comments in parameters.py
+#  4. If running against the Oracle NoSQL Database Cloud Service an account must
+#  be used along with additional authentication information. See instructions in
+#  the comments in parameters.py
 #
 # To run:
 #  1. set PYTHONPATH to include the parent directory of ../src/borneo
 #  2. modify variables in parameters.py for the runtime environment after
 #  reading instructions in the comments.
-#  2. run
-#    $ python example1.py
+#  3. run
+#    $ python single_data.py
 #
 
 import traceback

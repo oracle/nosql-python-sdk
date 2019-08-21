@@ -4071,93 +4071,90 @@ class WriteMultipleResult(Result):
         """
         return super(WriteMultipleResult, self)._get_write_units_internal()
 
-    class OperationResult(WriteResult):
+
+class OperationResult(WriteResult):
+    """
+    A single Result associated with the execution of an individual operation
+    in a :py:meth:`borneo.NoSQLHandle.write_multiple` request. A list of
+    OperationResult is contained in :py:class:`borneo.WriteMultipleResult`
+    and obtained using :py:meth:`borneo.WriteMultipleResult.get_results`.
+    """
+
+    def __init__(self):
+        super(OperationResult, self).__init__()
+        self._version = None
+        self._success = False
+        self._generated_value = None
+
+    def __str__(self):
+        return ('Success: ' + str(self._success) + ', version: ' +
+                str(self._version) + ', existing version: ' +
+                str(self.get_existing_version()) + ', existing value: ' +
+                str(self.get_existing_value()) + ', generated value: ' +
+                str(self._generated_value))
+
+    def set_version(self, version):
+        self._version = version
+        return self
+
+    def get_version(self):
         """
-        A single Result associated with the execution of an individual operation
-        in a :py:meth:`borneo.NoSQLHandle.write_multiple` request. A list of
-        OperationResult is contained in :py:class:`borneo.WriteMultipleResult`
-        and obtained using :py:meth:`borneo.WriteMultipleResult.get_results`.
+        Returns the version of the new row for put operation, or None if put
+        operations did not succeed or the operation is delete operation.
+
+        :return: the version.
+        :rtype: Version
         """
+        return self._version
 
-        def __init__(self):
-            super(WriteMultipleResult.OperationResult, self).__init__()
-            self._version = None
-            self._success = False
-            self._generated_value = None
+    def set_success(self, success):
+        self._success = success
+        return self
 
-        def __str__(self):
-            return ('Success: ' + str(self._success) + ', version: ' +
-                    str(self._version) + ', existing version: ' +
-                    str(self.get_existing_version()) + ', existing value: ' +
-                    str(self.get_existing_value()) + ', generated value: ' +
-                    str(self._generated_value))
+    def get_success(self):
+        """
+        Returns the flag indicates whether the operation succeeded. A put or
+        delete operation may be unsuccessful if the condition is not
+        matched.
 
-        def set_version(self, version):
-            self._version = version
-            return self
+        :return: True if the operation succeeded.
+        :rtype: bool
+        """
+        return self._success
 
-        def get_version(self):
-            """
-            Returns the version of the new row for put operation, or None if put
-            operations did not succeed or the operation is delete operation.
+    def set_generated_value(self, value):
+        self._generated_value = value
+        return self
 
-            :return: the version.
-            :rtype: Version
-            """
-            return self._version
+    def get_generated_value(self):
+        """
+        Returns the value generated if the operation created a new value for
+        an identity column. If the table has no identity columns this value
+        is None. If it has an identity column and a value was generated for
+        that column, it is not None.
 
-        def set_success(self, success):
-            self._success = success
-            return self
+        This value is only valid for a put operation on a table with an
+        identity column.
 
-        def get_success(self):
-            """
-            Returns the flag indicates whether the operation succeeded. A put or
-            delete operation may be unsuccessful if the condition is not
-            matched.
+        :return: the generated value.
+        """
+        return self._generated_value
 
-            :return: True if the operation succeeded.
-            :rtype: bool
-            """
-            return self._success
+    def get_existing_version(self):
+        """
+        Returns the existing row version associated with the key if
+        available.
 
-        def set_generated_value(self, value):
-            self._generated_value = value
-            return self
+        :return: the existing row version
+        :rtype: Version
+        """
+        return super(OperationResult, self).get_existing_version_internal()
 
-        def get_generated_value(self):
-            """
-            Returns the value generated if the operation created a new value for
-            an identity column. If the table has no identity columns this value
-            is None. If it has an identity column and a value was generated for
-            that column, it is not None.
+    def get_existing_value(self):
+        """
+        Returns the previous row value associated with the key if available.
 
-            This value is only valid for a put operation on a table with an
-            identity column.
-
-            :return: the generated value.
-            """
-            return self._generated_value
-
-        def get_existing_version(self):
-            """
-            Returns the existing row version associated with the key if
-            available.
-
-            :return: the existing row version associated with the key if
-                available.
-            :rtype: Version
-            """
-            return super(WriteMultipleResult.OperationResult,
-                         self).get_existing_version_internal()
-
-        def get_existing_value(self):
-            """
-            Returns the previous row value associated with the key if available.
-
-            :return: the previous row value associated with the key if
-                available.
-            :rtype: dict
-            """
-            return super(WriteMultipleResult.OperationResult,
-                         self).get_existing_value_internal()
+        :return: the previous row value
+        :rtype: dict
+        """
+        return super(OperationResult, self).get_existing_value_internal()

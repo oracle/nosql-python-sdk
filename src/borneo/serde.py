@@ -1327,7 +1327,7 @@ class WriteMultipleRequestSerializer(RequestSerializer):
         return result
 
     def _create_operation_result(self, bis):
-        op_result = operations.WriteMultipleResult.OperationResult()
+        op_result = operations.OperationResult()
         op_result.set_success(bis.read_boolean())
         if bis.read_boolean():
             op_result.set_version(BinaryProtocol.read_version(bis))
