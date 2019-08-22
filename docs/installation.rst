@@ -338,12 +338,8 @@ Configure for the On-Premise Oracle NoSQL Database
 ==================================================
 
 The on-premise configuration requires a running instance of the Oracle NoSQL
-database (See `Oracle NoSQL Database Downloads <https://www.oracle.com/database/
-technologies/nosql-database-server-downloads.html>`_ , as well as a running
-proxy instance. See `Information about the proxy <https://docs.oracle.com/pls/
-topic/lookup?ctx=en/database/other-databases/nosql-database/19.3/admin&id=NSADM-
-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ to learn how to configure and start
-the proxy server for the Oracle NoSQL Database.
+database. In addition a running proxy service is required. See `Oracle NoSQL Database Downloads <https://www.oracle.com/database/technologies/nosql-database-server-downloads.html>`_ for downloads, and see
+`Information about the proxy <https://docs.oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-database/19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for proxy configuration information.
 
 If running a secure store a user identity must be created in the store
 (separately) that has permission to perform the required operations of the
