@@ -160,7 +160,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         num_deletion = 6
         num_remaining = 6
         result = self.handle.query(self.query_request)
-        self._check_query_result(result, num_records)
+        self.check_query_result(result, num_records)
         self.check_cost(result, num_records, num_records * 2, 0, 0,
                         multi_shards=True)
         # do multi_delete
@@ -171,7 +171,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                         num_deletion, num_deletion)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
-        self._check_query_result(result, num_remaining)
+        self.check_query_result(result, num_remaining)
         records = result.get_results()
         for idx in range(num_remaining):
             self.assertEqual(records[idx], self._expected_row(0, idx))
@@ -190,7 +190,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                         max_write_kb, max_write_kb)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
-        self._check_query_result(result, num_remaining)
+        self.check_query_result(result, num_remaining)
         records = result.get_results()
         sk0_id = 0
         sk1_id = max_write_kb
@@ -226,7 +226,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
             # check the records after multi_delete request
             query_result = self.handle.query(self.query_request)
             num_remaining = num_records - (completed + deleted)
-            self._check_query_result(query_result, num_remaining)
+            self.check_query_result(query_result, num_remaining)
             records = query_result.get_results()
             sk0_id = 0
             sk1_id = completed + deleted
@@ -259,7 +259,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                         num_deletion, num_deletion)
         # check the records after multi_delete request
         result = self.handle.query(self.query_request)
-        self._check_query_result(result, num_remaining)
+        self.check_query_result(result, num_remaining)
         records = result.get_results()
         sk0_id = 0
         sk1_id = 0
@@ -281,12 +281,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         cont_key = result.get_continuation_key()
         (self.assertIsNotNone(cont_key) if continuation_key
          else self.assertIsNone(cont_key))
-
-    def _check_query_result(self, result, num_records):
-        # check records number
-        self.assertEqual(len(result.get_results()), num_records)
-        # check continuation_key
-        self.assertIsNone(result.get_continuation_key())
 
     def _expected_row(self, fld_sid, fld_id):
         expected_row = OrderedDict()

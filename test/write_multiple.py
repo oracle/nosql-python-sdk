@@ -219,17 +219,17 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.get_request.set_key({'fld_sid': sk, 'fld_id': i})
                 result = self.handle.get(self.get_request)
                 if sk == 1 or i == 1 or i == 5:
-                    self._check_get_result(
+                    self.check_get_result(
                         result, self.rows[sk][i], self.versions[sk][i],
                         self.old_expect_expiration, TimeUnit.DAYS)
                 elif i == 4:
-                    self._check_get_result(result)
+                    self.check_get_result(result)
                 elif i == 2:
-                    self._check_get_result(
-                        result, self.new_rows[sk][i], self.versions[sk][i],
-                        0, ver_eq=False)
+                    self.check_get_result(
+                        result, self.new_rows[sk][i], self.versions[sk][i], 0,
+                        ver_eq=False)
                 else:
-                    self._check_get_result(
+                    self.check_get_result(
                         result, self.new_rows[sk][i], self.versions[sk][i],
                         expect_expiration, TimeUnit.HOURS, False)
                 self.check_cost(result, 1, 2, 0, 0)
@@ -256,7 +256,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             for i in self.ids:
                 self.get_request.set_key({'fld_sid': sk, 'fld_id': i})
                 result = self.handle.get(self.get_request)
-                self._check_get_result(
+                self.check_get_result(
                     result, self.rows[sk][i], self.versions[sk][i],
                     self.old_expect_expiration, TimeUnit.DAYS)
                 self.check_cost(result, 1, 2, 0, 0)
@@ -293,32 +293,8 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
             expected['sid'] = 1
             expected['id'] = idx + 1
             expected['name'] = 'myname'
-            self._check_get_result(result, expected, versions[idx])
+            self.check_get_result(result, expected, versions[idx])
             self.check_cost(result, 1, 2, 0, 0)
-
-    def _check_get_result(self, result, value=None, version=None,
-                          expect_expiration=0, timeunit=None, ver_eq=True):
-        # check value
-        self.assertEqual(result.get_value(), value)
-        # check version
-        ver = result.get_version()
-        if version is None:
-            self.assertIsNone(ver)
-        elif ver_eq:
-            self.assertEqual(ver.get_bytes(), version.get_bytes())
-        else:
-            self.assertNotEqual(ver.get_bytes(), version.get_bytes())
-        # check expiration time
-        if expect_expiration == 0:
-            self.assertEqual(result.get_expiration_time(), 0)
-        else:
-            actual_expiration = result.get_expiration_time()
-            actual_expect_diff = actual_expiration - expect_expiration
-            self.assertGreater(actual_expiration, 0)
-            if timeunit == TimeUnit.HOURS:
-                self.assertLess(actual_expect_diff, self.hour_in_milliseconds)
-            else:
-                self.assertLess(actual_expect_diff, self.day_in_milliseconds)
 
     def _check_operation_result(
             self, op_result, version=False, success=False, generated_value=None,

@@ -153,7 +153,7 @@ class AccessTokenProvider(AuthorizationProvider):
     Cloud service only.
 
     AccessTokenProvider is an instance of
-    :py:meth:`borneo.AuthorizationProvider` that uses access tokens (ATs)
+    :py:class:`borneo.AuthorizationProvider` that uses access tokens (ATs)
     obtained from the Oracle Identity Cloud Service (IDCS) as authorization
     information.
 

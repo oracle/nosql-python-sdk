@@ -14,9 +14,9 @@ from time import time
 
 from .common import ByteInputStream, synchronized
 from .exception import (
-    AuthenticationException, IllegalStateException, NoSQLException,
-    RequestTimeoutException, RetryableException, SecurityInfoNotReadyException)
-from .kv import StoreAccessTokenProvider
+    IllegalStateException, NoSQLException, RequestTimeoutException,
+    RetryableException, SecurityInfoNotReadyException)
+from .kv import AuthenticationException, StoreAccessTokenProvider
 from .serde import BinaryProtocol
 
 

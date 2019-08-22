@@ -3804,6 +3804,7 @@ class TableResult(Result):
         :param handle: the NoSQLHandle to use.
         :type handle: NoSQLHandle
         :param state: the desired state.
+        :type wait_millis: State
         :param wait_millis: the total amount of time to wait, in milliseconds.
             This value must be non-zero and greater than delay_millis.
         :type wait_millis: int
@@ -4075,9 +4076,9 @@ class WriteMultipleResult(Result):
 class OperationResult(WriteResult):
     """
     A single Result associated with the execution of an individual operation
-    in a :py:meth:`borneo.NoSQLHandle.write_multiple` request. A list of
-    OperationResult is contained in :py:class:`borneo.WriteMultipleResult`
-    and obtained using :py:meth:`borneo.WriteMultipleResult.get_results`.
+    in a :py:meth:`NoSQLHandle.write_multiple` request. A list of
+    OperationResult is contained in :py:class:`WriteMultipleResult` and obtained
+    using :py:meth:`WriteMultipleResult.get_results`.
     """
 
     def __init__(self):

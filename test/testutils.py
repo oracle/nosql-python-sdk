@@ -18,7 +18,6 @@ from requests import codes, delete, post
 from rsa import PrivateKey, sign
 from struct import pack
 from sys import argv
-from time import sleep
 
 from borneo import (
     DefaultRetryHandler, IllegalArgumentException, IllegalStateException,
@@ -29,7 +28,7 @@ from borneo.idcs import (
 from borneo.kv import StoreAccessTokenProvider
 from parameters import (
     consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
-    is_minicloud, is_onprem, is_pod, is_prod_pod, logger_level, password,
+    is_minicloud, is_onprem, is_prod_pod, logger_level, password,
     pool_connections, pool_maxsize, table_prefix, table_request_timeout,
     timeout, user_name)
 
@@ -41,6 +40,7 @@ sc_nd_tenant_base = sc_url_base + 'tenant/nondefault/'
 tier_name = 'test_tier'
 
 logger = None
+namespace = 'pyNamespace'
 retry_handler = DefaultRetryHandler(delay_s=5)
 # The timeout for waiting security information is available.
 sec_info_timeout = 20000
@@ -104,9 +104,6 @@ def get_simple_handle_config(tenant_id, ep=endpoint):
 def get_handle(tenant_id):
     # Returns a connection to the server
     config = get_handle_config(tenant_id)
-    if is_pod():
-        # sleep a while to avoid the OperationThrottlingException
-        sleep(60)
     return NoSQLHandle(config)
 
 

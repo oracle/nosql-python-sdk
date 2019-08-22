@@ -7,6 +7,9 @@
 # appropriate download for a copy of the license and additional information.
 #
 
+from .exception import AuthenticationException
 from .kv import StoreAccessTokenProvider
 
-__all__ = ['StoreAccessTokenProvider']
+__all__ = ['AuthenticationException',
+           'StoreAccessTokenProvider'
+           ]

@@ -233,7 +233,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         num_records = 6
         self.query_request.set_statement(query_statement)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, num_records)
+        records = self.check_query_result(result, num_records)
         for idx in range(num_records):
             self.assertEqual(records[idx], self._expected_row(1, idx))
         self.check_cost(result, num_records + prepare_cost,
@@ -243,7 +243,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         limit = 3
         self.query_request.set_statement(query_statement).set_limit(limit)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, limit, True)
+        records = self.check_query_result(result, limit, True)
         for idx in range(limit):
             self.assertEqual(records[idx], self._expected_row(1, idx))
         self.check_cost(
@@ -258,9 +258,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         # TODO: [#27744] KV doesn't honor max read kb for on-prem proxy because
         # it has no table limits.
         if is_onprem():
-            records = self._check_query_result(result, num_records)
+            records = self.check_query_result(result, num_records)
         else:
-            records = self._check_query_result(result, max_read_kb + 1, True)
+            records = self.check_query_result(result, max_read_kb + 1, True)
         for idx in range(len(records)):
             self.assertEqual(records[idx], self._expected_row(1, idx))
         self.check_cost(result, max_read_kb + prepare_cost + 1,
@@ -271,7 +271,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_statement(query_statement).set_consistency(
             Consistency.ABSOLUTE)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, num_records)
+        records = self.check_query_result(result, num_records)
         for idx in range(num_records):
             self.assertEqual(records[idx], self._expected_row(1, idx))
         self.check_cost(result, num_records + prepare_cost,
@@ -288,11 +288,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             if completed + limit <= num_records:
                 num_get = limit
                 read_kb = num_get
-                records = self._check_query_result(result, num_get, True)
+                records = self.check_query_result(result, num_get, True)
             else:
                 num_get = num_records - completed
                 read_kb = (1 if num_get == 0 else num_get)
-                records = self._check_query_result(result, num_get)
+                records = self.check_query_result(result, num_get)
             for idx in range(num_get):
                 self.assertEqual(records[idx],
                                  self._expected_row(1, completed + idx))
@@ -311,7 +311,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_statement(
             query_statement).set_defaults(self.handle_config)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, num_records)
+        records = self.check_query_result(result, num_records)
         for idx in range(num_records):
             self.assertEqual(records[idx], self._expected_row(1, idx))
         self.check_cost(result, num_records + prepare_cost,
@@ -327,7 +327,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             '$fld_id', 0)
         self.query_request.set_prepared_statement(self.prepare_result_update)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 0})
         self.check_cost(result, 1, 2, 0, 0)
         # update an existing row
@@ -335,7 +335,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             '$fld_id', fld_id)
         self.query_request.set_prepared_statement(self.prepare_result_update)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
@@ -343,7 +343,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         prepared_statement.set_variable('$fld_long', fld_long)
         self.query_request.set_prepared_statement(prepared_statement)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
         self.check_cost(result, 1, 2, 0, 0)
@@ -358,7 +358,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_prepared_statement(
             self.prepare_result_update).set_limit(1)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
@@ -366,7 +366,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         prepared_statement.set_variable('$fld_long', fld_long)
         self.query_request.set_prepared_statement(prepared_statement)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1, True)
+        records = self.check_query_result(result, 1, True)
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
         self.check_cost(result, 1, 2, 0, 0)
@@ -387,7 +387,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         # set a enough max_read_kb to read a row to update
         self.query_request.set_max_read_kb(2)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
@@ -395,7 +395,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         prepared_statement.set_variable('$fld_long', fld_long)
         self.query_request.set_prepared_statement(prepared_statement)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
         self.check_cost(result, 1, 2, 0, 0)
@@ -410,7 +410,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_prepared_statement(
             self.prepare_result_update).set_consistency(Consistency.ABSOLUTE)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
@@ -418,7 +418,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         prepared_statement.set_variable('$fld_long', fld_long)
         self.query_request.set_prepared_statement(prepared_statement)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
         self.check_cost(result, 1, 2, 0, 0)
@@ -438,7 +438,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         while True:
             completed = count * limit
             result = self.handle.query(self.query_request)
-            records = self._check_query_result(result, 1)
+            records = self.check_query_result(result, 1)
             if completed + limit <= num_records:
                 self.assertEqual(records[0], {'NumRowsUpdated': limit})
                 read_kb = limit * 2
@@ -461,9 +461,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_prepared_statement(prepared_statement)
         result = self.handle.query(self.query_request)
         if limit <= num_records:
-            records = self._check_query_result(result, num_records, True)
+            records = self.check_query_result(result, num_records, True)
         else:
-            records = self._check_query_result(result, num_records)
+            records = self.check_query_result(result, num_records)
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
         self.check_cost(result, 1, 2, 0, 0)
@@ -478,7 +478,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_prepared_statement(
             self.prepare_result_update).set_defaults(self.handle_config)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         self.check_cost(result, 2, 4, 4, 4)
         # check the updated row
@@ -486,7 +486,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         prepared_statement.set_variable('$fld_long', fld_long)
         self.query_request.set_prepared_statement(prepared_statement)
         result = self.handle.query(self.query_request)
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
         self.check_cost(result, 1, 2, 0, 0)
@@ -500,7 +500,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.query(self.query_request)
         ttl = TimeToLive.of_hours(3)
         expect_expiration = ttl.to_expiration_time(int(round(time() * 1000)))
-        records = self._check_query_result(result, 1)
+        records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
         # TODO: A difference between old cloud proxy and new cloud proxy, the
         # cost of old proxy is 1 less than that of new proxy.
@@ -528,7 +528,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_records, rec=records)
+                    self.check_query_result(result, num_records, rec=records)
                     for idx in range(num_records):
                         self.assertEqual(
                             records[idx],
@@ -536,7 +536,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -549,7 +549,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_records, rec=records)
+                    self.check_query_result(result, num_records, rec=records)
                     for idx in range(num_records):
                         self.assertEqual(
                             records[idx],
@@ -557,7 +557,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -567,7 +567,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = ('SELECT min(fld_time) FROM ' + table_name)
             query_request = QueryRequest().set_statement(statement)
             result = self.handle.query(query_request)
-            records = self._check_query_result(result, 1)
+            records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': self.min_time[0]})
             self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -575,7 +575,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = ('SELECT max(fld_time) FROM ' + table_name)
             query_request = QueryRequest().set_statement(statement)
             result = self.handle.query(query_request)
-            records = self._check_query_result(result, 1)
+            records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': self.max_time[1]})
             self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -589,14 +589,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx], {'Column_1': self.min_time[idx]})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -611,14 +611,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx], {'Column_1': self.max_time[idx]})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -631,14 +631,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx], {'Column_1': self.min_time[idx]})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -650,14 +650,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx], {'Column_1': self.max_time[idx]})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -668,7 +668,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = ('SELECT sum(fld_double) FROM ' + table_name)
             query_request = QueryRequest().set_statement(statement)
             result = self.handle.query(query_request)
-            records = self._check_query_result(result, 1)
+            records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': 3.1415 * num_records})
             self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -682,7 +682,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx],
@@ -690,7 +690,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -703,7 +703,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx],
@@ -711,7 +711,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -721,7 +721,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = ('SELECT avg(fld_double) FROM ' + table_name)
             query_request = QueryRequest().set_statement(statement)
             result = self.handle.query(query_request)
-            records = self._check_query_result(result, 1)
+            records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': 3.1415})
             self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -735,13 +735,13 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(records[idx], {'Column_1': 3.1415})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -754,13 +754,13 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(records[idx], {'Column_1': 3.1415})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -771,7 +771,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = ('SELECT count(*) FROM ' + table_name)
             query_request = QueryRequest().set_statement(statement)
             result = self.handle.query(query_request)
-            records = self._check_query_result(result, 1)
+            records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': num_records})
             self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
@@ -785,14 +785,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx], {'Column_1': num_records // num_sids})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -805,14 +805,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_sids, rec=records)
+                    self.check_query_result(result, num_sids, rec=records)
                     for idx in range(num_sids):
                         self.assertEqual(
                             records[idx], {'Column_1': num_records // num_sids})
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -829,7 +829,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, limit, rec=records)
+                    self.check_query_result(result, limit, rec=records)
                     for idx in range(limit):
                         self.assertEqual(
                             records[idx],
@@ -838,7 +838,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -851,7 +851,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, limit, rec=records)
+                    self.check_query_result(result, limit, rec=records)
                     for idx in range(limit):
                         self.assertEqual(
                             records[idx],
@@ -859,7 +859,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -882,7 +882,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_get, rec=records)
+                    self.check_query_result(result, num_get, rec=records)
                     for idx in range(num_get):
                         self.assertEqual(
                             records[idx],
@@ -891,7 +891,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -910,7 +910,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_get, rec=records)
+                    self.check_query_result(result, num_get, rec=records)
                     for idx in range(num_get):
                         self.assertEqual(
                             records[idx], {'fld_str': '{"name": u' +
@@ -918,7 +918,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
 
@@ -934,7 +934,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 str(latitude) + ']}, 215000)')
             query_request = QueryRequest().set_statement(statement)
             result = self.handle.query(query_request)
-            records = self._check_query_result(result, num_get)
+            records = self.check_query_result(result, num_get)
             for i in range(1, num_get):
                 pre = records[i - 1]['location']['coordinates']
                 curr = records[i]['location']['coordinates']
@@ -957,7 +957,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_get, rec=records)
+                    self.check_query_result(result, num_get, rec=records)
                     name = [10, 9, 8, 4, 3, 2]
                     for i in range(num_get):
                         self.assertEqual(
@@ -966,7 +966,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
             self.assertEqual(count, 2)
@@ -982,7 +982,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.query(query_request)
                 records = result.get_results()
                 if query_request.is_done():
-                    self._check_query_result(result, num_get, rec=records)
+                    self.check_query_result(result, num_get, rec=records)
                     name = [2, 3, 4, 8, 9, 10]
                     for i in range(num_get):
                         self.assertEqual(
@@ -991,20 +991,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_cost(result, 0, 0, 0, 0)
                     break
                 else:
-                    self._check_query_result(result, 0, True, records)
+                    self.check_query_result(result, 0, True, records)
                     self.assertEqual(records, [])
                     self.check_cost(result, 0, 0, 0, 0, True)
-
-    def _check_query_result(self, result, num_records,
-                            has_continuation_key=False, rec=None):
-        records = result.get_results() if rec is None else rec
-        # check number of the records
-        self.assertEqual(len(records), num_records)
-        # check continuation_key
-        continuation_key = result.get_continuation_key()
-        (self.assertIsNotNone(continuation_key) if has_continuation_key
-         else self.assertIsNone(continuation_key))
-        return records
 
     def _expected_row(self, fld_sid, fld_id, fld_long=None):
         expected_row = OrderedDict()

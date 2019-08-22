@@ -11,28 +11,29 @@ import unittest
 
 from borneo import (
     DeleteRequest, GetRequest, IllegalArgumentException, PutRequest,
-    TableLimits, TableNotFoundException, TableRequest)
+    TableLimits, TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
 from parameters import table_name, timeout
 from test_base import TestBase
 from testutils import get_row
+from time import time
 
 
 class TestDelete(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
+        global table_ttl
+        table_ttl = TimeToLive.of_days(2)
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
 fld_bin BINARY, fld_time TIMESTAMP(6), fld_num NUMBER, fld_json JSON, \
 fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
-PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
+PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
         cls.table_request(create_request)
-        global hour_in_milliseconds
-        hour_in_milliseconds = 60 * 60 * 1000
 
     @classmethod
     def tearDownClass(cls):
@@ -114,7 +115,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self._check_delete_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result)
+        self.check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteNonExisting(self):
@@ -127,13 +128,16 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row)
         version = self.handle.put(self.put_request).get_version()
+        tb_expect_expiration = table_ttl.to_expiration_time(
+            int(round(time() * 1000)))
         # delete failed because version not match
         self.delete_request.set_match_version(self.version)
         result = self.handle.delete(self.delete_request)
         self._check_delete_result(result, False)
         self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, False)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
         self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
@@ -141,13 +145,15 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self._check_delete_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result)
+        self.check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersionWithReturnRow(self):
         self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row)
         version = self.handle.put(self.put_request).get_version()
+        tb_expect_expiration = table_ttl.to_expiration_time(
+            int(round(time() * 1000)))
         # delete failed because version not match
         self.delete_request.set_match_version(
             self.version).set_return_row(True)
@@ -155,7 +161,8 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self._check_delete_result(result, False, self.row, version.get_bytes())
         self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, False)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
         self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
@@ -163,7 +170,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self._check_delete_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result)
+        self.check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
 
     def _check_delete_result(self, result, success=True, value=None,
@@ -176,18 +183,6 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         ver = result.get_existing_version()
         (self.assertIsNone(ver) if version is None
          else self.assertEqual(ver.get_bytes(), version))
-
-    def _check_get_result(self, result, value=None, version=None, deleted=True):
-        # check value
-        self.assertEqual(result.get_value(), value)
-        # check version
-        ver = result.get_version()
-        (self.assertIsNone(ver) if version is None
-         else self.assertEqual(ver.get_bytes(), version.get_bytes()))
-        # check expiration time
-        expiration_time = result.get_expiration_time()
-        (self.assertEqual(expiration_time, 0) if deleted
-         else self.assertNotEqual(expiration_time, 0))
 
 
 if __name__ == '__main__':

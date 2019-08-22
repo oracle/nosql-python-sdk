@@ -13,14 +13,15 @@ from time import sleep
 from borneo import (
     IllegalArgumentException, ListTablesRequest, TableLimits, TableRequest)
 from parameters import (
-    is_pod, not_cloudsim, table_name, table_prefix, tenant_id, timeout,
-    wait_timeout)
+    is_onprem, is_pod, not_cloudsim, table_name, table_prefix, tenant_id,
+    timeout)
+from test_base import TestBase
 from testutils import (
     add_tenant, add_tier, delete_tenant, delete_tier, get_handle,
-    make_table_name)
+    make_table_name, namespace)
 
 
-class TestListTables(unittest.TestCase):
+class TestListTables(unittest.TestCase, TestBase):
     handles = None
 
     @classmethod
@@ -49,8 +50,7 @@ class TestListTables(unittest.TestCase):
                     sleep(60)
                 drop_request = TableRequest().set_statement(
                     'DROP TABLE IF EXISTS ' + tb_name)
-                cls.handles[handle].do_table_request(
-                    drop_request, wait_timeout, 1000)
+                cls.table_request(drop_request, cls.handles[handle])
                 create_statement = (
                     'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
@@ -61,23 +61,21 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 limits = TableLimits(5000, 5000, 50)
                 create_request = TableRequest().set_statement(
                     create_statement).set_table_limits(limits)
-                cls.handles[handle].do_table_request(
-                    create_request, wait_timeout, 1000)
+                cls.table_request(create_request, cls.handles[handle])
 
     @classmethod
     def tearDownClass(cls):
-        for handle in cls.handles:
+        for handle in range(len(cls.handles)):
             try:
                 ltr = ListTablesRequest()
-                result = handle.list_tables(ltr)
+                result = cls.handles[handle].list_tables(ltr)
                 for table in result.get_tables():
                     if table.startswith(table_prefix):
                         drop_request = TableRequest().set_statement(
                             'DROP TABLE IF EXISTS ' + table)
-                        handle.do_table_request(
-                            drop_request, wait_timeout, 1000)
+                        cls.table_request(drop_request, cls.handles[handle])
             finally:
-                handle.close()
+                cls.handles[handle].close()
                 delete_tenant(tenant_id + str(handle))
         delete_tier()
 
@@ -119,7 +117,6 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                           self.list_tables_request.set_namespace, {})
 
     def testListTablesGets(self):
-        namespace = 'pyNamespace'
         self.list_tables_request.set_limit(5).set_namespace(namespace)
         self.assertEqual(self.list_tables_request.get_start_index(), 0)
         self.assertEqual(self.list_tables_request.get_limit(), 5)
@@ -158,6 +155,13 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                              make_table_name('Users1')]]
         self.list_tables_request.set_limit(2)
         self._check_list_tables_result(part_table_names, last_returned_index)
+
+    if is_onprem():
+        def testListTablesWithNamespace(self):
+            # set a namespace that not exist
+            last_returned_index = [3, 4]
+            self.list_tables_request.set_namespace(namespace)
+            self._check_list_tables_result([[], []], last_returned_index)
 
     def _check_list_tables_result(self, names, last_returned_index):
         for handle in range(self.num_handles):

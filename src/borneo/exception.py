@@ -163,23 +163,6 @@ class QueryStateException(IllegalStateException):
             'Unexpected state in query engine:\n' + message)
 
 
-class AuthenticationException(NoSQLException):
-    """
-    On-premise only.
-
-    This exception is thrown when use StoreAccessTokenProvider in following
-    cases:
-
-        Authentication information was not provided in the request header.\n
-        The authentication session has expired. By default
-        :py:class:`idcs.StoreAccessTokenProvider` will automatically retry
-        authentication operation based on its authentication information.
-    """
-
-    def __init__(self, message, cause=None):
-        super(AuthenticationException, self).__init__(message, cause)
-
-
 class InvalidAuthorizationException(NoSQLException):
     """
     The exception is thrown if the application presents an invalid authorization

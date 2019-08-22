@@ -12,7 +12,7 @@ from time import time
 
 from borneo import (
     Consistency, GetRequest, IllegalArgumentException, PutRequest, TableLimits,
-    TableNotFoundException, TableRequest, TimeToLive)
+    TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
 from parameters import table_name, timeout
 from test_base import TestBase
 from testutils import get_row
@@ -34,13 +34,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
         cls.table_request(create_request)
-        global row, tb_expect_expiration, hour_in_milliseconds
+        global row, tb_expect_expiration, version
         row = get_row()
         put_request = PutRequest().set_value(row).set_table_name(table_name)
-        cls.handle.put(put_request)
+        version = cls.handle.put(put_request).get_version()
         tb_expect_expiration = table_ttl.to_expiration_time(
             int(round(time() * 1000)))
-        hour_in_milliseconds = 60 * 60 * 1000
 
     @classmethod
     def tearDownClass(cls):
@@ -106,35 +105,22 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
 
     def testGetNormal(self):
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, row)
+        self.check_get_result(result, row, version, tb_expect_expiration,
+                              TimeUnit.HOURS)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testGetEventual(self):
         self.get_request.set_consistency(Consistency.EVENTUAL)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, row)
+        self.check_get_result(result, row, version, tb_expect_expiration,
+                              TimeUnit.HOURS)
         self.check_cost(result, 1, 1, 0, 0)
 
     def testGetNonExisting(self):
         self.get_request.set_key({'fld_sid': 2, 'fld_id': 2})
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, exist=False)
+        self.check_get_result(result)
         self.check_cost(result, 1, 2, 0, 0)
-
-    def _check_get_result(self, result, value=None, exist=True):
-        # check value
-        self.assertEqual(result.get_value(), value)
-        # check version
-        version = result.get_version()
-        self.assertIsNotNone(version) if exist else self.assertIsNone(version)
-        # check expiration time
-        if exist:
-            actual_expiration = result.get_expiration_time()
-            actual_expect_diff = actual_expiration - tb_expect_expiration
-            self.assertGreater(actual_expiration, 0)
-            self.assertLess(actual_expect_diff, hour_in_milliseconds)
-        else:
-            self.assertEqual(result.get_expiration_time(), 0)
 
 
 if __name__ == '__main__':

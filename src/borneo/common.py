@@ -402,7 +402,7 @@ class IndexInfo(object):
     """
     IndexInfo represents the information about a single index including its name
     and field names. Instances of this class are returned in
-    :py:meth:`GetIndexesResult`.
+    :py:class:`GetIndexesResult`.
     """
 
     def __init__(self, index_name, field_names):
@@ -914,7 +914,7 @@ class PreparedStatement(object):
     prepared query itself is read-only but this object contains a dictionary of
     bind variables and is not thread-safe if variables are used.
 
-    PreparedStatement instances are returned inside :py:meth:`PrepareResult`
+    PreparedStatement instances are returned inside :py:class:`PrepareResult`
     objects returned by :py:meth:`NoSQLHandle.prepare`
 
     A single instance of PreparedStatement is thread-safe if bind variables are

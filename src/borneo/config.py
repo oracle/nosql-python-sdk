@@ -527,8 +527,8 @@ class NoSQLHandleConfig(object):
 
     def get_authorization_provider(self):
         """
-        Returns the :py:class:`auth.AuthorizationProvider` configured for
-        the handle, or None.
+        Returns the :py:class:`AuthorizationProvider` configured for the handle,
+        or None.
 
         :returns: the AuthorizationProvider.
         """

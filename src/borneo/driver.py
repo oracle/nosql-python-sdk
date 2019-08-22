@@ -353,7 +353,7 @@ class NoSQLHandle(object):
         results, until the continuation key is None, indicating that the query
         is done. Inside the loop the continuation key is applied to the
         :py:class:`QueryRequest` using
-        :py:meth:`QueryRequest.et_continuation_key`.
+        :py:meth:`QueryRequest.set_continuation_key`.
 
         :param request: the input parameters for the operation.
         :returns: the result of the operation.

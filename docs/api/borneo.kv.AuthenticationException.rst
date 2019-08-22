@@ -1,6 +1,6 @@
 AuthenticationException
 =======================
 
-.. currentmodule:: borneo
+.. currentmodule:: borneo.kv
 
 .. autoexception:: AuthenticationException

@@ -16,7 +16,7 @@ from parameters import (
     is_onprem, security, table_request_timeout, tenant_id, timeout,
     wait_timeout)
 from test_base import TestBase
-from testutils import get_handle_config
+from testutils import get_handle_config, namespace
 
 
 class TestSystemRequest(unittest.TestCase, TestBase):
@@ -33,8 +33,8 @@ class TestSystemRequest(unittest.TestCase, TestBase):
             self.set_up()
             self.handle_config = get_handle_config(tenant_id)
             self.show = 'SHOW AS JSON NAMESPACES'
-            self.create = 'CREATE NAMESPACE pyNamespace'
-            self.drop = 'DROP NAMESPACE pyNamespace CASCADE'
+            self.create = 'CREATE NAMESPACE ' + namespace
+            self.drop = 'DROP NAMESPACE ' + namespace + ' CASCADE'
             self.sys_request = SystemRequest()
 
         def tearDown(self):
@@ -83,43 +83,43 @@ class TestSystemRequest(unittest.TestCase, TestBase):
             # create namespace.
             self.sys_request.set_statement(self.create)
             result = self.handle.system_request(self.sys_request)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.WORKING, True, statement=self.create)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.COMPLETE, True, statement=self.create)
             # show namespaces.
             self.sys_request.set_statement(self.show)
             result = self.handle.system_request(self.sys_request)
-            self._check_system_result(result, SystemState.COMPLETE, False, True,
-                                      self.show)
+            self.check_system_result(result, SystemState.COMPLETE, False, True,
+                                     self.show)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
-            self._check_system_result(result, SystemState.COMPLETE, False, True,
-                                      self.show)
+            self.check_system_result(result, SystemState.COMPLETE, False, True,
+                                     self.show)
             # drop namespace
             self.sys_request.set_statement(self.drop)
             result = self.handle.system_request(self.sys_request)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.WORKING, True, statement=self.drop)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.COMPLETE, True, statement=self.drop)
 
         def testDoSystemRequest(self):
             # create namespace.
             result = self.handle.do_system_request(
                 self.create, wait_timeout, 1000)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.COMPLETE, True, statement=self.create)
             # show namespaces.
             result = self.handle.do_system_request(
                 self.show, wait_timeout, 1000)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.COMPLETE, False, True, self.show)
             # drop namespace.
             result = self.handle.do_system_request(
                 self.drop, wait_timeout, 1000)
-            self._check_system_result(
+            self.check_system_result(
                 result, SystemState.COMPLETE, True, statement=self.drop)
 
         def testListNamespaces(self):
@@ -147,29 +147,6 @@ class TestSystemRequest(unittest.TestCase, TestBase):
                     self.assertTrue(self._is_str(result.get_name()))
             else:
                 self.assertIsNone(results)
-
-        def _check_result_string(self, result_string):
-            if version_info.major == 2:
-                self.assertRegexpMatches(
-                    result_string, '^{"namespaces" : \[("\w*"[, ]*)+\]}$')
-            else:
-                self.assertRegex(
-                    result_string, '^{"namespaces" : \[("\w*"[, ]*)+\]}$')
-
-        def _check_system_result(self, result, state, has_operation_id=False,
-                                 has_result_string=False, statement=None):
-            # check state
-            self.assertEqual(result.get_operation_state(), state)
-            # check operation id
-            operation_id = result.get_operation_id()
-            (self.assertIsNotNone(operation_id) if has_operation_id
-             else self.assertIsNone(operation_id))
-            # check result string
-            result_string = result.get_result_string()
-            (self._check_result_string(result.get_result_string()) if
-             has_result_string else self.assertIsNone(result_string))
-            # check statement
-            self.assertEqual(result.get_statement(), statement)
 
         def _is_str(self, data):
             if ((version_info.major == 2 and isinstance(data, (str, unicode)) or

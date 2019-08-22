@@ -19,17 +19,17 @@ from .common import (
     CheckValue, IndexInfo, PackedInteger, PreparedStatement, PutOption, State,
     SystemState, TableLimits, TableUsage, TimeUnit, Version, enum)
 from .exception import (
-    AuthenticationException, BatchOperationNumberLimitException,
-    DeploymentException, EvolutionLimitException, IllegalArgumentException,
-    IllegalStateException, IndexExistsException, IndexLimitException,
-    IndexNotFoundException, InvalidAuthorizationException,
-    KeySizeLimitException, NoSQLException, OperationNotSupportedException,
-    OperationThrottlingException, ReadThrottlingException,
-    RequestSizeLimitException, RequestTimeoutException, ResourceExistsException,
-    ResourceNotFoundException, RowSizeLimitException,
+    BatchOperationNumberLimitException, DeploymentException,
+    EvolutionLimitException, IllegalArgumentException, IllegalStateException,
+    IndexExistsException, IndexLimitException, IndexNotFoundException,
+    InvalidAuthorizationException, KeySizeLimitException, NoSQLException,
+    OperationNotSupportedException, OperationThrottlingException,
+    ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
+    ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
     SecurityInfoNotReadyException, SystemException, TableBusyException,
     TableExistsException, TableLimitException, TableNotFoundException,
     TableSizeException, UnauthorizedException, WriteThrottlingException)
+from .kv import AuthenticationException
 from .query import PlanIter, QueryDriver, TopologyInfo
 try:
     import operations

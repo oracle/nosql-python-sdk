@@ -13,7 +13,7 @@ from borneo import (
     IllegalArgumentException, SystemRequest, SystemState, SystemStatusRequest)
 from parameters import is_onprem, tenant_id, timeout, wait_timeout
 from test_base import TestBase
-from testutils import get_handle_config
+from testutils import get_handle_config, namespace
 
 
 class TestSystemStatusRequest(unittest.TestCase, TestBase):
@@ -29,8 +29,8 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
         def setUp(self):
             self.set_up()
             self.handle_config = get_handle_config(tenant_id)
-            self.create = 'CREATE NAMESPACE pyNamespace'
-            self.drop = 'DROP NAMESPACE pyNamespace CASCADE'
+            self.create = 'CREATE NAMESPACE ' + namespace
+            self.drop = 'DROP NAMESPACE ' + namespace + ' CASCADE'
             self.sys_request = SystemRequest().set_timeout(timeout)
             self.sys_status = SystemStatusRequest().set_timeout(timeout)
 
@@ -88,9 +88,9 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             # show the status of the create namespace system request.
             self.sys_status.set_operation_id(result.get_operation_id())
             result = self.handle.system_status(self.sys_status)
-            self._check_system_result(result, SystemState.WORKING, True)
+            self.check_system_result(result, SystemState.WORKING, True)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
-            self._check_system_result(result, SystemState.COMPLETE, True)
+            self.check_system_result(result, SystemState.COMPLETE, True)
             # execute drop namespace system request.
             self.sys_request.set_statement(self.drop)
             result = self.handle.system_request(self.sys_request)
@@ -98,24 +98,11 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             self.sys_status.set_operation_id(
                 result.get_operation_id()).set_statement(self.create)
             result = self.handle.system_status(self.sys_status)
-            self._check_system_result(result, SystemState.WORKING, True,
-                                      self.create)
+            self.check_system_result(result, SystemState.WORKING, True,
+                                     statement=self.create)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
-            self._check_system_result(result, SystemState.COMPLETE, True,
-                                      self.create)
-
-        def _check_system_result(self, result, state, has_operation_id=False,
-                                 statement=None):
-            # check state
-            self.assertEqual(result.get_operation_state(), state)
-            # check operation id
-            operation_id = result.get_operation_id()
-            (self.assertIsNotNone(operation_id) if has_operation_id
-             else self.assertIsNone(operation_id))
-            # check result string
-            self.assertIsNone(result.get_result_string())
-            # check statement
-            self.assertEqual(result.get_statement(), statement)
+            self.check_system_result(result, SystemState.COMPLETE, True,
+                                     statement=self.create)
 
 
 if __name__ == '__main__':

@@ -8,13 +8,14 @@
 #
 
 import unittest
+from time import sleep
 
 from borneo import (
     IllegalArgumentException, OperationNotSupportedException, State,
     TableLimits, TableNotFoundException, TableRequest, TableResult)
 from parameters import (
-    is_onprem, not_cloudsim, table_name, table_request_timeout, tenant_id,
-    wait_timeout)
+    is_minicloud, is_onprem, is_pod, not_cloudsim, table_name,
+    table_request_timeout, tenant_id, wait_timeout)
 from test_base import TestBase
 from testutils import get_handle_config
 
@@ -57,7 +58,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             TableResult.wait_for_state(self.handle, State.ACTIVE, wait_timeout,
                                        1000, table_name)
             drop_request = TableRequest().set_statement(self.drop_tb_statement)
-            self.handle.do_table_request(drop_request, wait_timeout, 1000)
+            self._do_table_request(drop_request)
         except TableNotFoundException:
             pass
         finally:
@@ -151,10 +152,10 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # create table succeed with TableLimits set
         self.table_request.set_table_limits(self.table_limits)
         result = self.handle.table_request(self.table_request)
-        self._check_table_result(
+        self.check_table_result(
             result, State.CREATING, self.table_limits, False)
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
-        self._check_table_result(result, State.ACTIVE, self.table_limits)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table by resetting the statement
         self.table_request.set_statement(self.drop_tb_statement)
         result = self.handle.table_request(self.table_request)
@@ -162,7 +163,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # DROPPING phase, the table limit is not none for old proxy but none for
         # new proxy.
         self._check_table_result(result, State.DROPPING, check_limit=False)
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self._wait_for_completion(result)
         # TODO: A difference between old cloud proxy and new cloud proxy, after
         # table DROPPED, the table limit is not none for old proxy but none for
         # new proxy.
@@ -173,28 +174,28 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # create table before creating index
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
         # create index by resetting the statement
         self.table_request.set_statement(self.create_idx_statement)
         result = self.handle.table_request(self.table_request)
         self._check_table_result(result, State.UPDATING, self.table_limits)
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self._wait_for_completion(result)
         self._check_table_result(result, State.ACTIVE, self.table_limits)
         # drop index by resetting the statement
         self.table_request.set_statement(self.drop_idx_statement)
         result = self.handle.table_request(self.table_request)
         self._check_table_result(result, State.UPDATING, self.table_limits)
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self._wait_for_completion(result)
         self._check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after dropping index
         self.table_request.set_statement(self.drop_tb_statement)
-        self.handle.do_table_request(self.table_request, wait_timeout, 1000)
+        self._do_table_request(self.table_request)
 
     def testTableRequestAlterTable(self):
         # create table before altering table
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
         # alter table failed with TableLimits set
         if not is_onprem():
             request.set_statement(self.alter_fld_statement)
@@ -203,33 +204,33 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # alter table succeed without TableLimits set
         self.table_request.set_statement(self.alter_fld_statement)
         result = self.handle.table_request(self.table_request)
-        self._check_table_result(result, State.UPDATING, self.table_limits)
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
-        self._check_table_result(result, State.ACTIVE, self.table_limits)
+        self.check_table_result(result, State.UPDATING, self.table_limits)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
 
     def testTableRequestAlterTableTTL(self):
         # create table before altering table
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
         # alter table ttl
         self.table_request.set_statement(self.alter_ttl_statement)
         result = self.handle.table_request(self.table_request)
-        self._check_table_result(result, State.UPDATING, self.table_limits)
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
-        self._check_table_result(result, State.ACTIVE, self.table_limits)
+        self.check_table_result(result, State.UPDATING, self.table_limits)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
 
     def testTableRequestModifyTableLimits(self):
         # create table before modifying the table limits
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
         # modify the table limits
         table_limits = TableLimits(10000, 10000, 100)
         self.table_request.set_table_name(table_name).set_table_limits(
@@ -244,28 +245,46 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         if not_cloudsim():
             self.assertIsNotNone(result.get_schema())
         self.assertIsNotNone(result.get_operation_id())
-        result.wait_for_completion(self.handle, wait_timeout, 1000)
-        self._check_table_result(result, State.ACTIVE, table_limits)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, table_limits)
         # drop table after modifying the table limits
         request.set_statement(self.drop_tb_statement)
-        self.handle.do_table_request(request, wait_timeout, 1000)
+        self._do_table_request(request)
 
     def _check_table_result(self, result, state, table_limits=None,
                             has_schema=True, check_limit=True):
-        # check table name
-        self.assertEqual(result.get_table_name(), table_name)
-        # check state
-        self.assertEqual(result.get_state(), state)
-        # check table limits
-        if check_limit:
-            self.check_table_limits(result, table_limits)
-        # check table schema
-        # TODO: For on-prem proxy, TableResult.get_schema() always return None,
-        # This is a known bug, when it is fixed, the test should be change.
-        if not_cloudsim() and not is_onprem():
-            (self.assertIsNotNone(result.get_schema()) if has_schema
-             else self.assertIsNone(result.get_schema()))
-        self.assertIsNotNone(result.get_operation_id())
+        # TODO: For minicloud, the SC module doesn't return operation id for
+        # now. This affects drop table as well as create/drop index. When the SC
+        # is changed to return the operation id, the test need to be changed.
+        if is_minicloud():
+            self.check_table_result(result, state, table_limits, has_schema,
+                                    False, check_limit)
+        else:
+            self.check_table_result(result, state, table_limits, has_schema,
+                                    True, check_limit)
+
+    def _do_table_request(self, request):
+        #
+        # Optionally delay to handle the 4 DDL ops/minute limit
+        # in the real service
+        #
+        if is_pod():
+            sleep(20)
+        result = self.handle.table_request(request)
+        self._wait_for_completion(result)
+
+    def _wait_for_completion(self, result):
+        # TODO: For minicloud, the SC module doesn't return operation id for
+        # now. In TableResult.wait_for_completion, it check if the operation id
+        # is none, if none, raise IllegalArgumentException, at the moment we
+        # should ignore this exception in minicloud testing. This affects drop
+        # table as well as create/drop index. When the SC is changed to return
+        # the operation id, the test need to be changed.
+        if is_minicloud():
+            result.wait_for_state(self.handle, [State.ACTIVE, State.DROPPED],
+                                  wait_timeout, 1000, result=result)
+        else:
+            result.wait_for_completion(self.handle, wait_timeout, 1000)
 
 
 if __name__ == '__main__':

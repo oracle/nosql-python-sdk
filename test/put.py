@@ -172,8 +172,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 0, 0, 1, 1)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, tb_expect_expiration,
-                               TimeUnit.DAYS)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
         self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row
         self.row['fld_long'] = 2147483649
@@ -185,8 +185,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 0, 0, 2, 2)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, expect_expiration,
-                               TimeUnit.HOURS)
+        self.check_get_result(result, self.row, version, expect_expiration,
+                              TimeUnit.HOURS)
         self.check_cost(result, 1, 2, 0, 0)
         # update the ttl of the row to never expire
         self.put_request.set_ttl(TimeToLive.of_days(0))
@@ -195,7 +195,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 0, 0, 2, 2)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version)
+        self.check_get_result(result, self.row, version)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfAbsent(self):
@@ -209,8 +209,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, expect_expiration,
-                               TimeUnit.HOURS)
+        self.check_get_result(result, self.row, version, expect_expiration,
+                              TimeUnit.HOURS)
         self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row, operation
         # should fail, and return the existing row
@@ -239,8 +239,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, expect_expiration,
-                               TimeUnit.HOURS)
+        self.check_get_result(result, self.row, version, expect_expiration,
+                              TimeUnit.HOURS)
         self.check_cost(result, 1, 2, 0, 0)
         # test PutIfPresent with normal values, update the ttl with table
         # default ttl
@@ -252,8 +252,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, tb_expect_expiration,
-                               TimeUnit.DAYS)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfVersion(self):
@@ -271,8 +271,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, expect_expiration,
-                               TimeUnit.HOURS)
+        self.check_get_result(result, self.row, version, expect_expiration,
+                              TimeUnit.HOURS)
         self.check_cost(result, 1, 2, 0, 0)
         # test PutIfVersion with normal values, operation should fail because
         # version not match, and return the existing row
@@ -297,8 +297,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 0, 0, 1, 1)
         self.get_request.set_key(key)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, self.row, version, tb_expect_expiration,
-                               TimeUnit.DAYS)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
         self.check_cost(result, 1, 2, 0, 0)
         # test put a row with an extra field not in the table, this will fail
         # because it's not an exact match when we set exact_match=True
@@ -329,7 +329,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.check_cost(result, 0, 0, 1, 1)
         self.get_request.set_table_name(id_table).set_key(key)
         result = self.handle.get(self.get_request)
-        self._check_get_result(result, expected, version)
+        self.check_get_result(result, expected, version)
         self.check_cost(result, 1, 2, 0, 0)
         # test put a row with identity field, this will fail because id is
         # 'generated always' and in that path it is not legal to provide a value
@@ -337,24 +337,6 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         row['id'] = 1
         self.assertRaises(IllegalArgumentException, self.handle.put,
                           self.put_request)
-
-    def _check_get_result(self, result, value, version, expect_expiration=0,
-                          timeunit=None):
-        # check value
-        self.assertEqual(result.get_value(), value)
-        # check version
-        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
-        # check expiration time
-        if expect_expiration == 0:
-            self.assertEqual(result.get_expiration_time(), 0)
-        else:
-            actual_expiration = result.get_expiration_time()
-            actual_expect_diff = actual_expiration - expect_expiration
-            self.assertGreater(actual_expiration, 0)
-            if timeunit == TimeUnit.HOURS:
-                self.assertLess(actual_expect_diff, self.hour_in_milliseconds)
-            else:
-                self.assertLess(actual_expect_diff, self.day_in_milliseconds)
 
     def _check_put_result(self, result, has_version=True,
                           has_generated_value=False, existing_version=None,

@@ -14,7 +14,8 @@ try:
 except ImportError:
     from urllib.parse import quote
 
-from borneo import IllegalArgumentException, idcs
+from borneo import IllegalArgumentException
+from borneo.idcs import PropertiesCredentialsProvider
 from testutils import (
     andc_client_id, andc_client_secret, andc_username, andc_user_pwd,
     fake_credentials_file, generate_credentials_file)
@@ -30,7 +31,7 @@ class TestPropertiesCredentialsProvider(unittest.TestCase):
         remove(fake_credentials_file)
 
     def setUp(self):
-        self.provider = idcs.PropertiesCredentialsProvider()
+        self.provider = PropertiesCredentialsProvider()
 
     def tearDown(self):
         self.provider = None

@@ -48,7 +48,9 @@ Added
   * Added methods on NoSQLHandle for *system* requests, which are those that do
     not involve specific tables:
 
-      * system_request(), system_status(), list_namespaces(), list_users(), list_roles()
+      * system_request(), system_status(), list_namespaces(), list_users(),
+        list_roles()
+
   * Added NoSQLHandle.do_system_request to encapsulate a SystemRequest and
     waiting for its completion in a single, synchronous call.
   * Now that the driver can access both the cloud service and an on-premise

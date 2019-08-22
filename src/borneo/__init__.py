@@ -16,9 +16,9 @@ from .common import (
 from .config import DefaultRetryHandler, NoSQLHandleConfig, RetryHandler
 from .driver import NoSQLHandle
 from .exception import (
-    AuthenticationException, BatchOperationNumberLimitException,
-    IllegalArgumentException, IllegalStateException, IndexExistsException,
-    IndexNotFoundException, InvalidAuthorizationException, NoSQLException,
+    BatchOperationNumberLimitException, IllegalArgumentException,
+    IllegalStateException, IndexExistsException, IndexNotFoundException,
+    InvalidAuthorizationException, NoSQLException,
     OperationNotSupportedException, OperationThrottlingException,
     ReadThrottlingException, RequestTimeoutException, ResourceExistsException,
     ResourceNotFoundException, RetryableException,
@@ -35,8 +35,7 @@ from .operations import (
     WriteMultipleResult)
 from .version import __version__
 
-__all__ = ['AuthenticationException',
-           'AuthorizationProvider',
+__all__ = ['AuthorizationProvider',
            'BatchOperationNumberLimitException',
            'Consistency',
            'DefaultRetryHandler',

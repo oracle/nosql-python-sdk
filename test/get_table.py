@@ -12,8 +12,7 @@ import unittest
 from borneo import (
     GetTableRequest, IllegalArgumentException, State, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import (
-    is_onprem, not_cloudsim, table_name, timeout, wait_timeout)
+from parameters import is_minicloud, table_name, timeout, wait_timeout
 from test_base import TestBase
 
 
@@ -81,7 +80,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testGetTableNormal(self):
         self.get_table_request.set_table_name(table_name)
         result = self.handle.get_table(self.get_table_request)
-        self._check_get_table_result(result, State.ACTIVE, table_limits)
+        self.check_table_result(result, State.ACTIVE, table_limits,
+                                has_operation_id=False)
 
     def testGetTableWithOperationId(self):
         drop_request = TableRequest().set_statement(
@@ -93,28 +93,13 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # TODO: A difference between old cloud proxy and new cloud proxy, during
         # DROPPING phase, the table limit is not none for old proxy but none for
         # new proxy.
-        self._check_get_table_result(result, State.DROPPING,
-                                     has_operation_id=True, check_limit=False)
-        table_result.wait_for_completion(self.handle, wait_timeout, 1000)
-
-    def _check_get_table_result(self, result, state, limits=None,
-                                has_operation_id=False, check_limit=True):
-        # check table name
-        self.assertEqual(result.get_table_name(), table_name)
-        # check state
-        self.assertEqual(result.get_state(), state)
-        # check table limits
-        if check_limit:
-            self.check_table_limits(result, limits)
-        # check table schema
-        # TODO: For on-prem proxy, TableResult.get_schema() always return None,
-        # This is a known bug, when it is fixed, the test should be change.
-        if not_cloudsim() and not is_onprem():
-            self.assertIsNotNone(result.get_schema())
-        # check operation id
-        operation_id = result.get_operation_id()
-        (self.assertIsNotNone(operation_id) if has_operation_id
-         else self.assertIsNone(operation_id))
+        self.check_table_result(result, State.DROPPING, check_limit=False)
+        if is_minicloud():
+            table_result.wait_for_state(
+                self.handle, [State.ACTIVE, State.DROPPED], wait_timeout, 1000,
+                result=table_result)
+        else:
+            table_result.wait_for_completion(self.handle, wait_timeout, 1000)
 
 
 if __name__ == '__main__':
