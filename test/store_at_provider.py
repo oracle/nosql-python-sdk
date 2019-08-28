@@ -134,6 +134,21 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.assertIsNone(self.token_provider.get_authorization_string())
         self._stop_server(httpd)
 
+    def testAccessTokenProviderMultiThreads(self):
+        httpd, port = self._find_port_start_server(TokenHandler)
+
+        self.base = 'https://localhost:' + str(port)
+        self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
+        self.token_provider.set_endpoint(self.base)
+        self.token_provider.set_url_for_test()
+        threads = list()
+        for i in range(5):
+            t = Thread(target=self._run)
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()
+
     def _find_port_start_server(self, token_handler):
         port = 8000
         while True:
@@ -147,6 +162,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         thread.setDaemon(True)
         thread.start()
         return httpd, port
+
+    def _run(self):
+        try:
+            for i in range(5):
+                self.token_provider.bootstrap_login()
+        finally:
+            self.token_provider.close()
 
     def _stop_server(self, httpd):
         httpd.shutdown()

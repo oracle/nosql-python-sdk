@@ -226,7 +226,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.check_get_result(result)
                 elif i == 2:
                     self.check_get_result(
-                        result, self.new_rows[sk][i], self.versions[sk][i], 0,
+                        result, self.new_rows[sk][i], self.versions[sk][i],
                         ver_eq=False)
                 else:
                     self.check_get_result(

@@ -261,7 +261,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                                     False, check_limit)
         else:
             self.check_table_result(result, state, table_limits, has_schema,
-                                    True, check_limit)
+                                    check_limit=check_limit)
 
     def _do_table_request(self, request):
         #

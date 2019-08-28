@@ -20,7 +20,7 @@ except ImportError:
 
 import borneo.http
 from borneo.auth import AuthorizationProvider
-from borneo.common import CheckValue, LogUtils
+from borneo.common import CheckValue, LogUtils, synchronized
 from borneo.config import NoSQLHandleConfig
 from borneo.exception import (
     IllegalArgumentException, InvalidAuthorizationException, NoSQLException)
@@ -93,6 +93,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self._sess, self._logutils)
         self._lock = Lock()
         self._timer = None
+        self.lock = Lock()
 
         if user_name is None and password is None:
             # Used to access to a store without security enabled.
@@ -106,6 +107,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self._user_name = user_name
             self._password = password
 
+    @synchronized
     def bootstrap_login(self):
         # Bootstrap login using the provided credentials.
         if not self._is_secure or self._is_closed:
@@ -140,6 +142,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self._logutils.log_debug(format_exc())
             raise NoSQLException('Bootstrap login fail.', e)
 
+    @synchronized
     def close(self):
         """
         Close the provider, releasing resources such as a stored login token.

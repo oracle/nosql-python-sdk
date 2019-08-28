@@ -215,7 +215,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         # put a row with the same primary key to update the row, operation
         # should fail, and return the existing row
         result = self.handle.put(self.put_request)
-        self._check_put_result(result, False, False, version, self.row)
+        self._check_put_result(result, False, existing_version=version,
+                               existing_value=self.row)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfPresent(self):
@@ -278,7 +279,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         # version not match, and return the existing row
         self.put_request.set_ttl(None).set_use_table_default_ttl(True)
         result = self.handle.put(self.put_request)
-        self._check_put_result(result, False, False, version, self.row)
+        self._check_put_result(result, False, existing_version=version,
+                               existing_value=self.row)
         self.check_cost(result, 1, 2, 0, 0)
 
     def testPutWithExactMatch(self):

@@ -91,11 +91,13 @@ class TestSystemRequest(unittest.TestCase, TestBase):
             # show namespaces.
             self.sys_request.set_statement(self.show)
             result = self.handle.system_request(self.sys_request)
-            self.check_system_result(result, SystemState.COMPLETE, False, True,
-                                     self.show)
+            self.check_system_result(
+                result, SystemState.COMPLETE, has_result_string=True,
+                statement=self.show)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
-            self.check_system_result(result, SystemState.COMPLETE, False, True,
-                                     self.show)
+            self.check_system_result(
+                result, SystemState.COMPLETE, has_result_string=True,
+                statement=self.show)
             # drop namespace
             self.sys_request.set_statement(self.drop)
             result = self.handle.system_request(self.sys_request)
@@ -115,7 +117,8 @@ class TestSystemRequest(unittest.TestCase, TestBase):
             result = self.handle.do_system_request(
                 self.show, wait_timeout, 1000)
             self.check_system_result(
-                result, SystemState.COMPLETE, False, True, self.show)
+                result, SystemState.COMPLETE, has_result_string=True,
+                statement=self.show)
             # drop namespace.
             result = self.handle.do_system_request(
                 self.drop, wait_timeout, 1000)
