@@ -8,50 +8,40 @@
 #
 
 import unittest
-from datetime import datetime
-from decimal import Decimal
-from struct import pack
 
 from borneo import (
-    DeleteRequest, GetRequest, IllegalArgumentException, PutRequest, State,
-    TableLimits, TableNotFoundException, TableRequest)
+    DeleteRequest, GetRequest, IllegalArgumentException, PutRequest,
+    TableLimits, TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
+from time import time
 
 
 class TestDelete(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
+        global table_ttl
+        table_ttl = TimeToLive.of_days(2)
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
 fld_bin BINARY, fld_time TIMESTAMP(6), fld_num NUMBER, fld_json JSON, \
 fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
-PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
+PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
-        global hour_in_milliseconds
-        hour_in_milliseconds = 60 * 60 * 1000
+        cls.table_request(create_request)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
-        self.row = {'fld_id': 1, 'fld_long': 2147483648,
-                    'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                    'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
-                    'fld_bin': bytearray(pack('>i', 4)),
-                    'fld_time': datetime.now(), 'fld_num': Decimal(5),
-                    'fld_json': {'a': '1', 'b': None, 'c': '3'},
-                    'fld_arr': ['a', 'b', 'c'],
-                    'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                    'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                'fld_str': None}}
+        self.set_up()
+        self.row = get_row(with_sid=False)
         self.key = {'fld_id': 1}
         self.put_request = PutRequest().set_value(self.row).set_table_name(
             table_name)
@@ -62,7 +52,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
             table_name).set_timeout(timeout)
 
     def tearDown(self):
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testDeleteSetIllegalKey(self):
         self.assertRaises(IllegalArgumentException, self.delete_request.set_key,
@@ -122,116 +112,77 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
     def testDeleteNormal(self):
         self.delete_request.set_return_row(True)
         result = self.handle.delete(self.delete_request)
-        self.assertTrue(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 1)
-        self.assertEqual(result.get_write_units(), 1)
+        self._check_delete_result(result)
+        self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteNonExisting(self):
         self.delete_request.set_key({'fld_id': 2})
         result = self.handle.delete(self.delete_request)
-        self.assertFalse(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self._check_delete_result(result, False)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersion(self):
-        self.row.update({'fld_long': 2147483649})
+        self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row)
         version = self.handle.put(self.put_request).get_version()
+        tb_expect_expiration = table_ttl.to_expiration_time(
+            int(round(time() * 1000)))
         # delete failed because version not match
         self.delete_request.set_match_version(self.version)
         result = self.handle.delete(self.delete_request)
-        self.assertFalse(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self._check_delete_result(result, False)
+        self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), self.row)
-        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
-        self.assertNotEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
+        self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
         result = self.handle.delete(self.delete_request)
-        self.assertTrue(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 1)
-        self.assertEqual(result.get_write_units(), 1)
+        self._check_delete_result(result)
+        self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testDeleteIfVersionWithReturnRow(self):
-        self.row.update({'fld_long': 2147483649})
+        self.row['fld_long'] = 2147483649
         self.put_request.set_value(self.row)
         version = self.handle.put(self.put_request).get_version()
+        tb_expect_expiration = table_ttl.to_expiration_time(
+            int(round(time() * 1000)))
         # delete failed because version not match
         self.delete_request.set_match_version(
             self.version).set_return_row(True)
         result = self.handle.delete(self.delete_request)
-        self.assertFalse(result.get_success())
-        self.assertEqual(result.get_existing_value(), self.row)
-        self.assertEqual(result.get_existing_version().get_bytes(),
-                         version.get_bytes())
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self._check_delete_result(result, False, self.row, version.get_bytes())
+        self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), self.row)
-        self.assertEqual(result.get_version().get_bytes(), version.get_bytes())
-        self.assertNotEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result, self.row, version, tb_expect_expiration,
+                              TimeUnit.DAYS)
+        self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
         result = self.handle.delete(self.delete_request)
-        self.assertTrue(result.get_success())
-        self.assertIsNone(result.get_existing_value())
-        self.assertIsNone(result.get_existing_version())
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 1)
-        self.assertEqual(result.get_write_units(), 1)
+        self._check_delete_result(result)
+        self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result)
+        self.check_cost(result, 1, 2, 0, 0)
+
+    def _check_delete_result(self, result, success=True, value=None,
+                             version=None):
+        # check whether success
+        self.assertEqual(result.get_success(), success)
+        # check existing value
+        self.assertEqual(result.get_existing_value(), value)
+        # check existing version
+        ver = result.get_existing_version()
+        (self.assertIsNone(ver) if version is None
+         else self.assertEqual(ver.get_bytes(), version))
 
 
 if __name__ == '__main__':

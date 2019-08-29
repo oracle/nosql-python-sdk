@@ -10,16 +10,16 @@
 import unittest
 
 from borneo import (
-    IllegalArgumentException, PrepareRequest, State, TableLimits,
+    IllegalArgumentException, PrepareRequest, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import table_name, timeout
+from parameters import index_name, table_name, test_advanced_query, timeout
 from test_base import TestBase
 
 
 class TestPrepare(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
@@ -30,21 +30,35 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request)
+
+        create_idx_request = TableRequest()
+        create_idx_statement = ('CREATE INDEX ' + index_name + '1 ON ' +
+                                table_name + '(fld_str)')
+        create_idx_request.set_statement(create_idx_statement)
+        cls.table_request(create_idx_request)
+        create_idx_statement = ('CREATE INDEX ' + index_name + '2 ON ' +
+                                table_name + '(fld_map.values())')
+        create_idx_request.set_statement(create_idx_statement)
+        cls.table_request(create_idx_request)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.prepare_statement = ('SELECT fld_id FROM ' + table_name)
         self.prepare_request = PrepareRequest().set_timeout(timeout)
 
     def tearDown(self):
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testPrepareSetIllegalStatement(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.prepare_request.set_statement, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.prepare_request.set_statement, '')
         self.prepare_request.set_statement('IllegalStatement')
         self.assertRaises(IllegalArgumentException, self.handle.prepare,
                           self.prepare_request)
@@ -52,6 +66,11 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             'SELECT fld_id FROM IllegalTableName')
         self.assertRaises(TableNotFoundException, self.handle.prepare,
                           self.prepare_request)
+
+    def testPrepareSetIllegalGetQueryPlan(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.prepare_request.set_get_query_plan,
+                          'IllegalGetQueryPlan')
 
     def testPrepareSetIllegalTimeout(self):
         self.assertRaises(IllegalArgumentException,
@@ -66,9 +85,11 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
                           self.prepare_request)
 
     def testPrepareGets(self):
-        self.prepare_request.set_statement(self.prepare_statement)
+        self.prepare_request.set_statement(
+            self.prepare_statement).set_get_query_plan(True)
         self.assertEqual(self.prepare_request.get_statement(),
                          self.prepare_statement)
+        self.assertTrue(self.prepare_request.get_query_plan())
         self.assertEqual(self.prepare_request.get_timeout(), timeout)
 
     def testPrepareIllegalRequest(self):
@@ -76,17 +97,10 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
                           'IllegalRequest')
 
     def testPrepareNormal(self):
-        self.prepare_request.set_statement(self.prepare_statement)
+        self.prepare_request.set_statement(
+            self.prepare_statement).set_get_query_plan(True)
         result = self.handle.prepare(self.prepare_request)
         prepared_statement = result.get_prepared_statement()
-        self.assertIsNotNone(prepared_statement)
-        self.assertEqual(result.get_read_kb(), 2)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
-        # test PreparedStatement
-        statement = prepared_statement.get_statement()
-        self.assertIsNotNone(statement)
         # test set illegal variable to the prepared statement
         self.assertRaises(IllegalArgumentException,
                           prepared_statement.set_variable, 0, 0)
@@ -96,17 +110,150 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         set_vars['$fld_long'] = 2147483648
         for var in set_vars:
             prepared_statement.set_variable(var, set_vars[var])
-        # test get variables from the prepared statement
-        get_vars = prepared_statement.get_variables()
-        self.assertEqual(set_vars, get_vars)
+        self._check_prepared_result(result, True, variables=set_vars)
         # test copy the prepared statement
+        statement = prepared_statement.get_statement()
         copied_statement = prepared_statement.copy_statement()
         self.assertEqual(copied_statement.get_statement(), statement)
-        self.assertEqual(0, len(copied_statement.get_variables()))
+        self.assertEqual(copied_statement.get_query_plan(),
+                         prepared_statement.get_query_plan())
+        self.assertEqual(copied_statement.get_sql_text(),
+                         prepared_statement.get_sql_text())
+        self.assertIsNone(copied_statement.get_variables())
         # test clear variables from the prepared statement
         prepared_statement.clear_variables()
         self.assertEqual(prepared_statement.get_statement(), statement)
         self.assertEqual(prepared_statement.get_variables(), {})
+
+    if test_advanced_query():
+        def testPrepareOrderBy(self):
+            # test order by primary index field
+            statement = ('SELECT fld_time FROM ' + table_name +
+                         ' ORDER BY fld_id')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+            # test order by secondary index field
+            statement = ('SELECT fld_time FROM ' + table_name +
+                         ' ORDER BY fld_str')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+
+        def testPrepareFuncMinMaxGroupBy(self):
+            # test min function group by primary index field
+            statement = ('SELECT min(fld_time) FROM ' + table_name +
+                         ' GROUP BY fld_id')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+            # test max function group by primary index field
+            statement = ('SELECT max(fld_time) FROM ' + table_name +
+                         ' GROUP BY fld_id')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+            # test min function group by secondary index field
+            statement = ('SELECT min(fld_time) FROM ' + table_name +
+                         ' GROUP BY fld_str')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                False)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+            # test max function group by secondary index field
+            statement = ('SELECT max(fld_time) FROM ' + table_name +
+                         ' GROUP BY fld_str')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+
+        def testPrepareFuncSumGroupBy(self):
+            # test sum function group by primary index field
+            statement = ('SELECT sum(fld_float) FROM ' + table_name +
+                         ' GROUP BY fld_id')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+            # test sum function group by secondary index field
+            statement = ('SELECT sum(fld_float) FROM ' + table_name +
+                         ' GROUP BY fld_str')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+
+        def testPrepareFuncAvgGroupBy(self):
+            # test avg function group by primary index field
+            statement = ('SELECT avg(fld_double) FROM ' + table_name +
+                         ' GROUP BY fld_id')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+            # test avg function group by secondary index field
+            statement = ('SELECT avg(fld_double) FROM ' + table_name +
+                         ' GROUP BY fld_str')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+
+        def testPrepareFuncCountGroupBy(self):
+            # test count function group by primary index field
+            statement = ('SELECT count(*) FROM ' + table_name +
+                         ' GROUP BY fld_id')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+            # test count function group by secondary index field
+            statement = ('SELECT count(*) FROM ' + table_name +
+                         ' GROUP BY fld_str')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+
+        def testPrepareOrderByWithLimit(self):
+            statement = ('SELECT fld_str FROM ' + table_name +
+                         ' ORDER BY fld_str LIMIT 10')
+            self.prepare_request.set_statement(statement).set_get_query_plan(
+                True)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result, True)
+
+        def testPrepareOrderByWithOffset(self):
+            statement = ('DECLARE $offset INTEGER; SELECT fld_str FROM ' +
+                         table_name + ' ORDER BY fld_str OFFSET $offset')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+
+        def testPrepareFuncGeoNear(self):
+            statement = (
+                'SELECT fld_id, tb.fld_json.point FROM ' + table_name +
+                ' tb WHERE geo_near(tb.fld_json.point, ' +
+                '{"type": "point", "coordinates": [ 24.0175, 35.5156 ]}, 5000)')
+            self.prepare_request.set_statement(statement)
+            result = self.handle.prepare(self.prepare_request)
+            self._check_prepared_result(result)
+
+    def _check_prepared_result(self, result, has_query_plan=False,
+                               has_sql_text=True, variables=None):
+        prepared_statement = result.get_prepared_statement()
+        self.assertIsNotNone(prepared_statement)
+        self.check_cost(result, 2, 2, 0, 0)
+        # test get query plan from the prepared statement
+        query_plan = prepared_statement.get_query_plan()
+        (self.assertIsNotNone(query_plan) if has_query_plan
+         else self.assertIsNone(query_plan))
+        # test get sql text from the prepared statement
+        sql_text = prepared_statement.get_sql_text()
+        (self.assertIsNotNone(sql_text) if has_sql_text
+         else self.assertIsNone(sql_text))
+        # test get variables from the prepared statement
+        self.assertEqual(prepared_statement.get_variables(), variables)
 
 
 if __name__ == '__main__':

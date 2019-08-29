@@ -8,24 +8,24 @@
 #
 
 import unittest
+from collections import OrderedDict
 from copy import deepcopy
-from datetime import datetime
-from decimal import Decimal
-from struct import pack
+from parameters import table_prefix
 from time import time
 
 from borneo import (
     BatchOperationNumberLimitException, DeleteRequest, GetRequest,
-    IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest, State,
-    TableLimits, TableRequest, TimeToLive, WriteMultipleRequest)
-from parameters import table_name, timeout
+    IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest,
+    TableLimits, TableRequest, TimeToLive, TimeUnit, WriteMultipleRequest)
+from parameters import is_onprem, table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestWriteMultiple(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
@@ -36,14 +36,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         limits = TableLimits(5000, 5000, 50)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
+        cls.table_request(create_request)
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.shardkeys = [0, 1]
         self.ids = [0, 1, 2, 3, 4, 5]
         self.rows = list()
@@ -57,19 +57,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.new_rows.append(list())
             self.versions.append(list())
             for i in self.ids:
-                row = {'fld_sid': sk, 'fld_id': i, 'fld_long': 2147483648,
-                       'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-                       'fld_bool': True,
-                       'fld_str': '{"name": u1, "phone": null}',
-                       'fld_bin': bytearray(pack('>i', 4)),
-                       'fld_time': datetime.now(), 'fld_num': Decimal(5),
-                       'fld_json': {'a': '1', 'b': None, 'c': '3'},
-                       'fld_arr': ['a', 'b', 'c'],
-                       'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-                       'fld_rec': {'fld_id': 1, 'fld_bool': False,
-                                   'fld_str': None}}
+                row = get_row()
+                row['fld_sid'] = sk
+                row['fld_id'] = i
                 new_row = deepcopy(row)
-                new_row.update({'fld_long': 2147483649})
+                new_row['fld_long'] = 2147483649
                 self.rows[sk].append(row)
                 self.new_rows[sk].append(new_row)
                 put_request = PutRequest().set_value(row).set_table_name(
@@ -121,7 +113,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             request = MultiDeleteRequest().set_table_name(
                 table_name).set_key(key)
             self.handle.multi_delete(request)
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testWriteMultipleAddIllegalRequestAndAbortIfUnsuccessful(self):
         self.assertRaises(IllegalArgumentException,
@@ -143,13 +135,17 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                           self.write_multiple_request)
         self.write_multiple_request.clear()
         # add operations when sub requests reached the max number
-        count = 0
-        while count < 50:
-            self.write_multiple_request.add(self.requests[0], True)
-            count += 1
-        self.assertRaises(BatchOperationNumberLimitException,
-                          self.write_multiple_request.add,
-                          self.requests[0], True)
+        if not is_onprem():
+            count = 0
+            while count <= 50:
+                row = get_row()
+                row['fld_id'] = count
+                self.write_multiple_request.add(PutRequest().set_value(
+                    row).set_table_name(table_name), True)
+                count += 1
+            self.assertRaises(BatchOperationNumberLimitException,
+                              self.handle.write_multiple,
+                              self.write_multiple_request)
 
     def testWriteMultipleGetRequestWithIllegalIndex(self):
         self.assertRaises(IllegalArgumentException,
@@ -202,120 +198,137 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         result = self.handle.write_multiple(self.write_multiple_request)
         expect_expiration = self.ttl.to_expiration_time(
             int(round(time() * 1000)))
-        self.assertEqual(result.size(), num_operations)
-        op_results = result.get_results()
+        op_results = self._check_write_multiple_result(result, num_operations)
         for idx in range(result.size()):
             if idx == 1 or idx == 5:
                 # putIfAbsent and deleteIfVersion failed
-                self.assertIsNone(op_results[idx].get_version())
-                self.assertFalse(op_results[idx].get_success())
-                self.assertEqual(
-                    op_results[idx].get_existing_version().get_bytes(),
-                    self.versions[self.ops_sk][idx].get_bytes())
-                self.assertEqual(op_results[idx].get_existing_value(),
-                                 self.rows[self.ops_sk][idx])
+                self._check_operation_result(
+                    op_results[idx],
+                    existing_version=self.versions[self.ops_sk][idx],
+                    existing_value=self.rows[self.ops_sk][idx])
             elif idx == 4:
                 # delete succeed
-                self.assertIsNone(op_results[idx].get_version())
-                self.assertTrue(op_results[idx].get_success())
-                self.assertIsNone(op_results[idx].get_existing_version())
-                self.assertIsNone(op_results[idx].get_existing_value())
+                self._check_operation_result(op_results[idx], success=True)
             else:
                 # put, putIfPresent and putIfVersion succeed
-                self.assertIsNotNone(op_results[idx].get_version())
-                self.assertNotEqual(op_results[idx].get_version(),
-                                    self.versions[self.ops_sk][idx])
-                self.assertTrue(op_results[idx].get_success())
-                self.assertIsNone(op_results[idx].get_existing_version())
-                self.assertIsNone(op_results[idx].get_existing_value())
-        self.assertIsNone(result.get_failed_operation_result())
-        self.assertEqual(result.get_failed_operation_index(), -1)
-        self.assertTrue(result.get_success())
-        self.assertEqual(result.get_read_kb(), 0 + 1 + 1 + 1 + 1 + 1)
-        self.assertEqual(result.get_read_units(), 0 + 2 + 2 + 2 + 2 + 2)
-        self.assertEqual(result.get_write_kb(), 2 + 0 + 2 + 2 + 1 + 0)
-        self.assertEqual(result.get_write_units(), 2 + 0 + 2 + 2 + 1 + 0)
+                self._check_operation_result(op_results[idx], True, True)
+        self.check_cost(result, 5, 10, 7, 7)
         # check the records after write_multiple request succeed
         for sk in self.shardkeys:
             for i in self.ids:
                 self.get_request.set_key({'fld_sid': sk, 'fld_id': i})
                 result = self.handle.get(self.get_request)
                 if sk == 1 or i == 1 or i == 5:
-                    self.assertEqual(result.get_value(), self.rows[sk][i])
-                    self.assertEqual(result.get_version().get_bytes(),
-                                     self.versions[sk][i].get_bytes())
-                    actual_expiration = result.get_expiration_time()
-                    actual_expect_diff = (actual_expiration -
-                                          self.old_expect_expiration)
-                    self.assertGreater(actual_expiration, 0)
-                    self.assertLess(actual_expect_diff,
-                                    self.day_in_milliseconds)
+                    self.check_get_result(
+                        result, self.rows[sk][i], self.versions[sk][i],
+                        self.old_expect_expiration, TimeUnit.DAYS)
                 elif i == 4:
-                    self.assertIsNone(result.get_value())
-                    self.assertIsNone(result.get_version())
-                    self.assertEqual(result.get_expiration_time(), 0)
+                    self.check_get_result(result)
+                elif i == 2:
+                    self.check_get_result(
+                        result, self.new_rows[sk][i], self.versions[sk][i],
+                        ver_eq=False)
                 else:
-                    self.assertEqual(result.get_value(), self.new_rows[sk][i])
-                    self.assertNotEqual(result.get_version().get_bytes(), 0)
-                    self.assertNotEqual(result.get_version().get_bytes(),
-                                        self.versions[sk][i].get_bytes())
-                    if i == 2:
-                        self.assertEqual(result.get_expiration_time(), 0)
-                    else:
-                        actual_expiration = result.get_expiration_time()
-                        actual_expect_diff = (actual_expiration -
-                                              expect_expiration)
-                        self.assertGreater(actual_expiration, 0)
-                        self.assertLess(actual_expect_diff,
-                                        self.hour_in_milliseconds)
-                self.assertEqual(result.get_read_kb(), 1)
-                self.assertEqual(result.get_read_units(), 2)
-                self.assertEqual(result.get_write_kb(), 0)
-                self.assertEqual(result.get_write_units(), 0)
+                    self.check_get_result(
+                        result, self.new_rows[sk][i], self.versions[sk][i],
+                        expect_expiration, TimeUnit.HOURS, False)
+                self.check_cost(result, 1, 2, 0, 0)
 
     def testWriteMultipleAbortIfUnsuccessful(self):
         failed_idx = 1
         for request in self.requests:
             self.write_multiple_request.add(request, True)
         result = self.handle.write_multiple(self.write_multiple_request)
-        self.assertEqual(result.size(), 1)
-        op_results = result.get_results()
-        self.assertIsNone(op_results[0].get_version())
-        self.assertFalse(op_results[0].get_success())
-        self.assertEqual(op_results[0].get_existing_version().get_bytes(),
-                         self.versions[self.ops_sk][failed_idx].get_bytes())
-        self.assertEqual(op_results[0].get_existing_value(),
-                         self.rows[self.ops_sk][failed_idx])
+        op_results = self._check_write_multiple_result(
+            result, 1, True, failed_idx, False)
+        self._check_operation_result(
+            op_results[0],
+            existing_version=self.versions[self.ops_sk][failed_idx],
+            existing_value=self.rows[self.ops_sk][failed_idx])
         failed_result = result.get_failed_operation_result()
-        self.assertIsNone(failed_result.get_version())
-        self.assertFalse(failed_result.get_success())
-        self.assertEqual(failed_result.get_existing_version().get_bytes(),
-                         self.versions[self.ops_sk][failed_idx].get_bytes())
-        self.assertEqual(failed_result.get_existing_value(),
-                         self.rows[self.ops_sk][failed_idx])
-        self.assertEqual(result.get_failed_operation_index(), failed_idx)
-        self.assertFalse(result.get_success())
-        self.assertEqual(result.get_read_kb(), 0 + 1)
-        self.assertEqual(result.get_read_units(), 0 + 2)
-        self.assertEqual(result.get_write_kb(), 2 + 0)
-        self.assertEqual(result.get_write_units(), 2 + 0)
+        self._check_operation_result(
+            failed_result,
+            existing_version=self.versions[self.ops_sk][failed_idx],
+            existing_value=self.rows[self.ops_sk][failed_idx])
+        self.check_cost(result, 1, 2, 2, 2)
         # check the records after multi_delete request failed
         for sk in self.shardkeys:
             for i in self.ids:
                 self.get_request.set_key({'fld_sid': sk, 'fld_id': i})
                 result = self.handle.get(self.get_request)
-                self.assertEqual(result.get_value(), self.rows[sk][i])
-                self.assertEqual(result.get_version().get_bytes(),
-                                 self.versions[sk][i].get_bytes())
-                actual_expiration = result.get_expiration_time()
-                actual_expect_diff = (actual_expiration -
-                                      self.old_expect_expiration)
-                self.assertGreater(actual_expiration, 0)
-                self.assertLess(actual_expect_diff, self.day_in_milliseconds)
-                self.assertEqual(result.get_read_kb(), 1)
-                self.assertEqual(result.get_read_units(), 2)
-                self.assertEqual(result.get_write_kb(), 0)
-                self.assertEqual(result.get_write_units(), 0)
+                self.check_get_result(
+                    result, self.rows[sk][i], self.versions[sk][i],
+                    self.old_expect_expiration, TimeUnit.DAYS)
+                self.check_cost(result, 1, 2, 0, 0)
+
+    def testWriteMultipleWithIdentityColumn(self):
+        num_operations = 10
+        id_table = table_prefix + 'Identity'
+        create_request = TableRequest().set_statement(
+            'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
+ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
+        create_request.set_table_limits(TableLimits(5000, 5000, 50))
+        self.table_request(create_request)
+
+        # add ten operations
+        row = {'name': 'myname', 'sid': 1}
+        for idx in range(num_operations):
+            put_request = PutRequest().set_table_name(id_table).set_value(row)
+            put_request.set_identity_cache_size(idx)
+            self.write_multiple_request.add(put_request, False)
+        # execute the write multiple request
+        versions = list()
+        result = self.handle.write_multiple(self.write_multiple_request)
+        op_results = self._check_write_multiple_result(result, num_operations)
+        for idx in range(result.size()):
+            versions.append(self._check_operation_result(
+                op_results[idx], True, True, idx + 1))
+        self.check_cost(result, 0, 0, num_operations, num_operations)
+        # check the records after write_multiple request succeed
+        self.get_request.set_table_name(id_table)
+        for idx in range(num_operations):
+            self.get_request.set_key({'sid': 1, 'id': idx + 1})
+            result = self.handle.get(self.get_request)
+            expected = OrderedDict()
+            expected['sid'] = 1
+            expected['id'] = idx + 1
+            expected['name'] = 'myname'
+            self.check_get_result(result, expected, versions[idx])
+            self.check_cost(result, 1, 2, 0, 0)
+
+    def _check_operation_result(
+            self, op_result, version=False, success=False, generated_value=None,
+            existing_version=None, existing_value=None):
+        # check version of operation result
+        ver = op_result.get_version()
+        self.assertIsNotNone(ver) if version else self.assertIsNone(ver)
+        # check if the operation success
+        self.assertEqual(op_result.get_success(), success)
+        # check generated value of operation result
+        self.assertEqual(op_result.get_generated_value(), generated_value)
+        # check existing version
+        existing_ver = op_result.get_existing_version()
+        (self.assertIsNone(existing_ver) if existing_version is None
+         else self.assertEqual(existing_ver.get_bytes(),
+                               existing_version.get_bytes()))
+        # check existing value
+        self.assertEqual(op_result.get_existing_value(), existing_value)
+        return ver
+
+    def _check_write_multiple_result(
+            self, result, num_operations, has_failed_operation=False,
+            failed_index=-1, success=True):
+        # check number of operations
+        self.assertEqual(result.size(), num_operations)
+        # check failed operation
+        failed_result = result.get_failed_operation_result()
+        (self.assertIsNotNone(failed_result) if has_failed_operation
+         else self.assertIsNone(failed_result))
+        # check failed operation index
+        self.assertEqual(result.get_failed_operation_index(), failed_index)
+        # check operation status
+        self.assertEqual(result.get_success(), success)
+        return result.get_results()
 
 
 if __name__ == '__main__':

@@ -11,21 +11,23 @@ import unittest
 from time import sleep
 
 from borneo import (
-    IllegalArgumentException, ListTablesRequest, State, TableLimits,
-    TableRequest)
+    IllegalArgumentException, ListTablesRequest, TableLimits, TableRequest)
 from parameters import (
-    is_pod, not_cloudsim, table_name, tenant_id, timeout, wait_timeout)
+    is_minicloud, is_onprem, is_pod, is_prod_pod, table_name, table_prefix,
+    tenant_id, timeout)
+from test_base import TestBase
 from testutils import (
     add_tenant, add_tier, delete_tenant, delete_tier, get_handle,
-    make_table_name)
+    make_table_name, namespace)
 
 
-class TestListTables(unittest.TestCase):
+class TestListTables(unittest.TestCase, TestBase):
+    handles = None
+
     @classmethod
     def setUpClass(cls):
         add_tier()
-        cls._handles = list()
-        cls._drop_requests = list()
+        cls.handles = list()
         global table_names
         table_names = list()
         num_tables = 3
@@ -33,62 +35,53 @@ class TestListTables(unittest.TestCase):
         # In pod env create 1 handle, otherwise create 2 handles for additional
         # testing
         #
-        cls._num_handles = 1 if is_pod() else 2
-        for handle in range(cls._num_handles):
+        num_handles = 1 if is_prod_pod() or is_onprem() else 2
+        for handle in range(num_handles):
             add_tenant(tenant_id + str(handle))
             table_names.append(list())
-            cls._drop_requests.append(list())
-            cls._handles.append(get_handle(tenant_id + str(handle)))
+            cls.handles.append(get_handle(tenant_id + str(handle)))
             for table in range(handle + num_tables):
-                table_names[handle].append(table_name + str(table))
-            for table in range(handle + num_tables):
+                tb_name = table_name + str(table)
+                table_names[handle].append(tb_name)
                 #
                 # Add a sleep for a pod to let things happen
                 #
                 if is_pod():
                     sleep(60)
-                drop_statement = ('DROP TABLE IF EXISTS ' +
-                                  table_names[handle][table])
-                drop_request = TableRequest().set_statement(drop_statement)
-                cls._drop_requests[handle].append(drop_request)
-                cls._result = cls._handles[handle].table_request(drop_request)
-                cls._result.wait_for_state(
-                    cls._handles[handle], table_names[handle][table],
-                    State.DROPPED, wait_timeout, 1000)
+                drop_request = TableRequest().set_statement(
+                    'DROP TABLE IF EXISTS ' + tb_name)
+                cls.table_request(drop_request, cls.handles[handle])
                 create_statement = (
-                    'CREATE TABLE ' + table_names[handle][table] + '(\
-fld_id INTEGER, fld_long LONG, fld_float FLOAT, fld_double DOUBLE, \
-fld_bool BOOLEAN, fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(2), \
-fld_num NUMBER, fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
+                    'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
+fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
+fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(2), fld_num NUMBER, \
+fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 limits = TableLimits(5000, 5000, 50)
                 create_request = TableRequest().set_statement(
                     create_statement).set_table_limits(limits)
-                cls._result = cls._handles[handle].table_request(
-                    create_request)
-                cls._result.wait_for_state(
-                    cls._handles[handle], table_names[handle][table],
-                    State.ACTIVE, wait_timeout, 1000)
+                cls.table_request(create_request, cls.handles[handle])
 
     @classmethod
     def tearDownClass(cls):
-        for handle in range(cls._num_handles):
+        for handle in range(len(cls.handles)):
             try:
-                for table in range(len(table_names[handle])):
-                    cls._result = cls._handles[handle].table_request(
-                        cls._drop_requests[handle][table])
-                    cls._result.wait_for_state(
-                        cls._handles[handle], table_names[handle][table],
-                        State.DROPPED, wait_timeout, 1000)
+                ltr = ListTablesRequest()
+                result = cls.handles[handle].list_tables(ltr)
+                for table in result.get_tables():
+                    if table.startswith(table_prefix):
+                        drop_request = TableRequest().set_statement(
+                            'DROP TABLE IF EXISTS ' + table)
+                        cls.table_request(drop_request, cls.handles[handle])
             finally:
-                cls._handles[handle].close()
+                cls.handles[handle].close()
                 delete_tenant(tenant_id + str(handle))
         delete_tier()
 
     def setUp(self):
         self.handles = list()
-        self.num_handles = 1 if is_pod() else 2
+        self.num_handles = 1 if is_prod_pod() or is_onprem() else 2
         for handle in range(self.num_handles):
             self.handles.append(get_handle(tenant_id + str(handle)))
         self.list_tables_request = ListTablesRequest().set_timeout(timeout)
@@ -119,10 +112,15 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
         self.assertRaises(IllegalArgumentException,
                           self.list_tables_request.set_start_index, -1)
 
+    def testListTablesSetIllegalNamespace(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.list_tables_request.set_namespace, {})
+
     def testListTablesGets(self):
-        self.list_tables_request.set_limit(5)
+        self.list_tables_request.set_limit(5).set_namespace(namespace)
         self.assertEqual(self.list_tables_request.get_start_index(), 0)
         self.assertEqual(self.list_tables_request.get_limit(), 5)
+        self.assertEqual(self.list_tables_request.get_namespace(), namespace)
 
     def testListTablesIllegalRequest(self):
         for handle in range(self.num_handles):
@@ -132,25 +130,13 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def testListTablesNormal(self):
         last_returned_index = [3, 4]
-        for handle in range(self.num_handles):
-            result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), table_names[handle])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+        self._check_list_tables_result(table_names, last_returned_index)
 
     def testListTablesWithStartIndex(self):
         last_returned_index = [3, 4]
         # set a start index larger than the number of tables
         self.list_tables_request.set_start_index(5)
-        for handle in range(self.num_handles):
-            result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), [])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+        self._check_list_tables_result([[], []], last_returned_index)
         # set start_index = 1
         part_table_names = [[make_table_name('Users1'),
                              make_table_name('Users2')],
@@ -158,29 +144,42 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                              make_table_name('Users2'),
                              make_table_name('Users3')]]
         self.list_tables_request.set_start_index(1)
-        for handle in range(self.num_handles):
-            result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), part_table_names[handle])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+        self._check_list_tables_result(part_table_names, last_returned_index)
 
     def testListTablesWithLimit(self):
         # set limit = 2
-        last_returned_index = 2
+        last_returned_index = [2, 2]
         part_table_names = [[make_table_name('Users0'),
                              make_table_name('Users1')],
                             [make_table_name('Users0'),
                              make_table_name('Users1')]]
         self.list_tables_request.set_limit(2)
+        self._check_list_tables_result(
+            part_table_names, last_returned_index, True)
+
+    def testListTablesWithNamespace(self):
+        if is_onprem():
+            # set a namespace that not exist
+            self.list_tables_request.set_namespace(namespace)
+            self._check_list_tables_result([[]], [0], True)
+
+    def _check_list_tables_result(self, names, last_returned_index, eq=False):
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(self.list_tables_request)
-            # TODO: add and use startIndex,numTables.
-            if not not_cloudsim():
-                self.assertEqual(result.get_tables(), part_table_names[handle])
+            if is_minicloud():
+                # TODO: Minicloud doesn't handle start index and limit so far,
+                # and the last index returned is always 0.
+                self.assertEqual(result.get_tables(), table_names[handle])
+                self.assertEqual(result.get_last_returned_index(), 0)
+            elif is_onprem() and not eq:
+                self.assertGreater(set(result.get_tables()),
+                                   set(names[handle]))
+                self.assertGreater(result.get_last_returned_index(),
+                                   last_returned_index[handle])
+            else:
+                self.assertEqual(result.get_tables(), names[handle])
                 self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index)
+                                 last_returned_index[handle])
 
 
 if __name__ == '__main__':

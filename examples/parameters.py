@@ -11,8 +11,26 @@
 # To run against the Cloud Simulator
 #
 # Assumes there is a running Cloud Simulator instance listening on port 8080 on
-# the local host. If non-default host or port are desired, use flags to
-# change them.
+# the local host. If non-default host or port are desired, use flags to change
+# them.
+#
+# To run against an on-premise Oracle NoSQL database
+#
+# First you need to start the database and proxy and if using a secure store
+# create a user and password with the required privileges.
+#
+# Then change the following parameters if you use a not-secure store.
+#
+#              endpoint = 'your_on_prem_proxy_endpoint'
+#              is_cloudsim = False
+#              is_onprem = True
+#
+# Change additional parameters below if your on-prem proxy is running against a
+# secure store.
+#
+#              user_name = 'your_store_user_name'
+#              password = 'your_store_user_password'
+#              security = True
 #
 # Run against Oracle NoSQL Database Cloud Service:
 #
@@ -40,8 +58,8 @@
 # logging into the IDCS admin console, copy the host of the IDCS admin console
 # URL. For example, the format of the admin console URL is
 # "https://{tenantId}.identity.oraclecloud.com/ui/v1/adminconsole". The
-# "https://{tenantId}.identity.oraclecloud.com" portion is the required.
-# Then assign the IDCS URL to the idcs_url variable below.
+# "https://{tenantId}.identity.oraclecloud.com" portion is the required. Then
+# assign the IDCS URL to the idcs_url variable below.
 #
 # The entitlement id can be found using the IDCS admin console. After logging
 # into the IDCS admin console, choose Applications from the button on the top
@@ -57,10 +75,10 @@
 # variables are set to use the Cloud Simulator.
 #
 # Cloud Simulator: a tenant id -- simple string
-# Service: not used
+# Service/on-premise: not used
 tenant_id = 'test_tenant'
 
-# Cloud Simulator: not used
+# Cloud Simulator/on-premise: not used
 # Service: your entitlement id
 # entitlement_id = 'id'
 entitlement_id = None
@@ -72,23 +90,48 @@ table_name = 'pythontable'
 index_name = 'pythonindex'
 
 # Cloud Simulator: True
-# Service: False
+# Otherwise: False
 # using_cloud_sim = False
 using_cloud_sim = True
 
-# Cloud Simulator: 'localhost:8080' or the host running Cloud Simulator
-# Service: 'ndcs.uscom-east-1.oraclecloud.com' or appropriate region host
-endpoint = 'localhost:8080'
+# Service: True
+# Otherwise: False
+# using_service = True
+using_service = False
 
-# Cloud Simulator: not used
+# On-premise only:
+# On-premise: True
+# Otherwise: False
+# using_on_prem = True
+using_on_prem = False
+
+# Endpoint is required.
+# Cloud Simulator: 'http://localhost:8080' or the host running Cloud Simulator
+# or a on-prem proxy started by the customer.
+# Service: 'ndcs.uscom-east-1.oraclecloud.com' or appropriate region host
+# on-premise: 'http://localhost:80' or 'https://localhost:443' (or use the
+# appropriate host:port for the proxy)
+endpoint = 'http://localhost:8080'
+
+# On-premise only:
+# Non-secure store: None
+# Secure store: your store user name
+user_name = None
+
+# On-premise only:
+# Non-secure store: None
+# Secure store: your store user password
+password = None
+
+# Cloud Simulator/on-premise: not used
 # Service: url for reaching IDCS
 idcs_url = 'your_idcs_url'
 
-# Cloud Simulator: not used
+# Cloud Simulator/on-premise: not used
 # Service: absolute path to credentials file
 credentials_file = 'path-to-your-credentials-file'
 
-# Cloud Simulator: not used
+# Cloud Simulator/on-premise: not used
 # Change to False and edit utils.py to add your credentials to
 # MyCredentialsProvider to supply credentials
 use_properties_credentials = True

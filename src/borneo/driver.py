@@ -7,26 +7,36 @@
 # appropriate download for a copy of the license and additional information.
 #
 
+from json import loads
 from logging import FileHandler, WARNING, getLogger
 from os import mkdir, path, sep
 from sys import argv
 
-from .idcs import DefaultAccessTokenProvider
 from .client import Client
+from .common import UserInfo
 from .config import NoSQLHandleConfig
 from .exception import IllegalArgumentException, IllegalStateException
+from .kv import StoreAccessTokenProvider
 from .operations import (
     DeleteRequest, GetIndexesRequest, GetRequest, GetTableRequest,
     ListTablesRequest, MultiDeleteRequest, PrepareRequest, PutRequest,
-    QueryRequest, TableRequest, TableUsageRequest, WriteMultipleRequest)
+    QueryRequest, SystemRequest, SystemStatusRequest, TableRequest,
+    TableUsageRequest, WriteMultipleRequest)
 
 
-class NoSQLHandle:
+class NoSQLHandle(object):
     """
     NoSQLHandle is a handle that can be used to access Oracle NoSQL tables. To
     create a connection represented by NoSQLHandle, request an instance using
     :py:class:`NoSQLHandleConfig`, which allows an application to specify
     default values and other configuration information to be used by the handle.
+
+    The same interface is available to both users of the Oracle NoSQL Database
+    Cloud Service and the on-premise Oracle NoSQL Database; however, some
+    methods and/or parameters are specific to each environment. The
+    documentation has notes about whether a class, method, or parameter is
+    environment-specific. Unless otherwise noted they are applicable to both
+    environments.
 
     A handle has memory and network resources associated with it. Consequently,
     the :py:meth:`close` method must be invoked to free up the resources when
@@ -62,7 +72,7 @@ class NoSQLHandle:
     return Result objects. Errors are thrown as exceptions. Exceptions that may
     be retried may succeed on retry. These are instances of
     :py:class:`RetryableException`. Exceptions that may not be retried and if
-    retried, will fail again. Exceptions that may be retried return true for
+    retried, will fail again. Exceptions that may be retried return True for
     :py:meth:`RetryableException.ok_to_retry` while those that may not will
     return False. Examples of retryable exceptions are those which indicate
     resource consumption violations such as
@@ -75,6 +85,7 @@ class NoSQLHandle:
     threads.
 
     :param config: an instance of NoSQLHandleConfig.
+    :type config: NoSQLHandleConfig
     :raises IllegalArgumentException: raises the exception if config is not an
         instance of NoSQLHandleConfig.
     """
@@ -83,9 +94,9 @@ class NoSQLHandle:
         if not isinstance(config, NoSQLHandleConfig):
             raise IllegalArgumentException(
                 'config must be an instance of NoSQLHandleConfig.')
-        logger = self.__get_logger(config)
-        self.__config_default_at_handler_logging(config, logger)
-        self.__client = Client(config, logger)
+        logger = self._get_logger(config)
+        self._config_auth_provider(config, logger)
+        self._client = Client(config, logger)
 
     def delete(self, request):
         """
@@ -109,7 +120,9 @@ class NoSQLHandle:
         information returned about the previous row.
 
         :param request: the input parameters for the operation.
+        :type request: DeleteRequest
         :returns: the result of the operation.
+        :rtype: DeleteResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`DeleteRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -118,8 +131,7 @@ class NoSQLHandle:
         if not isinstance(request, DeleteRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of DeleteRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get(self, request):
         """
@@ -135,7 +147,9 @@ class NoSQLHandle:
         the operation.
 
         :param request: the input parameters for the operation.
+        :type request: GetRequest
         :returns: the result of the operation.
+        :rtype: GetResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`GetRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -144,8 +158,7 @@ class NoSQLHandle:
         if not isinstance(request, GetRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get_indexes(self, request):
         """
@@ -154,7 +167,9 @@ class NoSQLHandle:
         on all indexes is returned.
 
         :param request: the input parameters for the operation.
+        :type request: GetIndexesRequest
         :returns: the result of the operation.
+        :rtype: GetIndexesResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`GetIndexesRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -163,17 +178,20 @@ class NoSQLHandle:
         if not isinstance(request, GetIndexesRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetIndexesRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get_table(self, request):
         """
-        Gets static information about the specified table including its
+        Gets static information about the specified table including its state,
         provisioned throughput and capacity and schema. Dynamic information such
-        as usage is obtained using :py:meth:`get_table_usage`.
+        as usage is obtained using :py:meth:`get_table_usage`. Throughput,
+        capacity and usage information is only available when using the Cloud
+        Service and will be None or not defined on-premise.
 
         :param request: the input parameters for the operation.
+        :type request: GetTableRequest
         :returns: the result of the operation.
+        :rtype: TableResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`GetTableRequest`.
         :raises TableNotFoundException: raises the exception if the specified
@@ -184,18 +202,21 @@ class NoSQLHandle:
         if not isinstance(request, GetTableRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetTableRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def get_table_usage(self, request):
         """
+        Cloud service only.
+
         Gets dynamic information about the specified table such as the current
         throughput usage. Usage information is collected in time slices and
         returned in individual usage records. It is possible to specify a
         time-based range of usage records using input parameters.
 
         :param request: the input parameters for the operation.
+        :type request: TableUsageRequest
         :returns: the result of the operation.
+        :rtype: TableUsageResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`TableUsageRequest`.
         :raises TableNotFoundException: raises the exception if the specified
@@ -206,8 +227,7 @@ class NoSQLHandle:
         if not isinstance(request, TableUsageRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of TableUsageRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def list_tables(self, request):
         """
@@ -217,7 +237,9 @@ class NoSQLHandle:
         list may be paged using input parameters.
 
         :param request: the input parameters for the operation.
+        :type request: ListTablesRequest
         :returns: the result of the operation.
+        :rtype: ListTablesResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`ListTablesRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -226,8 +248,7 @@ class NoSQLHandle:
         if not isinstance(request, ListTablesRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of ListTablesRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def multi_delete(self, request):
         """
@@ -236,7 +257,9 @@ class NoSQLHandle:
         key. A range may be specified to delete a range of keys.
 
         :param request: the input parameters for the operation.
+        :type request: MultiDeleteRequest
         :returns: the result of the operation.
+        :rtype: MultiDeleteResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`MultiDeleteRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -245,8 +268,7 @@ class NoSQLHandle:
         if not isinstance(request, MultiDeleteRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of MultiDeleteRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def prepare(self, request):
         """
@@ -258,7 +280,9 @@ class NoSQLHandle:
         re-use.
 
         :param request: the input parameters for the operation.
+        :type request: PrepareRequest
         :returns: the result of the operation.
+        :rtype: PrepareResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`PrepareRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -267,8 +291,7 @@ class NoSQLHandle:
         if not isinstance(request, PrepareRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of PrepareRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def put(self, request):
         """
@@ -312,7 +335,9 @@ class NoSQLHandle:
         information returned about the previous row.
 
         :param request: the input parameters for the operation.
+        :type request: PutRequest
         :returns: the result of the operation.
+        :rtype: PutResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`PutRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -321,31 +346,20 @@ class NoSQLHandle:
         if not isinstance(request, PutRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of PutRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def query(self, request):
         """
         Queries a table based on the query statement specified in the
-        :py:class:`QueryRequest`. There are limitations on types of queries that
-        can be supported in a multi-tenant cloud environment. In general,
-        queries that must visit multiple shards are supported except in the
-        following conditions:
-
-        The query includes an "ORDER BY" clause. Distributed sorting is not
-        available. Sorted queries will work if a shard key is supplied in the
-        query.
-
-        The query includes a "GROUP BY" clause. Distributed grouping is not
-        available. Grouped queries will work if a shard key is supplied in the
-        query.
+        :py:class:`QueryRequest`.
 
         Queries that include a full shard key will execute much more efficiently
         than more distributed queries that must go to multiple shards.
 
-        DDL-style queries such as "CREATE TABLE ..." or "DROP TABLE .." are not
-        supported by this interfaces. Those operations must be performed using
-        :py:meth:`table_request`.
+        Table and system-style queries such as "CREATE TABLE ..." or "DROP TABLE
+        ..." are not supported by this interfaces. Those operations must be
+        performed using :py:meth:`table_request` or :py:meth:`system_request` as
+        appropriate.
 
         The amount of data read by a single query request is limited by a system
         default and can be further limited using
@@ -355,13 +369,15 @@ class NoSQLHandle:
         is detected by checking if the :py:class:`QueryRequest` has a
         continuation key, using :py:meth:`QueryRequest.get_continuation_key`.
         For this reason queries should always operate in a loop, acquiring more
-        results, until the continuation key is null, indicating that the query
+        results, until the continuation key is None, indicating that the query
         is done. Inside the loop the continuation key is applied to the
         :py:class:`QueryRequest` using
-        :py:meth:`QueryRequest.et_continuation_key`.
+        :py:meth:`QueryRequest.set_continuation_key`.
 
         :param request: the input parameters for the operation.
+        :type request: QueryRequest
         :returns: the result of the operation.
+        :rtype: QueryResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`QueryRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -370,20 +386,75 @@ class NoSQLHandle:
         if not isinstance(request, QueryRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of QueryRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
+
+    def system_request(self, request):
+        """
+        On-premise only.
+
+        Performs a system operation on the system, such as administrative
+        operations that don't affect a specific table. For table-specific
+        operations use :py:meth:`table_request` or :py:meth:`do_table_request`.
+
+        Examples of statements in the :py:class:`SystemRequest` passed to this
+        method include:
+
+            CREATE NAMESPACE mynamespace\n
+            CREATE USER some_user IDENTIFIED BY password\n
+            CREATE ROLE some_role\n
+            GRANT ROLE some_role TO USER some_user
+
+        This operation is implicitly asynchronous. The caller must poll using
+        methods on :py:class:`SystemResult` to determine when it has completed.
+
+        :param request: the input parameters for the operation.
+        :type request: SystemRequest
+        :returns: the result of the operation.
+        :rtype: SystemResult
+        :raises IllegalArgumentException: raises the exception if request is not
+            an instance of :py:class:`SystemRequest`.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        if not isinstance(request, SystemRequest):
+            raise IllegalArgumentException(
+                'The parameter should be an instance of SystemRequest.')
+        return self._execute(request)
+
+    def system_status(self, request):
+        """
+        On-premise only.
+
+        Checks the status of an operation previously performed using
+        :py:meth:`system_request`.
+
+        :param request: the input parameters for the operation.
+        :type request: SystemStatusRequest
+        :returns: the result of the operation.
+        :rtype: SystemResult
+        :raises IllegalArgumentException: raises the exception if request is not
+            an instance of :py:class:`SystemStatusRequest`.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        if not isinstance(request, SystemStatusRequest):
+            raise IllegalArgumentException(
+                'The parameter should be an instance of SystemStatusRequest.')
+        return self._execute(request)
 
     def table_request(self, request):
         """
-        Performs a DDL operation on a table. This method is used for creating
-        and dropping tables and indexes as well as altering tables. Only one
+        Performs an operation on a table. This method is used for creating and
+        dropping tables and indexes as well as altering tables. Only one
         operation is allowed on a table at any one time.
 
         This operation is implicitly asynchronous. The caller must poll using
         methods on :py:class:`TableResult` to determine when it has completed.
 
         :param request: the input parameters for the operation.
+        :type request: TableRequest
         :returns: the result of the operation.
+        :rtype: TableResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`TableRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -392,8 +463,7 @@ class NoSQLHandle:
         if not isinstance(request, TableRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of TableRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def write_multiple(self, request):
         """
@@ -408,7 +478,9 @@ class NoSQLHandle:
             The total request size is limited to 25MB.
 
         :param request: the input parameters for the operation.
+        :type request: WriteMultipleRequest
         :returns: the result of the operation.
+        :rtype: WriteMultipleResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`WriteMultipleRequest`.
         :raises RowSizeLimitException: raises the exception if data size in an
@@ -421,29 +493,168 @@ class NoSQLHandle:
         if not isinstance(request, WriteMultipleRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of WriteMultipleRequest.')
-        self.__check_client()
-        return self.__client.execute(request)
+        return self._execute(request)
 
     def close(self):
         """
         Close the NoSQLHandle.
         """
-        self.__check_client()
-        self.__client.shut_down()
-        self.__client = None
+        if self._client is not None:
+            self._client.shut_down()
+            self._client = None
 
-    def __check_client(self):
-        # Ensure that the client exists and hasn't been closed.
-        if self.__client is None:
-            raise IllegalStateException('NoSQLHandle has been closed.')
+    def do_system_request(self, statement, timeout_ms=30000,
+                          poll_interval_ms=1000):
+        """
+        On-premise only.
 
-    def __config_default_at_handler_logging(self, config, logger):
+        A convenience method that performs a SystemRequest and waits for
+        completion of the operation. This is the same as calling
+        :py:meth:`system_request` then calling
+        :py:meth:`SystemResult.wait_for_completion`. If the operation fails an
+        exception is thrown.
+
+        System requests are those related to namespaces and security and are
+        generally independent of specific tables. Examples of statements include
+
+            CREATE NAMESPACE mynamespace\n
+            CREATE USER some_user IDENTIFIED BY password\n
+            CREATE ROLE some_role\n
+            GRANT ROLE some_role TO USER some_user
+
+        :param statement: the system statement for the operation.
+        :type statement: str
+        :param timeout_ms: the amount of time to wait for completion, in
+            milliseconds.
+        :type timeout_ms: int
+        :param poll_interval_ms: the polling interval for the wait operation.
+        :type poll_interval_ms: int
+        :returns: the result of the system request.
+        :rtype: SystemResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        req = SystemRequest().set_statement(statement)
+        res = self.system_request(req)
+        res.wait_for_completion(self, timeout_ms, poll_interval_ms)
+        return res
+
+    def do_table_request(self, request, timeout_ms, poll_interval_ms):
+        """
+        A convenience method that performs a TableRequest and waits for
+        completion of the operation. This is the same as calling
+        :py:meth:`table_request` then calling
+        :py:meth:`TableResult.wait_for_completion`. If the operation fails an
+        exception is thrown. All parameters are required.
+
+        :param request: the :py:class:`TableRequest` to perform.
+        :type request: TableRequest
+        :param timeout_ms: the amount of time to wait for completion, in
+            milliseconds.
+        :type timeout_ms: int
+        :param poll_interval_ms: the polling interval for the wait operation.
+        :type poll_interval_ms: int
+        :returns: the result of the table request.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        res = self.table_request(request)
+        res.wait_for_completion(self, timeout_ms, poll_interval_ms)
+        return res
+
+    def list_namespaces(self):
+        """
+        On-premise only.
+
+        Returns the namespaces in a store as a list of string.
+
+        :returns: the namespaces, or None if none are found.
+        :rtype: list(str)
+        """
+        res = self.do_system_request('show as json namespaces')
+        json_res = res.get_result_string()
+        if json_res is None:
+            return None
+        root = loads(json_res)
+        namespaces = root.get('namespaces')
+        if namespaces is None:
+            return None
+        results = list()
+        for namespace in namespaces:
+            results.append(namespace)
+        return results
+
+    def list_roles(self):
+        """
+        On-premise only.
+
+        Returns the roles in a store as a list of string.
+
+        :returns: the list of roles, or None if none are found.
+        :rtype: list(str)
+        """
+        res = self.do_system_request('show as json roles')
+        json_res = res.get_result_string()
+        if json_res is None:
+            return None
+        root = loads(json_res)
+        roles = root.get('roles')
+        if roles is None:
+            return None
+        results = list()
+        for role in roles:
+            results.append(role['name'])
+        return results
+
+    def list_users(self):
+        """
+        On-premise only.
+
+        Returns the users in a store as a list of :py:class:`UserInfo`.
+
+        :returns: the list of users, or None if none are found.
+        :rtype: list(UserInfo)
+        """
+        res = self.do_system_request('show as json users')
+        json_res = res.get_result_string()
+        if json_res is None:
+            return None
+        root = loads(json_res)
+        users = root.get('users')
+        if users is None:
+            return None
+        results = list()
+        for user in users:
+            results.append(UserInfo(user['id'], user['name']))
+        return results
+
+    def _config_auth_provider(self, config, logger):
         provider = config.get_authorization_provider()
-        if isinstance(provider, DefaultAccessTokenProvider):
-            if provider.get_logger() is None:
-                provider.set_logger(logger)
+        if provider.get_logger() is None:
+            provider.set_logger(logger)
+        if (isinstance(provider, StoreAccessTokenProvider) and
+                provider.is_secure() and provider.get_endpoint() is None):
+            endpoint = config.get_service_url().geturl()
+            if endpoint.endswith('/'):
+                endpoint = endpoint[:len(endpoint) - 1]
+            provider.set_endpoint(endpoint)
 
-    def __get_logger(self, config):
+    def _execute(self, request):
+        # Ensure that the client exists and hasn't been closed.
+        if self._client is None:
+            raise IllegalStateException('NoSQLHandle has been closed.')
+        return self._client.execute(request)
+
+    def _get_logger(self, config):
         """
         Returns the logger used for the driver. If no logger is specified,
         create one based on this class name.

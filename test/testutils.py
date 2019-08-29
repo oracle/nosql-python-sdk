@@ -8,13 +8,16 @@
 #
 
 from base64 import urlsafe_b64encode
+from collections import OrderedDict
+from datetime import datetime
+from decimal import Decimal
 from json import dumps
 from logging import FileHandler, Logger
 from os import mkdir, path, remove, sep
 from requests import codes, delete, post
 from rsa import PrivateKey, sign
+from struct import pack
 from sys import argv
-from time import sleep
 
 from borneo import (
     DefaultRetryHandler, IllegalArgumentException, IllegalStateException,
@@ -22,10 +25,12 @@ from borneo import (
 from borneo.idcs import (
     AccessTokenProvider, DefaultAccessTokenProvider,
     PropertiesCredentialsProvider)
+from borneo.kv import StoreAccessTokenProvider
 from parameters import (
     consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
-    is_minicloud, is_prod_pod, logger_level, pool_connections, pool_maxsize,
-    table_prefix, table_request_timeout, timeout)
+    is_minicloud, is_onprem, is_prod_pod, logger_level, password,
+    pool_connections, pool_maxsize, table_prefix, table_request_timeout,
+    timeout, user_name)
 
 # The sc endpoint port for setting the tier.
 sc_endpoint = 'localhost:13600'
@@ -35,7 +40,8 @@ sc_nd_tenant_base = sc_url_base + 'tenant/nondefault/'
 tier_name = 'test_tier'
 
 logger = None
-retry_handler = DefaultRetryHandler(10, 5)
+namespace = 'pyNamespace'
+retry_handler = DefaultRetryHandler(delay_s=5)
 # The timeout for waiting security information is available.
 sec_info_timeout = 20000
 
@@ -98,19 +104,50 @@ def get_simple_handle_config(tenant_id, ep=endpoint):
 def get_handle(tenant_id):
     # Returns a connection to the server
     config = get_handle_config(tenant_id)
-    if config.get_protocol() == 'https':
-        # sleep a while to avoid the OperationThrottlingException
-        sleep(60)
     return NoSQLHandle(config)
+
+
+def get_row(with_sid=True):
+    row = OrderedDict()
+    if with_sid:
+        row['fld_sid'] = 1
+    row['fld_id'] = 1
+    row['fld_long'] = 2147483648
+    row['fld_float'] = 3.1414999961853027
+    row['fld_double'] = 3.1415
+    row['fld_bool'] = True
+    row['fld_str'] = '{"name": u1, "phone": null}'
+    row['fld_bin'] = bytearray(pack('>i', 4))
+    row['fld_time'] = datetime.now()
+    row['fld_num'] = Decimal(5)
+    location = OrderedDict()
+    location['type'] = 'point'
+    location['coordinates'] = [23.549, 35.2908]
+    fld_json = OrderedDict()
+    fld_json['json_1'] = 1
+    fld_json['json_2'] = None
+    fld_json['location'] = location
+    row['fld_json'] = fld_json
+    row['fld_arr'] = ['a', 'b', 'c']
+    fld_map = OrderedDict()
+    fld_map['a'] = '1'
+    fld_map['b'] = '2'
+    fld_map['c'] = '3'
+    row['fld_map'] = fld_map
+    fld_rec = OrderedDict()
+    fld_rec['fld_id'] = 1
+    fld_rec['fld_bool'] = False
+    fld_rec['fld_str'] = None
+    row['fld_rec'] = fld_rec
+    return row
 
 
 def set_access_token_provider(config, tenant_id):
     if is_cloudsim():
-        config.set_authorization_provider(
-            NoSecurityAccessTokenProvider(tenant_id))
+        authorization_provider = NoSecurityAccessTokenProvider(tenant_id)
     elif is_dev_pod() or is_minicloud():
-        config.set_authorization_provider(
-            KeystoreAccessTokenProvider().set_tenant(tenant_id))
+        authorization_provider = KeystoreAccessTokenProvider().set_tenant(
+            tenant_id)
     elif is_prod_pod():
         if credentials_file is None:
             raise IllegalArgumentException(
@@ -120,9 +157,18 @@ def set_access_token_provider(config, tenant_id):
         authorization_provider = DefaultAccessTokenProvider(
             idcs_url=idcs_url(), entitlement_id=entitlement_id,
             creds_provider=creds_provider, timeout_ms=timeout)
-        config.set_authorization_provider(authorization_provider)
+    elif is_onprem():
+        if user_name is None and password is None:
+            authorization_provider = StoreAccessTokenProvider()
+        else:
+            if user_name is None or password is None:
+                raise IllegalArgumentException(
+                    'Please set both the user_name and password.')
+            authorization_provider = StoreAccessTokenProvider(
+                user_name, password)
     else:
         raise IllegalArgumentException('Please set the test server.')
+    config.set_authorization_provider(authorization_provider)
 
 
 def add_test_tier_tenant(tenant_id):
@@ -162,7 +208,7 @@ def delete_tier():
 def add_tenant(tenant_id):
     if is_minicloud():
         tenant_url = sc_nd_tenant_base + tenant_id + '/' + tier_name
-        response = post(tenant_url, data=None)
+        response = post(tenant_url)
         if response.status_code != codes.ok:
             raise IllegalStateException('Add tenant failed.')
 
@@ -234,23 +280,23 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
 
     def __init__(self):
         super(KeystoreAccessTokenProvider, self).__init__()
-        self.__ks_user_id = 'TestUser'
-        self.__ks_client_id = 'TestClient'
-        self.__ks_tenant_id = 'TestTenant'
-        self.__ks_entitlement_id = 'TestEntitlement'
-        self.__ks_expires_in = 3471321600
+        self._ks_user_id = 'TestUser'
+        self._ks_client_id = 'TestClient'
+        self._ks_tenant_id = 'TestTenant'
+        self._ks_entitlement_id = 'TestEntitlement'
+        self._ks_expires_in = 3471321600
         if keystore is None or not path.exists(keystore):
             raise IllegalArgumentException('Missing keystore')
 
     def set_tenant(self, ks_tenant_id):
-        self.__ks_tenant_id = ks_tenant_id
+        self._ks_tenant_id = ks_tenant_id
         return self
 
     def get_account_access_token(self):
         try:
-            at = self.__build_psm_access_token(
-                self.__ks_tenant_id, self.__ks_user_id, self.__ks_client_id,
-                self.__ks_expires_in)
+            at = self._build_psm_access_token(
+                self._ks_tenant_id, self._ks_user_id, self._ks_client_id,
+                self._ks_expires_in)
             return at
         except Exception as e:
             raise IllegalStateException(
@@ -258,30 +304,30 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
 
     def get_service_access_token(self):
         try:
-            at = self.__build_andc_access_token(
-                self.__ks_tenant_id, self.__ks_user_id, self.__ks_client_id,
-                self.__ks_entitlement_id, self.__ks_expires_in)
+            at = self._build_andc_access_token(
+                self._ks_tenant_id, self._ks_user_id, self._ks_client_id,
+                self._ks_entitlement_id, self._ks_expires_in)
             return at
         except Exception as e:
             raise IllegalStateException(
                 'Error getting ANDC access token: ', str(e))
 
-    def __build_andc_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                                  ks_entitlement_id, ks_expires_in):
-        return self.__build_access_token(
+    def _build_andc_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
+                                 ks_entitlement_id, ks_expires_in):
+        return self._build_access_token(
             ks_tenant_id, ks_user_id, ks_client_id,
             AccessTokenProvider.ANDC_AUD_PREFIX + ks_entitlement_id,
             AccessTokenProvider.SCOPE, ks_expires_in)
 
-    def __build_psm_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                                 ks_expires_in):
-        return self.__build_access_token(
+    def _build_psm_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
+                                ks_expires_in):
+        return self._build_access_token(
             ks_tenant_id, ks_user_id, ks_client_id,
             KeystoreAccessTokenProvider.PSM_AUD,
             KeystoreAccessTokenProvider.PSM_SCOPE, ks_expires_in)
 
-    def __build_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                             audience, scope, ks_expires_in):
+    def _build_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
+                            audience, scope, ks_expires_in):
         header = dict()
         header[KeystoreAccessTokenProvider.ALGORITHM_NAME] = (
             KeystoreAccessTokenProvider.IDCS_SUPPORTED_ALGORITHM)
@@ -304,10 +350,10 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
             signing_content = (
                 urlsafe_b64encode(header.encode()).decode() + '.' +
                 urlsafe_b64encode(payload.encode()).decode())
-        signature = self.__sign(signing_content)
+        signature = self._sign(signing_content)
         return signing_content + '.' + signature
 
-    def __sign(self, content):
+    def _sign(self, content):
         if keystore is None or not path.exists(keystore):
             raise IllegalArgumentException(
                 'Unable to find the keystore: ' + keystore)
@@ -324,10 +370,10 @@ class KeystoreAccessTokenProvider(AccessTokenProvider):
 class NoSecurityAccessTokenProvider(AccessTokenProvider):
     def __init__(self, ns_tenant_id):
         super(NoSecurityAccessTokenProvider, self).__init__()
-        self.__ns_tenant_id = ns_tenant_id
+        self._ns_tenant_id = ns_tenant_id
 
     def get_account_access_token(self):
-        return self.__ns_tenant_id
+        return self._ns_tenant_id
 
     def get_service_access_token(self):
-        return self.__ns_tenant_id
+        return self._ns_tenant_id

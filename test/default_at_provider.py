@@ -36,8 +36,9 @@ from testutils import (
 class TestDefaultAccessTokenProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        global CLIENT_INFO, EMPTY_INFO, TOKEN_RESULT, PSM_INFO, NEW_PSM_INFO
-        global APP_ENDPOINT, TOKEN_ENDPOINT
+        global CLIENT_INFO, EMPTY_INFO, NEW_PSM_INFO, PSM_INFO, TOKEN_RESULT
+        global APP_ENDPOINT, TOKEN_ENDPOINT, ACCOUNT_AT, CLIENT_AT, SERVICE_AT
+        global GET_INFO, POST_INFO
         CLIENT_INFO = (
             '{"schemas": [' +
             '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
@@ -52,22 +53,29 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             '{"schemas": [' +
             '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
             '"totalResults": 0,"Resources": []}')
-        TOKEN_RESULT = ('{{"access_token": "{0}","expires_in": "100",\
-"token_type": "Bearer"}}')
+        NEW_PSM_INFO = (
+            '{"schemas": [' +
+            '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
+            '"totalResults": 1,"Resources": [' +
+            '{"audience": "http://psm","name": "PSMApp-cacct12345"}]}')
         PSM_INFO = (
             '{"schemas": [' +
             '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
             '"totalResults": 1,"Resources": [' +
             '{"audience": "http://psm","name": "PSMApp-cacct12345",' +
             '"clientSecret": "adfjeelkc"}]}')
-        NEW_PSM_INFO = (
-            '{"schemas": [' +
-            '"urn:ietf:params:scim:api:messages:2.0:ListResponse"],' +
-            '"totalResults": 1,"Resources": [' +
-            '{"audience": "http://psm","name": "PSMApp-cacct12345"}]}')
+        TOKEN_RESULT = ('{{"access_token": "{0}","expires_in": "100",\
+"token_type": "Bearer"}}')
 
         APP_ENDPOINT = '/admin/v1/Apps'
         TOKEN_ENDPOINT = '/oauth2/v1/token'
+
+        ACCOUNT_AT = 'account-at'
+        CLIENT_AT = 'client-at'
+        SERVICE_AT = 'service-at'
+
+        GET_INFO = CLIENT_INFO
+        POST_INFO = None
 
     def setUp(self):
         generate_credentials_file()
@@ -132,36 +140,21 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.token_provider.set_logger, 'IllegalLogger')
 
+    def testAccessTokenProviderGetAuthorizationStringWithIllegalRequest(self):
+        self.token_provider = DefaultAccessTokenProvider(idcs_url=self.base)
+        self.assertRaises(IllegalArgumentException,
+                          self.token_provider.get_authorization_string,
+                          'IllegalRequest')
+
+    def testAccessTokenProviderGets(self):
+        self.token_provider = DefaultAccessTokenProvider(idcs_url=self.base)
+        self.assertIsNone(self.token_provider.get_logger())
+
     def testAccessTokenProviderGetAuthorizationString(self):
-        account_at = 'account-at'
-        service_at = 'service-at'
-
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(CLIENT_INFO)))
-                    self.end_headers()
-                    self.wfile.write(CLIENT_INFO.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    content = self.rfile.read(
-                        int(self.headers['Content-Length']))
-                    content = unquote(content.decode())
-                    if 'andc' in content:
-                        res = str.format(TOKEN_RESULT, service_at)
-                    else:
-                        res = str.format(TOKEN_RESULT, account_at)
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = CLIENT_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -170,36 +163,18 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_authorization_string(
             ListTablesRequest())
         self.assertIsNotNone(result)
-        self.assertEqual(result, 'Bearer ' + account_at)
+        self.assertEqual(result, 'Bearer ' + ACCOUNT_AT)
         # get authorization string for TableRequest
         result = self.token_provider.get_authorization_string(TableRequest())
         self.assertIsNotNone(result)
-        self.assertEqual(result, 'Bearer ' + service_at)
-        self.__stop_server(httpd)
+        self.assertEqual(result, 'Bearer ' + SERVICE_AT)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderGetAccountAccessToken(self):
-        account_at = 'account-at'
-
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(CLIENT_INFO)))
-                    self.end_headers()
-                    self.wfile.write(CLIENT_INFO.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, account_at)
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = CLIENT_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         # connect to illegal idcs url
         self.base = 'http://localhost:80'
@@ -215,32 +190,14 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.token_provider = DefaultAccessTokenProvider(properties_file)
         result = self.token_provider.get_account_access_token()
         self.assertIsNotNone(result)
-        self.assertEqual(result, account_at)
-        self.__stop_server(httpd)
+        self.assertEqual(result, ACCOUNT_AT)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderGetServiceAccessToken(self):
-        service_at = 'service-at'
-
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(CLIENT_INFO)))
-                    self.end_headers()
-                    self.wfile.write(CLIENT_INFO.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, service_at)
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = CLIENT_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         # connect to illegal idcs url
         self.base = 'http://localhost:80'
@@ -256,30 +213,14 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             idcs_url=self.base, creds_provider=self.creds_provider)
         result = self.token_provider.get_service_access_token()
         self.assertIsNotNone(result)
-        self.assertEqual(result, service_at)
-        self.__stop_server(httpd)
+        self.assertEqual(result, SERVICE_AT)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderNoClientInfo(self):
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(PSM_INFO)))
-                    self.end_headers()
-                    self.wfile.write(PSM_INFO.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, 'token')
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = PSM_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -287,39 +228,25 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         if version_info.major == 2:
             # get service access token
             self.assertRaisesRegexp(
-                IllegalStateException, 'Unable to find service scope,.*$',
+                IllegalStateException,
+                'Unable to find service scope from OAuth Client.*$',
                 self.token_provider.get_service_access_token)
         else:
             # get service access token
             self.assertRaisesRegex(
-                IllegalStateException, 'Unable to find service scope,.*$',
+                IllegalStateException,
+                'Unable to find service scope from OAuth Client.*$',
                 self.token_provider.get_service_access_token)
         # get account access toke
         self.assertEqual(
-            self.token_provider.get_account_access_token(), 'token')
-        self.__stop_server(httpd)
+            self.token_provider.get_account_access_token(), ACCOUNT_AT)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderNoSecret(self):
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(NEW_PSM_INFO)))
-                    self.end_headers()
-                    self.wfile.write(NEW_PSM_INFO.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, 'token')
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = NEW_PSM_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -334,21 +261,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 IllegalStateException,
                 'Account metadata doesn\'t have a secret,.*$',
                 self.token_provider.get_account_access_token)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderWithServerError(self):
-        error_msg = '{"server_error"}'
-
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    self.send_response(codes.bad)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(error_msg)))
-                    self.end_headers()
-                    self.wfile.write(error_msg.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = CLIENT_INFO
+        POST_INFO = '{"server_error"}'
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -364,35 +283,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 InvalidAuthorizationException,
                 '^.*IDCS error response: \{"server_error"\}.*$',
                 self.token_provider.get_service_access_token)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderNoPSMInfo(self):
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    msg = (
-                        '{"schemas": ["urn:ietf:params:scim:api:messages:2.0:' +
-                        'ListResponse"],"totalResults": 1,"Resources": [' +
-                        '{"name": "NoSQLClient"}]}')
-                    if 'PSM' in self.path:
-                        msg = EMPTY_INFO
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(msg)))
-                    self.end_headers()
-                    self.wfile.write(msg.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    res = str.format(TOKEN_RESULT, 'token')
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = EMPTY_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -408,38 +305,13 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 IllegalStateException,
                 'Account metadata response contains invalid value: .*$',
                 self.token_provider.get_account_access_token)
-        self.__stop_server(httpd)
+        self._stop_server(httpd)
 
     def testAccessTokenProviderOldPath(self):
-        account_at = 'account-at'
-        service_at = 'service-at'
-
-        class TokenHandler(SimpleHTTPRequestHandler):
-            def do_GET(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == APP_ENDPOINT:
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(PSM_INFO)))
-                    self.end_headers()
-                    self.wfile.write(PSM_INFO.encode())
-
-            def do_POST(self):
-                rawpath = self.path.split('?')[0]
-                if rawpath == TOKEN_ENDPOINT:
-                    content = self.rfile.read(
-                        int(self.headers['Content-Length']))
-                    content = unquote(content.decode())
-                    if 'andc' in content:
-                        res = str.format(TOKEN_RESULT, service_at)
-                    else:
-                        res = str.format(TOKEN_RESULT, account_at)
-                    self.send_response(codes.ok)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(res)))
-                    self.end_headers()
-                    self.wfile.write(res.encode())
-        httpd, port = self.__find_port_start_server(TokenHandler)
+        global GET_INFO, POST_INFO
+        GET_INFO = PSM_INFO
+        POST_INFO = None
+        httpd, port = self._find_port_start_server(TokenHandler)
 
         self.base = 'http://localhost:' + str(port)
         self.token_provider = DefaultAccessTokenProvider(
@@ -449,12 +321,12 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         result = self.token_provider.get_authorization_string(
             ListTablesRequest())
         self.assertIsNotNone(result)
-        self.assertEqual(result, 'Bearer ' + account_at)
+        self.assertEqual(result, 'Bearer ' + ACCOUNT_AT)
         # get authorization string for TableRequest
         result = self.token_provider.get_authorization_string(TableRequest())
         self.assertIsNotNone(result)
-        self.assertEqual(result, 'Bearer ' + service_at)
-        self.__stop_server(httpd)
+        self.assertEqual(result, 'Bearer ' + SERVICE_AT)
+        self._stop_server(httpd)
 
     if idcs_url() is not None:
         def testRealCloudGetAuthorizationStringAndToken(self):
@@ -476,7 +348,7 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
             result = self.token_provider.get_service_access_token()
             self.assertIsNotNone(result)
 
-    def __find_port_start_server(self, token_handler):
+    def _find_port_start_server(self, token_handler):
         port = 8000
         while True:
             try:
@@ -490,9 +362,44 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         thread.start()
         return httpd, port
 
-    def __stop_server(self, httpd):
+    def _stop_server(self, httpd):
         httpd.shutdown()
         httpd.server_close()
+
+
+class TokenHandler(SimpleHTTPRequestHandler, object):
+    def do_GET(self):
+        rawpath = self.path.split('?')[0]
+        if rawpath == APP_ENDPOINT:
+            self.send_response(codes.ok)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(GET_INFO)))
+            self.end_headers()
+            self.wfile.write(GET_INFO.encode())
+
+    def do_POST(self):
+        rawpath = self.path.split('?')[0]
+        content = self.rfile.read(int(self.headers['Content-Length']))
+        content = unquote(content.decode())
+        if rawpath == TOKEN_ENDPOINT:
+            if POST_INFO is None:
+                if 'andc' in content:
+                    res = str.format(TOKEN_RESULT, SERVICE_AT)
+                elif 'opc:idm' in content:
+                    res = str.format(TOKEN_RESULT, CLIENT_AT)
+                else:
+                    res = str.format(TOKEN_RESULT, ACCOUNT_AT)
+                self.send_response(codes.ok)
+            else:
+                res = POST_INFO
+                self.send_response(codes.bad)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(res)))
+            self.end_headers()
+            self.wfile.write(res.encode())
+
+    def log_request(self, code='-', size='-'):
+        pass
 
 
 if __name__ == '__main__':

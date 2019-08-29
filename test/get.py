@@ -8,22 +8,21 @@
 #
 
 import unittest
-from datetime import datetime
-from decimal import Decimal
-from struct import pack
 from time import time
 
 from borneo import (
-    Consistency, GetRequest, IllegalArgumentException, PutRequest, State,
-    TableLimits, TableNotFoundException, TableRequest, TimeToLive)
+    Consistency, GetRequest, IllegalArgumentException, PutRequest, TableLimits,
+    TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
 from parameters import table_name, timeout
 from test_base import TestBase
+from testutils import get_row
 
 
 class TestGet(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.handle = None
+        cls.set_up_class()
         table_ttl = TimeToLive.of_hours(16)
         create_statement = (
             'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
@@ -34,35 +33,26 @@ fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(5000, 5000, 50))
-        cls._result = TestBase.table_request(create_request, State.ACTIVE)
-        global row, tb_expect_expiration, hour_in_milliseconds
-        row = {'fld_sid': 1, 'fld_id': 1, 'fld_long': 2147483648,
-               'fld_float': 3.1414999961853027, 'fld_double': 3.1415,
-               'fld_bool': True, 'fld_str': '{"name": u1, "phone": null}',
-               'fld_bin': bytearray(pack('>i', 4)),
-               'fld_time': datetime.now(), 'fld_num': Decimal(5),
-               'fld_json': {'a': '1', 'b': None, 'c': '3'},
-               'fld_arr': ['a', 'b', 'c'],
-               'fld_map': {'a': '1', 'b': '2', 'c': '3'},
-               'fld_rec': {'fld_id': 1, 'fld_bool': False, 'fld_str': None}}
+        cls.table_request(create_request)
+        global row, tb_expect_expiration, version
+        row = get_row()
         put_request = PutRequest().set_value(row).set_table_name(table_name)
-        cls._handle.put(put_request)
+        version = cls.handle.put(put_request).get_version()
         tb_expect_expiration = table_ttl.to_expiration_time(
             int(round(time() * 1000)))
-        hour_in_milliseconds = 60 * 60 * 1000
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.key = {'fld_sid': 1, 'fld_id': 1}
         self.get_request = GetRequest().set_key(self.key).set_table_name(
             table_name).set_timeout(timeout)
 
     def tearDown(self):
-        TestBase.tear_down(self)
+        self.tear_down()
 
     def testGetSetIllegalKey(self):
         self.assertRaises(IllegalArgumentException, self.get_request.set_key,
@@ -115,40 +105,22 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
 
     def testGetNormal(self):
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), row)
-        actual_expiration = result.get_expiration_time()
-        actual_expect_diff = actual_expiration - tb_expect_expiration
-        self.assertGreater(actual_expiration, 0)
-        self.assertLess(actual_expect_diff, hour_in_milliseconds)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result, row, version, tb_expect_expiration,
+                              TimeUnit.HOURS)
+        self.check_cost(result, 1, 2, 0, 0)
 
     def testGetEventual(self):
         self.get_request.set_consistency(Consistency.EVENTUAL)
         result = self.handle.get(self.get_request)
-        self.assertEqual(result.get_value(), row)
-        self.assertIsNotNone(result.get_version())
-        actual_expiration = result.get_expiration_time()
-        actual_expect_diff = actual_expiration - tb_expect_expiration
-        self.assertGreater(actual_expiration, 0)
-        self.assertLess(actual_expect_diff, hour_in_milliseconds)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 1)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result, row, version, tb_expect_expiration,
+                              TimeUnit.HOURS)
+        self.check_cost(result, 1, 1, 0, 0)
 
     def testGetNonExisting(self):
         self.get_request.set_key({'fld_sid': 2, 'fld_id': 2})
         result = self.handle.get(self.get_request)
-        self.assertIsNone(result.get_value())
-        self.assertIsNone(result.get_version())
-        self.assertEqual(result.get_expiration_time(), 0)
-        self.assertEqual(result.get_read_kb(), 1)
-        self.assertEqual(result.get_read_units(), 2)
-        self.assertEqual(result.get_write_kb(), 0)
-        self.assertEqual(result.get_write_units(), 0)
+        self.check_get_result(result)
+        self.check_cost(result, 1, 2, 0, 0)
 
 
 if __name__ == '__main__':

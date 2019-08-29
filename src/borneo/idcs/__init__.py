@@ -15,5 +15,5 @@ __all__ = ['AccessTokenProvider',
            'CredentialsProvider',
            'DefaultAccessTokenProvider',
            'IDCSCredentials',
-           'PropertiesCredentialsProvider',
+           'PropertiesCredentialsProvider'
            ]

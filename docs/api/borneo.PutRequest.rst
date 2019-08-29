@@ -10,6 +10,8 @@ PutRequest
 
    .. autosummary::
 
+      ~PutRequest.get_exact_match
+      ~PutRequest.get_identity_cache_size
       ~PutRequest.get_match_version
       ~PutRequest.get_option
       ~PutRequest.get_return_row
@@ -19,6 +21,8 @@ PutRequest
       ~PutRequest.get_update_ttl
       ~PutRequest.get_use_table_default_ttl
       ~PutRequest.get_value
+      ~PutRequest.set_exact_match
+      ~PutRequest.set_identity_cache_size
       ~PutRequest.set_match_version
       ~PutRequest.set_option
       ~PutRequest.set_return_row

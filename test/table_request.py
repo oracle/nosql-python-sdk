@@ -8,27 +8,29 @@
 #
 
 import unittest
+from time import sleep
 
 from borneo import (
-    IllegalArgumentException, State, TableLimits, TableNotFoundException,
-    TableRequest, TableResult)
+    IllegalArgumentException, OperationNotSupportedException, State,
+    TableLimits, TableNotFoundException, TableRequest, TableResult)
 from parameters import (
-    not_cloudsim, table_name, table_request_timeout, tenant_id, wait_timeout)
-from testutils import get_handle_config
+    is_minicloud, is_onprem, is_pod, not_cloudsim, table_name,
+    table_request_timeout, tenant_id, wait_timeout)
 from test_base import TestBase
+from testutils import get_handle_config
 
 
 class TestTableRequest(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        TestBase.set_up_class()
+        cls.set_up_class()
 
     @classmethod
     def tearDownClass(cls):
-        TestBase.tear_down_class()
+        cls.tear_down_class()
 
     def setUp(self):
-        TestBase.set_up(self)
+        self.set_up()
         self.handle_config = get_handle_config(tenant_id)
         index_name = 'idx_' + table_name
         self.create_tb_statement = (
@@ -53,18 +55,20 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
 
     def tearDown(self):
         try:
-            TableResult.wait_for_state(self.handle, table_name, State.ACTIVE,
-                                       wait_timeout, 1000)
+            TableResult.wait_for_state(self.handle, State.ACTIVE, wait_timeout,
+                                       1000, table_name)
             drop_request = TableRequest().set_statement(self.drop_tb_statement)
-            result = self.handle.table_request(drop_request)
-            result.wait_for_state(self.handle, table_name, State.DROPPED,
-                                  wait_timeout, 1000)
+            self._do_table_request(drop_request)
         except TableNotFoundException:
             pass
         finally:
-            TestBase.tear_down(self)
+            self.tear_down()
 
     def testTableRequestSetIllegalStatement(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.table_request.set_statement, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.table_request.set_statement, '')
         self.table_request.set_statement('IllegalStatement')
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
@@ -88,10 +92,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(IllegalArgumentException,
                           self.table_request.set_table_name,
                           {'name': table_name})
-        self.table_request.set_table_name(
-            'IllegalTable').set_table_limits(self.table_limits)
-        self.assertRaises(TableNotFoundException, self.handle.table_request,
-                          self.table_request)
+        if not is_onprem():
+            self.table_request.set_table_name('IllegalTable').set_table_limits(
+                self.table_limits)
+            self.assertRaises(TableNotFoundException, self.handle.table_request,
+                              self.table_request)
 
     def testTableRequestSetIllegalTimeout(self):
         self.assertRaises(IllegalArgumentException,
@@ -141,242 +146,145 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestCreateDropTable(self):
         # create table failed without TableLimits set
         self.table_request.set_statement(self.create_tb_statement)
-        self.assertRaises(IllegalArgumentException, self.handle.table_request,
-                          self.table_request)
+        if not is_onprem():
+            self.assertRaises(IllegalArgumentException,
+                              self.handle.table_request, self.table_request)
         # create table succeed with TableLimits set
         self.table_request.set_table_limits(self.table_limits)
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.CREATING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNone(result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.ACTIVE, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.ACTIVE)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        self.check_table_result(
+            result, State.CREATING, self.table_limits, False)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table by resetting the statement
         self.table_request.set_statement(self.drop_tb_statement)
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.DROPPING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.DROPPED, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.DROPPED)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        # TODO: A difference between old cloud proxy and new cloud proxy, during
+        # DROPPING phase, the table limit is not none for old proxy but none for
+        # new proxy.
+        self._check_table_result(result, State.DROPPING, check_limit=False)
+        self._wait_for_completion(result)
+        # TODO: A difference between old cloud proxy and new cloud proxy, after
+        # table DROPPED, the table limit is not none for old proxy but none for
+        # new proxy.
+        self._check_table_result(result, State.DROPPED, has_schema=False,
+                                 check_limit=False)
 
     def testTableRequestCreateDropIndex(self):
         # create table before creating index
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.ACTIVE,
-                              wait_timeout, 1000)
+        self._do_table_request(request)
         # create index by resetting the statement
         self.table_request.set_statement(self.create_idx_statement)
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.UPDATING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.ACTIVE, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.ACTIVE)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        self._check_table_result(result, State.UPDATING, self.table_limits)
+        self._wait_for_completion(result)
+        self._check_table_result(result, State.ACTIVE, self.table_limits)
         # drop index by resetting the statement
         self.table_request.set_statement(self.drop_idx_statement)
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.UPDATING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.ACTIVE, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.ACTIVE)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        self._check_table_result(result, State.UPDATING, self.table_limits)
+        self._wait_for_completion(result)
+        self._check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after dropping index
         self.table_request.set_statement(self.drop_tb_statement)
-        result = self.handle.table_request(self.table_request)
-        result.wait_for_state(self.handle, table_name, State.DROPPED,
-                              wait_timeout, 1000)
+        self._do_table_request(self.table_request)
 
     def testTableRequestAlterTable(self):
         # create table before altering table
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.ACTIVE,
-                              wait_timeout, 1000)
+        self._do_table_request(request)
         # alter table failed with TableLimits set
-        request.set_statement(self.alter_fld_statement)
-        self.assertRaises(IllegalArgumentException, self.handle.table_request,
-                          request)
+        if not is_onprem():
+            request.set_statement(self.alter_fld_statement)
+            self.assertRaises(IllegalArgumentException,
+                              self.handle.table_request, request)
         # alter table succeed without TableLimits set
         self.table_request.set_statement(self.alter_fld_statement)
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.UPDATING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.ACTIVE, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.ACTIVE)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        self.check_table_result(result, State.UPDATING, self.table_limits)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
-        result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.DROPPED,
-                              wait_timeout, 1000)
+        self._do_table_request(request)
 
     def testTableRequestAlterTableTTL(self):
         # create table before altering table
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.ACTIVE,
-                              wait_timeout, 1000)
+        self._do_table_request(request)
         # alter table ttl
         self.table_request.set_statement(self.alter_ttl_statement)
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.UPDATING)
-        self.assertEqual(result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.ACTIVE, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.ACTIVE)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         self.table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         self.table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         self.table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        self.check_table_result(result, State.UPDATING, self.table_limits)
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
-        result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.DROPPED,
-                              wait_timeout, 1000)
+        self._do_table_request(request)
 
     def testTableRequestModifyTableLimits(self):
         # create table before modifying the table limits
         request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
-        result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.ACTIVE,
-                              wait_timeout, 1000)
+        self._do_table_request(request)
         # modify the table limits
         table_limits = TableLimits(10000, 10000, 100)
         self.table_request.set_table_name(table_name).set_table_limits(
             table_limits)
+        if is_onprem():
+            self.assertRaises(OperationNotSupportedException,
+                              self.handle.table_request, self.table_request)
+            return
         result = self.handle.table_request(self.table_request)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(result.get_state(), State.UPDATING)
         if not_cloudsim():
             self.assertIsNotNone(result.get_schema())
-        wait_result = result.wait_for_state(self.handle, table_name,
-                                            State.ACTIVE, wait_timeout, 1000)
-        self.assertEqual(wait_result.get_table_name(), table_name)
-        self.assertEqual(wait_result.get_state(), State.ACTIVE)
-        self.assertEqual(wait_result.get_table_limits().get_read_units(),
-                         table_limits.get_read_units())
-        self.assertEqual(wait_result.get_table_limits().get_write_units(),
-                         table_limits.get_write_units())
-        self.assertEqual(wait_result.get_table_limits().get_storage_gb(),
-                         table_limits.get_storage_gb())
-        if not_cloudsim():
-            self.assertIsNotNone(wait_result.get_schema())
-        self.assertIsNone(wait_result.get_operation_id())
+        self.assertIsNotNone(result.get_operation_id())
+        self._wait_for_completion(result)
+        self.check_table_result(result, State.ACTIVE, table_limits)
         # drop table after modifying the table limits
         request.set_statement(self.drop_tb_statement)
+        self._do_table_request(request)
+
+    def _check_table_result(self, result, state, table_limits=None,
+                            has_schema=True, check_limit=True):
+        # TODO: For minicloud, the SC module doesn't return operation id for
+        # now. This affects drop table as well as create/drop index. When the SC
+        # is changed to return the operation id, the test need to be changed.
+        if is_minicloud():
+            self.check_table_result(result, state, table_limits, has_schema,
+                                    False, check_limit)
+        else:
+            self.check_table_result(result, state, table_limits, has_schema,
+                                    check_limit=check_limit)
+
+    def _do_table_request(self, request):
+        #
+        # Optionally delay to handle the 4 DDL ops/minute limit
+        # in the real service
+        #
+        if is_pod():
+            sleep(20)
         result = self.handle.table_request(request)
-        result.wait_for_state(self.handle, table_name, State.DROPPED,
-                              wait_timeout, 1000)
+        self._wait_for_completion(result)
+
+    def _wait_for_completion(self, result):
+        # TODO: For minicloud, the SC module doesn't return operation id for
+        # now. In TableResult.wait_for_completion, it check if the operation id
+        # is none, if none, raise IllegalArgumentException, at the moment we
+        # should ignore this exception in minicloud testing. This affects drop
+        # table as well as create/drop index. When the SC is changed to return
+        # the operation id, the test need to be changed.
+        if is_minicloud():
+            result.wait_for_state(self.handle, [State.ACTIVE, State.DROPPED],
+                                  wait_timeout, 1000, result=result)
+        else:
+            result.wait_for_completion(self.handle, wait_timeout, 1000)
 
 
 if __name__ == '__main__':

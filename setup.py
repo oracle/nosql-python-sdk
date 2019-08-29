@@ -40,7 +40,7 @@ setup(
     # Version should match the system release, but may vary as patches
     # are created.
     version=version,
-    description='Oracle NoSQL Database Cloud Service Python SDK',
+    description='Oracle NoSQL Database Python SDK',
     long_description=readme,
 
     author='Oracle',

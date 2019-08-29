@@ -11,17 +11,17 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from random import random
 from time import sleep
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
+from .auth import AuthorizationProvider
 from .common import CheckValue, Consistency
 from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException,
     SecurityInfoNotReadyException)
-try:
-    import auth
-    import operations
-except ImportError:
-    from . import auth
-    from . import operations
+from .operations import Request
 
 
 class RetryHandler(object):
@@ -51,6 +51,7 @@ class RetryHandler(object):
         before the exception is thrown to the application.
 
         :returns: the number of retries.
+        :rtype: int
         """
         pass
 
@@ -73,11 +74,15 @@ class RetryHandler(object):
         retry this exception.
 
         :param request: the request that has triggered the exception.
+        :type request: Request
         :param num_retried: the number of retries that have occurred for the
             operation.
+        :type num_retried: int
         :param re: the exception that was thrown.
+        :type re: RetryableException
         :returns: True if the operation should be retried, False if not, causing
             the exception to be thrown to the application.
+        :rtype: bool
         :raises IllegalArgumentException: raises the exception if num_retried is
             not a positive number.
         """
@@ -102,7 +107,9 @@ class RetryHandler(object):
 
         :param num_retried: the number of retries that have occurred for the
             operation.
+        :type num_retried: int
         :param re: the exception that was thrown.
+        :type re: RetryableException
         :raises IllegalArgumentException: raises the exception if num_retried is
             not a positive number.
         """
@@ -119,16 +126,16 @@ class DefaultRetryHandler(RetryHandler):
     def __init__(self, num_retries=10, delay_s=1):
         CheckValue.check_int_ge_zero(num_retries, 'num_retries')
         CheckValue.check_int_ge_zero(delay_s, 'delay_s')
-        self.__num_retries = num_retries
-        self.__delay_s = delay_s
+        self._num_retries = num_retries
+        self._delay_s = delay_s
 
     def get_num_retries(self):
-        return self.__num_retries
+        return self._num_retries
 
     def do_retry(self, request, num_retried, re):
-        self.__check_request(request)
+        self._check_request(request)
         CheckValue.check_int_gt_zero(num_retried, 'num_retried')
-        self.__check_retryable_exception(re)
+        self._check_retryable_exception(re)
         if isinstance(re, OperationThrottlingException):
             return False
         elif isinstance(re, SecurityInfoNotReadyException):
@@ -136,29 +143,29 @@ class DefaultRetryHandler(RetryHandler):
             return True
         elif not request.should_retry():
             return False
-        return num_retried < self.__num_retries
+        return num_retried < self._num_retries
 
     def delay(self, num_retried, re):
         CheckValue.check_int_gt_zero(num_retried, 'num_retried')
-        self.__check_retryable_exception(re)
-        sec = self.__delay_s
+        self._check_retryable_exception(re)
+        sec = self._delay_s
         if sec == 0:
-            sec = self.__compute_backoff_delay(num_retried, 1000)
+            sec = self._compute_backoff_delay(num_retried, 1000)
         if isinstance(re, SecurityInfoNotReadyException):
-            sec = self.__sec_info_not_ready_delay(num_retried)
+            sec = self._sec_info_not_ready_delay(num_retried)
         sleep(sec)
 
-    def __check_request(self, request):
-        if not isinstance(request, operations.Request):
+    def _check_request(self, request):
+        if not isinstance(request, Request):
             raise IllegalArgumentException(
                 'The parameter request should be an instance of Request.')
 
-    def __check_retryable_exception(self, re):
+    def _check_retryable_exception(self, re):
         if not isinstance(re, RetryableException):
             raise IllegalArgumentException(
                 're must be an instance of RetryableException.')
 
-    def __compute_backoff_delay(self, num_retried, base_delay):
+    def _compute_backoff_delay(self, num_retried, base_delay):
         """
         Use an exponential backoff algorithm to compute time of delay.
 
@@ -169,7 +176,7 @@ class DefaultRetryHandler(RetryHandler):
         msec += (random() * base_delay)
         return msec // 1000
 
-    def __sec_info_not_ready_delay(self, num_retried):
+    def _sec_info_not_ready_delay(self, num_retried):
         """
         Handle security information not ready retries. If number of retries is
         smaller than 10, delay for DefaultRetryHandler._SEC_ERROR_DELAY_MS.
@@ -177,12 +184,12 @@ class DefaultRetryHandler(RetryHandler):
         """
         msec = DefaultRetryHandler._SEC_ERROR_DELAY_MS
         if num_retried > 10:
-            msec = self.__compute_backoff_delay(
+            msec = self._compute_backoff_delay(
                 num_retried - 10, DefaultRetryHandler._SEC_ERROR_DELAY_MS)
         return msec // 1000
 
 
-class NoSQLHandleConfig:
+class NoSQLHandleConfig(object):
     """
     An instance of this class is required by :py:class:`NoSQLHandle`.
 
@@ -195,25 +202,31 @@ class NoSQLHandleConfig:
     overridden in individual operations.
 
     Most of the configuration parameters are optional and have default values if
-    not specified. The only required configuration is the endpoint required by
-    the constructor. The endpoint is used to connect to the service. Endpoints
-    must include the target address, and may include protocol and port. The
-    valid syntax is [http[s]://]host[:port], For example, these are valid
+    not specified. The only required configuration is the service endpoint
+    required by the constructor. The endpoint is used to connect to the Oracle
+    NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL Database
+    proxy server.
+
+    Endpoint must include the target address, and may include protocol and port.
+    The valid syntax is [http[s]://]host[:port], For example, these are valid
     endpoint arguments:
 
      * ndcs.uscom-east-1.oracle.cloud.com
      * localhost:8080 - used for connecting to a Cloud Simulator instance
      * https\://ndcs.eucom-central-1.oraclecloud.com:443
+     * https\://machine-hosting-proxy:443
+
+    If protocol is omitted, the endpoint uses https if the port is 443, and
+    http in all other cases.
 
     If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
     all other cases.
 
-    If protocol is omitted, the endpoint uses http if the port is 8080, and
-    https in all other cases.
+    If using the Cloud Service see the documentation online for the complete set
+    of available regions.
 
-    See the documentation online for the complete set of available regions.
-
-    :param endpoint: The endpoint to use to connect to the service. Required.
+    :param endpoint: Identifies a server for use by the NoSQLHandle. This is a
+        required parameter.
     :type endpoint: str
     :raises IllegalArgumentException: raises the exception if the endpoint is
         None or malformed.
@@ -231,54 +244,30 @@ class NoSQLHandleConfig:
     def __init__(self, endpoint):
         # Inits a NoSQLHandleConfig object.
         CheckValue.check_str(endpoint, 'endpoint')
-        self.__endpoint = endpoint
-        self.__parse_endpoint()
-        self.__timeout = 0
-        self.__table_request_timeout = 0
-        self.__sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
-        self.__consistency = None
-        self.__pool_connections = 2
-        self.__pool_maxsize = 10
-        self.__max_content_length = 1024 * 1024
-        self.__retry_handler = None
-        self.__auth_provider = None
-        self.__proxy_host = None
-        self.__proxy_port = 0
-        self.__proxy_username = None
-        self.__proxy_password = None
-        self.__logger = None
+        self._service_url = NoSQLHandleConfig.create_url(endpoint, '/')
+        self._timeout = 0
+        self._table_request_timeout = 0
+        self._sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
+        self._consistency = None
+        self._pool_connections = 2
+        self._pool_maxsize = 10
+        self._max_content_length = 1024 * 1024
+        self._retry_handler = None
+        self._auth_provider = None
+        self._proxy_host = None
+        self._proxy_port = 0
+        self._proxy_username = None
+        self._proxy_password = None
+        self._logger = None
 
-    def get_endpoint(self):
+    def get_service_url(self):
         """
-        Returns the endpoint string used to connect to the server
+        Returns the url to use for the :py:class:`NoSQLHandle` connection.
 
-        :returns: the endpoint.
+        :returns: the url.
+        :rtype: ParseResult
         """
-        return self.__endpoint
-
-    def get_protocol(self):
-        """
-        Returns the protocol that is used to connect to the server.
-
-        :returns: the protocol that used to connect to the server.
-        """
-        return self.__protocol
-
-    def get_host(self):
-        """
-        Returns the host string used to connect to the server.
-
-        :returns: the host.
-        """
-        return self.__host
-
-    def get_port(self):
-        """
-        Returns the port that is used to connect to the service.
-
-        :returns: the port.
-        """
-        return self.__port
+        return self._service_url
 
     def get_default_timeout(self):
         """
@@ -287,9 +276,10 @@ class NoSQLHandleConfig:
         5000 milliseconds is used.
 
         :returns: the default timeout, in milliseconds.
+        :rtype: int
         """
-        return (NoSQLHandleConfig._DEFAULT_TIMEOUT if self.__timeout == 0 else
-                self.__timeout)
+        return (NoSQLHandleConfig._DEFAULT_TIMEOUT if self._timeout == 0 else
+                self._timeout)
 
     def get_default_table_request_timeout(self):
         """
@@ -298,20 +288,23 @@ class NoSQLHandleConfig:
         of 10000 milliseconds is used.
 
         :returns: the default timeout, in milliseconds.
+        :rtype: int
         """
         return (NoSQLHandleConfig._DEFAULT_TABLE_REQ_TIMEOUT if
-                self.__table_request_timeout == 0 else
-                self.__table_request_timeout)
+                self._table_request_timeout == 0 else
+                self._table_request_timeout)
 
     def get_default_consistency(self):
         """
-        Returns the default consistency. If there is a configured consistency it
-        is returned. If not a default value of Consistency.EVENTUAL is used.
+        Returns the default consistency value that will be used by the system.
+        If consistency has been set using :py:meth:`set_consistency`, that will
+        be returned. If not a default value of Consistency.EVENTUAL is returned.
 
         :returns: the default consistency.
+        :rtype: Consistency
         """
         return (NoSQLHandleConfig._DEFAULT_CONSISTENCY if
-                self.__consistency is None else self.__consistency)
+                self._consistency is None else self._consistency)
 
     def set_timeout(self, timeout):
         """
@@ -319,12 +312,13 @@ class NoSQLHandleConfig:
         5 seconds.
 
         :param timeout: the timeout value, in milliseconds.
+        :type timeout: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if timeout is a
             negative number.
         """
         CheckValue.check_int_gt_zero(timeout, 'timeout')
-        self.__timeout = timeout
+        self._timeout = timeout
         return self
 
     def get_timeout(self):
@@ -333,8 +327,9 @@ class NoSQLHandleConfig:
         has not been set.
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
+        :rtype: int
         """
-        return self.__timeout
+        return self._timeout
 
     def set_table_request_timeout(self, table_request_timeout):
         """
@@ -345,13 +340,14 @@ class NoSQLHandleConfig:
         seconds (10000 milliseconds).
 
         :param table_request_timeout: the timeout value, in milliseconds.
+        :type table_request_timeout: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             table_request_timeout is a negative number.
         """
         CheckValue.check_int_gt_zero(table_request_timeout,
                                      'table_request_timeout')
-        self.__table_request_timeout = table_request_timeout
+        self._table_request_timeout = table_request_timeout
         return self
 
     def get_table_request_timeout(self):
@@ -362,8 +358,9 @@ class NoSQLHandleConfig:
         specified the default table request timeout of 10000 is used.
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
+        :rtype: int
         """
-        return self.__table_request_timeout
+        return self._table_request_timeout
 
     def set_sec_info_timeout(self, sec_info_timeout):
         """
@@ -371,12 +368,13 @@ class NoSQLHandleConfig:
         default timeout is 10 seconds.
 
         :param sec_info_timeout: the timeout value, in milliseconds.
+        :type sec_info_timeout: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             sec_info_timeout is a negative number.
         """
         CheckValue.check_int_gt_zero(sec_info_timeout, 'sec_info_timeout')
-        self.__sec_info_timeout = sec_info_timeout
+        self._sec_info_timeout = sec_info_timeout
         return self
 
     def get_sec_info_timeout(self):
@@ -385,15 +383,18 @@ class NoSQLHandleConfig:
         to be available, in milliseconds.
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
+        :rtype: int
         """
-        return self.__sec_info_timeout
+        return self._sec_info_timeout
 
     def set_consistency(self, consistency):
         """
-        Sets the default request :py:class:`Consistency`. The default
-        consistency is Consistency.EVENTUAL.
+        Sets the default request :py:class:`Consistency`. If not set in this
+        object or by a specific request, the default consistency used is
+        Consistency.EVENTUAL.
 
         :param consistency: the consistency.
+        :type consistency: Consistency
         :returns: self.
         :raises IllegalArgumentException: raises the exception if consistency
             is not Consistency.ABSOLUTE or Consistency.EVENTUAL.
@@ -403,7 +404,7 @@ class NoSQLHandleConfig:
             raise IllegalArgumentException(
                 'Consistency must be Consistency.ABSOLUTE or ' +
                 'Consistency.EVENTUAL')
-        self.__consistency = consistency
+        self._consistency = consistency
         return self
 
     def get_consistency(self):
@@ -412,20 +413,22 @@ class NoSQLHandleConfig:
         not been configured.
 
         :returns: the consistency, or None if it has not been configured.
+        :rtype: Consistency
         """
-        return self.__consistency
+        return self._consistency
 
     def set_pool_connections(self, pool_connections):
         """
         Sets the number of connection pools to cache.
 
         :param pool_connections: the number of connection pools.
+        :type pool_connections: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             pool_connections is not a positive number.
         """
         CheckValue.check_int_gt_zero(pool_connections, 'pool_connections')
-        self.__pool_connections = pool_connections
+        self._pool_connections = pool_connections
         return self
 
     def get_pool_connections(self):
@@ -433,8 +436,9 @@ class NoSQLHandleConfig:
         Returns the number of connection pools to cache.
 
         :returns: the number of connection pools.
+        :rtype: int
         """
-        return self.__pool_connections
+        return self._pool_connections
 
     def set_pool_maxsize(self, pool_maxsize):
         """
@@ -445,12 +449,13 @@ class NoSQLHandleConfig:
         become available.
 
         :param pool_maxsize: the pool size.
+        :type pool_maxsize: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if pool_maxsize
             is not a positive number.
         """
         CheckValue.check_int_gt_zero(pool_maxsize, 'pool_maxsize')
-        self.__pool_maxsize = pool_maxsize
+        self._pool_maxsize = pool_maxsize
         return self
 
     def get_pool_maxsize(self):
@@ -462,8 +467,9 @@ class NoSQLHandleConfig:
         become available.
 
         :returns: the pool size.
+        :rtype: int
         """
-        return self.__pool_maxsize
+        return self._pool_maxsize
 
     def get_max_content_length(self):
         """
@@ -471,8 +477,9 @@ class NoSQLHandleConfig:
         currently user-configurable.
 
         :returns: the size.
+        :rtype: int
         """
-        return self.__max_content_length
+        return self._max_content_length
 
     def set_retry_handler(self, retry_handler):
         """
@@ -481,6 +488,7 @@ class NoSQLHandleConfig:
         multiple threads.
 
         :param retry_handler: the handler.
+        :type retry_handler: RetryHandler
         :returns: self.
         :raises IllegalArgumentException: raises the exception if retry_handler
             is not an instance of :py:class:`RetryHandler`.
@@ -488,7 +496,7 @@ class NoSQLHandleConfig:
         if not isinstance(retry_handler, RetryHandler):
             raise IllegalArgumentException(
                 'retry_handler must be an instance of RetryHandler.')
-        self.__retry_handler = retry_handler
+        self._retry_handler = retry_handler
         return self
 
     def configure_default_retry_handler(self, num_retries, delay_s):
@@ -508,13 +516,15 @@ class NoSQLHandleConfig:
 
         :param num_retries: the number of retries to perform automatically.
             This parameter may be 0 for no retries.
+        :type num_retries: int
         :param delay_s: the delay, in seconds. Use 0 to use the default delay
             algorithm.
+        :type delay_s: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if num_retries or
             delay_s is a negative number.
         """
-        self.__retry_handler = DefaultRetryHandler(num_retries, delay_s)
+        self._retry_handler = DefaultRetryHandler(num_retries, delay_s)
         return self
 
     def get_retry_handler(self):
@@ -523,8 +533,9 @@ class NoSQLHandleConfig:
         if None is set.
 
         :returns: the handler.
+        :rtype: RetryHandler
         """
-        return self.__retry_handler
+        return self._retry_handler
 
     def set_authorization_provider(self, provider):
         """
@@ -532,24 +543,26 @@ class NoSQLHandleConfig:
         provider must be safely usable by multiple threads.
 
         :param provider: the AuthorizationProvider.
+        :type provider: AuthorizationProvider
         :returns: self.
         :raises IllegalArgumentException: raises the exception if provider is
             not an instance of :py:class:`AuthorizationProvider`.
         """
-        if not isinstance(provider, auth.AuthorizationProvider):
+        if not isinstance(provider, AuthorizationProvider):
             raise IllegalArgumentException(
                 'provider must be an instance of AuthorizationProvider.')
-        self.__auth_provider = provider
+        self._auth_provider = provider
         return self
 
     def get_authorization_provider(self):
         """
-        Returns the :py:class:`auth.AuthorizationProvider` configured for
-        the handle, or None.
+        Returns the :py:class:`AuthorizationProvider` configured for the handle,
+        or None.
 
         :returns: the AuthorizationProvider.
+        :rtype: AuthorizationProvider
         """
-        return self.__auth_provider
+        return self._auth_provider
 
     def set_proxy_host(self, proxy_host):
         """
@@ -558,12 +571,13 @@ class NoSQLHandleConfig:
         :py:meth:`set_proxy_port`.
 
         :param proxy_host: the proxy host.
+        :type proxy_host: str
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_host is
             not a string.
         """
         CheckValue.check_str(proxy_host, 'proxy_host')
-        self.__proxy_host = proxy_host
+        self._proxy_host = proxy_host
         return self
 
     def get_proxy_host(self):
@@ -571,8 +585,9 @@ class NoSQLHandleConfig:
         Returns a proxy host, or None if not configured.
 
         :returns: the host, or None.
+        :rtype: str or None
         """
-        return self.__proxy_host
+        return self._proxy_host
 
     def set_proxy_port(self, proxy_port):
         """
@@ -581,12 +596,13 @@ class NoSQLHandleConfig:
         :py:meth:`set_proxy_host`.
 
         :param proxy_port: the proxy port.
+        :type proxy_port: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_port is
             a negative number.
         """
         CheckValue.check_int_ge_zero(proxy_port, 'proxy_port')
-        self.__proxy_port = proxy_port
+        self._proxy_port = proxy_port
         return self
 
     def get_proxy_port(self):
@@ -594,8 +610,9 @@ class NoSQLHandleConfig:
         Returns a proxy port, or 0 if not configured.
 
         :returns: the proxy port.
+        :rtype: int
         """
-        return self.__proxy_port
+        return self._proxy_port
 
     def set_proxy_username(self, proxy_username):
         """
@@ -604,12 +621,13 @@ class NoSQLHandleConfig:
         ignored.
 
         :param proxy_username: the user name.
+        :type proxy_username: str
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_username
             is not a string.
         """
         CheckValue.check_str(proxy_username, 'proxy_username')
-        self.__proxy_username = proxy_username
+        self._proxy_username = proxy_username
         return self
 
     def get_proxy_username(self):
@@ -617,8 +635,9 @@ class NoSQLHandleConfig:
         Returns a proxy user name, or None if not configured.
 
         :returns: the user name, or None.
+        :rtype: str or None
         """
-        return self.__proxy_username
+        return self._proxy_username
 
     def set_proxy_password(self, proxy_password):
         """
@@ -627,12 +646,13 @@ class NoSQLHandleConfig:
         configuration is ignored.
 
         :param proxy_password: the password.
+        :type proxy_password: str
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_password
             is not a string.
         """
         CheckValue.check_str(proxy_password, 'proxy_password')
-        self.__proxy_password = proxy_password
+        self._proxy_password = proxy_password
         return self
 
     def get_proxy_password(self):
@@ -640,20 +660,22 @@ class NoSQLHandleConfig:
         Returns a proxy password, or None if not configured.
 
         :returns: the password, or None.
+        :rtype: str or None
         """
-        return self.__proxy_password
+        return self._proxy_password
 
     def set_logger(self, logger):
         """
         Sets the logger used for the driver.
 
         :param logger: the logger.
+        :type logger: Logger
         :returns: self.
         :raises IllegalArgumentException: raises the exception if logger is not
             an instance of Logger.
         """
         CheckValue.check_logger(logger, 'logger')
-        self.__logger = logger
+        self._logger = logger
         return self
 
     def get_logger(self):
@@ -661,85 +683,92 @@ class NoSQLHandleConfig:
         Returns the logger, or None if not configured by user.
 
         :returns: the logger.
+        :rtype: Logger
         """
-        return self.__logger
+        return self._logger
 
     def clone(self):
         """
         All the configurations will be copied.
 
         :returns: the copy of the instance.
+        :rtype: NoSQLHandleConfig
         """
-        auth_provider = self.__auth_provider
-        logger = self.__logger
-        self.__auth_provider = None
-        self.__logger = None
+        auth_provider = self._auth_provider
+        logger = self._logger
+        self._auth_provider = None
+        self._logger = None
         clone_config = deepcopy(self)
         clone_config.set_authorization_provider(
             auth_provider).set_logger(logger)
-        self.__logger = logger
-        self.__auth_provider = auth_provider
+        self._logger = logger
+        self._auth_provider = auth_provider
         return clone_config
 
     #
-    # Parse the endpoint, which has the following format:
-    #   [proto:]host[:port]
-    def __parse_endpoint(self):
-        """
-        Parse the endpoint string into host, port, protocol
-        """
-
-        # defaults
-        self.__protocol = 'https'
-        self.__port = 443
-
-        parts = self.__endpoint.split(':')
-
-        if len(parts) > 3:
-            raise IllegalArgumentException(
-                'Invalid endpoint: ' + self.__endpoint)
+    # Return a url from an endpoint string that has the format
+    # [protocol:][//]host[:port]
+    #
+    @staticmethod
+    def create_url(endpoint, path):
+        # The defaults for protocol and port.
+        protocol = 'https'
+        port = 443
+        #
+        # Possible formats are:
+        #     host
+        #     protocol:[//]host
+        #     host:port
+        #     protocol:[//]host:port
+        #
+        parts = endpoint.split(':')
 
         if len(parts) == 1:
-            # 1 part means only host
-            self.__host = self.__endpoint
+            # 1 part means endpoint is host only.
+            host = endpoint
         elif len(parts) == 2:
             # 2 parts:
-            #  proto:[//]host (default port based on proto)
-            #  host:port (default proto)
+            #  protocol:[//]host (default port based on protocol)
+            #  host:port (default protocol based on port)
             if parts[0].lower().startswith('http'):
-                # proto:[//]host
-                self.__protocol = parts[0].lower()
-                self.__host = parts[1]
-                # infer port
-                if self.__protocol == 'http':
-                    self.__port = 8080
+                # protocol:[//]host
+                protocol = parts[0].lower()
+                # May have slashes to strip out.
+                host = parts[1]
+                if protocol == 'http':
+                    # Override the default of 443.
+                    port = 8080
             else:
                 # host:port
-                self.__host = parts[0]
-                self.__port = self.__validate_port(parts[1])
-                # in this path infer proto from port
-                if self.__port != 443:
-                    self.__protocol = 'http'
+                host = parts[0]
+                port = NoSQLHandleConfig.validate_port(endpoint, parts[1])
+                if port != 443:
+                    # Override the default of https.
+                    protocol = 'http'
         elif len(parts) == 3:
-            # 3 parts: proto:[//]host:port
-            self.__protocol = parts[0].lower()
-            self.__host = parts[1]
-            self.__port = self.__validate_port(parts[2])
+            # 3 parts: protocol:[//]host:port
+            protocol = parts[0].lower()
+            host = parts[1]
+            port = NoSQLHandleConfig.validate_port(endpoint, parts[2])
+        else:
+            raise IllegalArgumentException('Invalid endpoint: ' + endpoint)
 
-        # strip '//' if present in host
-        if self.__host.startswith('//'):
-            self.__host = self.__host[2:]
+        # Strip out any slashes if the format was protocol://host[:port]
+        if host.startswith('//'):
+            host = host[2:]
 
-        if self.__protocol != 'http' and self.__protocol != 'https':
+        if protocol != 'http' and protocol != 'https':
             raise IllegalArgumentException(
-                'Invalid endpoint, protocol must be http or https: ' +
-                self.__endpoint)
+                'Invalid endpoint, protocol must be http or https: ' + endpoint)
+        return urlparse(protocol + '://' + host + ':' + str(port) + path)
 
-    def __validate_port(self, portstring):
+    @staticmethod
+    def validate_port(endpoint, portstring):
+        # Check that a port is a valid, non negative integer.
         try:
             port = int(portstring)
             CheckValue.check_int_ge_zero(port, 'port')
+            return port
         except ValueError:
             raise IllegalArgumentException(
-                'Invalid endpoint: ' + self.__endpoint)
-        return port
+                'Invalid port value for : ' + endpoint)
