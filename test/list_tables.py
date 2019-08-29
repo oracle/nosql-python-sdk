@@ -13,8 +13,8 @@ from time import sleep
 from borneo import (
     IllegalArgumentException, ListTablesRequest, TableLimits, TableRequest)
 from parameters import (
-    is_minicloud, is_onprem, is_pod, table_name, table_prefix, tenant_id,
-    timeout)
+    is_minicloud, is_onprem, is_pod, is_prod_pod, table_name, table_prefix,
+    tenant_id, timeout)
 from test_base import TestBase
 from testutils import (
     add_tenant, add_tier, delete_tenant, delete_tier, get_handle,
@@ -35,7 +35,7 @@ class TestListTables(unittest.TestCase, TestBase):
         # In pod env create 1 handle, otherwise create 2 handles for additional
         # testing
         #
-        num_handles = 1 if is_pod() else 2
+        num_handles = 1 if is_prod_pod() or is_onprem() else 2
         for handle in range(num_handles):
             add_tenant(tenant_id + str(handle))
             table_names.append(list())
@@ -81,7 +81,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def setUp(self):
         self.handles = list()
-        self.num_handles = 1 if is_pod() else 2
+        self.num_handles = 1 if is_prod_pod() or is_onprem() else 2
         for handle in range(self.num_handles):
             self.handles.append(get_handle(tenant_id + str(handle)))
         self.list_tables_request = ListTablesRequest().set_timeout(timeout)
@@ -154,19 +154,29 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                             [make_table_name('Users0'),
                              make_table_name('Users1')]]
         self.list_tables_request.set_limit(2)
-        self._check_list_tables_result(part_table_names, last_returned_index)
+        self._check_list_tables_result(
+            part_table_names, last_returned_index, True)
 
-    if is_onprem():
-        def testListTablesWithNamespace(self):
+    def testListTablesWithNamespace(self):
+        if is_onprem():
             # set a namespace that not exist
-            last_returned_index = [3, 4]
             self.list_tables_request.set_namespace(namespace)
-            self._check_list_tables_result([[], []], last_returned_index)
+            self._check_list_tables_result([[]], [0], True)
 
-    def _check_list_tables_result(self, names, last_returned_index):
+    def _check_list_tables_result(self, names, last_returned_index, eq=False):
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(self.list_tables_request)
-            if not is_minicloud():
+            if is_minicloud():
+                # TODO: Minicloud doesn't handle start index and limit so far,
+                # and the last index returned is always 0.
+                self.assertEqual(result.get_tables(), table_names[handle])
+                self.assertEqual(result.get_last_returned_index(), 0)
+            elif is_onprem() and not eq:
+                self.assertGreater(set(result.get_tables()),
+                                   set(names[handle]))
+                self.assertGreater(result.get_last_returned_index(),
+                                   last_returned_index[handle])
+            else:
                 self.assertEqual(result.get_tables(), names[handle])
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index[handle])
