@@ -16,15 +16,14 @@ import os
 import sphinx_rtd_theme
 import sys
 
-import borneo
-
 # add path to this project before import
 sys.path.insert(0, os.path.abspath('../src'))
 
+import borneo
 
 # -- Project information -----------------------------------------------------
 
-project = u'NoSQL Cloud Python Driver'
+project = u'NoSQL Database Python SDK'
 copyright = u'2018, 2019 Oracle'
 author = u'Oracle'
 
@@ -106,7 +105,7 @@ html_static_path = []
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'NoSQLCloudPythonDriverdoc'
+htmlhelp_basename = 'NoSQLPythonSDKdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -133,8 +132,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'NoSQLCloudPythonDriver.tex',
-     u'NoSQL Cloud Python Driver Documentation', u'Oracle', 'manual'),
+    (master_doc, 'NoSQLPythonSDK.tex',
+     u'NoSQL Database Python SDK Documentation', u'Oracle', 'manual'),
 ]
 
 
@@ -143,8 +142,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'nosqlcloudpythondriver',
-     u'NoSQL Cloud Python Driver Documentation', [author], 1)
+    (master_doc, 'nosqlpythonsdk',
+     u'NoSQL Database Python SDK Documentation', [author], 1)
 ]
 
 
@@ -154,9 +153,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'NoSQLCloudPythonDriver',
-     u'NoSQL Cloud Python Driver Documentation', author,
-     'NoSQLCloudPythonDriver', 'One line description of project.',
+    (master_doc, 'NoSQLPythonSDK',
+     u'NoSQL Database Python SDK Documentation', author,
+     'NoSQLPythonSDK', 'One line description of project.',
      'Miscellaneous'),
 ]
 

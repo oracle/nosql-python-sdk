@@ -1,5 +1,5 @@
-Contributing to the Oracle NoSQL Database Cloud Service Python SDK
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Contributing to the Oracle NoSQL Database Python SDK
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 *Copyright (c) 2018, 2019, Oracle and/or its affiliates. All rights reserved.*
