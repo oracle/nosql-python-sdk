@@ -58,6 +58,7 @@ class Request(object):
         This will typically be overridden by subclasses.
 
         :param cfg: the configuration object to use to get default values.
+        :type cfg: NoSQLHandleConfig
         :return: self.
         :raises IllegalArgumentException: raises the exception if cfg is not an
             instance of NoSQLHandleConfig.
@@ -188,7 +189,6 @@ class DeleteRequest(WriteRequest):
 
         :param key: the key value.
         :type key: dict
-
         :return: self.
         :raises IllegalArgumentException: raises the exception if key is not a
             dictionary.
@@ -1101,6 +1101,7 @@ class PrepareRequest(Request):
         of 0 indicates that the timeout has not been set.
 
         :return: the value.
+        :rtype: int
         """
         return super(PrepareRequest, self)._get_timeout_internal()
 
@@ -1766,6 +1767,7 @@ class QueryRequest(Request):
 
         :param continuation_key: the key which should have been obtained from
             :py:meth:`QueryResult.get_continuation_key`.
+        :type continuation_key: bytearray or None
         :return: self.
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
@@ -2194,6 +2196,7 @@ class TableRequest(Request):
         existing table.
 
         :param statement: the statement.
+        :type statement: str
         :return: self.
         :raises IllegalArgumentException: raises the exception if statement is
             not a string.
@@ -2510,6 +2513,7 @@ class TableUsageRequest(Request):
         of 0 indicates that the timeout has not been set.
 
         :return: the value.
+        :rtype: int
         """
         return super(TableUsageRequest, self)._get_timeout_internal()
 
@@ -2931,7 +2935,7 @@ class GetResult(Result):
         larger number if the operation used Consistency.ABSOLUTE.
 
         :return: the read KBytes consumed.
-
+        :rtype: int
         """
         return super(GetResult, self)._get_read_kb_internal()
 
@@ -2940,6 +2944,7 @@ class GetResult(Result):
         Returns the read throughput consumed by this operation, in read units.
         This number may be larger than that returned by :py:meth:`get_read_kb`
         if the operation used Consistency.ABSOLUTE.
+
         :return: the read units consumed.
         :rtype: int
         """
@@ -2948,6 +2953,7 @@ class GetResult(Result):
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
+
         :return: the write KBytes consumed.
         :rtype: int
         """
@@ -2956,6 +2962,7 @@ class GetResult(Result):
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
+
         :return: the write units consumed.
         :rtype: int
         """
@@ -3991,6 +3998,7 @@ class WriteMultipleResult(Result):
         WriteMultiple operation aborting.
 
         :return: the result of the operation, None if not set.
+        :rtype: OperationResult or None
         """
         if self._failed_operation_index == -1 or not self._results:
             return None
@@ -4028,6 +4036,7 @@ class WriteMultipleResult(Result):
         Returns the number of results.
 
         :return: the number of results.
+        :rtype: int
         """
         return len(self._results)
 

@@ -13,7 +13,7 @@ from time import sleep
 from borneo import (
     IllegalArgumentException, ListTablesRequest, TableLimits, TableRequest)
 from parameters import (
-    is_onprem, is_pod, not_cloudsim, table_name, table_prefix, tenant_id,
+    is_minicloud, is_onprem, is_pod, table_name, table_prefix, tenant_id,
     timeout)
 from test_base import TestBase
 from testutils import (
@@ -166,7 +166,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
     def _check_list_tables_result(self, names, last_returned_index):
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(self.list_tables_request)
-            if not not_cloudsim():
+            if not is_minicloud():
                 self.assertEqual(result.get_tables(), names[handle])
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index[handle])

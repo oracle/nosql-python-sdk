@@ -85,6 +85,7 @@ class NoSQLHandle(object):
     threads.
 
     :param config: an instance of NoSQLHandleConfig.
+    :type config: NoSQLHandleConfig
     :raises IllegalArgumentException: raises the exception if config is not an
         instance of NoSQLHandleConfig.
     """
@@ -119,7 +120,9 @@ class NoSQLHandle(object):
         information returned about the previous row.
 
         :param request: the input parameters for the operation.
+        :type request: DeleteRequest
         :returns: the result of the operation.
+        :rtype: DeleteResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`DeleteRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -144,7 +147,9 @@ class NoSQLHandle(object):
         the operation.
 
         :param request: the input parameters for the operation.
+        :type request: GetRequest
         :returns: the result of the operation.
+        :rtype: GetResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`GetRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -162,7 +167,9 @@ class NoSQLHandle(object):
         on all indexes is returned.
 
         :param request: the input parameters for the operation.
+        :type request: GetIndexesRequest
         :returns: the result of the operation.
+        :rtype: GetIndexesResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`GetIndexesRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -182,7 +189,9 @@ class NoSQLHandle(object):
         Service and will be None or not defined on-premise.
 
         :param request: the input parameters for the operation.
+        :type request: GetTableRequest
         :returns: the result of the operation.
+        :rtype: TableResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`GetTableRequest`.
         :raises TableNotFoundException: raises the exception if the specified
@@ -205,7 +214,9 @@ class NoSQLHandle(object):
         time-based range of usage records using input parameters.
 
         :param request: the input parameters for the operation.
+        :type request: TableUsageRequest
         :returns: the result of the operation.
+        :rtype: TableUsageResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`TableUsageRequest`.
         :raises TableNotFoundException: raises the exception if the specified
@@ -226,7 +237,9 @@ class NoSQLHandle(object):
         list may be paged using input parameters.
 
         :param request: the input parameters for the operation.
+        :type request: ListTablesRequest
         :returns: the result of the operation.
+        :rtype: ListTablesResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`ListTablesRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -244,7 +257,9 @@ class NoSQLHandle(object):
         key. A range may be specified to delete a range of keys.
 
         :param request: the input parameters for the operation.
+        :type request: MultiDeleteRequest
         :returns: the result of the operation.
+        :rtype: MultiDeleteResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`MultiDeleteRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -265,7 +280,9 @@ class NoSQLHandle(object):
         re-use.
 
         :param request: the input parameters for the operation.
+        :type request: PrepareRequest
         :returns: the result of the operation.
+        :rtype: PrepareResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`PrepareRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -318,7 +335,9 @@ class NoSQLHandle(object):
         information returned about the previous row.
 
         :param request: the input parameters for the operation.
+        :type request: PutRequest
         :returns: the result of the operation.
+        :rtype: PutResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`PutRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -356,7 +375,9 @@ class NoSQLHandle(object):
         :py:meth:`QueryRequest.set_continuation_key`.
 
         :param request: the input parameters for the operation.
+        :type request: QueryRequest
         :returns: the result of the operation.
+        :rtype: QueryResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`QueryRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -387,7 +408,9 @@ class NoSQLHandle(object):
         methods on :py:class:`SystemResult` to determine when it has completed.
 
         :param request: the input parameters for the operation.
+        :type request: SystemRequest
         :returns: the result of the operation.
+        :rtype: SystemResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`SystemRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -406,7 +429,9 @@ class NoSQLHandle(object):
         :py:meth:`system_request`.
 
         :param request: the input parameters for the operation.
+        :type request: SystemStatusRequest
         :returns: the result of the operation.
+        :rtype: SystemResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`SystemStatusRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -427,7 +452,9 @@ class NoSQLHandle(object):
         methods on :py:class:`TableResult` to determine when it has completed.
 
         :param request: the input parameters for the operation.
+        :type request: TableRequest
         :returns: the result of the operation.
+        :rtype: TableResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`TableRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
@@ -451,7 +478,9 @@ class NoSQLHandle(object):
             The total request size is limited to 25MB.
 
         :param request: the input parameters for the operation.
+        :type request: WriteMultipleRequest
         :returns: the result of the operation.
+        :rtype: WriteMultipleResult
         :raises IllegalArgumentException: raises the exception if request is not
             an instance of :py:class:`WriteMultipleRequest`.
         :raises RowSizeLimitException: raises the exception if data size in an
@@ -494,9 +523,14 @@ class NoSQLHandle(object):
             GRANT ROLE some_role TO USER some_user
 
         :param statement: the system statement for the operation.
+        :type statement: str
         :param timeout_ms: the amount of time to wait for completion, in
             milliseconds.
+        :type timeout_ms: int
         :param poll_interval_ms: the polling interval for the wait operation.
+        :type poll_interval_ms: int
+        :returns: the result of the system request.
+        :rtype: SystemResult
         :raises IllegalArgumentException: raises the exception if any of the
             parameters are invalid or required parameters are missing.
         :raises RequestTimeoutException: raises the exception if the operation
@@ -504,10 +538,10 @@ class NoSQLHandle(object):
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
         """
-        dreq = SystemRequest().set_statement(statement)
-        dres = self.system_request(dreq)
-        dres.wait_for_completion(self, timeout_ms, poll_interval_ms)
-        return dres
+        req = SystemRequest().set_statement(statement)
+        res = self.system_request(req)
+        res.wait_for_completion(self, timeout_ms, poll_interval_ms)
+        return res
 
     def do_table_request(self, request, timeout_ms, poll_interval_ms):
         """
@@ -518,9 +552,14 @@ class NoSQLHandle(object):
         exception is thrown. All parameters are required.
 
         :param request: the :py:class:`TableRequest` to perform.
+        :type request: TableRequest
         :param timeout_ms: the amount of time to wait for completion, in
             milliseconds.
+        :type timeout_ms: int
         :param poll_interval_ms: the polling interval for the wait operation.
+        :type poll_interval_ms: int
+        :returns: the result of the table request.
+        :rtype: TableResult
         :raises IllegalArgumentException: raises the exception if any of the
             parameters are invalid or required parameters are missing.
         :raises RequestTimeoutException: raises the exception if the operation
@@ -539,9 +578,10 @@ class NoSQLHandle(object):
         Returns the namespaces in a store as a list of string.
 
         :returns: the namespaces, or None if none are found.
+        :rtype: list(str)
         """
-        dres = self.do_system_request('show as json namespaces')
-        json_res = dres.get_result_string()
+        res = self.do_system_request('show as json namespaces')
+        json_res = res.get_result_string()
         if json_res is None:
             return None
         root = loads(json_res)
@@ -560,9 +600,10 @@ class NoSQLHandle(object):
         Returns the roles in a store as a list of string.
 
         :returns: the list of roles, or None if none are found.
+        :rtype: list(str)
         """
-        dres = self.do_system_request('show as json roles')
-        json_res = dres.get_result_string()
+        res = self.do_system_request('show as json roles')
+        json_res = res.get_result_string()
         if json_res is None:
             return None
         root = loads(json_res)
@@ -580,10 +621,11 @@ class NoSQLHandle(object):
 
         Returns the users in a store as a list of :py:class:`UserInfo`.
 
-        :returns: the list of users, or None if none are found,
+        :returns: the list of users, or None if none are found.
+        :rtype: list(UserInfo)
         """
-        dres = self.do_system_request('show as json users')
-        json_res = dres.get_result_string()
+        res = self.do_system_request('show as json users')
+        json_res = res.get_result_string()
         if json_res is None:
             return None
         root = loads(json_res)

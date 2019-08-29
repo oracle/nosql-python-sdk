@@ -58,7 +58,9 @@ class StoreAccessTokenProvider(AuthorizationProvider):
     :param user_name: the user name to use for the store. This user must exist
         in the NoSQL Database and is the identity that is used for authorizing
         all database operations.
+    :type user_name: str
     :param password: the password for the user.
+    :type password: str
     :raises IllegalArgumentException: raises the exception if one or more of the
         parameters is malformed or a required parameter is missing.
     """

@@ -41,8 +41,10 @@ class AuthorizationProvider(object):
 
         :param request: the request to be issued. This is an
             instance of :py:meth:`Request`.
-        :returns:  a string indicating that the application is authorized to
+        :type request: Request
+        :returns: a string indicating that the application is authorized to
             perform the request.
+        :rtype: str
         """
         pass
 
@@ -52,6 +54,7 @@ class AuthorizationProvider(object):
         associated with the driver is used.
 
         :param logger: the logger to use.
+        :type logger: Logger
         :returns: self.
         :raises IllegalArgumentException: raises the exception if logger is not
             an instance of Logger.
@@ -63,6 +66,7 @@ class AuthorizationProvider(object):
         Returns the logger of this provider if set, None if not.
 
         :returns: the logger.
+        :rtype: Logger or None
         """
         pass
 
@@ -72,6 +76,7 @@ class AuthorizationProvider(object):
         default it just allows a non-none string.
 
         :param auth_string: the auth string to be validated.
+        :type auth_string: str
         :raises IllegalArgumentException: raises the exception if input is not
             a string or none.
         """

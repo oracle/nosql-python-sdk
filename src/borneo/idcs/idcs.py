@@ -168,7 +168,9 @@ class AccessTokenProvider(AuthorizationProvider):
     :py:class:`DefaultAccessTokenProvider` is sufficient for most needs.
 
     :param duration_seconds: the cache duration in seconds.
+    :type duration_seconds: int
     :param refresh_ahead: the refresh time before AT expiry in seconds.
+    :type refresh_ahead: int
     """
 
     ANDC_AUD_PREFIX = 'urn:opc:andc:entitlementid='
@@ -231,8 +233,10 @@ class AccessTokenProvider(AuthorizationProvider):
         Returns IDCS ATs appropriate for the operation.
 
         :param request: the request that client attempts to issue.
+        :type request: Request
         :returns: authorization string that can be present by client, which
             indicates this client is authorized to issue the specified request.
+        :rtype: str
         """
         if not isinstance(request, Request):
             raise IllegalArgumentException(
@@ -265,6 +269,7 @@ class AccessTokenProvider(AuthorizationProvider):
         name and password need to be present in the token acquisition payload.
 
         :returns: an account access token.
+        :rtype: str
         :raises RequestTimeoutException: raises the exception if token
             acquisition does not complete within the configured timeout
             interval.
@@ -279,6 +284,7 @@ class AccessTokenProvider(AuthorizationProvider):
         operations.
 
         :returns: a service access token.
+        :rtype: str
         :raises RequestTimeoutException: raises the exception if token
             acquisition does not complete within the configured timeout
             interval.
@@ -398,15 +404,22 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
     constant 120,000 milliseconds.
 
     :param idcs_props_file: the path of an IDCS properties file.
+    :type idcs_props_file: str
     :param idcs_url: an IDCS URL, provided by IDCS.
+    :type idcs_url: str
     :param entitlement_id: service entitlement ID, which can be found from the
         primary audience of the application named ANDC from IDCS.
+    :type entitlement_id: str
     :param creds_provider: a credentials provider.
+    :type creds_provider: CredentialsProvider
     :param timeout_ms: the access token acquisition request timeout in
         milliseconds.
+    :type timeout_ms: int
     :param cache_duration_seconds: the amount of time the access tokens are
         cached in the provider, in seconds.
+    :type cache_duration_seconds: int
     :param refresh_ahead: the refresh time before AT expired from cache.
+    :type refresh_ahead: int
     :raises IllegalArgumentException: raises the exception if parameters are not
         expected type.
     """
@@ -488,6 +501,7 @@ class DefaultAccessTokenProvider(AccessTokenProvider):
         Sets :py:class:`CredentialsProvider`.
 
         :param provider: the credentials provider.
+        :type provider: CredentialsProvider
         :returns: self.
         :raises IllegalArgumentException: raises the exception if provider is
             not an instance of CredentialsProvider.
@@ -770,8 +784,10 @@ class IDCSCredentials(object):
     to authenticate with IDCS for token acquisition.
 
     :param alias: an alias or user name in string format.
+    :type alias: str
     :param secret: a password, secret or key that is associated with the alias.
         It is copied on construction.
+    :type secret: str
     """
 
     def __init__(self, alias, secret):
@@ -786,6 +802,7 @@ class IDCSCredentials(object):
         Identifies the alias of the credentials.
 
         :returns: the name of the alias associated with the credentials.
+        :rtype: str
         """
         return self._alias
 
@@ -794,6 +811,7 @@ class IDCSCredentials(object):
         Gets the secret. This returns a copy of the secret.
 
         :returns: the secret for the credentials object.
+        :rtype: str
         """
         return self._secret
 
@@ -818,6 +836,7 @@ class CredentialsProvider(object):
         Client id and secret.
 
         :returns: IDCS credentials or None if not available.
+        :rtype: IDCSCredentials or None
         """
         pass
 
@@ -828,6 +847,7 @@ class CredentialsProvider(object):
         and password. Note that the user password returned must be URL encoded.
 
         :returns: IDCS credentials or None if not available.
+        :rtype: IDCSCredentials or None
         """
         pass
 
@@ -875,6 +895,7 @@ class PropertiesCredentialsProvider(CredentialsProvider):
         Sets the properties file to use to a non-default path.
 
         :param file_path: a path to the file to use.
+        :type file_path: str
         :returns: self.
         """
         CheckValue.check_str(file_path, 'file_path')
@@ -911,7 +932,9 @@ class PropertiesCredentialsProvider(CredentialsProvider):
         are ignored and trimmed.
 
         :param properties_file: the path to the property file.
+        :type properties_file: str
         :param property_name: the property name to get.
+        :type property_name: str
         """
         with open(properties_file) as prop_file:
             for line in prop_file:

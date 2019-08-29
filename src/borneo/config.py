@@ -51,6 +51,7 @@ class RetryHandler(object):
         before the exception is thrown to the application.
 
         :returns: the number of retries.
+        :rtype: int
         """
         pass
 
@@ -73,11 +74,15 @@ class RetryHandler(object):
         retry this exception.
 
         :param request: the request that has triggered the exception.
+        :type request: Request
         :param num_retried: the number of retries that have occurred for the
             operation.
+        :type num_retried: int
         :param re: the exception that was thrown.
+        :type re: RetryableException
         :returns: True if the operation should be retried, False if not, causing
             the exception to be thrown to the application.
+        :rtype: bool
         :raises IllegalArgumentException: raises the exception if num_retried is
             not a positive number.
         """
@@ -102,7 +107,9 @@ class RetryHandler(object):
 
         :param num_retried: the number of retries that have occurred for the
             operation.
+        :type num_retried: int
         :param re: the exception that was thrown.
+        :type re: RetryableException
         :raises IllegalArgumentException: raises the exception if num_retried is
             not a positive number.
         """
@@ -258,6 +265,7 @@ class NoSQLHandleConfig(object):
         Returns the url to use for the :py:class:`NoSQLHandle` connection.
 
         :returns: the url.
+        :rtype: ParseResult
         """
         return self._service_url
 
@@ -268,6 +276,7 @@ class NoSQLHandleConfig(object):
         5000 milliseconds is used.
 
         :returns: the default timeout, in milliseconds.
+        :rtype: int
         """
         return (NoSQLHandleConfig._DEFAULT_TIMEOUT if self._timeout == 0 else
                 self._timeout)
@@ -279,6 +288,7 @@ class NoSQLHandleConfig(object):
         of 10000 milliseconds is used.
 
         :returns: the default timeout, in milliseconds.
+        :rtype: int
         """
         return (NoSQLHandleConfig._DEFAULT_TABLE_REQ_TIMEOUT if
                 self._table_request_timeout == 0 else
@@ -291,6 +301,7 @@ class NoSQLHandleConfig(object):
         be returned. If not a default value of Consistency.EVENTUAL is returned.
 
         :returns: the default consistency.
+        :rtype: Consistency
         """
         return (NoSQLHandleConfig._DEFAULT_CONSISTENCY if
                 self._consistency is None else self._consistency)
@@ -301,6 +312,7 @@ class NoSQLHandleConfig(object):
         5 seconds.
 
         :param timeout: the timeout value, in milliseconds.
+        :type timeout: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if timeout is a
             negative number.
@@ -315,6 +327,7 @@ class NoSQLHandleConfig(object):
         has not been set.
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
+        :rtype: int
         """
         return self._timeout
 
@@ -327,6 +340,7 @@ class NoSQLHandleConfig(object):
         seconds (10000 milliseconds).
 
         :param table_request_timeout: the timeout value, in milliseconds.
+        :type table_request_timeout: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             table_request_timeout is a negative number.
@@ -344,6 +358,7 @@ class NoSQLHandleConfig(object):
         specified the default table request timeout of 10000 is used.
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
+        :rtype: int
         """
         return self._table_request_timeout
 
@@ -353,6 +368,7 @@ class NoSQLHandleConfig(object):
         default timeout is 10 seconds.
 
         :param sec_info_timeout: the timeout value, in milliseconds.
+        :type sec_info_timeout: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             sec_info_timeout is a negative number.
@@ -367,6 +383,7 @@ class NoSQLHandleConfig(object):
         to be available, in milliseconds.
 
         :returns: the timeout, in milliseconds, or 0 if it has not been set.
+        :rtype: int
         """
         return self._sec_info_timeout
 
@@ -377,6 +394,7 @@ class NoSQLHandleConfig(object):
         Consistency.EVENTUAL.
 
         :param consistency: the consistency.
+        :type consistency: Consistency
         :returns: self.
         :raises IllegalArgumentException: raises the exception if consistency
             is not Consistency.ABSOLUTE or Consistency.EVENTUAL.
@@ -395,6 +413,7 @@ class NoSQLHandleConfig(object):
         not been configured.
 
         :returns: the consistency, or None if it has not been configured.
+        :rtype: Consistency
         """
         return self._consistency
 
@@ -403,6 +422,7 @@ class NoSQLHandleConfig(object):
         Sets the number of connection pools to cache.
 
         :param pool_connections: the number of connection pools.
+        :type pool_connections: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             pool_connections is not a positive number.
@@ -416,6 +436,7 @@ class NoSQLHandleConfig(object):
         Returns the number of connection pools to cache.
 
         :returns: the number of connection pools.
+        :rtype: int
         """
         return self._pool_connections
 
@@ -428,6 +449,7 @@ class NoSQLHandleConfig(object):
         become available.
 
         :param pool_maxsize: the pool size.
+        :type pool_maxsize: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if pool_maxsize
             is not a positive number.
@@ -445,6 +467,7 @@ class NoSQLHandleConfig(object):
         become available.
 
         :returns: the pool size.
+        :rtype: int
         """
         return self._pool_maxsize
 
@@ -454,6 +477,7 @@ class NoSQLHandleConfig(object):
         currently user-configurable.
 
         :returns: the size.
+        :rtype: int
         """
         return self._max_content_length
 
@@ -464,6 +488,7 @@ class NoSQLHandleConfig(object):
         multiple threads.
 
         :param retry_handler: the handler.
+        :type retry_handler: RetryHandler
         :returns: self.
         :raises IllegalArgumentException: raises the exception if retry_handler
             is not an instance of :py:class:`RetryHandler`.
@@ -491,8 +516,10 @@ class NoSQLHandleConfig(object):
 
         :param num_retries: the number of retries to perform automatically.
             This parameter may be 0 for no retries.
+        :type num_retries: int
         :param delay_s: the delay, in seconds. Use 0 to use the default delay
             algorithm.
+        :type delay_s: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if num_retries or
             delay_s is a negative number.
@@ -506,6 +533,7 @@ class NoSQLHandleConfig(object):
         if None is set.
 
         :returns: the handler.
+        :rtype: RetryHandler
         """
         return self._retry_handler
 
@@ -515,6 +543,7 @@ class NoSQLHandleConfig(object):
         provider must be safely usable by multiple threads.
 
         :param provider: the AuthorizationProvider.
+        :type provider: AuthorizationProvider
         :returns: self.
         :raises IllegalArgumentException: raises the exception if provider is
             not an instance of :py:class:`AuthorizationProvider`.
@@ -531,6 +560,7 @@ class NoSQLHandleConfig(object):
         or None.
 
         :returns: the AuthorizationProvider.
+        :rtype: AuthorizationProvider
         """
         return self._auth_provider
 
@@ -541,6 +571,7 @@ class NoSQLHandleConfig(object):
         :py:meth:`set_proxy_port`.
 
         :param proxy_host: the proxy host.
+        :type proxy_host: str
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_host is
             not a string.
@@ -554,6 +585,7 @@ class NoSQLHandleConfig(object):
         Returns a proxy host, or None if not configured.
 
         :returns: the host, or None.
+        :rtype: str or None
         """
         return self._proxy_host
 
@@ -564,6 +596,7 @@ class NoSQLHandleConfig(object):
         :py:meth:`set_proxy_host`.
 
         :param proxy_port: the proxy port.
+        :type proxy_port: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_port is
             a negative number.
@@ -577,6 +610,7 @@ class NoSQLHandleConfig(object):
         Returns a proxy port, or 0 if not configured.
 
         :returns: the proxy port.
+        :rtype: int
         """
         return self._proxy_port
 
@@ -587,6 +621,7 @@ class NoSQLHandleConfig(object):
         ignored.
 
         :param proxy_username: the user name.
+        :type proxy_username: str
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_username
             is not a string.
@@ -600,6 +635,7 @@ class NoSQLHandleConfig(object):
         Returns a proxy user name, or None if not configured.
 
         :returns: the user name, or None.
+        :rtype: str or None
         """
         return self._proxy_username
 
@@ -610,6 +646,7 @@ class NoSQLHandleConfig(object):
         configuration is ignored.
 
         :param proxy_password: the password.
+        :type proxy_password: str
         :returns: self.
         :raises IllegalArgumentException: raises the exception if proxy_password
             is not a string.
@@ -623,6 +660,7 @@ class NoSQLHandleConfig(object):
         Returns a proxy password, or None if not configured.
 
         :returns: the password, or None.
+        :rtype: str or None
         """
         return self._proxy_password
 
@@ -631,6 +669,7 @@ class NoSQLHandleConfig(object):
         Sets the logger used for the driver.
 
         :param logger: the logger.
+        :type logger: Logger
         :returns: self.
         :raises IllegalArgumentException: raises the exception if logger is not
             an instance of Logger.
@@ -644,6 +683,7 @@ class NoSQLHandleConfig(object):
         Returns the logger, or None if not configured by user.
 
         :returns: the logger.
+        :rtype: Logger
         """
         return self._logger
 
@@ -652,6 +692,7 @@ class NoSQLHandleConfig(object):
         All the configurations will be copied.
 
         :returns: the copy of the instance.
+        :rtype: NoSQLHandleConfig
         """
         auth_provider = self._auth_provider
         logger = self._logger

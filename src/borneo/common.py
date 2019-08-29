@@ -259,6 +259,7 @@ class FieldRange(object):
     to the key used in the operation.
 
     :param field_path: the path to the field used in the range.
+    :type field_path: str
     :raises IllegalArgumentException: raises the exception if field_path is not
         a string.
     """
@@ -283,6 +284,7 @@ class FieldRange(object):
         Returns the name for the field used in the range.
 
         :returns: the name of the field.
+        :rtype: str
         """
         return self._field_path
 
@@ -291,8 +293,10 @@ class FieldRange(object):
         Sets the start value of the range to the specified value.
 
         :param value: the value to set.
+        :type value: any
         :param is_inclusive: set to True if the range is inclusive of the value,
             False if it is exclusive.
+        :type is_inclusive: bool
         :returns: self.
         :raises IllegalArgumentException: raises the exception if parameters are
             not expected type.
@@ -319,6 +323,7 @@ class FieldRange(object):
         if the start value is not None.
 
         :returns: True if the start value is inclusive.
+        :rtype: bool
         """
         return self._start_inclusive
 
@@ -327,8 +332,10 @@ class FieldRange(object):
         Sets the end value of the range to the specified value.
 
         :param value: the value to set.
+        :type value: any
         :param is_inclusive: set to True if the range is inclusive of the value,
             False if it is exclusive.
+        :type is_inclusive: bool
         :returns: self.
         :raises IllegalArgumentException: raises the exception if parameters are
             not expected type.
@@ -355,6 +362,7 @@ class FieldRange(object):
         if the end value is not None.
 
         :returns: True if the end value is inclusive.
+        :rtype: bool
         """
         return self._end_inclusive
 
@@ -493,9 +501,13 @@ class PackedInteger(object):
         returns the next offset to be written.
 
         :param buf: the buffer to write to.
+        :type buf: bytearray
         :param offset: the offset in the buffer at which to start writing.
+        :type offset: int
         :param value: the integer to be written.
+        :type value: int
         :returns: the offset past the bytes written.
+        :rtype: int
 
         Values in the inclusive range [-119,120] are stored in a single byte.
         For values outside that range, the first byte stores the number of
@@ -609,9 +621,13 @@ class PackedInteger(object):
         and returns the next offset to be written.
 
         :param buf: the buffer to write to.
+        :type buf: bytearray
         :param offset: the offset in the buffer at which to start writing.
+        :type offset: int
         :param value: the long integer to be written.
+        :type value: int for python 3 and long for python 2
         :returns: the offset past the bytes written.
+        :rtype: int
 
         Values in the inclusive range [-119,120] are stored in a single byte.
         For values outside that range, the first byte stores the number of
@@ -753,8 +769,11 @@ class PackedInteger(object):
         buffer. This method only accesses one byte at the given offset.
 
         :param buf: the buffer to read from.
+        :type buf: bytearray
         :param offset: the offset in the buffer at which to start reading.
+        :type offset: int
         :returns: the number of bytes that would be read.
+        :rtype: int
         """
         # The first byte of the buf stores the length of the value part.
         b1 = buf[offset] & 0xff
@@ -775,8 +794,11 @@ class PackedInteger(object):
         buffer. This method only accesses one byte at the given offset.
 
         :param buf: the buffer to read from.
+        :type buf: bytearray
         :param offset: the offset in the buffer at which to start reading.
+        :type offset: int
         :returns: the number of bytes that would be read.
+        :rtype: int
         """
         # The length is stored in the same way for int and long.
         return PackedInteger.get_read_sorted_int_length(buf, offset)
@@ -787,8 +809,11 @@ class PackedInteger(object):
         Reads a sorted packed integer at the given buffer offset and returns it.
 
         :param buf: the buffer to read from.
+        :type buf: bytearray
         :param offset: the offset in the buffer at which to start reading.
+        :type offset: int
         :returns: the integer that was read.
+        :rtype: int
         """
         # The first byte of the buf stores the length of the value part.
         b1 = buf[offset] & 0xff
@@ -841,8 +866,11 @@ class PackedInteger(object):
         returns it.
 
         :param buf: the buffer to read from.
+        :type buf: bytearray
         :param offset: the offset in the buffer at which to start reading.
+        :type offset: int
         :returns: the long integer that was read.
+        :rtype: int for python 3 and long for python 2
         """
         # The first byte of the buf stores the length of the value part.
         b1 = buf[offset] & 0xff
@@ -1234,11 +1262,14 @@ class TableLimits(object):
         units. A read unit represents 1 eventually consistent read per second
         for data up to 1 KB in size. A read that is absolutely consistent is
         double that, consuming 2 read units for a read of up to 1 KB in size.
+    :type read_units: int
     :param write_units: the desired throughput of write operation in terms of
         write units. A write unit represents 1 write per second of data up to 1
         KB in size.
+    :type write_units: int
     :param storage_gb: the maximum storage to be consumed by the table, in
         gigabytes.
+    :type storage_gb: int
     :raises IllegalArgumentException: raises the exception if parameters are not
         validate.
     """
@@ -1261,6 +1292,7 @@ class TableLimits(object):
         Sets the read throughput in terms of read units.
 
         :param read_units: the throughput to use, in read units.
+        :type read_units: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if read_units is
             not a integer.
@@ -1274,6 +1306,7 @@ class TableLimits(object):
         Returns the read throughput in terms of read units.
 
         :returns: the read units.
+        :rtype: int
         """
         return self._read_units
 
@@ -1282,6 +1315,7 @@ class TableLimits(object):
         Sets the write throughput in terms of write units.
 
         :param write_units: the throughput to use, in write units.
+        :type write_units: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if write_units is
             not a integer.
@@ -1295,6 +1329,7 @@ class TableLimits(object):
         Returns the write throughput in terms of write units.
 
         :returns: the write units.
+        :rtype: int
         """
         return self._write_units
 
@@ -1303,6 +1338,7 @@ class TableLimits(object):
         Sets the storage capacity in gigabytes.
 
         :param storage_gb: the capacity to use, in gigabytes.
+        :type storage_gb: int
         :returns: self.
         :raises IllegalArgumentException: raises the exception if storage_gb is
             not a integer.
@@ -1316,6 +1352,7 @@ class TableLimits(object):
         Returns the storage capacity in gigabytes.
 
         :returns: the storage capacity in gigabytes.
+        :rtype: int
         """
         return self._storage_gb
 
@@ -1363,6 +1400,7 @@ class TableUsage(object):
         the Epoch.
 
         :returns: the start time.
+        :rtype: int
         """
         return self._start_time_ms
 
@@ -1372,6 +1410,7 @@ class TableUsage(object):
         timestamp is not set, None is returned.
 
         :returns: the start time, or None if not set.
+        :rtype: str or None
         """
         if self._start_time_ms == 0:
             return None
@@ -1383,6 +1422,7 @@ class TableUsage(object):
         Returns the number of seconds in this usage record.
 
         :returns: the number of seconds.
+        :rtype: int
         """
         return self._seconds_in_period
 
@@ -1391,6 +1431,7 @@ class TableUsage(object):
         Returns the number of read units consumed during this period.
 
         :returns: the read units.
+        :rtype: int
         """
         return self._read_units
 
@@ -1399,6 +1440,7 @@ class TableUsage(object):
         Returns the number of write units consumed during this period.
 
         :returns: the write units.
+        :rtype: int
         """
         return self._write_units
 
@@ -1408,6 +1450,7 @@ class TableUsage(object):
         information may be out of date as it is not maintained in real time.
 
         :returns: the size in gigabytes.
+        :rtype: int
         """
         return self._storage_gb
 
@@ -1417,6 +1460,7 @@ class TableUsage(object):
         the time period.
 
         :returns: the number of throttling exceptions.
+        :rtype: int
         """
         return self._read_throttle_count
 
@@ -1426,6 +1470,7 @@ class TableUsage(object):
         the time period.
 
         :returns: the number of throttling exceptions.
+        :rtype: int
         """
         return self._write_throttle_count
 
@@ -1435,6 +1480,7 @@ class TableUsage(object):
         the time period.
 
         :returns: the number of throttling exceptions.
+        :rtype: int
         """
         return self._storage_throttle_count
 
@@ -1462,7 +1508,9 @@ class TimeToLive(object):
     storage overhead. Only positive durations are allowed on input.
 
     :param value: value of time.
+    :type value: int
     :param timeunit: unit of time, cannot be None.
+    :type timeunit: TimeUnit
     :raises IllegalArgumentException: raises the exception if parameters are not
         expected type.
     """
@@ -1492,7 +1540,9 @@ class TimeToLive(object):
 
         :param hours: the number of hours in the duration, must be a
             non-negative number.
+        :type hours: int
         :returns: the duration.
+        :rtype: TimeToLive
         :raises IllegalArgumentException: raises the exception if a negative
             value is provided.
         """
@@ -1506,7 +1556,9 @@ class TimeToLive(object):
 
         :param days: the number of days in the duration, must be a non-negative
             number.
+        :type days: int
         :returns: the duration.
+        :rtype: TimeToLive
         :raises IllegalArgumentException: raises the exception if a negative
             value is provided.
         """
@@ -1518,6 +1570,7 @@ class TimeToLive(object):
         Returns the number of days in this duration, which may be negative.
 
         :returns: the number of days.
+        :rtype: int
         """
         return (self._value if self._timeunit == TimeUnit.DAYS else
                 self._value // 24)
@@ -1527,6 +1580,7 @@ class TimeToLive(object):
         Returns the number of hours in this duration, which may be negative.
 
         :returns: the number of hours.
+        :rtype: int
         """
         return (self._value if self._timeunit == TimeUnit.HOURS else
                 self._value * 24)
@@ -1541,7 +1595,9 @@ class TimeToLive(object):
 
         :param reference_time: an absolute time in milliseconds since January
             1, 1970.
+        :type reference_time: int
         :returns: time in milliseconds, 0 if this object's duration is 0.
+        :rtype: int
         :raises IllegalArgumentException: raises the exception if reference_time
             is not positive.
         """
@@ -1556,6 +1612,7 @@ class TimeToLive(object):
         Returns the numeric duration value.
 
         :returns: the duration value, independent of unit.
+        :rtype: int
         """
         return self._value
 
@@ -1564,6 +1621,7 @@ class TimeToLive(object):
         Returns the time unit used for the duration.
 
         :returns: the timeunit.
+        :rtype: TimeUnit
         """
         return self._timeunit
 
@@ -1598,6 +1656,7 @@ class UserInfo(object):
         Returns the id associated with the user.
 
         :returns: the user id string.
+        :rtype: str
         """
         return self._user_id
 
@@ -1606,6 +1665,7 @@ class UserInfo(object):
         Returns the name associated with the user.
 
         :returns: the user name string.
+        :rtype: str
         """
         return self._user_name
 
@@ -1623,6 +1683,7 @@ class Version(object):
     if necessary.
 
     :param version: a bytearray.
+    :type version: bytearray
     :raises IllegalArgumentException: raises the exception if version is not
         a bytearray.
     """
@@ -1636,6 +1697,7 @@ class Version(object):
         Returns the bytearray from the Version.
 
         :returns: the bytearray from the Version.
+        :rtype: bytearray
         """
         return self._version
 
@@ -1645,7 +1707,9 @@ class Version(object):
         Returns an instance of :py:class:`Version`.
 
         :param version: a bytearray or None.
+        :type version: bytearray
         :returns: an instance of Version.
+        :rtype: Version
         :raises IllegalArgumentException: raises the exception if version is not
             a bytearray or None.
         """

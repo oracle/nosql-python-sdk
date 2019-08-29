@@ -45,9 +45,13 @@ class RequestUtils(object):
         Init the RequestUtils.
 
         :param sess: the session.
+        :type sess: Session
         :param logutils: contains the logging methods.
+        :type logutils: LogUtils
         :param request: request to execute.
+        :type request: Request
         :param retry_handler: the retry handler.
+        :type retry_handler: RetryHandler
         """
         self._sess = sess
         self._logutils = logutils
@@ -71,9 +75,13 @@ class RequestUtils(object):
             ExecutionException and TimeoutException.
 
         :param uri: the request URI.
+        :type uri: str
         :param headers: HTTP headers of this request.
+        :type headers: dict
         :param timeout_ms: request timeout in milliseconds.
+        :type timeout_ms: int
         :returns: HTTP response, a object encapsulate status code and response.
+        :rtype: HttpResponse or Result
         """
         return self._do_request('DELETE', uri, headers, None, timeout_ms,
                                 sec_timeout_ms=0)
@@ -90,9 +98,13 @@ class RequestUtils(object):
             ExecutionException and TimeoutException.
 
         :param uri: the request URI.
+        :type uri: str
         :param headers: HTTP headers of this request.
+        :type headers: dict
         :param timeout_ms: request timeout in milliseconds.
+        :type timeout_ms: int
         :returns: HTTP response, a object encapsulate status code and response.
+        :rtype: HttpResponse or Result
         """
         return self._do_request('GET', uri, headers, None, timeout_ms,
                                 sec_timeout_ms=0)
@@ -110,12 +122,18 @@ class RequestUtils(object):
             ExecutionException and TimeoutException
 
         :param uri: the request URI.
+        :type uri: str
         :param headers: HTTP headers of this request.
+        :type headers: dict
         :param payload: payload in string.
+        :type payload: str
         :param timeout_ms: request timeout in milliseconds.
+        :type timeout_ms: int
         :param sec_timeout_ms: the timeout of waiting security information to be
             available in milliseconds.
+        :type sec_timeout_ms: int
         :returns: HTTP response, a object encapsulate status code and response.
+        :rtype: HttpResponse or Result
         """
         return self._do_request('POST', uri, headers, payload, timeout_ms,
                                 sec_timeout_ms)
@@ -133,12 +151,18 @@ class RequestUtils(object):
             ExecutionException and TimeoutException
 
         :param uri: the request URI.
+        :type uri: str
         :param headers: HTTP headers of this request.
+        :type headers: dict
         :param payload: payload in string.
+        :type payload: str
         :param timeout_ms: request timeout in milliseconds.
+        :type timeout_ms: int
         :param sec_timeout_ms: the timeout of waiting security information to be
             available in milliseconds.
+        :type sec_timeout_ms: int
         :returns: HTTP response, a object encapsulate status code and response.
+        :rtype: HttpResponse or Result
         """
         return self._do_request('PUT', uri, headers, payload, timeout_ms,
                                 sec_timeout_ms)
@@ -297,9 +321,13 @@ class RequestUtils(object):
         Convert the url_response into a suitable return value.
 
         :param request: the request executed by the server.
+        :type request: Request
         :param content: the content of the response from the server.
+        :type content: bytes for python 3 and str for python 2
         :param status: the status code of the response from the server.
+        :type status: int
         :returns: the programmatic response object.
+        :rtype: Result
         """
         if status == codes.ok:
             bis = ByteInputStream(bytearray(content))
@@ -314,8 +342,11 @@ class RequestUtils(object):
 
         :param bis: the byte input stream created from the content of response
             get from the server.
+        :type bis: ByteInputStream
         :param request: the request executed by the server.
+        :type request: Request
         :returns: the result of processing the successful request.
+        :rtype: Result
         """
         code = bis.read_byte()
         if code == 0:
@@ -341,7 +372,9 @@ class RequestUtils(object):
         action.
 
         :param content: content of the response from the server.
+        :type content: bytes for python 3 and str for python 2
         :param status: the status code of the response from the server.
+        :type status: int
         """
         if status == codes.bad:
             length = len(content)
@@ -357,11 +390,16 @@ class RequestUtils(object):
         determine. Otherwise, check if the request exceed the timeout given.
 
         :param start_time: when the request starts.
+        :type start_time: int
         :param request_timeout: the default timeout of this request.
+        :type request_timeout: int
         :param sec_timeout_ms: the timeout of waiting security information to be
             available in milliseconds.
+        :type sec_timeout_ms: int
         :param exception: the last exception.
+        :type exception: RuntimeError
         :returns: True if the request need to be timed out.
+        :rtype: bool
         """
         if isinstance(exception, SecurityInfoNotReadyException):
             return int(round(time() * 1000)) - start_time >= sec_timeout_ms

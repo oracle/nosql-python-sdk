@@ -315,7 +315,9 @@ class BinaryProtocol(object):
         :py:meth:`read_sequence_length` followed by the array contents.
 
         :param bis: the byte input stream.
+        :type bis: ByteInputStream
         :returns: the array or None.
+        :rtype: bytearray
         """
         length = BinaryProtocol.read_sequence_length(bis)
         if length < -1:
@@ -451,7 +453,9 @@ class BinaryProtocol(object):
         Reads a packed integer from the input and returns it.
 
         :param bis: the byte input stream.
+        :type bis: ByteInputStream
         :returns: the integer that was read.
+        :rtype: int
         """
         buf = bytearray(PackedInteger.MAX_LENGTH)
         bis.read_fully(buf, 0, 1)
@@ -466,7 +470,9 @@ class BinaryProtocol(object):
         array contents.
 
         :param bis: the byte input stream.
+        :type bis: ByteInputStream
         :returns: the array or None.
+        :rtype: list
         """
         length = BinaryProtocol.read_sequence_length(bis)
         if length < -1:
@@ -484,7 +490,9 @@ class BinaryProtocol(object):
         Reads a packed long from the input and returns it.
 
         :param bis: the byte input stream.
+        :type bis: ByteInputStream
         :returns: the long that was read.
+        :rtype: int for python 3 and long for python 2
         """
         buf = bytearray(PackedInteger.MAX_LONG_LENGTH)
         bis.read_fully(buf, 0, 1)
@@ -502,7 +510,9 @@ class BinaryProtocol(object):
         to do that.
 
         :param bis: the byte input stream.
+        :type bis: ByteInputStream
         :returns: the sequence length or -1 for None.
+        :rtype: int
         """
         result = BinaryProtocol.read_packed_int(bis)
         if result < -1:
@@ -520,7 +530,9 @@ class BinaryProtocol(object):
         contents in UTF-8 format for a non-empty string, if any.
 
         :param bis: the byte input stream.
+        :type bis: ByteInputStream
         :returns: the string or None.
+        :rtype: str or None
         """
         length = BinaryProtocol.read_packed_int(bis)
         if length < -1:
@@ -594,7 +606,9 @@ class BinaryProtocol(object):
         array contents.
 
         :param bos: the byte output stream.
-        :param value: the byte array of None.
+        :type bos: ByteOutputStream
+        :param value: the bytearray or None.
+        :type value: bytearray or None
         """
         length = -1 if value is None else len(value)
         BinaryProtocol.write_sequence_length(bos, length)
@@ -719,8 +733,11 @@ class BinaryProtocol(object):
         Writes a packed integer to the byte output stream.
 
         :param bos: the byte output stream.
+        :type bos: ByteOutputStream
         :param value: the integer to be written.
+        :type value: int
         :returns: the length of bytes written.
+        :rtype: int
         """
         buf = bytearray(PackedInteger.MAX_LENGTH)
         offset = PackedInteger.write_sorted_int(buf, 0, value)
@@ -733,7 +750,9 @@ class BinaryProtocol(object):
         Writes a packed long to the byte output stream.
 
         :param bos: the byte output stream.
+        :type bos: ByteOutputStream
         :param value: the long to be written.
+        :type value: int for python 3 and long for python 2
         """
         buf = bytearray(PackedInteger.MAX_LONG_LENGTH)
         offset = PackedInteger.write_sorted_long(buf, 0, value)
@@ -757,7 +776,9 @@ class BinaryProtocol(object):
         lengths yet, this entrypoint provides a place to do that.
 
         :param bos: the byte output stream.
+        :type bos: ByteOutputStream
         :param length: the sequence length or -1.
+        :type length: int
         :raises IllegalArgumentException: raises the exception if length is less
             than -1.
         """
@@ -782,8 +803,11 @@ class BinaryProtocol(object):
         encoding for non-empty strings.
 
         :param bos: the byte output stream.
+        :type bos: ByteOutputStream
         :param value: the string or None.
+        :type value: str or None
         :returns: the number of bytes that the string take.
+        :rtype: int
         """
         if value is None:
             return BinaryProtocol.write_packed_int(bos, -1)

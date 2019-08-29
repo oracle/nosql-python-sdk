@@ -27,6 +27,7 @@ class IllegalArgumentException(RuntimeError):
         Get the cause of the exception.
 
         :returns: the cause of the exception.
+        :rtype: RuntimeError
         """
         return self._cause
 
@@ -49,6 +50,7 @@ class IllegalStateException(RuntimeError):
         Get the cause of the exception.
 
         :returns: the cause of the exception.
+        :rtype: RuntimeError
         """
         return self._cause
 
@@ -70,6 +72,7 @@ class NoSQLException(RuntimeError):
         Get the cause of the exception.
 
         :returns: the cause of the exception.
+        :rtype: RuntimeError
         """
         return self._cause
 
@@ -210,6 +213,7 @@ class RequestTimeoutException(NoSQLException):
 
         :returns: the timeout that was in effect for the operation, in
             milliseconds.
+        :rtype: int
         """
         return self._timeout_ms
 

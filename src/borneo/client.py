@@ -73,7 +73,9 @@ class Client(object):
         message from the causing exception.
 
         :param request: the request to be executed by the server.
+        :type request: Request
         :returns: the result of the request.
+        :rtype: Result
         :raises IllegalArgumentException: raises the exception if request is
             None.
         """
@@ -120,8 +122,7 @@ class Client(object):
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
-        content = bytearray()
-        self._write_content(request, content)
+        content = self._write_content(request)
         BinaryProtocol.check_request_size_limit(request, len(content))
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
@@ -186,14 +187,18 @@ class Client(object):
                                       version_info.micro)
         return '%s/%s (Python %s)' % ('NoSQL-PythonSDK', __version__, pyversion)
 
-    def _write_content(self, request, content):
+    def _write_content(self, request):
         """
         Serializes the request payload, sent as http content.
 
         :param request: the request to be executed by the server.
-        :returns: the bytes contain the content.
+        :type request: Request
+        :returns: the bytearray that contains the content.
+        :rtype: bytearray
         """
+        content = bytearray()
         bos = ByteOutputStream(content)
         BinaryProtocol.write_serial_version(bos)
-        return request.create_serializer().serialize(
+        request.create_serializer().serialize(
             request, bos, BinaryProtocol.SERIAL_VERSION)
+        return content
