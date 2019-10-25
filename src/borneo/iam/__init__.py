@@ -7,13 +7,6 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-from .idcs import (
-    AccessTokenProvider, CredentialsProvider, DefaultAccessTokenProvider,
-    IDCSCredentials, PropertiesCredentialsProvider)
+from .iam import SignatureProvider
 
-__all__ = ['AccessTokenProvider',
-           'CredentialsProvider',
-           'DefaultAccessTokenProvider',
-           'IDCSCredentials',
-           'PropertiesCredentialsProvider'
-           ]
+__all__ = ['SignatureProvider']

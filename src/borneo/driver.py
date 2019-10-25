@@ -16,6 +16,7 @@ from .client import Client
 from .common import UserInfo
 from .config import NoSQLHandleConfig
 from .exception import IllegalArgumentException, IllegalStateException
+from .iam import SignatureProvider
 from .kv import StoreAccessTokenProvider
 from .operations import (
     DeleteRequest, GetIndexesRequest, GetRequest, GetTableRequest,
@@ -647,6 +648,8 @@ class NoSQLHandle(object):
             if endpoint.endswith('/'):
                 endpoint = endpoint[:len(endpoint) - 1]
             provider.set_endpoint(endpoint)
+        elif isinstance(provider, SignatureProvider):
+            provider.set_service_host(config)
 
     def _execute(self, request):
         # Ensure that the client exists and hasn't been closed.

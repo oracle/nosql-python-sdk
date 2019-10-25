@@ -11,6 +11,7 @@ QueryRequest
    .. autosummary::
 
       ~QueryRequest.close
+      ~QueryRequest.get_compartment_id
       ~QueryRequest.get_consistency
       ~QueryRequest.get_continuation_key
       ~QueryRequest.get_limit
@@ -22,6 +23,7 @@ QueryRequest
       ~QueryRequest.get_statement
       ~QueryRequest.get_timeout
       ~QueryRequest.is_done
+      ~QueryRequest.set_compartment_id
       ~QueryRequest.set_consistency
       ~QueryRequest.set_continuation_key
       ~QueryRequest.set_limit
@@ -36,6 +38,7 @@ QueryRequest
    .. rubric:: Methods Documentation
 
    .. automethod:: close
+   .. automethod:: get_compartment_id
    .. automethod:: get_consistency
    .. automethod:: get_continuation_key
    .. automethod:: get_limit
@@ -47,6 +50,7 @@ QueryRequest
    .. automethod:: get_statement
    .. automethod:: get_timeout
    .. automethod:: is_done
+   .. automethod:: set_compartment_id
    .. automethod:: set_consistency
    .. automethod:: set_continuation_key
    .. automethod:: set_limit

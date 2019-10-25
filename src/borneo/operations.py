@@ -38,14 +38,20 @@ class Request(object):
     """
 
     def __init__(self):
+        # Cloud service only.
+        self._compartment_id = None
         self._timeout_ms = 0
 
-    def _set_timeout_internal(self, timeout_ms):
-        CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
-        self._timeout_ms = timeout_ms
+    def get_compartment_id(self):
+        """
+        Cloud service only.
 
-    def _get_timeout_internal(self):
-        return self._timeout_ms
+        Get the compartment id.
+
+        :returns: compartment id.
+        :rtype: str
+        """
+        return self._compartment_id
 
     def is_query_request(self):
         return False
@@ -59,14 +65,11 @@ class Request(object):
 
         :param cfg: the configuration object to use to get default values.
         :type cfg: NoSQLHandleConfig
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if cfg is not an
             instance of NoSQLHandleConfig.
         """
-        if not isinstance(cfg, config.NoSQLHandleConfig):
-            raise IllegalArgumentException(
-                'set_defaults requires an instance of NoSQLHandleConfig as ' +
-                'parameter.')
+        self._check_config(cfg)
         if self._timeout_ms == 0:
             self._timeout_ms = cfg.get_default_timeout()
         return self
@@ -74,6 +77,23 @@ class Request(object):
     def should_retry(self):
         # Returns True if this request should be retried.
         return True
+
+    def _check_config(self, cfg):
+        if not isinstance(cfg, config.NoSQLHandleConfig):
+            raise IllegalArgumentException(
+                'set_defaults requires an instance of NoSQLHandleConfig as ' +
+                'parameter.')
+
+    def _set_compartment_id(self, compartment_id):
+        CheckValue.check_str(compartment_id, 'compartment_id')
+        self._compartment_id = compartment_id
+
+    def _set_timeout(self, timeout_ms):
+        CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
+        self._timeout_ms = timeout_ms
+
+    def _get_timeout(self):
+        return self._timeout_ms
 
 
 class WriteRequest(Request):
@@ -92,21 +112,21 @@ class WriteRequest(Request):
         self._table_name = None
         self._return_row = False
 
-    def set_table_name_internal(self, table_name):
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
-
     def get_table_name_internal(self):
         return self._table_name
 
-    def set_return_row_internal(self, return_row):
+    def _set_table_name(self, table_name):
+        CheckValue.check_str(table_name, 'table_name')
+        self._table_name = table_name
+
+    def _set_return_row(self, return_row):
         CheckValue.check_boolean(return_row, 'return_row')
         self._return_row = return_row
 
-    def get_return_row_internal(self):
+    def _get_return_row(self):
         return self._return_row
 
-    def validate_write_request(self, request_name):
+    def _validate_write_request(self, request_name):
         if request_name is None:
             raise IllegalArgumentException(
                 request_name + ' requires table name')
@@ -128,26 +148,31 @@ class ReadRequest(Request):
         self._table_name = None
         self._consistency = None
 
-    def set_table_name_internal(self, table_name):
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
-
     def get_table_name_internal(self):
         return self._table_name
-
-    def set_consistency_internal(self, consistency):
-        self._consistency = consistency
-
-    def get_consistency_internal(self):
-        return self._consistency
 
     def set_defaults(self, cfg):
         super(ReadRequest, self).set_defaults(cfg)
         if self._consistency is None:
-            self._consistency = cfg.get_default_consistency()
+            self._set_consistency(cfg.get_default_consistency())
         return self
 
-    def validate_read_request(self, request_name):
+    def _set_table_name(self, table_name):
+        CheckValue.check_str(table_name, 'table_name')
+        self._table_name = table_name
+
+    def _set_consistency(self, consistency):
+        if (consistency != Consistency.ABSOLUTE and
+                consistency != Consistency.EVENTUAL):
+            raise IllegalArgumentException(
+                'Consistency must be Consistency.ABSOLUTE or ' +
+                'Consistency.EVENTUAL')
+        self._consistency = consistency
+
+    def _get_consistency(self):
+        return self._consistency
+
+    def _validate_read_request(self, request_name):
         if self._table_name is None:
             raise IllegalArgumentException(
                 request_name + ' requires table name.')
@@ -189,7 +214,7 @@ class DeleteRequest(WriteRequest):
 
         :param key: the key value.
         :type key: dict
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if key is not a
             dictionary.
         """
@@ -204,7 +229,7 @@ class DeleteRequest(WriteRequest):
 
         :param json_key: the key as a JSON string.
         :type json_key: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if json_key is
             not a string.
         """
@@ -216,10 +241,25 @@ class DeleteRequest(WriteRequest):
         """
         Returns the key of the row to be deleted.
 
-        :return: the key value, or None if not set.
+        :returns: the key value, or None if not set.
         :rtype: dict
         """
         return self._key
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_match_version(self, version):
         """
@@ -231,7 +271,7 @@ class DeleteRequest(WriteRequest):
 
         :param version: the :py:class:`Version` to match.
         :type version: Version
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if version is not
             an instance of Version.
         """
@@ -246,7 +286,7 @@ class DeleteRequest(WriteRequest):
         Returns the :py:class:`Version` used for a match on a conditional
         delete.
 
-        :return: the Version or None if not set.
+        :returns: the Version or None if not set.
         :rtype: Version
         """
         return self._match_version
@@ -259,11 +299,11 @@ class DeleteRequest(WriteRequest):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(DeleteRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -271,10 +311,10 @@ class DeleteRequest(WriteRequest):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(DeleteRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def set_table_name(self, table_name):
         """
@@ -283,21 +323,21 @@ class DeleteRequest(WriteRequest):
 
         :param table_name: the table name.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        super(DeleteRequest, self).set_table_name_internal(table_name)
+        self._set_table_name(table_name)
         return self
 
     def get_table_name(self):
         """
         Returns the table name for the operation.
 
-        :return: the table name, or None if not set.
+        :returns: the table name, or None if not set.
         :rtype: str
         """
-        return super(DeleteRequest, self).get_table_name_internal()
+        return self.get_table_name_internal()
 
     def set_return_row(self, return_row):
         """
@@ -309,11 +349,11 @@ class DeleteRequest(WriteRequest):
 
         :param return_row: set to True if information should be returned.
         :type return_row: bool
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if return_row is
             not True or False.
         """
-        super(DeleteRequest, self).set_return_row_internal(return_row)
+        self._set_return_row(return_row)
         return self
 
     def get_return_row(self):
@@ -321,14 +361,14 @@ class DeleteRequest(WriteRequest):
         Returns whether information about the existing row should be returned on
         failure because of a version mismatch.
 
-        :return: True if information should be returned.
+        :returns: True if information should be returned.
         :rtype: bool
         """
-        return super(DeleteRequest, self).get_return_row_internal()
+        return self._get_return_row()
 
     def validate(self):
         # Validates the state of the object when complete.
-        super(DeleteRequest, self).validate_write_request('DeleteRequest')
+        self._validate_write_request('DeleteRequest')
         if self._key is None:
             raise IllegalArgumentException('DeleteRequest requires a key.')
 
@@ -356,7 +396,7 @@ class GetIndexesRequest(Request):
 
         :param table_name: the table name. This is a required parameter.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
@@ -368,10 +408,25 @@ class GetIndexesRequest(Request):
         """
         Gets the table name to use for the request.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_index_name(self, index_name):
         """
@@ -380,7 +435,7 @@ class GetIndexesRequest(Request):
 
         :param index_name: the index name.
         :type index_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if index_name is
             not a string.
         """
@@ -392,7 +447,7 @@ class GetIndexesRequest(Request):
         """
         Gets the index name to use for the request.
 
-        :return: the index name.
+        :returns: the index name.
         :rtype: str
         """
         return self._index_name
@@ -405,11 +460,11 @@ class GetIndexesRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(GetIndexesRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -417,10 +472,10 @@ class GetIndexesRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(GetIndexesRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
@@ -454,7 +509,7 @@ class GetRequest(ReadRequest):
 
         :param key: the primary key.
         :type key: dict
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if key is not a
             dictionary.
         """
@@ -468,7 +523,7 @@ class GetRequest(ReadRequest):
 
         :param json_key: the key as a JSON string.
         :type json_key: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if json_key is
             not a string.
         """
@@ -481,7 +536,7 @@ class GetRequest(ReadRequest):
         Returns the primary key used for the operation. This is a required
         parameter.
 
-        :return: the key.
+        :returns: the key.
         :rtype: dict
         """
         return self._key
@@ -493,11 +548,26 @@ class GetRequest(ReadRequest):
 
         :param table_name: the table name.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        super(GetRequest, self).set_table_name_internal(table_name)
+        self._set_table_name(table_name)
+        return self
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
         return self
 
     def set_consistency(self, consistency):
@@ -508,26 +578,21 @@ class GetRequest(ReadRequest):
 
         :param consistency: the consistency.
         :type consistency: Consistency
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if consistency
             is not Consistency.ABSOLUTE or Consistency.EVENTUAL.
         """
-        if (consistency != Consistency.ABSOLUTE and
-                consistency != Consistency.EVENTUAL):
-            raise IllegalArgumentException(
-                'Consistency must be Consistency.ABSOLUTE or ' +
-                'Consistency.EVENTUAL')
-        super(GetRequest, self).set_consistency_internal(consistency)
+        self._set_consistency(consistency)
         return self
 
     def get_consistency(self):
         """
         Returns the consistency set for this request, or None if not set.
 
-        :return: the consistency
+        :returns: the consistency
         :rtype: Consistency
         """
-        super(GetRequest, self).get_consistency_internal()
+        return self._get_consistency()
 
     def set_timeout(self, timeout_ms):
         """
@@ -537,11 +602,11 @@ class GetRequest(ReadRequest):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(GetRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -549,14 +614,14 @@ class GetRequest(ReadRequest):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(GetRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def validate(self):
         # Validates the state of the members of this class for use.
-        super(GetRequest, self).validate_read_request('GetRequest')
+        self._validate_read_request('GetRequest')
         if self._key is None:
             raise IllegalArgumentException('GetRequest requires a key.')
 
@@ -586,7 +651,7 @@ class GetTableRequest(Request):
 
         :param table_name: the table name. This is a required parameter.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
@@ -598,10 +663,25 @@ class GetTableRequest(Request):
         """
         Gets the table name to use for the request.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_operation_id(self, operation_id):
         """
@@ -616,7 +696,7 @@ class GetTableRequest(Request):
 
         :param operation_id: the operation id. This is optional.
         :type operation_id: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if operation_id
             is a negative number.
         """
@@ -630,7 +710,7 @@ class GetTableRequest(Request):
         """
         Returns the operation id to use for the request, None if not set.
 
-        :return: the operation id.
+        :returns: the operation id.
         :rtype: str
         """
         return self._operation_id
@@ -643,11 +723,11 @@ class GetTableRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(GetTableRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -655,10 +735,10 @@ class GetTableRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(GetTableRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
@@ -689,6 +769,36 @@ class ListTablesRequest(Request):
         self._limit = 0
         self._namespace = None
 
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
+
+    def set_compartment_path(self, compartment_path):
+        """
+        Cloud service only.
+
+        Sets the compartment path to use for the operation.
+
+        :param compartment_path: compartment path like compartmentA:compartmentB
+        :type compartment_path: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_path)
+        return self
+
     def set_start_index(self, start_index):
         """
         Sets the index to use to start returning table names. This is related to
@@ -698,7 +808,7 @@ class ListTablesRequest(Request):
 
         :param start_index: the start index.
         :type start_index: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if start_index is
             a negative number.
         """
@@ -713,7 +823,7 @@ class ListTablesRequest(Request):
         previous request and can be used to page table names. If not set, the
         list starts at index 0.
 
-        :return: the start index.
+        :returns: the start index.
         :rtype: int
         """
         return self._start_index
@@ -725,7 +835,7 @@ class ListTablesRequest(Request):
 
         :param limit: the maximum number of tables.
         :type limit: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if limit is a
             negative number.
         """
@@ -738,7 +848,7 @@ class ListTablesRequest(Request):
         Returns the maximum number of table names to return in the operation. If
         not set (0) there is no application-imposed limit.
 
-        :return: the maximum number of tables to return in a single request.
+        :returns: the maximum number of tables to return in a single request.
         :rtype: int
         """
         return self._limit
@@ -753,7 +863,7 @@ class ListTablesRequest(Request):
 
         :param namespace: the namespace to use.
         :type namespace: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
         """
@@ -767,7 +877,7 @@ class ListTablesRequest(Request):
 
         Returns the namespace to use for the list or None if not set.
 
-        :return: the namespace.
+        :returns: the namespace.
         :rtype: str
         """
         return self._namespace
@@ -780,11 +890,11 @@ class ListTablesRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(ListTablesRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -792,10 +902,10 @@ class ListTablesRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(ListTablesRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
@@ -849,7 +959,7 @@ class MultiDeleteRequest(Request):
 
         :param table_name: the table name.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
@@ -861,7 +971,7 @@ class MultiDeleteRequest(Request):
         """
         Returns the tableName used for the operation.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
@@ -873,7 +983,7 @@ class MultiDeleteRequest(Request):
 
         :param key: the key.
         :type key: dict
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if key is not a
             dictionary.
         """
@@ -885,10 +995,25 @@ class MultiDeleteRequest(Request):
         """
         Returns the key to be used for the operation.
 
-        :return: the key.
+        :returns: the key.
         :rtype: dict
         """
         return self._key
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_continuation_key(self, continuation_key):
         """
@@ -897,7 +1022,7 @@ class MultiDeleteRequest(Request):
         :param continuation_key: the key which should have been obtained from
             :py:meth:`MultiDeleteResult.get_continuation_key`.
         :type continuation_key: bytearray
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
         """
@@ -912,7 +1037,7 @@ class MultiDeleteRequest(Request):
         """
         Returns the continuation key if set.
 
-        :return: the continuation key.
+        :returns: the continuation key.
         :rtype: bytearray
         """
         return self._continuation_key
@@ -926,7 +1051,7 @@ class MultiDeleteRequest(Request):
         :param max_write_kb: the limit in terms of number of KB write during
             this operation.
         :type max_write_kb: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the
             max_write_kb value is less than 0.
         """
@@ -940,7 +1065,7 @@ class MultiDeleteRequest(Request):
         set by the application this value will be 0 which means the default
         system limit is used.
 
-        :return: the limit, or 0 if not set.
+        :returns: the limit, or 0 if not set.
         :rtype: int
         """
         return self._max_write_kb
@@ -952,7 +1077,7 @@ class MultiDeleteRequest(Request):
 
         :param field_range: the field range.
         :type field_range: FieldRange
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if field_range is
             not an instance of FieldRange.
         """
@@ -967,7 +1092,7 @@ class MultiDeleteRequest(Request):
         """
         Returns the :py:class:`FieldRange` to be used for the operation if set.
 
-        :return: the range, None if no range is to be used.
+        :returns: the range, None if no range is to be used.
         :rtype: FieldRange
         """
         return self._range
@@ -980,11 +1105,11 @@ class MultiDeleteRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(MultiDeleteRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -992,10 +1117,10 @@ class MultiDeleteRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(MultiDeleteRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def validate(self):
         if self._table_name is None:
@@ -1036,7 +1161,7 @@ class PrepareRequest(Request):
 
         :param statement: the query statement.
         :type statement: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if statement is
             not a string.
         """
@@ -1048,10 +1173,25 @@ class PrepareRequest(Request):
         """
         Returns the query statement.
 
-        :return: the statement, or None if it has not been set.
+        :returns: the statement, or None if it has not been set.
         :rtype: str
         """
         return self._statement
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_get_query_plan(self, get_query_plan):
         """
@@ -1061,7 +1201,7 @@ class PrepareRequest(Request):
         :param get_query_plan: True if a printout of the query execution plan
             should be include in the :py:class:`PrepareResult`. False otherwise.
         :type get_query_plan: bool
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if get_query_plan
             is not a boolean.
         """
@@ -1074,7 +1214,7 @@ class PrepareRequest(Request):
         Returns whether a printout of the query execution plan should be include
         in the :py:class:`PrepareResult`.
 
-        :return: whether a printout of the query execution plan should be
+        :returns: whether a printout of the query execution plan should be
             include in the :py:class:`PrepareResult`.
         :rtype: bool
         """
@@ -1088,11 +1228,11 @@ class PrepareRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(PrepareRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -1100,10 +1240,10 @@ class PrepareRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the value.
+        :returns: the value.
         :rtype: int
         """
-        return super(PrepareRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def validate(self):
         if self._statement is None:
@@ -1162,7 +1302,7 @@ class PutRequest(WriteRequest):
 
         :param value: the row value.
         :type value: dict
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if value is not
             a dictionary.
         """
@@ -1179,7 +1319,7 @@ class PutRequest(WriteRequest):
 
         :param json_value: the row value as a JSON string.
         :type json_value: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if json_value is
             not a string.
         """
@@ -1191,10 +1331,25 @@ class PutRequest(WriteRequest):
         """
         Returns the value of the row to be used.
 
-        :return: the value, or None if not set.
+        :returns: the value, or None if not set.
         :rtype: dict
         """
         return self._value
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_option(self, option):
         """
@@ -1202,7 +1357,7 @@ class PutRequest(WriteRequest):
 
         :param option: the option to set.
         :type option: PutOption
-        :return: self.
+        :returns: self.
         """
         self._option = option
         return self
@@ -1211,7 +1366,7 @@ class PutRequest(WriteRequest):
         """
         Returns the option specified for the put.
 
-        :return: the option specified.
+        :returns: the option specified.
         :rtype: PutOption
         """
         return self._option
@@ -1228,7 +1383,7 @@ class PutRequest(WriteRequest):
 
         :param version: the Version to match.
         :type version: Version
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if version is not
             an instance of Version.
         """
@@ -1244,7 +1399,7 @@ class PutRequest(WriteRequest):
         """
         Returns the :py:class:`Version` used for a match on a conditional put.
 
-        :return: the Version or None if not set.
+        :returns: the Version or None if not set.
         :rtype: Version
         """
         return self._match_version
@@ -1257,7 +1412,7 @@ class PutRequest(WriteRequest):
 
         :param ttl: the time to live.
         :type ttl: TimeToLive
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if ttl is not an
             instance of TimeToLive.
         """
@@ -1271,7 +1426,7 @@ class PutRequest(WriteRequest):
         """
         Returns the :py:class:`TimeToLive` value, if set.
 
-        :return: the :py:class:`TimeToLive` if set, None otherwise.
+        :returns: the :py:class:`TimeToLive` if set, None otherwise.
         :rtype: TimeToLive
         """
         return self._ttl
@@ -1285,7 +1440,7 @@ class PutRequest(WriteRequest):
 
         :param update_ttl: True or False.
         :type update_ttl: bool
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if update_ttl is
             not True or False.
         """
@@ -1299,7 +1454,7 @@ class PutRequest(WriteRequest):
         table default value if the row exists. By default updates of existing
         rows do not affect that row's TTL.
 
-        :return: whether or not to update the row's TTL based on a table default
+        :returns: whether or not to update the row's TTL based on a table default
             value if the row exists.
         :rtype: bool
         """
@@ -1309,7 +1464,7 @@ class PutRequest(WriteRequest):
         """
         Returns True if the operation should update the ttl.
 
-        :return: True if the operation should update the ttl.
+        :returns: True if the operation should update the ttl.
         :rtype: bool
         """
         return self._update_ttl or self._ttl is not None
@@ -1323,7 +1478,7 @@ class PutRequest(WriteRequest):
 
         :param exact_match: True or False.
         :type exact_match: bool
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if exact_match is
             not True or False.
         """
@@ -1336,7 +1491,7 @@ class PutRequest(WriteRequest):
         Returns whether the value must be an exact match to the table schema or
         not.
 
-        :return: the value.
+        :returns: the value.
         :rtype: bool
         """
         return self._exact_match
@@ -1352,7 +1507,7 @@ class PutRequest(WriteRequest):
 
         :param identity_cache_size: the size.
         :type identity_cache_size: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if
             identity_cache_size is not an integer.
         """
@@ -1365,7 +1520,7 @@ class PutRequest(WriteRequest):
         Gets the number of generated identity values that are requested from the
         server during a put if set in this request.
 
-        :return: the identity cache size.
+        :returns: the identity cache size.
         :rtype: int
         """
         return self._identity_cache_size
@@ -1378,11 +1533,11 @@ class PutRequest(WriteRequest):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(PutRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -1390,10 +1545,10 @@ class PutRequest(WriteRequest):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(PutRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def set_table_name(self, table_name):
         """
@@ -1401,21 +1556,21 @@ class PutRequest(WriteRequest):
 
         :param table_name: the table name.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        super(PutRequest, self).set_table_name_internal(table_name)
+        self._set_table_name(table_name)
         return self
 
     def get_table_name(self):
         """
         Returns the table name for the operation.
 
-        :return: the table name, or None if not set.
+        :returns: the table name, or None if not set.
         :rtype: str
         """
-        return super(PutRequest, self).get_table_name_internal()
+        return self.get_table_name_internal()
 
     def set_return_row(self, return_row):
         """
@@ -1425,11 +1580,11 @@ class PutRequest(WriteRequest):
 
         :param return_row: set to True if information should be returned.
         :type return_row: bool
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if return_row is
             not True or False.
         """
-        super(PutRequest, self).set_return_row_internal(return_row)
+        self._set_return_row(return_row)
         return self
 
     def get_return_row(self):
@@ -1440,14 +1595,14 @@ class PutRequest(WriteRequest):
         is PutOption.IF_PRESENT the value of this parameter is ignored and there
         will not be any return information.
 
-        :return: True if information should be returned.
+        :returns: True if information should be returned.
         :rtype: bool
         """
-        return super(PutRequest, self).get_return_row_internal()
+        return self._get_return_row()
 
     def validate(self):
         # Validates the state of the object when complete.
-        super(PutRequest, self).validate_write_request('PutRequest')
+        self._validate_write_request('PutRequest')
         if self._value is None:
             raise IllegalArgumentException('PutRequest requires a value')
         self._validate_if_options()
@@ -1546,6 +1701,7 @@ class QueryRequest(Request):
         # Creates an internal QueryRequest out of the application-provided
         # request.
         internal_req = QueryRequest()
+        internal_req.set_compartment_id(self.get_compartment_id())
         internal_req.set_timeout(self.get_timeout())
         internal_req.set_trace_level(self._trace_level)
         internal_req.set_limit(self._limit)
@@ -1572,10 +1728,25 @@ class QueryRequest(Request):
         Returns True if the query execution is finished, i.e., there are no more
         query results to be generated. Otherwise False.
 
-        :return: Whether the query execution is finished or not.
+        :returns: Whether the query execution is finished or not.
         :rtype: bool
         """
         return self._continuation_key is None
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_trace_level(self, trace_level):
         CheckValue.check_int_ge_zero(trace_level, 'trace_level')
@@ -1594,7 +1765,7 @@ class QueryRequest(Request):
 
         :param limit: the limit in terms of number of items returned.
         :type limit: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the limit is a
             negative number.
         """
@@ -1607,7 +1778,7 @@ class QueryRequest(Request):
         Returns the limit on number of items returned by the operation. If not
         set by the application this value will be 0 which means no limit.
 
-        :return: the limit, or 0 if not set.
+        :returns: the limit, or 0 if not set.
         :rtype: int
         """
         return self._limit
@@ -1626,7 +1797,7 @@ class QueryRequest(Request):
         :param max_read_kb: the limit in terms of number of KB read during this
             operation.
         :type max_read_kb: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the
             max_read_kb value is less than 0.
         """
@@ -1640,7 +1811,7 @@ class QueryRequest(Request):
         If not set by the application this value will be 0 which means no
         application-defined limit.
 
-        :return: the limit, or 0 if not set.
+        :returns: the limit, or 0 if not set.
         :rtype: int
         """
         return self._max_read_kb
@@ -1653,7 +1824,7 @@ class QueryRequest(Request):
         :param max_write_kb: the limit in terms of number of KB written during
             this operation.
         :type max_write_kb: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the
             max_write_kb value is less than 0.
         """
@@ -1667,7 +1838,7 @@ class QueryRequest(Request):
         KB. If not set by the application this value will be 0 which means no
         application-defined limit.
 
-        :return: the limit, or 0 if not set.
+        :returns: the limit, or 0 if not set.
         :rtype: int
         """
         return self._max_write_kb
@@ -1684,7 +1855,7 @@ class QueryRequest(Request):
         :param memory_consumption: the maximum number of memory bytes that may
             be consumed by the statement at the driver for blocking operations.
         :type memory_consumption: long
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if
             memory_consumption is a negative number or 0.
         """
@@ -1702,7 +1873,7 @@ class QueryRequest(Request):
         cache the full result set at the client memory.
         The default value is 100MB.
 
-        :return: the maximum number of memory bytes.
+        :returns: the maximum number of memory bytes.
         :rtype: long
         """
         return self._max_memory_consumption
@@ -1713,7 +1884,7 @@ class QueryRequest(Request):
 
         :param math_context: the Context used for Decimal operations.
         :type math_context: Context
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if math_context
             is not an instance of Context.
         """
@@ -1728,7 +1899,7 @@ class QueryRequest(Request):
         """
         Returns the Context used for Decimal operations.
 
-        :return: the Context used for Decimal operations.
+        :returns: the Context used for Decimal operations.
         :rtype: Context
         """
         return self._math_context
@@ -1739,7 +1910,7 @@ class QueryRequest(Request):
 
         :param consistency: the consistency.
         :type consistency: Consistency
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if consistency
             is not Consistency.ABSOLUTE or Consistency.EVENTUAL.
         """
@@ -1755,7 +1926,7 @@ class QueryRequest(Request):
         """
         Returns the consistency set for this request, or None if not set.
 
-        :return: the consistency
+        :returns: the consistency
         :rtype: Consistency
         """
         return self._consistency
@@ -1768,7 +1939,7 @@ class QueryRequest(Request):
         :param continuation_key: the key which should have been obtained from
             :py:meth:`QueryResult.get_continuation_key`.
         :type continuation_key: bytearray or None
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
         """
@@ -1782,7 +1953,7 @@ class QueryRequest(Request):
         """
         Returns the continuation key if set.
 
-        :return: the key.
+        :returns: the key.
         :rtype: bytearray
         """
         return self._continuation_key
@@ -1804,7 +1975,7 @@ class QueryRequest(Request):
 
         :param statement: the query statement.
         :type statement: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if statement is
             not a string.
         """
@@ -1820,7 +1991,7 @@ class QueryRequest(Request):
         """
         Returns the query statement.
 
-        :return: the statement, or None if it has not been set.
+        :returns: the statement, or None if it has not been set.
         :rtype: str
         """
         return self._statement
@@ -1832,7 +2003,7 @@ class QueryRequest(Request):
         :param value: the prepared query statement or the result of a prepare
             request.
         :type value: PreparedStatement
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if value is not
             an instance of PrepareResult or PreparedStatement.
         """
@@ -1853,7 +2024,7 @@ class QueryRequest(Request):
         """
         Returns the prepared query statement.
 
-        :return: the statement, or None if it has not been set.
+        :returns: the statement, or None if it has not been set.
         :rtype: PreparedStatement
         """
         return self._prepared_statement
@@ -1882,11 +2053,11 @@ class QueryRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(QueryRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -1894,10 +2065,10 @@ class QueryRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(QueryRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def set_defaults(self, cfg):
         super(QueryRequest, self).set_defaults(cfg)
@@ -1969,7 +2140,7 @@ class SystemRequest(Request):
 
         :param statement: the statement. This is a required parameter.
         :type statement: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if statement is
             not a string.
         """
@@ -1981,7 +2152,7 @@ class SystemRequest(Request):
         """
         Returns the statement, or None if not set.
 
-        :return: the statement.
+        :returns: the statement.
         :rtype: str
         """
         return self._statement
@@ -1994,11 +2165,11 @@ class SystemRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(SystemRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -2006,20 +2177,16 @@ class SystemRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(SystemRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def set_defaults(self, cfg):
         # Use the default request timeout if not set.
-        if not isinstance(cfg, config.NoSQLHandleConfig):
-            raise IllegalArgumentException(
-                'set_defaults requires an instance of NoSQLHandleConfig as ' +
-                'parameter.')
-        if super(SystemRequest, self)._get_timeout_internal() == 0:
-            super(SystemRequest, self)._set_timeout_internal(
-                cfg.get_default_table_request_timeout())
+        self._check_config(cfg)
+        if self._get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
         return self
 
     def should_retry(self):
@@ -2064,7 +2231,7 @@ class SystemStatusRequest(Request):
 
         :param operation_id: the operation id.
         :type operation_id: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if operation_id
             is a negative number.
         """
@@ -2076,7 +2243,7 @@ class SystemStatusRequest(Request):
         """
         Returns the operation id to use for the request, None if not set.
 
-        :return: the operation id.
+        :returns: the operation id.
         :rtype: str
         """
         return self._operation_id
@@ -2089,7 +2256,7 @@ class SystemStatusRequest(Request):
 
         :param statement: the statement. This is a optional parameter.
         :type statement: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if statement is
             not a string.
         """
@@ -2102,7 +2269,7 @@ class SystemStatusRequest(Request):
         Returns the statement set by :py:meth:`set_statement`, or None if not
         set.
 
-        :return: the statement.
+        :returns: the statement.
         :rtype: str
         """
         return self._statement
@@ -2115,11 +2282,11 @@ class SystemStatusRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(SystemStatusRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -2127,20 +2294,16 @@ class SystemStatusRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(SystemStatusRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def set_defaults(self, cfg):
         # Use the default request timeout if not set.
-        if not isinstance(cfg, config.NoSQLHandleConfig):
-            raise IllegalArgumentException(
-                'set_defaults requires an instance of NoSQLHandleConfig as ' +
-                'parameter.')
-        if super(SystemStatusRequest, self)._get_timeout_internal() == 0:
-            super(SystemStatusRequest, self)._set_timeout_internal(
-                cfg.get_default_table_request_timeout())
+        self._check_config(cfg)
+        if self._get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
         return self
 
     def should_retry(self):
@@ -2197,7 +2360,7 @@ class TableRequest(Request):
 
         :param statement: the statement.
         :type statement: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if statement is
             not a string.
         """
@@ -2209,10 +2372,25 @@ class TableRequest(Request):
         """
         Returns the statement, or None if not set.
 
-        :return: the statement.
+        :returns: the statement.
         :rtype: str
         """
         return self._statement
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_table_limits(self, table_limits):
         """
@@ -2226,7 +2404,7 @@ class TableRequest(Request):
 
         :param table_limits: the limits.
         :type table_limits: TableLimits
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_limits
             is not an instance TableLimits.
         """
@@ -2241,7 +2419,7 @@ class TableRequest(Request):
         """
         Returns the table limits, or None if not set.
 
-        :return: the limits.
+        :returns: the limits.
         :rtype: TableLimits
         """
         return self._limits
@@ -2254,7 +2432,7 @@ class TableRequest(Request):
 
         :param table_name: the name of the table.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
@@ -2266,7 +2444,7 @@ class TableRequest(Request):
         """
         Returns the table name, or None if not set.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
@@ -2279,11 +2457,11 @@ class TableRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(TableRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -2291,22 +2469,19 @@ class TableRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(TableRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def set_defaults(self, cfg):
         """
         Internal use only
         """
-        if not isinstance(cfg, config.NoSQLHandleConfig):
-            raise IllegalArgumentException(
-                'set_defaults requires an instance of NoSQLHandleConfig as ' +
-                'parameter.')
-        if super(TableRequest, self)._get_timeout_internal() == 0:
-            super(TableRequest, self)._set_timeout_internal(
-                cfg.get_default_table_request_timeout())
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self._get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
         return self
 
     def should_retry(self):
@@ -2362,7 +2537,7 @@ class TableUsageRequest(Request):
 
         :param table_name: the table name.
         :type table_name: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
@@ -2374,10 +2549,25 @@ class TableUsageRequest(Request):
         """
         Gets the table name to use for the request.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
+        return self
 
     def set_start_time(self, start_time):
         """
@@ -2390,7 +2580,7 @@ class TableUsageRequest(Request):
 
         :param start_time: the start time.
         :type start_time: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if start_time is
             a negative number and is not an ISO 8601 formatted string.
         """
@@ -2405,7 +2595,7 @@ class TableUsageRequest(Request):
         Returns the start time to use for the request in milliseconds since the
         Epoch.
 
-        :return: the start time.
+        :returns: the start time.
         :rtype: int
         """
         return self._start_time
@@ -2415,7 +2605,7 @@ class TableUsageRequest(Request):
         Returns the start time as an ISO 8601 formatted string. If the start
         timestamp is not set, None is returned.
 
-        :return: the start time, or None if not set.
+        :returns: the start time, or None if not set.
         :rtype: str
         """
 
@@ -2435,7 +2625,7 @@ class TableUsageRequest(Request):
 
         :param end_time: the end time.
         :type end_time: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if end_time is a
             negative number and is not an ISO 8601 formatted string.
         """
@@ -2450,7 +2640,7 @@ class TableUsageRequest(Request):
         Returns the end time to use for the request in milliseconds since the
         Epoch.
 
-        :return: the end time.
+        :returns: the end time.
         :rtype: int
         """
         return self._end_time
@@ -2460,7 +2650,7 @@ class TableUsageRequest(Request):
         Returns the end time as an ISO 8601 formatted string. If the end
         timestamp is not set, None is returned.
 
-        :return: the end time, or None if not set.
+        :returns: the end time, or None if not set.
         :rtype: str
         """
         if self._end_time == 0:
@@ -2475,7 +2665,7 @@ class TableUsageRequest(Request):
 
         :param limit: the numeric limit.
         :type limit: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if limit is a
             negative number.
         """
@@ -2487,7 +2677,7 @@ class TableUsageRequest(Request):
         """
         Returns the limit to the number of usage records desired.
 
-        :return: the numeric limit.
+        :returns: the numeric limit.
         :rtype: int
         """
         return self._limit
@@ -2500,11 +2690,11 @@ class TableUsageRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(TableUsageRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -2512,10 +2702,10 @@ class TableUsageRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the value.
+        :returns: the value.
         :rtype: int
         """
-        return super(TableUsageRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
@@ -2574,7 +2764,7 @@ class WriteMultipleRequest(Request):
         """
         Returns the tableName used for the operations.
 
-        :return: the table name, or None if no operation.
+        :returns: the table name, or None if no operation.
         :rtype: str
         """
         return self._table_name
@@ -2590,7 +2780,7 @@ class WriteMultipleRequest(Request):
         :param abort_if_unsuccessful: True if this operation should cause the
             entire WriteMultiple operation to abort when this operation fails.
         :type abort_if_unsuccessful: bool
-        :return: self.
+        :returns: self.
         :raises BatchOperationNumberLimitException: raises the exception if the
             number of requests exceeds the limit, or IllegalArgumentException if
             the request is neither a :py:class:`PutRequest` or
@@ -2605,15 +2795,29 @@ class WriteMultipleRequest(Request):
         CheckValue.check_boolean(abort_if_unsuccessful,
                                  'abort_if_unsuccessful')
         if self._table_name is None:
-            self._table_name = request.get_table_name_internal()
+            self._table_name = request.get_table_name()
         else:
-            if (request.get_table_name_internal().lower() !=
-                    self._table_name.lower()):
+            if request.get_table_name().lower() != self._table_name.lower():
                 raise IllegalArgumentException(
                     'The table_name used for the operation is different from ' +
                     'that of others: ' + self._table_name)
         request.validate()
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
+        return self
+
+    def set_compartment_id(self, compartment_id):
+        """
+        Cloud service only.
+
+        Sets the compartment id to use for the operation.
+
+        :param compartment_id: the compartment id.
+        :type compartment_id: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment_id
+            is not a str.
+        """
+        self._set_compartment_id(compartment_id)
         return self
 
     def get_request(self, index):
@@ -2623,7 +2827,7 @@ class WriteMultipleRequest(Request):
 
         :param index: the position of Request to get.
         :type index: int
-        :return: the Request at the given position.
+        :returns: the Request at the given position.
         :rtype: Request
         :raises IndexOutOfBoundsException: raises the exception if the position
             is negative or greater or equal to the number of Requests.
@@ -2641,7 +2845,7 @@ class WriteMultipleRequest(Request):
         """
         Returns the number of Requests.
 
-        :return: the number of Requests.
+        :returns: the number of Requests.
         :rtype: int
         """
         return len(self._ops)
@@ -2654,11 +2858,11 @@ class WriteMultipleRequest(Request):
 
         :param timeout_ms: the timeout value, in milliseconds.
         :type timeout_ms: int
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if the timeout
             value is less than or equal to 0.
         """
-        super(WriteMultipleRequest, self)._set_timeout_internal(timeout_ms)
+        self._set_timeout(timeout_ms)
         return self
 
     def get_timeout(self):
@@ -2666,10 +2870,10 @@ class WriteMultipleRequest(Request):
         Returns the timeout to use for the operation, in milliseconds. A value
         of 0 indicates that the timeout has not been set.
 
-        :return: the timeout value.
+        :returns: the timeout value.
         :rtype: int
         """
-        return super(WriteMultipleRequest, self)._get_timeout_internal()
+        return self._get_timeout()
 
     def clear(self):
         """
@@ -2718,24 +2922,24 @@ class Result(object):
         self._read_kb = read_kb
         return self
 
-    def _get_read_kb_internal(self):
-        return self._read_kb
-
     def set_read_units(self, read_units):
         self._read_units = read_units
         return self
-
-    def _get_read_units_internal(self):
-        return self._read_units
 
     def set_write_kb(self, write_kb):
         self._write_kb = write_kb
         return self
 
-    def _get_write_kb_internal(self):
+    def _get_read_kb(self):
+        return self._read_kb
+
+    def _get_read_units(self):
+        return self._read_units
+
+    def _get_write_kb(self):
         return self._write_kb
 
-    def _get_write_units_internal(self):
+    def _get_write_units(self):
         return self._write_kb
 
 
@@ -2750,19 +2954,19 @@ class WriteResult(Result):
         self._existing_version = None
         self._existing_value = None
 
-    def set_existing_version(self, existing_version):
-        self._existing_version = existing_version
-        return self
-
-    def get_existing_version_internal(self):
-        return self._existing_version
-
     def set_existing_value(self, existing_value):
         self._existing_value = existing_value
         return self
 
-    def get_existing_value_internal(self):
+    def set_existing_version(self, existing_version):
+        self._existing_version = existing_version
+        return self
+
+    def _get_existing_value(self):
         return self._existing_value
+
+    def _get_existing_version(self):
+        return self._existing_version
 
 
 class DeleteResult(WriteResult):
@@ -2790,7 +2994,7 @@ class DeleteResult(WriteResult):
         """
         Returns True if the delete operation succeeded.
 
-        :return: True if the operation succeeded.
+        :returns: True if the operation succeeded.
         :rtype: bool
         """
         return self._success
@@ -2802,10 +3006,10 @@ class DeleteResult(WriteResult):
         :py:class:`Version` mismatch and the corresponding
         :py:class:`DeleteRequest` the method
         :py:meth:`DeleteRequest.set_return_row` was called with a True value.
-        :return: the value.
+        :returns: the value.
         :rtype: dict
         """
-        return super(DeleteResult, self).get_existing_value_internal()
+        return self._get_existing_value()
 
     def get_existing_version(self):
         """
@@ -2814,10 +3018,10 @@ class DeleteResult(WriteResult):
         :py:class:`Version` mismatch and the corresponding
         :py:class:`DeleteRequest` the method
         :py:meth:`DeleteRequest.set_return_row` was called with a True value.
-        :return: the version.
+        :returns: the version.
         :rtype Version
         """
-        return super(DeleteResult, self).get_existing_version_internal()
+        return self._get_existing_version()
 
     def get_read_kb(self):
         """
@@ -2826,10 +3030,10 @@ class DeleteResult(WriteResult):
         units consumed is returned by :py:meth:`get_read_units` which may be a
         larger number because this was an update operation.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
-        return super(DeleteResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -2837,28 +3041,28 @@ class DeleteResult(WriteResult):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         because it was an update operation.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
-        return super(DeleteResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
-        return super(DeleteResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
-        return super(DeleteResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
 
 class GetResult(Result):
@@ -2890,7 +3094,7 @@ class GetResult(Result):
         Returns the value of the returned row, or None if the row does not
         exist.
 
-        :return: the value of the row, or None if it does not exist.
+        :returns: the value of the row, or None if it does not exist.
         :rtype: dict
         """
         return self._value
@@ -2905,7 +3109,7 @@ class GetResult(Result):
         Returns the :py:class:`Version` of the row if the operation was
         successful, or None if the row does not exist.
 
-        :return: the version of the row, or None if the row does not exist.
+        :returns: the version of the row, or None if the row does not exist.
         :rtype: Version
         """
         return self._version
@@ -2921,7 +3125,7 @@ class GetResult(Result):
         row does not expire. This value is valid only if the operation
         successfully returned a row (:py:meth:`get_value` returns non-none).
 
-        :return: the expiration time in milliseconds since January 1, 1970, or
+        :returns: the expiration time in milliseconds since January 1, 1970, or
             zero if the row never expires or the row does not exist.
         :rtype: int
         """
@@ -2934,10 +3138,10 @@ class GetResult(Result):
         units consumed is returned by :py:meth:`get_read_units` which may be a
         larger number if the operation used Consistency.ABSOLUTE.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
-        return super(GetResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -2945,28 +3149,28 @@ class GetResult(Result):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         if the operation used Consistency.ABSOLUTE.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
-        return super(GetResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
-        return super(GetResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
-        return super(GetResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
 
 class GetIndexesResult(Result):
@@ -2997,7 +3201,7 @@ class GetIndexesResult(Result):
         """
         Returns the list of index information returned by the operation.
 
-        :return: the indexes information.
+        :returns: the indexes information.
         :rtype: list(IndexInfo)
         """
         return self._indexes
@@ -3028,7 +3232,7 @@ class ListTablesResult(Result):
         """
         Returns the array of table names returned by the operation.
 
-        :return: the table names.
+        :returns: the table names.
         :rtype: list(str)
         """
         return self._tables
@@ -3043,7 +3247,7 @@ class ListTablesResult(Result):
         to :py:class:`ListTablesRequest` to be used as a starting point for
         listing tables.
 
-        :return: the index.
+        :returns: the index.
         :rtype: int
         """
         return self._last_index_returned
@@ -3076,7 +3280,7 @@ class MultiDeleteResult(Result):
         Returns the continuation key where the next MultiDelete request resume
         from.
 
-        :return: the continuation key, or None if there are no more rows to
+        :returns: the continuation key, or None if there are no more rows to
             delete.
         :rtype: bytearray
         """
@@ -3090,7 +3294,7 @@ class MultiDeleteResult(Result):
         """
         Returns the number of rows deleted from the table.
 
-        :return: the number of rows deleted.
+        :returns: the number of rows deleted.
         :rtype: int
         """
         return self._num_deleted
@@ -3102,10 +3306,10 @@ class MultiDeleteResult(Result):
         units consumed is returned by :py:meth:`get_read_units` which may be a
         larger number because this was an update operation.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
-        return super(MultiDeleteResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -3113,28 +3317,28 @@ class MultiDeleteResult(Result):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         because it was an update operation.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
-        return super(MultiDeleteResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
-        return super(MultiDeleteResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
-        return super(MultiDeleteResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
 
 class PrepareResult(Result):
@@ -3157,7 +3361,7 @@ class PrepareResult(Result):
         """
         Returns the value of the prepared statement.
 
-        :return: the value of the prepared statement.
+        :returns: the value of the prepared statement.
         :rtype: PreparedStatement
         """
         return self._prepared_statement
@@ -3169,10 +3373,10 @@ class PrepareResult(Result):
         units consumed is returned by :py:meth:`get_read_units` which may be a
         larger number if the operation used Consistency.ABSOLUTE.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
-        return super(PrepareResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -3180,28 +3384,28 @@ class PrepareResult(Result):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         if the operation used Consistency.ABSOLUTE.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
-        return super(PrepareResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
-        return super(PrepareResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
-        return super(PrepareResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
 
 class PutResult(WriteResult):
@@ -3233,7 +3437,7 @@ class PutResult(WriteResult):
         Returns the :py:class:`Version` of the new row if the operation was
         successful. If the operation failed None is returned.
 
-        :return: the :py:class:`Version` on success, None on failure.
+        :returns: the :py:class:`Version` on success, None on failure.
         :rtype: Version
         """
         return self._version
@@ -3249,7 +3453,7 @@ class PutResult(WriteResult):
         None. If it has an identity column and a value was generated for that
         column, it is not None.
 
-        :return: the generated value.
+        :returns: the generated value.
         """
         return self._generated_value
 
@@ -3260,10 +3464,10 @@ class PutResult(WriteResult):
         request specified that return information be returned using
         :py:meth:`PutRequest.set_return_row`.
 
-        :return: the :py:class:`Version`.
+        :returns: the :py:class:`Version`.
         :rtype: Version
         """
-        return super(PutResult, self).get_existing_version_internal()
+        return self._get_existing_version()
 
     def get_existing_value(self):
         """
@@ -3272,10 +3476,10 @@ class PutResult(WriteResult):
         specified that return information be returned using
         :py:meth:`PutRequest.set_return_row`.
 
-        :return: the value.
+        :returns: the value.
         :rtype: dict
         """
-        return super(PutResult, self).get_existing_value_internal()
+        return self._get_existing_value()
 
     def get_read_kb(self):
         """
@@ -3284,10 +3488,10 @@ class PutResult(WriteResult):
         read units consumed is returned by :py:meth:`get_read_units` which may
         be a larger number because this was an update operation.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
-        return super(PutResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -3295,28 +3499,28 @@ class PutResult(WriteResult):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         because it was an update operation.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
-        return super(PutResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
-        return super(PutResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
-        return super(PutResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
 
 class QueryResult(Result):
@@ -3381,7 +3585,7 @@ class QueryResult(Result):
         Returns a list of results for the query. It is possible to have an empty
         list and a non-none continuation key.
 
-        :return: a list of results for the query.
+        :returns: a list of results for the query.
         :rtype: list(dict)
         """
         self._compute()
@@ -3399,7 +3603,7 @@ class QueryResult(Result):
         Returns the continuation key that can be used to obtain more results
         if non-none.
 
-        :return: the continuation key, or None if there are no further values
+        :returns: the continuation key, or None if there are no further values
             to return.
         :rtype: bytearray
         """
@@ -3454,11 +3658,11 @@ class QueryResult(Result):
         units consumed is returned by :py:meth:`get_read_units` which may be a
         larger number if the operation used Consistency.ABSOLUTE.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
         self._compute()
-        return super(QueryResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -3466,31 +3670,31 @@ class QueryResult(Result):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         if the operation used Consistency.ABSOLUTE.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
         self._compute()
-        return super(QueryResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
         self._compute()
-        return super(QueryResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
         self._compute()
-        return super(QueryResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
     def _compute(self):
         if self._is_computed:
@@ -3556,7 +3760,7 @@ class SystemResult(Result):
 
         This method is only useful for the result of asynchronous operations.
 
-        :return: the operation id.
+        :returns: the operation id.
         :rtype: str
         """
         return self._operation_id
@@ -3570,7 +3774,7 @@ class SystemResult(Result):
         """
         Returns the operation state.
 
-        :return: the state.
+        :returns: the state.
         :rtype: int
         """
         return self._state
@@ -3587,7 +3791,7 @@ class SystemResult(Result):
         "show" operations return a non-none result string, but "create, drop,
         grant, etc" operations return a none result string.
 
-        :return: the result string.
+        :returns: the result string.
         :rtype: str
         """
         return self._result_string
@@ -3601,7 +3805,7 @@ class SystemResult(Result):
         """
         Returns the statement used for the operation.
 
-        :return: the statement.
+        :returns: the statement.
         :rtype: str
         """
         return self._statement
@@ -3636,9 +3840,7 @@ class SystemResult(Result):
                 'Wait milliseconds must be a minimum of ' + str(default_delay) +
                 ' and greater than delay milliseconds.')
         start_time = int(round(time() * 1000))
-        delay_s = delay_ms // 1000
-        if delay_s == 0:
-            delay_s = 1
+        delay_s = float(delay_ms) / 1000
         system_status = SystemStatusRequest().set_operation_id(
             self._operation_id)
         res = None
@@ -3680,6 +3882,7 @@ class TableResult(Result):
 
     def __init__(self):
         super(TableResult, self).__init__()
+        self._compartment_id = None
         self._table_name = None
         self._state = None
         self._limits = None
@@ -3691,6 +3894,22 @@ class TableResult(Result):
                 str(self._limits) + ' schema [' + str(self._schema) +
                 '] operation_id = ' + str(self._operation_id))
 
+    def set_compartment_id(self, compartment_id):
+        # Internal use only.
+        self._compartment_id = compartment_id
+        return self
+
+    def get_compartment_id(self):
+        """
+        Cloud service only.
+
+        Returns compartment id of the target table.
+
+        :returns: compartment id.
+        :rtype: str
+        """
+        return self._compartment_id
+
     def set_table_name(self, table_name):
         self._table_name = table_name
         return self
@@ -3699,7 +3918,7 @@ class TableResult(Result):
         """
         Returns the table name of the target table.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
@@ -3713,7 +3932,7 @@ class TableResult(Result):
         Returns the table state. A table in state State.ACTIVE or State.UPDATING
         is usable for normal operation.
 
-        :return: the state.
+        :returns: the state.
         :rtype: State
         """
         return self._state
@@ -3727,7 +3946,7 @@ class TableResult(Result):
         Returns the throughput and capacity limits for the table. Limits from an
         on-premise service will always be None.
 
-        :return: the limits.
+        :returns: the limits.
         :rtype: TableLimits
         """
         return self._limits
@@ -3740,7 +3959,7 @@ class TableResult(Result):
         """
         Returns the schema for the table.
 
-        :return: the schema for the table.
+        :returns: the schema for the table.
         :rtype: str
         """
         return self._schema
@@ -3756,7 +3975,7 @@ class TableResult(Result):
         :py:meth:`set_operation_id` to find potential errors resulting from the
         operation.
 
-        :return: the operation id for an asynchronous operation.
+        :returns: the operation id for an asynchronous operation.
         :rtype: str
         """
         return self._operation_id
@@ -3799,7 +4018,8 @@ class TableResult(Result):
 
     @staticmethod
     def wait_for_state(handle, state, wait_millis, delay_millis,
-                       table_name=None, operation_id=None, result=None):
+                       table_name=None, compartment_id=None, operation_id=None,
+                       result=None):
         """
         Waits for the specified table to reach the desired state. This is a
         blocking, polling style wait that delays for the specified number of
@@ -3820,19 +4040,24 @@ class TableResult(Result):
         :type delay_millis: int
         :param table_name: the optional table name.
         :type table_name: str
+        :param compartment_id: the optional compartment id if using cloud
+            service
+        :type compartment_id: str
         :param operation_id: the optional operation id.
         :type operation_id: str
         :param result: a optional previously received TableResult.
         :type result: TableResult
-        :return: the TableResult representing the table at the desired state.
+        :returns: the TableResult representing the table at the desired state.
         :rtype: TableResult
         :raises IllegalArgumentException: raises the exception if the parameters
             are not valid.
         :raises RequestTimeoutException: raises the exception if the operation
             times out.
         """
-        if result is not None and table_name is None and operation_id is None:
+        if (result is not None and table_name is None and operation_id is None
+                and compartment_id is None):
             table_name = result.get_table_name()
+            compartment_id = result.get_compartment_id()
             operation_id = result.get_operation_id()
         elif result is None and table_name is not None:
             pass
@@ -3849,11 +4074,11 @@ class TableResult(Result):
                 'Wait milliseconds must be a minimum of ' + str(default_delay) +
                 ' and greater than delay milliseconds')
         start_time = int(round(time() * 1000))
-        delay_s = delay_ms // 1000
-        if delay_s == 0:
-            delay_s = 1
+        delay_s = float(delay_ms) / 1000
         get_table = GetTableRequest().set_table_name(
             table_name).set_operation_id(operation_id)
+        if compartment_id is not None:
+            get_table.set_compartment_id(compartment_id)
         res = None
         while True:
             cur_time = int(round(time() * 1000))
@@ -3935,7 +4160,7 @@ class TableUsageResult(Result):
         """
         Returns the table name used by the operation.
 
-        :return: the table name.
+        :returns: the table name.
         :rtype: str
         """
         return self._table_name
@@ -3949,7 +4174,7 @@ class TableUsageResult(Result):
         Returns a list of usage records based on the parameters of the
         :py:class:`TableUsageRequest` used.
 
-        :return: an list of usage records.
+        :returns: an list of usage records.
         :type: list(TableUsage)
         """
         return self._usage_records
@@ -3987,7 +4212,7 @@ class WriteMultipleResult(Result):
         """
         Returns the list of execution results for the operations.
 
-        :return: the list of execution results.
+        :returns: the list of execution results.
         :rtype: list(OperationResult)
         """
         return self._results
@@ -3997,7 +4222,7 @@ class WriteMultipleResult(Result):
         Returns the result of the operation that results in the entire
         WriteMultiple operation aborting.
 
-        :return: the result of the operation, None if not set.
+        :returns: the result of the operation, None if not set.
         :rtype: OperationResult or None
         """
         if self._failed_operation_index == -1 or not self._results:
@@ -4012,7 +4237,7 @@ class WriteMultipleResult(Result):
         Returns the index of failed operation that results in the entire
         WriteMultiple operation aborting.
 
-        :return: the index of operation, -1 if not set.
+        :returns: the index of operation, -1 if not set.
         :rtype: int
         """
         return self._failed_operation_index
@@ -4026,7 +4251,7 @@ class WriteMultipleResult(Result):
         :py:meth:`get_failed_operation_index` and its result can be accessed
         using :py:meth:`get_failed_operation_result`.
 
-        :return: True if the operation succeeded.
+        :returns: True if the operation succeeded.
         :rtype: bool
         """
         return self._failed_operation_index == -1
@@ -4035,7 +4260,7 @@ class WriteMultipleResult(Result):
         """
         Returns the number of results.
 
-        :return: the number of results.
+        :returns: the number of results.
         :rtype: int
         """
         return len(self._results)
@@ -4047,10 +4272,10 @@ class WriteMultipleResult(Result):
         units consumed is returned by :py:meth:`get_read_units` which may be a
         larger number because this was an update operation.
 
-        :return: the read KBytes consumed.
+        :returns: the read KBytes consumed.
         :rtype: int
         """
-        return super(WriteMultipleResult, self)._get_read_kb_internal()
+        return self._get_read_kb()
 
     def get_read_units(self):
         """
@@ -4058,28 +4283,28 @@ class WriteMultipleResult(Result):
         This number may be larger than that returned by :py:meth:`get_read_kb`
         because it was an update operation.
 
-        :return: the read units consumed.
+        :returns: the read units consumed.
         :rtype: int
         """
-        return super(WriteMultipleResult, self)._get_read_units_internal()
+        return self._get_read_units()
 
     def get_write_kb(self):
         """
         Returns the write throughput consumed by this operation, in KBytes.
 
-        :return: the write KBytes consumed.
+        :returns: the write KBytes consumed.
         :rtype: int
         """
-        return super(WriteMultipleResult, self)._get_write_kb_internal()
+        return self._get_write_kb()
 
     def get_write_units(self):
         """
         Returns the write throughput consumed by this operation, in write units.
 
-        :return: the write units consumed.
+        :returns: the write units consumed.
         :rtype: int
         """
-        return super(WriteMultipleResult, self)._get_write_units_internal()
+        return self._get_write_units()
 
 
 class OperationResult(WriteResult):
@@ -4112,7 +4337,7 @@ class OperationResult(WriteResult):
         Returns the version of the new row for put operation, or None if put
         operations did not succeed or the operation is delete operation.
 
-        :return: the version.
+        :returns: the version.
         :rtype: Version
         """
         return self._version
@@ -4127,7 +4352,7 @@ class OperationResult(WriteResult):
         delete operation may be unsuccessful if the condition is not
         matched.
 
-        :return: True if the operation succeeded.
+        :returns: True if the operation succeeded.
         :rtype: bool
         """
         return self._success
@@ -4146,7 +4371,7 @@ class OperationResult(WriteResult):
         This value is only valid for a put operation on a table with an
         identity column.
 
-        :return: the generated value.
+        :returns: the generated value.
         """
         return self._generated_value
 
@@ -4155,16 +4380,16 @@ class OperationResult(WriteResult):
         Returns the existing row version associated with the key if
         available.
 
-        :return: the existing row version
+        :returns: the existing row version
         :rtype: Version
         """
-        return super(OperationResult, self).get_existing_version_internal()
+        return self._get_existing_version()
 
     def get_existing_value(self):
         """
         Returns the previous row value associated with the key if available.
 
-        :return: the previous row value
+        :returns: the previous row value
         :rtype: dict
         """
-        return super(OperationResult, self).get_existing_value_internal()
+        return self._get_existing_value()

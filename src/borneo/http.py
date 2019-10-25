@@ -12,7 +12,7 @@ from requests import ConnectionError, Timeout, codes
 from threading import Lock
 from time import time
 
-from .common import ByteInputStream, synchronized
+from .common import ByteInputStream, HttpConstants, synchronized
 from .exception import (
     IllegalStateException, NoSQLException, RequestTimeoutException,
     RetryableException, SecurityInfoNotReadyException)
@@ -170,9 +170,7 @@ class RequestUtils(object):
     def _do_request(self, method, uri, headers, payload, timeout_ms,
                     sec_timeout_ms):
         start_ms = int(round(time() * 1000))
-        timeout_s = timeout_ms // 1000
-        if timeout_s == 0:
-            timeout_s = 1
+        timeout_s = float(timeout_ms) / 1000
         throttle_retried = 0
         num_retried = 0
         exception = None
@@ -181,15 +179,15 @@ class RequestUtils(object):
                 auth_string = self._auth_provider.get_authorization_string(
                     self._request)
                 self._auth_provider.validate_auth_string(auth_string)
-                if auth_string is not None:
-                    headers['Authorization'] = auth_string
+                self._auth_provider.set_required_headers(
+                    self._request, auth_string, headers)
             if num_retried > 0:
                 self._log_retried(num_retried, exception)
             response = None
             try:
                 if self._request is not None:
                     request_id = str(self._next_request_id())
-                    headers['x-nosql-request-id'] = request_id
+                    headers[HttpConstants.REQUEST_ID_HEADER] = request_id
                 elif payload is not None:
                     payload = payload.encode()
                 if payload is None:

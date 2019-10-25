@@ -288,7 +288,7 @@ class PlanIter(object):
                     SizeOf.string_size(value.isoformat()) + 4)
         elif isinstance(value, Decimal):
             size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                    SizeOf.byte_array_size(getsizeof(value) / 8))
+                    SizeOf.byte_array_size(getsizeof(value) // 8))
         elif value is None:
             size = 0
         else:

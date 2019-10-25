@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     GetIndexesRequest, IllegalArgumentException, IndexNotFoundException,
     TableLimits, TableNotFoundException, TableRequest)
-from parameters import index_name, table_name, timeout
+from parameters import index_name, table_name, tenant_id, timeout
 from test_base import TestBase
 
 
@@ -39,9 +39,10 @@ fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(0), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
-            limits = TableLimits(5000, 5000, 50)
+            limits = TableLimits(50, 50, 1)
             create_request = TableRequest().set_statement(
-                create_statement).set_table_limits(limits)
+                create_statement).set_table_limits(limits).set_compartment_id(
+                tenant_id)
             cls.table_request(create_request)
 
             index_names.append(list())
@@ -52,7 +53,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                     'CREATE INDEX ' + idx_name + ' ON ' + tb_name +
                     '(' + ','.join(index_fields[index]) + ')')
                 create_index_request = TableRequest().set_statement(
-                    create_index_statement)
+                    create_index_statement).set_compartment_id(tenant_id)
                 cls.table_request(create_index_request)
 
     @classmethod
@@ -61,7 +62,8 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
 
     def setUp(self):
         self.set_up()
-        self.get_indexes_request = GetIndexesRequest().set_timeout(timeout)
+        self.get_indexes_request = GetIndexesRequest().set_timeout(
+            timeout).set_compartment_id(tenant_id)
 
     def tearDown(self):
         self.tear_down()
@@ -73,6 +75,12 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.get_indexes_request.set_table_name('IllegalTable')
         self.assertRaises(TableNotFoundException, self.handle.get_indexes,
                           self.get_indexes_request)
+
+    def testGetIndexesSetIllegalCompartmentId(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.get_indexes_request.set_compartment_id, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.get_indexes_request.set_compartment_id, '')
 
     def testGetIndexesSetIllegalIndexName(self):
         self.get_indexes_request.set_table_name(table_names[0])
@@ -100,6 +108,8 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.get_indexes_request.set_table_name(table_name).set_index_name(
             index_name)
         self.assertEqual(self.get_indexes_request.get_table_name(), table_name)
+        self.assertEqual(self.get_indexes_request.get_compartment_id(),
+                         tenant_id)
         self.assertEqual(self.get_indexes_request.get_index_name(), index_name)
 
     def testGetIndexesIllegalRequest(self):

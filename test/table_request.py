@@ -50,14 +50,16 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.drop_idx_statement = (
             'DROP INDEX ' + index_name + ' ON ' + table_name)
         self.drop_tb_statement = ('DROP TABLE IF EXISTS ' + table_name)
-        self.table_request = TableRequest()
-        self.table_limits = TableLimits(5000, 5000, 50)
+        self.table_request = TableRequest().set_compartment_id(tenant_id)
+        self.table_limits = TableLimits(100, 100, 1)
 
     def tearDown(self):
         try:
+            sleep(1)
             TableResult.wait_for_state(self.handle, State.ACTIVE, wait_timeout,
-                                       1000, table_name)
-            drop_request = TableRequest().set_statement(self.drop_tb_statement)
+                                       1000, table_name, tenant_id)
+            drop_request = TableRequest().set_statement(
+                self.drop_tb_statement).set_compartment_id(tenant_id)
             self._do_table_request(drop_request)
         except TableNotFoundException:
             pass
@@ -77,6 +79,12 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(TableNotFoundException, self.handle.table_request,
                           self.table_request)
 
+    def testTableRequestSetIllegalCompartmentId(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.table_request.set_compartment_id, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.table_request.set_compartment_id, '')
+
     def testTableRequestSetIllegalTableLimits(self):
         self.assertRaises(IllegalArgumentException,
                           self.table_request.set_table_limits,
@@ -84,7 +92,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(IllegalArgumentException,
                           self.table_request.set_table_limits, None)
         self.table_request.set_statement(
-            self.create_tb_statement).set_table_limits(TableLimits(5000, 0, 50))
+            self.create_tb_statement).set_table_limits(TableLimits(100, 0, 1))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
 
@@ -135,6 +143,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             self.create_tb_statement).set_table_limits(self.table_limits)
         self.assertEqual(self.table_request.get_statement(),
                          self.create_tb_statement)
+        self.assertEqual(self.table_request.get_compartment_id(), tenant_id)
         self.assertEqual(self.table_request.get_table_limits(),
                          self.table_limits)
         self.assertEqual(self.table_request.get_table_name(), table_name)
@@ -152,8 +161,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # create table succeed with TableLimits set
         self.table_request.set_table_limits(self.table_limits)
         result = self.handle.table_request(self.table_request)
-        self.check_table_result(
-            result, State.CREATING, self.table_limits, False)
+        if is_onprem():
+            self.check_table_result(result, State.CREATING, has_schema=False)
+        else:
+            self.check_table_result(
+                result, State.CREATING, self.table_limits, False)
         self._wait_for_completion(result)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table by resetting the statement
@@ -162,31 +174,31 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # TODO: A difference between old cloud proxy and new cloud proxy, during
         # DROPPING phase, the table limit is not none for old proxy but none for
         # new proxy.
-        self._check_table_result(result, State.DROPPING, check_limit=False)
+        self.check_table_result(result, State.DROPPING, check_limit=False)
         self._wait_for_completion(result)
         # TODO: A difference between old cloud proxy and new cloud proxy, after
         # table DROPPED, the table limit is not none for old proxy but none for
         # new proxy.
-        self._check_table_result(result, State.DROPPED, has_schema=False,
-                                 check_limit=False)
+        self.check_table_result(result, State.DROPPED, has_schema=False,
+                                check_limit=False)
 
     def testTableRequestCreateDropIndex(self):
         # create table before creating index
-        request = TableRequest().set_statement(
+        request = TableRequest().set_compartment_id(tenant_id).set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
         self._do_table_request(request)
         # create index by resetting the statement
         self.table_request.set_statement(self.create_idx_statement)
         result = self.handle.table_request(self.table_request)
-        self._check_table_result(result, State.UPDATING, self.table_limits)
+        self.check_table_result(result, State.UPDATING, self.table_limits)
         self._wait_for_completion(result)
-        self._check_table_result(result, State.ACTIVE, self.table_limits)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop index by resetting the statement
         self.table_request.set_statement(self.drop_idx_statement)
         result = self.handle.table_request(self.table_request)
-        self._check_table_result(result, State.UPDATING, self.table_limits)
+        self.check_table_result(result, State.UPDATING, self.table_limits)
         self._wait_for_completion(result)
-        self._check_table_result(result, State.ACTIVE, self.table_limits)
+        self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after dropping index
         self.table_request.set_statement(self.drop_tb_statement)
         self._do_table_request(self.table_request)
@@ -194,7 +206,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestAlterTable(self):
         # create table before altering table
         request = TableRequest().set_statement(
-            self.create_tb_statement).set_table_limits(self.table_limits)
+            self.create_tb_statement).set_table_limits(
+            self.table_limits).set_compartment_id(tenant_id)
         self._do_table_request(request)
         # alter table failed with TableLimits set
         if not is_onprem():
@@ -214,7 +227,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestAlterTableTTL(self):
         # create table before altering table
         request = TableRequest().set_statement(
-            self.create_tb_statement).set_table_limits(self.table_limits)
+            self.create_tb_statement).set_table_limits(
+            self.table_limits).set_compartment_id(tenant_id)
         self._do_table_request(request)
         # alter table ttl
         self.table_request.set_statement(self.alter_ttl_statement)
@@ -229,10 +243,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestModifyTableLimits(self):
         # create table before modifying the table limits
         request = TableRequest().set_statement(
-            self.create_tb_statement).set_table_limits(self.table_limits)
+            self.create_tb_statement).set_table_limits(
+            self.table_limits).set_compartment_id(tenant_id)
         self._do_table_request(request)
         # modify the table limits
-        table_limits = TableLimits(10000, 10000, 100)
+        table_limits = TableLimits(50, 50, 1)
         self.table_request.set_table_name(table_name).set_table_limits(
             table_limits)
         if is_onprem():
@@ -250,18 +265,6 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # drop table after modifying the table limits
         request.set_statement(self.drop_tb_statement)
         self._do_table_request(request)
-
-    def _check_table_result(self, result, state, table_limits=None,
-                            has_schema=True, check_limit=True):
-        # TODO: For minicloud, the SC module doesn't return operation id for
-        # now. This affects drop table as well as create/drop index. When the SC
-        # is changed to return the operation id, the test need to be changed.
-        if is_minicloud():
-            self.check_table_result(result, state, table_limits, has_schema,
-                                    False, check_limit)
-        else:
-            self.check_table_result(result, state, table_limits, has_schema,
-                                    check_limit=check_limit)
 
     def _do_table_request(self, request):
         #

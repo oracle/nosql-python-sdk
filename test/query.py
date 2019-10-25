@@ -34,12 +34,12 @@ fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(6), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(SHARD(fld_sid), fld_id))')
-        limits = TableLimits(5000, 5000, 50)
-        create_request = TableRequest().set_statement(
-            create_statement).set_table_limits(limits)
+        limits = TableLimits(100, 100, 1)
+        create_request = TableRequest().set_compartment_id(
+            tenant_id).set_statement(create_statement).set_table_limits(limits)
         cls.table_request(create_request)
 
-        create_idx_request = TableRequest()
+        create_idx_request = TableRequest().set_compartment_id(tenant_id)
         create_idx_statement = (
             'CREATE INDEX ' + index_name + '1 ON ' + table_name + '(fld_long)')
         create_idx_request.set_statement(create_idx_statement)
@@ -75,7 +75,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.max_time = list()
         shardkeys = 2
         ids = 6
-        write_multiple_request = WriteMultipleRequest()
+        write_multiple_request = WriteMultipleRequest().set_compartment_id(
+            tenant_id)
         for sk in range(shardkeys):
             for i in range(ids):
                 row = get_row()
@@ -92,8 +93,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 row['fld_json']['location']['coordinates'] = (
                     [23.549 - sk * 0.5 - i, 35.2908 + sk * 0.5 + i])
                 write_multiple_request.add(
-                    PutRequest().set_value(row).set_table_name(table_name),
-                    True)
+                    PutRequest().set_value(row).set_table_name(
+                        table_name).set_compartment_id(tenant_id), True)
             self.handle.write_multiple(write_multiple_request)
             write_multiple_request.clear()
         prepare_statement_update = (
@@ -101,21 +102,29 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             ' u SET u.fld_long = u.fld_long + 1 WHERE fld_sid = $fld_sid ' +
             'AND fld_id = $fld_id')
         prepare_request_update = PrepareRequest().set_statement(
-            prepare_statement_update)
+            prepare_statement_update).set_compartment_id(tenant_id)
         self.prepare_result_update = self.handle.prepare(
             prepare_request_update)
         prepare_statement_select = (
             'DECLARE $fld_long LONG; SELECT fld_sid, fld_id, fld_long FROM ' +
             table_name + ' WHERE fld_long = $fld_long')
         prepare_request_select = PrepareRequest().set_statement(
-            prepare_statement_select)
+            prepare_statement_select).set_compartment_id(tenant_id)
         self.prepare_result_select = self.handle.prepare(
             prepare_request_select)
-        self.query_request = QueryRequest().set_timeout(timeout)
-        self.get_request = GetRequest().set_table_name(table_name)
+        self.query_request = QueryRequest().set_timeout(
+            timeout).set_compartment_id(tenant_id)
+        self.get_request = GetRequest().set_table_name(
+            table_name).set_compartment_id(tenant_id)
 
     def tearDown(self):
         self.tear_down()
+
+    def testQuerySetIllegalCompartmentId(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.query_request.set_compartment_id, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.query_request.set_compartment_id, '')
 
     def testQuerySetIllegalLimit(self):
         self.assertRaises(IllegalArgumentException,
@@ -210,6 +219,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.prepare_result_select).set_limit(3).set_max_read_kb(
             2).set_max_write_kb(3).set_max_memory_consumption(
             5).set_math_context(context).set_continuation_key(continuation_key)
+        self.assertEqual(self.query_request.get_compartment_id(), tenant_id)
         self.assertFalse(self.query_request.is_done())
         self.assertEqual(self.query_request.get_limit(), 3)
         self.assertEqual(self.query_request.get_max_read_kb(), 2)
@@ -521,7 +531,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test order by primary index field
             statement = ('SELECT fld_sid, fld_id FROM ' + table_name +
                          ' ORDER BY fld_sid, fld_id')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -544,7 +555,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test order by secondary index field
             statement = ('SELECT fld_str FROM ' + table_name +
                          ' ORDER BY fld_str')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -565,7 +577,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             num_sids = 2
             # test min function
             statement = ('SELECT min(fld_time) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             result = self.handle.query(query_request)
             records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': self.min_time[0]})
@@ -573,7 +586,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
             # test max function
             statement = ('SELECT max(fld_time) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             result = self.handle.query(query_request)
             records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': self.max_time[1]})
@@ -582,7 +596,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test min function group by primary index field
             statement = ('SELECT min(fld_time) FROM ' + table_name +
                          ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -604,7 +619,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test max function group by primary index field
             statement = ('SELECT max(fld_time) FROM ' + table_name +
                          ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -626,7 +642,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test min function group by secondary index field
             statement = ('SELECT min(fld_time) FROM ' + table_name +
                          ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -645,7 +662,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test max function group by secondary index field
             statement = ('SELECT max(fld_time) FROM ' + table_name +
                          ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -666,7 +684,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             num_sids = 2
             # test sum function
             statement = ('SELECT sum(fld_double) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             result = self.handle.query(query_request)
             records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': 3.1415 * num_records})
@@ -675,7 +694,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test sum function group by primary index field
             statement = ('SELECT sum(fld_double) FROM ' + table_name +
                          ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -698,7 +718,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test sum function group by secondary index field
             statement = ('SELECT sum(fld_double) FROM ' + table_name +
                          ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -719,7 +740,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             num_sids = 2
             # test avg function
             statement = ('SELECT avg(fld_double) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             result = self.handle.query(query_request)
             records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': 3.1415})
@@ -728,7 +750,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test avg function group by primary index field
             statement = ('SELECT avg(fld_double) FROM ' + table_name +
                          ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -749,7 +772,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test avg function group by secondary index field
             statement = ('SELECT avg(fld_double) FROM ' + table_name +
                          ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -769,7 +793,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             num_sids = 2
             # test count function
             statement = ('SELECT count(*) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             result = self.handle.query(query_request)
             records = self.check_query_result(result, 1)
             self.assertEqual(records[0], {'Column_1': num_records})
@@ -778,7 +803,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test count function group by primary index field
             statement = ('SELECT count(*) FROM ' + table_name +
                          ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -800,7 +826,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test count function group by secondary index field
             statement = ('SELECT count(*) FROM ' + table_name +
                          ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -822,7 +849,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test order by primary index field with limit
             statement = ('SELECT fld_str FROM ' + table_name +
                          ' ORDER BY fld_sid, fld_id LIMIT 10')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -846,7 +874,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             # test order by secondary index field with limit
             statement = ('SELECT fld_str FROM ' + table_name +
                          ' ORDER BY fld_str LIMIT 10')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -870,12 +899,13 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = (
                 'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
                 ' ORDER BY fld_sid, fld_id OFFSET $offset')
-            prepare_request = PrepareRequest().set_statement(statement)
+            prepare_request = PrepareRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             prepare_result = self.handle.prepare(prepare_request)
             prepared_statement = prepare_result.get_prepared_statement()
             prepared_statement.set_variable('$offset', offset)
             query_request = QueryRequest().set_prepared_statement(
-                prepared_statement)
+                prepared_statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -900,12 +930,13 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             statement = (
                 'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
                 ' ORDER BY fld_str OFFSET $offset')
-            prepare_request = PrepareRequest().set_statement(statement)
+            prepare_request = PrepareRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             prepare_result = self.handle.prepare(prepare_request)
             prepared_statement = prepare_result.get_prepared_statement()
             prepared_statement.set_variable('$offset', offset)
             query_request = QueryRequest().set_prepared_statement(
-                prepared_statement)
+                prepared_statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()
@@ -932,7 +963,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 ' tb WHERE geo_near(tb.fld_json.location, ' +
                 '{"type": "point", "coordinates": [' + str(longitude) + ', ' +
                 str(latitude) + ']}, 215000)')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             result = self.handle.query(query_request)
             records = self.check_query_result(result, num_get)
             for i in range(1, num_get):
@@ -950,7 +982,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 'tb.fld_json.location, {"type": "point", "coordinates": [' +
                 str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
                 'ORDER BY fld_sid, fld_id')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             count = 0
             while True:
                 count += 1
@@ -977,7 +1010,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 'tb.fld_json.location, {"type": "point", "coordinates": [' +
                 str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
                 'ORDER BY fld_str')
-            query_request = QueryRequest().set_statement(statement)
+            query_request = QueryRequest().set_statement(
+                statement).set_compartment_id(tenant_id)
             while True:
                 result = self.handle.query(query_request)
                 records = result.get_results()

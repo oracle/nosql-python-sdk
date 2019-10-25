@@ -127,7 +127,7 @@ class DefaultRetryHandler(RetryHandler):
         CheckValue.check_int_ge_zero(num_retries, 'num_retries')
         CheckValue.check_int_ge_zero(delay_s, 'delay_s')
         self._num_retries = num_retries
-        self._delay_s = delay_s
+        self._delay_ms = delay_s * 1000
 
     def get_num_retries(self):
         return self._num_retries
@@ -148,12 +148,12 @@ class DefaultRetryHandler(RetryHandler):
     def delay(self, num_retried, re):
         CheckValue.check_int_gt_zero(num_retried, 'num_retried')
         self._check_retryable_exception(re)
-        sec = self._delay_s
-        if sec == 0:
-            sec = self._compute_backoff_delay(num_retried, 1000)
+        msec = self._delay_ms
+        if msec == 0:
+            msec = self._compute_backoff_delay(num_retried, 1000)
         if isinstance(re, SecurityInfoNotReadyException):
-            sec = self._sec_info_not_ready_delay(num_retried)
-        sleep(sec)
+            msec = self._sec_info_not_ready_delay(num_retried)
+        sleep(float(msec) / 1000)
 
     def _check_request(self, request):
         if not isinstance(request, Request):
@@ -170,11 +170,11 @@ class DefaultRetryHandler(RetryHandler):
         Use an exponential backoff algorithm to compute time of delay.
 
         Assumption: numRetries starts with 1
-        sec = (2^(num_retried-1) + random MS (0-1000)) / 1000
+        sec = (2^(num_retried-1) + random MS (0-1000))
         """
         msec = (1 << (num_retried - 1)) * base_delay
-        msec += (random() * base_delay)
-        return msec // 1000
+        msec += random() * base_delay
+        return msec
 
     def _sec_info_not_ready_delay(self, num_retried):
         """
@@ -186,7 +186,76 @@ class DefaultRetryHandler(RetryHandler):
         if num_retried > 10:
             msec = self._compute_backoff_delay(
                 num_retried - 10, DefaultRetryHandler._SEC_ERROR_DELAY_MS)
-        return msec // 1000
+        return msec
+
+
+class Region(object):
+    ENDPOINT_FORMAT = 'https://ndcs.{0}.oraclecloud.com'
+
+    def __init__(self, region_id):
+        self._region_id = region_id
+
+    def endpoint(self):
+        """
+        Returns the endpoint generated from region id.
+
+        :returns: the endpoint.
+        :rtype: str
+        """
+        return str.format(Region.ENDPOINT_FORMAT, self._region_id)
+
+    def get_region_id(self):
+        """
+        Returns the region id of this region.
+
+        :returns: the region id.
+        :rtype: str
+        """
+        return self._region_id
+
+
+class Regions(object):
+    """
+    Cloud service only.
+
+    The class contains all the available regions of Oracle NoSQL Database Cloud.
+    """
+    # OC1
+    AP_SEOUL_1 = Region('ap-seoul-1')
+    AP_TOKYO_1 = Region('ap-tokyo-1')
+    CA_TORONTO_1 = Region('ca-toronto-1')
+    UK_LONDON_1 = Region('uk-london-1')
+    # TODO: may need change, current endpoint using OCI-C region id
+    EU_FRANKFURT_1 = Region('eucom-central-1')
+    US_ASHBURN_1 = Region('uscom-east-1')
+    US_PHOENIX_1 = Region('uscom-west-1')
+
+    KNOWN_REGIONS = dict()
+    KNOWN_REGIONS[AP_SEOUL_1.get_region_id()] = AP_SEOUL_1
+    KNOWN_REGIONS[AP_TOKYO_1.get_region_id()] = AP_TOKYO_1
+    KNOWN_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
+    KNOWN_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
+
+    KNOWN_REGIONS[EU_FRANKFURT_1.get_region_id()] = EU_FRANKFURT_1
+    KNOWN_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
+    KNOWN_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
+
+    KNOWN_REGIONS['eu-frankfurt-1'] = EU_FRANKFURT_1
+    KNOWN_REGIONS['us-ashburn-1'] = US_ASHBURN_1
+    KNOWN_REGIONS['us-phoenix-1'] = US_PHOENIX_1
+
+    @staticmethod
+    def from_region_id(region_id):
+        """
+        Returns the region according to the given region_id.
+
+        :returns: the region.
+        :rtype: Region
+        """
+        region = Regions.KNOWN_REGIONS.get(region_id)
+        if region is not None:
+            return region
+        raise IllegalArgumentException('Unknown region_id: ' + region_id)
 
 
 class NoSQLHandleConfig(object):
@@ -202,10 +271,12 @@ class NoSQLHandleConfig(object):
     overridden in individual operations.
 
     Most of the configuration parameters are optional and have default values if
-    not specified. The only required configuration is the service endpoint
-    required by the constructor. The endpoint is used to connect to the Oracle
-    NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL Database
-    proxy server.
+    not specified. 
+
+    The service endpoint or region is required by constructor used to connect to
+    the Oracle NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
+    Database proxy server. The service endpoint will be inferred from the given
+    region if the region is provided.
 
     Endpoint must include the target address, and may include protocol and port.
     The valid syntax is [http[s]://]host[:port], For example, these are valid
@@ -228,6 +299,10 @@ class NoSQLHandleConfig(object):
     :param endpoint: Identifies a server for use by the NoSQLHandle. This is a
         required parameter.
     :type endpoint: str
+    :param region: identifies the region will be accessed by the NoSQLHandle.
+    :type region: Region
+    :param provider: :py:class:`AuthorizationProvider` to use for the handle.
+    :type provider: AuthorizationProvider
     :raises IllegalArgumentException: raises the exception if the endpoint is
         None or malformed.
     """
@@ -241,10 +316,25 @@ class NoSQLHandleConfig(object):
     _DEFAULT_SEC_INFO_TIMEOUT = 10000
     _DEFAULT_CONSISTENCY = Consistency.EVENTUAL
 
-    def __init__(self, endpoint):
+    def __init__(self, endpoint=None, region=None, provider=None):
         # Inits a NoSQLHandleConfig object.
-        CheckValue.check_str(endpoint, 'endpoint')
+        if endpoint is not None and region is None:
+            CheckValue.check_str(endpoint, 'endpoint')
+        elif endpoint is None and region is not None:
+            if not isinstance(region, Region):
+                raise IllegalArgumentException(
+                    'region should be an instance of Region')
+            endpoint = region.endpoint()
+        else:
+            raise IllegalArgumentException(
+                'One and only one of endpoint and region need to be set.')
+        if (provider is not None and
+                not isinstance(provider, AuthorizationProvider)):
+            raise IllegalArgumentException(
+                'provider must be an instance of AuthorizationProvider.')
         self._service_url = NoSQLHandleConfig.create_url(endpoint, '/')
+        self._region = region
+        self._auth_provider = provider
         self._timeout = 0
         self._table_request_timeout = 0
         self._sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
@@ -253,7 +343,6 @@ class NoSQLHandleConfig(object):
         self._pool_maxsize = 10
         self._max_content_length = 1024 * 1024
         self._retry_handler = None
-        self._auth_provider = None
         self._proxy_host = None
         self._proxy_port = 0
         self._proxy_username = None
@@ -268,6 +357,44 @@ class NoSQLHandleConfig(object):
         :rtype: ParseResult
         """
         return self._service_url
+
+    def get_region(self):
+        """
+        Cloud service only.
+
+        Returns the region will be accessed by the NoSQLHandle.
+
+        :returns: the region.
+        :rtype: Region
+        """
+        return self._region
+
+    def set_authorization_provider(self, provider):
+        """
+        Sets the :py:class:`AuthorizationProvider` to use for the handle. The
+        provider must be safely usable by multiple threads.
+
+        :param provider: the AuthorizationProvider.
+        :type provider: AuthorizationProvider
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if provider is
+            not an instance of :py:class:`AuthorizationProvider`.
+        """
+        if not isinstance(provider, AuthorizationProvider):
+            raise IllegalArgumentException(
+                'provider must be an instance of AuthorizationProvider.')
+        self._auth_provider = provider
+        return self
+
+    def get_authorization_provider(self):
+        """
+        Returns the :py:class:`AuthorizationProvider` configured for the handle,
+        or None.
+
+        :returns: the AuthorizationProvider.
+        :rtype: AuthorizationProvider
+        """
+        return self._auth_provider
 
     def get_default_timeout(self):
         """
@@ -536,33 +663,6 @@ class NoSQLHandleConfig(object):
         :rtype: RetryHandler
         """
         return self._retry_handler
-
-    def set_authorization_provider(self, provider):
-        """
-        Sets the :py:class:`AuthorizationProvider` to use for the handle. The
-        provider must be safely usable by multiple threads.
-
-        :param provider: the AuthorizationProvider.
-        :type provider: AuthorizationProvider
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if provider is
-            not an instance of :py:class:`AuthorizationProvider`.
-        """
-        if not isinstance(provider, AuthorizationProvider):
-            raise IllegalArgumentException(
-                'provider must be an instance of AuthorizationProvider.')
-        self._auth_provider = provider
-        return self
-
-    def get_authorization_provider(self):
-        """
-        Returns the :py:class:`AuthorizationProvider` configured for the handle,
-        or None.
-
-        :returns: the AuthorizationProvider.
-        :rtype: AuthorizationProvider
-        """
-        return self._auth_provider
 
     def set_proxy_host(self, proxy_host):
         """

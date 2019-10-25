@@ -200,8 +200,7 @@ class BinaryProtocol(object):
     def deserialize_table_result(bis, result):
         has_info = bis.read_boolean()
         if has_info:
-            # don't use tenant_id, but it's in the result
-            BinaryProtocol.read_string(bis)
+            result.set_compartment_id(BinaryProtocol.read_string(bis))
             result.set_table_name(BinaryProtocol.read_string(bis))
             result.set_state(
                 BinaryProtocol._get_table_state(bis.read_byte()))
@@ -581,14 +580,14 @@ class BinaryProtocol(object):
     def serialize_read_request(request, bos):
         BinaryProtocol.serialize_request(request, bos)
         BinaryProtocol.write_string(bos, request.get_table_name_internal())
-        bos.write_byte(request.get_consistency_internal())
+        bos.write_byte(request.get_consistency())
 
     # Writes fields from WriteRequest
     @staticmethod
     def serialize_write_request(request, bos):
         BinaryProtocol.serialize_request(request, bos)
         BinaryProtocol.write_string(bos, request.get_table_name_internal())
-        bos.write_boolean(request.get_return_row_internal())
+        bos.write_boolean(request.get_return_row())
 
     @staticmethod
     def serialize_request(request, bos):

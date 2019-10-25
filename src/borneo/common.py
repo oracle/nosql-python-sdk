@@ -177,8 +177,11 @@ class CheckValue(object):
             raise IllegalArgumentException(name + ' must be not-none.')
 
     @staticmethod
-    def check_str(data, name):
-        if not CheckValue.is_str(data) or len(data) == 0:
+    def check_str(data, name, allow_none=False):
+        if (allow_none and data is not None and
+                (not CheckValue.is_str(data) or len(data) == 0) or
+                not allow_none and
+                (not CheckValue.is_str(data) or len(data) == 0)):
             raise IllegalArgumentException(
                 name + ' must be a string that is not empty.')
 
@@ -383,14 +386,34 @@ class FieldRange(object):
 
 
 class HttpConstants(object):
+    # The name of the Authorization header.
+    AUTHORIZATION = 'Authorization'
+
+    # The service name of the NoSQL data service (the driver protocol)
+    DATA_PATH_NAME = 'data'
+
+    # The name of the date header.
+    DATE = 'date'
+
     # The current version of the protocol
     NOSQL_VERSION = 'V0'
 
     # The service name prefix for public NoSQL services
     NOSQL_PATH_NAME = 'nosql'
 
-    # The service name of the NoSQL data service (the driver protocol)
-    DATA_PATH_NAME = 'data'
+    # The http header that identifies the client scoped unique request id
+    # associated with each request. The request header is returned by the
+    # server, as part of the response and serves to associate the response with
+    # the request.
+    #
+    # Note: We could use stream ids to associate a request and response.
+    # However, the current handler pipeline on the client side operates at the
+    # http level rather than the frame level, and consequently does not have
+    # access to the stream id.
+    REQUEST_ID_HEADER = 'x-nosql-request-id'
+
+    # The name of the (request-target) header.
+    REQUEST_TARGET = '(request-target)'
 
     # Creates a URI path from the arguments
     def _make_path(*args):
@@ -1178,7 +1201,7 @@ class SizeOf(object):
         """
         size = array_overhead
         if array_len > array_size_included:
-            size += (array_len - array_size_included + 7) / 8 * 8
+            size += (array_len - array_size_included + 7) // 8 * 8
         return size
 
     @staticmethod
@@ -1189,7 +1212,7 @@ class SizeOf(object):
     def _byte_array_size(*args):
         size = args[1]
         if args[0] > args[2]:
-            size += (args[0] - args[2] + 7) / 8 * 8
+            size += (args[0] - args[2] + 7) // 8 * 8
         return size
 
     if architecture()[0] == '64bit':

@@ -106,137 +106,85 @@ can start `here <https://cloud.oracle.com/home>`_
 Acquire Credentials for the Oracle NoSQL Database Cloud Service
 _______________________________________________________________
 
-See `Accessing Client Credentials <https://docs.oracle.com/pls/topic/lookup?ctx=
-en/cloud/paas/nosql-cloud&id=CSNSD-GUID-86E1E271-92AB-4F35-89FA-955E4359B16E>`_
-and `Required Credentials <https://docs.oracle.com/pls/topic/lookup?ctx=en/cloud
-/paas/nosql-cloud&id=CSNSD-GUID-EA8C0EC9-1CD8-48FD-9DA7-3FFCFEC975B8>`_ for
-additional information.
+See `Required Keys and OCIDs <https://docs.cloud.oracle.com/iaas/Content/API/
+Concepts/apisigningkey.htm>`_ for additional information.
 
 Several pieces of information comprise your credentials used by the Oracle NoSQL
 Database Cloud Service:
 
- * Client ID
- * Client Secret
- * User Name
- * User Password
+ * Tenancy ID
+ * User ID
+ * Fingerprint
+ * Private Key File
 
-In addition, 2 more pieces of information are used by applications to use the
-service:
+How to acquire Tenancy ID, and User ID:
 
- * Entitlement ID
- * IDCS URL
+ 1. Sign into your **Oracle Cloud Infrastructure Console** page.
+ 2. Open the navigation menu, under Governance and Administration, go to
+    **Administration** and click **Tenancy Details**.
+ 3. The Tenancy ID is shown under **Tenancy Information**. Click **Copy** to
+    copy it to your clipboard, then paste it to your credentials file.
+ 4. Go back to **Oracle Cloud Infrastructure Console** page, open the
+    **Profile** menu (User menu icon) and click **User Settings**.
+ 5. The User ID is shown under **User Information**. Click **Copy** to copy it
+    to your clipboard, then paste it to your credentials file.
+ 
+How to generate an API Signing Key, upload the public key and get the
+fingerprint:
 
-How to acquire Client ID, Client Secret, Entitlement ID, and IDCS URL:
-
- 1. Sign into your **My Services** page
- 2. Click on the menu in the top left corner of the page and navigate into
-    **Users**
- 3. On **User Management** page click on **Identity Console** (in the upper
-    right)
- 4. On the **Identity Console** page click on the menu in the upper left and
-    navigate to **Applications**
- 5. On the **Applications** page, click on **ANDC** (NoSQL Database)
- 6. On the **ANDC** page, click the **Configuration** tab and expand **General
-    Information**
- 7. The *Client ID* is visible to you.  Click on **Show Secret**. A pop-up
-    dialog box appears displaying the Client Secret.  Copy and paste the
-    *Client ID* and *Client Secret* to a new text file in a text editor.
- 8. On the **ANDC** page, expand **Resources**. You'll see the **Entitlement
-    ID** displayed in the **Primary Audience** text box. Copy only the 9-digit
-    entitlement ID value.
- 9. Copy the IDCS URL from the browser's address bar. Copy only up to
-    **https://idcs-xxx.identity.oraclecloud.com**. Save the URL with your other
-    saved information.
-
-If you have multiple developers using the same tenancy for the service, share
-these credentials with them. Each developer will use the Client ID and Client
-Secret along with their own user name and password to create usable credentials.
-The entitlement ID and IDCS URL are used in the application to connect to the
-Oracle NoSQL Database Cloud Service.
+ 1. If you haven't already, create a .oci directory to store the credentials.
+    $ mkdir ~/.oci
+ 2. Generate the private key with one of the following commands.
+    $ openssl genrsa -out ~/.oci/key.pem 2048
+ 3. Ensure that only you can read the private key file.
+    $ chmod go-rwx ~/.oci/key.pem
+ 4. Generate the public key.
+    $ openssl rsa -pubout -in ~/.oci/key.pem -out ~/.oci/key_public.pem
+ 5. Sign into your **Oracle Cloud Infrastructure Console** page.
+ 6. Click your username in the top-right corner of the Console, and then click
+    **User Settings**.
+ 7. Click **Add Public Key** and paste the contents of the PEM public key in the
+    dialog box and click **Add**.
+ 8. The key's fingerprint is displayed (for example, 12:34:56:78:90:ab:cd:ef:12:
+    34:56:78:90:ab:cd:ef).
+ 9. Copy the key's fingerprint to your clipboard, then paste it to your
+    credentials file.
+ 10. Put the path to your private key to your credentials file.
 
 
 Supplying Credentials to an Application
 _______________________________________
 
 Credentials are used to establish the initial connection from your application
-to the service. There are 2 ways to supply the credentials:
+to the service. The way to supply the credentials is to use a credentials file,
+:class:`borneo.iam.SignatureProvider` reads credentials from the credentials
+file, by default the credentials file is found in *$HOME/.oci/config but the
+location can be changed using::
 
-1. Using a file and :class:`borneo.idcs.PropertiesCredentialsProvider`
-2. Using an instance of :class:`borneo.idcs.CredentialsProvider` to supply the
-   credentials
+    SignatureProvider(config_file=<path-to-your-credentials-file>)
+    
+The format of the file is that of a properties file with the format of
+*key=value*, with one property per line. The contents and format are::
 
-Using a file is handy and makes it easy to share credentials but it is not
-particularly secure as the information is in plain text in the file. If done the
-permission settings on the file should limit read access to just the
-application. In general it is recommended that secure applications create an
-instance of :class:`borneo.idcs.CredentialsProvider`.
+    [DEFAULT]
+    tenancy=<your-tenancy-id>
+    user=<your-user-id>
+    fingerprint=<fingerprint-of-your-public-key>
+    key_file=<path-to-your-private-key-file>
 
-Creating Your Own CredentialsProvider
-=====================================
-
-You can supply credentials with your own implementation of
-:class:`borneo.idcs.CredentialsProvider`.
-
-.. code-block:: pycon
-
-                from borneo.idcs import (
-                    CredentialsProvider, DefaultAccessTokenProvider,
-                    IDCSCredentials)
-
-                class MyCredentialsProvider(CredentialsProvider):
-
-                    def get_oauth_client_credentials(self):
-                        return IDCSCredentials('your_idcs_client_id',
-                                               'your_client_secret')
-
-                    def get_user_credentials(self):
-                        #
-                        # password must be URL-encoded. This can be done using
-                        # urllib.parse.quote
-                        #
-                        return IDCSCredentials('your_oracle_cloud_user_name',
-                                               'your_oracle_cloud_password')
-
-                #
-                # Use MyCredentialsProvider
-                #
-                at_provider = DefaultAccessTokenProvider(
-                    idcs_url, entitlement_id)
-                at_provider.set_credentials_provider(MyCredentialsProvider())
-
-
-Using a File for Credentials
-============================
-
-:class:`borneo.idcs.PropertiesCredentialsProvider` reads credentials from a
-file. By default the credentials file is found in *$HOME/.andc/credentials* but
-the location can be changed using
-:func:`borneo.idcs.PropertiesCredentialsProvider.set_properties_file`. The
-format of the file is that of a properties file with the format of *key=value*,
-with one property per line. The contents and format are::
-
-   andc_username=<your_cloud_username>
-   andc_user_pwd=<your_cloud_password>
-   andc_client_id=<application_client_id>
-   andc_client_secret=<application_client_secret>
-
-The client ID and client secret should be acquired using the instructions above.
-The cloud username and password are for the cloud login. The order of the
-properties does not matter.
+The Tenancy ID, User ID and fingerprint should be acquired using the
+instructions above. The path to your private key file is the absolute path of
+the RSA private key. The order of the properties does not matter.
 
 .. code-block:: pycon
 
-                from borneo.idcs import (
-                    DefaultAccessTokenProvider, PropertiesCredentialsProvider)
+                from borneo.iam import SignatureProvider
 
                 #
-                # Use PropertiesCredentialsProvider
+                # Use SignatureProvider with a default credentials file
+                # $HOME/.oci/config
                 #
-                at_provider = DefaultAccessTokenProvider(
-                    idcs_url, entitlement_id)
-                at_provider.set_credentials_provider(
-                    PropertiesCredentialsProvider().set_credentials_file(
-                    <path-to-file>))
+                at_provider = SignatureProvider()
 
 
 Connecting an Application
@@ -252,52 +200,25 @@ Simulator, **localhost:8080**.
 .. code-block:: pycon
 
                 from borneo import NoSQLHandle, NoSQLHandleConfig
-                from borneo.idcs import (DefaultAccessTokenProvider,
-                    PropertiesCredentialsProvider)
+                from borneo.iam import SignatureProvider
 
                 #
                 # Required information:
                 #
-                idcs_url=<your_idcs_url>
-                entitlement_id=<your_entitlement_id>
                 endpoint=<communication_endpoint>
 
-                # if using a credentials file
-                credentials_file=<path_to_your_credentials_file>
+                # if using a specified credentials file
+                credentials_file=<path-to-your-credentials-file>
 
                 #
                 # Create an AuthorizationProvider
-                #  o requires IDCS URL and Entitlement ID
                 #
-                at_provider = DefaultAccessTokenProvider(
-                    idcs_url=idcs_url, entitlement_id=entitlement_id)
-
-                #
-                # set the credentials provider. 2 examples:
-                # 1. using a properties file
-                # 2. using a custom CredentialsProvider
-                #
-
-                #
-                # (1) set the credentials provider based on your credentials
-                # file
-                #
-                at_provider.set_credentials_provider(
-                    PropertiesCredentialsProvider().set_properties_file(
-                    credentials_file)
-
-                # OR
-                #
-                # (2) use your own instance of CredentialsProvider (e.g.
-                # MyCredentialsProvider -- see above example)
-                #
-                # at_provider.set_credentials_provider(MyCredentialsProvider())
+                at_provider = SignatureProvider(config_file=credentials_file)
 
                 #
                 # create a configuration object
                 #
-                config = NoSQLHandleConfig(endpoint).set_authorization_provider(
-                    provider)
+                config = NoSQLHandleConfig(endpoint, provider=at_provider)
 
                 #
                 # create a handle from the configuration object
@@ -305,17 +226,15 @@ Simulator, **localhost:8080**.
                 handle = NoSQLHandle(config)
 
 See examples and test code for specific details. Both of these use
-*parameters.py* files for configuration of required information. The examples
-can use either style of CredentialsProvider -- using a file or using a custom
-class.
+*parameters.py* files for configuration of required information.
 
 =================================
 Configure for the Cloud Simulator
 =================================
 
-The Oracle NoSQL Cloud Simulator is a useful way to use
-this SDK to connect to a local server that supports the same protocol. The Cloud
-Simulator requires Java 8 or higher.
+The Oracle NoSQL Cloud Simulator is a useful way to use this SDK to connect to a
+local server that supports the same protocol. The Cloud Simulator requires Java
+8 or higher.
 
 See `Download the Oracle NoSQL Cloud Simulator <https://docs.oracle.com/pls/
 topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-3E11C056-B144-4EEA-8224

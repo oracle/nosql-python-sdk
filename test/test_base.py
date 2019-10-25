@@ -115,16 +115,30 @@ class TestBase(object):
 
     def check_table_result(self, result, state, table_limits=None,
                            has_schema=True, has_operation_id=True,
-                           check_limit=True):
+                           check_limit=True, check_schema=True,
+                           check_operation_id=True):
         assert isinstance(self, TestCase)
+        # check compartment id
+        if is_onprem():
+            self.assertIsNone(result.get_compartment_id())
+        else:
+            self.assertEqual(result.get_compartment_id(), tenant_id)
         # check table name
         self.assertEqual(result.get_table_name(), table_name)
         # check state
-        self.assertEqual(result.get_state(), state)
+        if isinstance(state, str):
+            self.assertEqual(result.get_state(), state)
+        else:
+            self.assertTrue(result.get_state() in state)
         # check table limits
         if check_limit:
-            if is_onprem() or table_limits is None:
+            if table_limits is None:
                 self.assertIsNone(result.get_table_limits())
+            elif is_onprem():
+                self.assertEqual(result.get_table_limits().get_read_units(), 0)
+                self.assertEqual(result.get_table_limits().get_write_units(),
+                                 0)
+                self.assertEqual(result.get_table_limits().get_storage_gb(), 0)
             else:
                 self.assertEqual(result.get_table_limits().get_read_units(),
                                  table_limits.get_read_units())
@@ -135,13 +149,14 @@ class TestBase(object):
         # check table schema
         # TODO: For on-prem proxy, TableResult.get_schema() always return None,
         # This is a known bug, when it is fixed, the test should be change.
-        if not_cloudsim() and not is_onprem():
+        if check_schema and not_cloudsim() and not is_onprem():
             (self.assertIsNotNone(result.get_schema()) if has_schema
              else self.assertIsNone(result.get_schema()))
         # check operation id
-        operation_id = result.get_operation_id()
-        (self.assertIsNotNone(operation_id) if has_operation_id
-         else self.assertIsNone(operation_id))
+        if check_operation_id:
+            operation_id = result.get_operation_id()
+            (self.assertIsNotNone(operation_id) if has_operation_id
+             else self.assertIsNone(operation_id))
 
     def set_up(self):
         self.handle = get_handle(tenant_id)
@@ -165,7 +180,7 @@ class TestBase(object):
 
     @classmethod
     def drop_all_tables(cls):
-        ltr = ListTablesRequest()
+        ltr = ListTablesRequest().set_compartment_id(tenant_id)
         result = cls.handle.list_tables(ltr)
         for table in result.get_tables():
             if table.startswith(table_prefix):
@@ -173,7 +188,8 @@ class TestBase(object):
 
     @classmethod
     def drop_table(cls, table):
-        dtr = TableRequest().set_statement('DROP TABLE IF EXISTS ' + table)
+        dtr = TableRequest().set_compartment_id(tenant_id).set_statement(
+            'DROP TABLE IF EXISTS ' + table)
         cls.table_request(dtr)
 
     @classmethod

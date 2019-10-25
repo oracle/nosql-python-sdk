@@ -192,7 +192,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         """
         Returns whether the provider is accessing a secured store.
 
-        :return: True if accessing a secure store, otherwise False.
+        :returns: True if accessing a secure store, otherwise False.
         :rtype: bool
         """
         return self._is_secure
@@ -204,7 +204,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
 
         :param auto_renew: set to True to enable auto-renew.
         :type auto_renew: bool
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if auto_renew is
             not True or False.
         """
@@ -216,7 +216,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         """
         Returns whether the login token is to be automatically renewed.
 
-        :return: True if auto-renew is set, otherwise False.
+        :returns: True if auto-renew is set, otherwise False.
         :rtype: bool
         """
         return self._auto_renew
@@ -227,7 +227,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
 
         :param endpoint: the endpoint.
         :type endpoint: str
-        :return: self.
+        :returns: self.
         :raises IllegalArgumentException: raises the exception if endpoint is
             not a string.
         """
@@ -243,7 +243,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         """
         Returns the endpoint of the on-prem proxy.
 
-        :return: the endpoint.
+        :returns: the endpoint.
         :rtype: str
         """
         return self._endpoint
@@ -322,7 +322,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             renew_time = (
                 acquire_time + (self._expiration_time - acquire_time) // 2)
             self._timer = Timer(
-                (renew_time - acquire_time) // 1000, self._refresh_task)
+                float(renew_time - acquire_time) / 1000, self._refresh_task)
             self._timer.start()
 
     def _send_request(self, auth_header, service_name):

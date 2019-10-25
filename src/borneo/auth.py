@@ -9,7 +9,7 @@
 
 from abc import ABCMeta, abstractmethod
 
-from .common import CheckValue
+from .common import CheckValue, HttpConstants
 from .exception import IllegalArgumentException
 
 
@@ -83,3 +83,19 @@ class AuthorizationProvider(object):
         if not CheckValue.is_str(auth_string):
             raise IllegalArgumentException(
                 'Configured AuthorizationProvider requires a non-none string.')
+
+    def set_required_headers(self, request, auth_string, headers):
+        """
+        Internal use only.
+
+        Set HTTP headers required by the provider.
+
+        :param request: the request being processed.
+        :type request: Request
+        :param auth_string: the auth string.
+        :type auth_string: str
+        :param headers: the HTTP headers.
+        :type headers: dict
+        """
+        if auth_string is not None:
+            headers[HttpConstants.AUTHORIZATION] = auth_string

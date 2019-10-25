@@ -70,7 +70,6 @@ exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -107,7 +106,6 @@ html_static_path = []
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'NoSQLPythonSDKdoc'
 
-
 # -- Options for LaTeX output ------------------------------------------------
 
 latex_elements = {
@@ -136,16 +134,14 @@ latex_documents = [
      u'NoSQL Database Python SDK Documentation', u'Oracle', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'nosqlpythonsdk',
-     u'NoSQL Database Python SDK Documentation', [author], 1)
+    (master_doc, 'nosqlpythonsdk', u'NoSQL Database Python SDK Documentation',
+     [author], 1)
 ]
-
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -153,12 +149,10 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'NoSQLPythonSDK',
-     u'NoSQL Database Python SDK Documentation', author,
-     'NoSQLPythonSDK', 'One line description of project.',
+    (master_doc, 'NoSQLPythonSDK', u'NoSQL Database Python SDK Documentation',
+     author, 'NoSQLPythonSDK', 'One line description of project.',
      'Miscellaneous'),
 ]
-
 
 # -- Options for Epub output -------------------------------------------------
 

@@ -29,21 +29,13 @@ instances of this class for the different environments:
 
 An example for the Oracle NoSQL Cloud Service:
 
-See the section *Supplying Credentials to an Application* in :ref:`install` for
-options related to using your own :class:`CredentialsProvider` class for better
-credential security.
-
 .. code-block:: pycon
 
     from borneo import AuthorizationProvider, NoSQLHandle, NoSQLHandleConfig
-    from borneo.idcs import (DefaultAccessTokenProvider,
-        PropertiesCredentialsProvider)
+    from borneo.iam import SignatureProvider
 
     # create AuthorizationProvider
-    provider = DefaultAccessTokenProvider(
-        <your idcs_url>, <your entitlement_id>)
-    provider.set_credentials_provider(PropertiesCredentialsProvider(
-        ).set_properties_file(<path_to_your_credentials_file)
+    provider = SignatureProvider()
 
     # create handle config using the correct endpoint for the desired region
     config = NoSQLHandleConfig(

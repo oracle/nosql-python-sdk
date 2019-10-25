@@ -13,7 +13,7 @@ from time import time
 from borneo import (
     Consistency, GetRequest, IllegalArgumentException, PutRequest, TableLimits,
     TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
-from parameters import table_name, timeout
+from parameters import table_name, tenant_id, timeout
 from test_base import TestBase
 from testutils import get_row
 
@@ -32,11 +32,13 @@ fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
-            create_statement).set_table_limits(TableLimits(5000, 5000, 50))
+            create_statement).set_table_limits(
+            TableLimits(100, 100, 1)).set_compartment_id(tenant_id)
         cls.table_request(create_request)
         global row, tb_expect_expiration, version
         row = get_row()
-        put_request = PutRequest().set_value(row).set_table_name(table_name)
+        put_request = PutRequest().set_value(row).set_table_name(
+            table_name).set_compartment_id(tenant_id)
         version = cls.handle.put(put_request).get_version()
         tb_expect_expiration = table_ttl.to_expiration_time(
             int(round(time() * 1000)))
@@ -49,7 +51,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         self.set_up()
         self.key = {'fld_sid': 1, 'fld_id': 1}
         self.get_request = GetRequest().set_key(self.key).set_table_name(
-            table_name).set_timeout(timeout)
+            table_name).set_timeout(timeout).set_compartment_id(tenant_id)
 
     def tearDown(self):
         self.tear_down()
@@ -78,6 +80,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(TableNotFoundException, self.handle.get,
                           self.get_request)
 
+    def testGetSetIllegalCompartmentId(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.get_request.set_compartment_id, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.get_request.set_compartment_id, '')
+
     def testGetSetIllegalConsistency(self):
         self.assertRaises(IllegalArgumentException,
                           self.get_request.set_consistency,
@@ -98,6 +106,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
 
     def testGetGets(self):
         self.assertEqual(self.get_request.get_key(), self.key)
+        self.assertEqual(self.get_request.get_compartment_id(), tenant_id)
 
     def testGetIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.get,

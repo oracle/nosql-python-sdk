@@ -32,43 +32,45 @@
 #              password = 'your_store_user_password'
 #              security = True
 #
-# Run against Oracle NoSQL Database Cloud Service:
+# Run against Oracle NoSQL Database Cloud Service using Oracle Cloud
+# Infrastructure(OCI) user principal verification.
 #
-# Requires an Oracle Cloud account with a subscription to the Oracle NoSQL
-# Database Cloud Service. Obtain client id and secret from Oracle Identity Cloud
-# Service (IDCS) admin console, choose Applications from the button on the top
-# left. Find the Application named ANDC. The client id and secret are in the
-# General Information of Configuration. Create a new file in the specified path
-# set by parameter "credentials_file" below, open the file in your text editor,
-# add the following information and save the file. This file should be secured
-# so that only the application has access to read it.
+# This Requires an Oracle Cloud account with a subscription to the Oracle NoSQL
+# Database Cloud Service. Login OCI Console
+# https://console.us-ashburn-1.oraclecloud.com. Then follow the steps below to
+# get the required information.
+
+# Step1: Generate a RSA key pair in PEM format (minimum 2048 bits).
+# Step2: Upload the PEM public key and get the key's fingerprint. Click your
+#        username in the top-right corner of the console, click User Settings,
+#        click Add Public Key, paste the contents of the PEM public key in the
+#        dialog box and click Add. Then you can see the key's fingerprint is
+#        displayed under the public key.
+# Step3: Get the tenancy OCID from the OCI Console on the Tenancy Details page.
+#        Open the navigation menu, under Governance and Administration, go to
+#        Administration and click Tenancy Details. The tenancy OCID is shown
+#        under Tenancy Information.
+# Step4: Get the user's OCID from OCI Console on User Settings page. Open the
+#        Profile menu (User menu icon) and click User Settings. You can find the
+#        user's OCID is shown under User Information.
 #
-#     andc_client_id=<application_client_id from admin console>
-#     andc_client_secret=<application_client_secret admin console>
-#     andc_username=<user name of cloud account>
-#     andc_user_pwd=<user password of cloud account>
+# Create a credential file in the specified path set by parameter
+# "credentials_file" below, open the file in your text editor, add the following
+# information obtained from the previous steps. This file should be secured so
+# that only the application has access to read it.
 #
-# After that is done this information is required to run the example, or any
-# application using the service.
+#     [DEFAULT]
+#     tenancy=<your-tenancy-id-from-oci-console>
+#     user=<your-user-id-from-oci-console>
+#     fingerprint=<fingerprint-of-your-public-key>
+#     key_file=<path-to-your-private-key-file>
 #
-#     o IDCS URL assigned to the tenancy
-#     o entitlement id
+# Run against Oracle NoSQL Database Cloud Service using Oracle Cloud
+# Infrastructure(OCI) instance principal verification.
 #
-# The tenant-specific IDCS URL is the IDCS host assigned to the tenant. After
-# logging into the IDCS admin console, copy the host of the IDCS admin console
-# URL. For example, the format of the admin console URL is
-# "https://{tenantId}.identity.oraclecloud.com/ui/v1/adminconsole". The
-# "https://{tenantId}.identity.oraclecloud.com" portion is the required. Then
-# assign the IDCS URL to the idcs_url variable below.
-#
-# The entitlement id can be found using the IDCS admin console. After logging
-# into the IDCS admin console, choose Applications from the button on the top
-# left. Find the Application named ANDC, enter the Resources tab in the
-# Configuration. There is a field called primary audience, the entitlement id
-# parameter is the value of "urn:opc:andc:entitlementid", which is treated as a
-# string. For example if your primary audience is
-# "urn:opc:andc:entitlementid=123456789" then the parameter is "123456789".
-# Then assign the entitlement id to the entitlement_id variable below.
+# This Requires an Oracle Cloud account with a subscription to the Oracle NoSQL
+# Database Cloud Service and a OCI machine. You need to run the example on the
+# OCI machine without the credentials file.
 #
 # These variables control whether the program uses the Cloud Simulator or the
 # real service. Modify as necessary for your environment. By default the
@@ -76,12 +78,7 @@
 #
 # Cloud Simulator: a tenant id -- simple string
 # Service/on-premise: not used
-tenant_id = 'test_tenant'
-
-# Cloud Simulator/on-premise: not used
-# Service: your entitlement id
-# entitlement_id = 'id'
-entitlement_id = None
+tenant_id = 'pythontenant'
 
 # The table name created. It must not contain '.' or '_'
 table_name = 'pythontable'
@@ -124,17 +121,12 @@ user_name = None
 password = None
 
 # Cloud Simulator/on-premise: not used
-# Service: url for reaching IDCS
-idcs_url = 'your_idcs_url'
+# Service: 'user principal' or 'instance principal'
+principal = None
 
 # Cloud Simulator/on-premise: not used
 # Service: absolute path to credentials file
 credentials_file = 'path-to-your-credentials-file'
-
-# Cloud Simulator/on-premise: not used
-# Change to False and edit utils.py to add your credentials to
-# MyCredentialsProvider to supply credentials
-use_properties_credentials = True
 
 #
 # Set to True to drop the table at the end of the example

@@ -18,7 +18,7 @@ class TestTableLimits(unittest.TestCase):
 
     def setUp(self):
         self.handle = get_handle(tenant_id)
-        self.limits = TableLimits(5000, 5000, 50)
+        self.limits = TableLimits(30, 10, 1)
         self.table_request = TableRequest().set_statement(
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 PRIMARY KEY(fld_id))')
@@ -49,27 +49,27 @@ PRIMARY KEY(fld_id))')
 
     def testTableLimitsNegativeValues(self):
         # negative read units
-        self.table_request.set_table_limits(TableLimits(-1, 5000, 50))
+        self.table_request.set_table_limits(TableLimits(-1, 10, 1))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
         # read_units = 0
-        self.table_request.set_table_limits(TableLimits(0, 5000, 50))
+        self.table_request.set_table_limits(TableLimits(0, 10, 1))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
         # negative write units
-        self.table_request.set_table_limits(TableLimits(5000, -1, 50))
+        self.table_request.set_table_limits(TableLimits(30, -1, 1))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
         # write_units = 0
-        self.table_request.set_table_limits(TableLimits(5000, 0, 50))
+        self.table_request.set_table_limits(TableLimits(30, 0, 1))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
         # negative storage gb
-        self.table_request.set_table_limits(TableLimits(5000, 5000, -1))
+        self.table_request.set_table_limits(TableLimits(30, 10, -1))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
         # storage_gb = 0
-        self.table_request.set_table_limits(TableLimits(5000, 5000, 0))
+        self.table_request.set_table_limits(TableLimits(30, 10, 0))
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
 

@@ -10,6 +10,7 @@ PutRequest
 
    .. autosummary::
 
+      ~PutRequest.get_compartment_id
       ~PutRequest.get_exact_match
       ~PutRequest.get_identity_cache_size
       ~PutRequest.get_match_version
@@ -21,6 +22,7 @@ PutRequest
       ~PutRequest.get_update_ttl
       ~PutRequest.get_use_table_default_ttl
       ~PutRequest.get_value
+      ~PutRequest.set_compartment_id
       ~PutRequest.set_exact_match
       ~PutRequest.set_identity_cache_size
       ~PutRequest.set_match_version
@@ -35,6 +37,7 @@ PutRequest
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: get_compartment_id
    .. automethod:: get_match_version
    .. automethod:: get_option
    .. automethod:: get_return_row
@@ -44,6 +47,7 @@ PutRequest
    .. automethod:: get_update_ttl
    .. automethod:: get_use_table_default_ttl
    .. automethod:: get_value
+   .. automethod:: set_compartment_id
    .. automethod:: set_match_version
    .. automethod:: set_option
    .. automethod:: set_return_row

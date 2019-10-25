@@ -6,7 +6,7 @@ API Reference
 .. automodapi:: borneo
    :no-inheritance-diagram:
 
-.. automodapi:: borneo.idcs
+.. automodapi:: borneo.iam
    :no-inheritance-diagram:
 
 .. automodapi:: borneo.kv

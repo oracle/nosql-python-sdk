@@ -7,13 +7,14 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-from . import idcs
+from . import iam
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
     Consistency, FieldRange, PutOption, State, SystemState, TableLimits,
     TimeToLive, TimeUnit, UserInfo, Version, IndexInfo, PreparedStatement)
-from .config import DefaultRetryHandler, NoSQLHandleConfig, RetryHandler
+from .config import (
+    DefaultRetryHandler, NoSQLHandleConfig, Region, Regions, RetryHandler)
 from .driver import NoSQLHandle
 from .exception import (
     BatchOperationNumberLimitException, IllegalArgumentException,
@@ -72,6 +73,8 @@ __all__ = ['AuthorizationProvider',
            'QueryRequest',
            'QueryResult',
            'ReadThrottlingException',
+           'Region',
+           'Regions',
            'Request',
            'RequestTimeoutException',
            'ResourceExistsException',

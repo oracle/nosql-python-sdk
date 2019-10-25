@@ -7,30 +7,24 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-from base64 import urlsafe_b64encode
 from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal
-from json import dumps
 from logging import FileHandler, Logger
-from os import mkdir, path, remove, sep
+from os import mkdir, path, sep
 from requests import codes, delete, post
-from rsa import PrivateKey, sign
 from struct import pack
 from sys import argv
 
 from borneo import (
-    DefaultRetryHandler, IllegalArgumentException, IllegalStateException,
-    NoSQLHandle, NoSQLHandleConfig)
-from borneo.idcs import (
-    AccessTokenProvider, DefaultAccessTokenProvider,
-    PropertiesCredentialsProvider)
+    AuthorizationProvider, DefaultRetryHandler, IllegalArgumentException,
+    IllegalStateException, NoSQLHandle, NoSQLHandleConfig)
+from borneo.iam import SignatureProvider
 from borneo.kv import StoreAccessTokenProvider
 from parameters import (
-    consistency, endpoint, entitlement_id, idcs_url, is_cloudsim, is_dev_pod,
-    is_minicloud, is_onprem, is_prod_pod, logger_level, password,
-    pool_connections, pool_maxsize, table_prefix, table_request_timeout,
-    timeout, user_name)
+    consistency, endpoint, iam_principal, is_cloudsim, is_dev_pod, is_minicloud,
+    is_onprem, is_prod_pod, logger_level, password, pool_connections,
+    pool_maxsize, table_request_timeout, timeout, user_name)
 
 # The sc endpoint port for setting the tier.
 sc_endpoint = 'localhost:13600'
@@ -52,9 +46,11 @@ andc_user_pwd = 'test-user-pwd%%'
 
 testdir = path.abspath(path.dirname(argv[0])) + sep
 
-credentials_file = testdir + 'credentials'
+credentials_file = testdir + 'creds'
 fake_credentials_file = testdir + 'testcreds'
 properties_file = testdir + 'testprops'
+key_file = testdir + 'key.pem'
+fake_key_file = testdir + 'testkey.pem'
 keystore = testdir + 'tenant.pem'
 
 #
@@ -144,19 +140,21 @@ def get_row(with_sid=True):
 
 def set_access_token_provider(config, tenant_id):
     if is_cloudsim():
-        authorization_provider = NoSecurityAccessTokenProvider(tenant_id)
+        authorization_provider = InsecureAuthorizationProvider(tenant_id)
     elif is_dev_pod() or is_minicloud():
-        authorization_provider = KeystoreAccessTokenProvider().set_tenant(
-            tenant_id)
+        authorization_provider = TestSignatureProvider(tenant_id)
     elif is_prod_pod():
-        if credentials_file is None:
-            raise IllegalArgumentException(
-                'Must specify the credentials file path.')
-        creds_provider = PropertiesCredentialsProvider().set_properties_file(
-            credentials_file)
-        authorization_provider = DefaultAccessTokenProvider(
-            idcs_url=idcs_url(), entitlement_id=entitlement_id,
-            creds_provider=creds_provider, timeout_ms=timeout)
+        if iam_principal() == 'user principal':
+            if credentials_file is None:
+                raise IllegalArgumentException(
+                    'Must specify the credentials file path.')
+            authorization_provider = SignatureProvider(
+                config_file=credentials_file)
+        elif iam_principal() == 'instance principal':
+            authorization_provider = (
+                SignatureProvider.create_with_instance_principal())
+        else:
+            raise IllegalArgumentException('Must specify the principal.')
     elif is_onprem():
         if user_name is None and password is None:
             authorization_provider = StoreAccessTokenProvider()
@@ -223,30 +221,6 @@ def delete_tenant(tenant_id):
             raise IllegalStateException('Delete tenant failed.')
 
 
-def generate_credentials_file():
-    # Generate credentials file
-    if path.exists(fake_credentials_file):
-        remove(fake_credentials_file)
-
-    with open(fake_credentials_file, 'w') as cred_file:
-        cred_file.write('andc_client_id=' + andc_client_id + '\n')
-        cred_file.write('andc_client_secret=' + andc_client_secret + '\n')
-        cred_file.write('andc_username=' + andc_username + '\n')
-        cred_file.write('andc_user_pwd=' + andc_user_pwd + '\n')
-
-
-def generate_properties_file(test_idcs_url, test_credentials_file):
-    # Generate properties file
-    if path.exists(properties_file):
-        remove(properties_file)
-
-    with open(properties_file, 'w') as prop_file:
-        prop_file.write('idcs_url=' + test_idcs_url + '\n')
-        prop_file.write('creds_file=' + test_credentials_file + '\n')
-        if entitlement_id is not None:
-            prop_file.write('entitlement_id=' + entitlement_id + '\n')
-
-
 def get_logger():
     global logger
     if logger is None:
@@ -258,122 +232,39 @@ def get_logger():
         logger.addHandler(FileHandler(log_dir + sep + 'unittest.log'))
 
 
-def make_table_name(name):
-    return table_prefix + name
+class InsecureAuthorizationProvider(AuthorizationProvider):
+    def __init__(self, tenant_id):
+        super(InsecureAuthorizationProvider, self).__init__()
+        self._tenant_id = tenant_id
+
+    def close(self):
+        pass
+
+    def get_authorization_string(self, request=None):
+        return 'Bearer ' + self._tenant_id
 
 
-class KeystoreAccessTokenProvider(AccessTokenProvider):
-    # Static fields used to build AT
-    IDCS_SUPPORTED_ALGORITHM = 'RS256'
-    ALGORITHM_NAME = 'alg'
-    AUDIENCE_CLAIM_NAME = 'aud'
-    EXPIRATION_CLAIM_NAME = 'exp'
-    SCOPE_CLAIM_NAME = 'scope'
-    CLIENT_ID_CLAIM_NAME = 'client_id'
-    USER_ID_CLAIM_NAME = 'user_id'
-    TENANT_CLAIM_NAME = 'tenant'
-    SIG_ALGORITHM_DEFAULT = 'SHA256withRSA'
+class TestSignatureProvider(AuthorizationProvider):
+    def __init__(self, tenant_id='TestTenant', user_id='TestUser', ):
+        super(TestSignatureProvider, self).__init__()
+        self._tenant_id = tenant_id
+        self._user_id = user_id
 
-    # PSM AT audience and scope
-    PSM_AUD = 'https://psmtest'
-    PSM_SCOPE = '/paas/api/*'
+    def close(self):
+        pass
 
-    def __init__(self):
-        super(KeystoreAccessTokenProvider, self).__init__()
-        self._ks_user_id = 'TestUser'
-        self._ks_client_id = 'TestClient'
-        self._ks_tenant_id = 'TestTenant'
-        self._ks_entitlement_id = 'TestEntitlement'
-        self._ks_expires_in = 3471321600
-        if keystore is None or not path.exists(keystore):
-            raise IllegalArgumentException('Missing keystore')
+    def get_authorization_string(self, request=None):
+        return 'Signature ' + self._tenant_id + ':' + self._user_id
 
-    def set_tenant(self, ks_tenant_id):
-        self._ks_tenant_id = ks_tenant_id
-        return self
-
-    def get_account_access_token(self):
-        try:
-            at = self._build_psm_access_token(
-                self._ks_tenant_id, self._ks_user_id, self._ks_client_id,
-                self._ks_expires_in)
-            return at
-        except Exception as e:
-            raise IllegalStateException(
-                'Error getting PSM access token: ', str(e))
-
-    def get_service_access_token(self):
-        try:
-            at = self._build_andc_access_token(
-                self._ks_tenant_id, self._ks_user_id, self._ks_client_id,
-                self._ks_entitlement_id, self._ks_expires_in)
-            return at
-        except Exception as e:
-            raise IllegalStateException(
-                'Error getting ANDC access token: ', str(e))
-
-    def _build_andc_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                                 ks_entitlement_id, ks_expires_in):
-        return self._build_access_token(
-            ks_tenant_id, ks_user_id, ks_client_id,
-            AccessTokenProvider.ANDC_AUD_PREFIX + ks_entitlement_id,
-            AccessTokenProvider.SCOPE, ks_expires_in)
-
-    def _build_psm_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                                ks_expires_in):
-        return self._build_access_token(
-            ks_tenant_id, ks_user_id, ks_client_id,
-            KeystoreAccessTokenProvider.PSM_AUD,
-            KeystoreAccessTokenProvider.PSM_SCOPE, ks_expires_in)
-
-    def _build_access_token(self, ks_tenant_id, ks_user_id, ks_client_id,
-                            audience, scope, ks_expires_in):
-        header = dict()
-        header[KeystoreAccessTokenProvider.ALGORITHM_NAME] = (
-            KeystoreAccessTokenProvider.IDCS_SUPPORTED_ALGORITHM)
-        header = ''.join(dumps(header).split())
-
-        payload = dict()
-        payload[KeystoreAccessTokenProvider.SCOPE_CLAIM_NAME] = scope
-        payload[KeystoreAccessTokenProvider.EXPIRATION_CLAIM_NAME] = (
-            ks_expires_in)
-        payload[KeystoreAccessTokenProvider.TENANT_CLAIM_NAME] = ks_tenant_id
-        payload[KeystoreAccessTokenProvider.CLIENT_ID_CLAIM_NAME] = ks_client_id
-        if ks_user_id is not None:
-            payload[KeystoreAccessTokenProvider.USER_ID_CLAIM_NAME] = ks_user_id
-        payload[KeystoreAccessTokenProvider.AUDIENCE_CLAIM_NAME] = [audience]
-        payload = ''.join(dumps(payload).split())
-        try:
-            signing_content = (urlsafe_b64encode(header) + '.' +
-                               urlsafe_b64encode(payload))
-        except TypeError:
-            signing_content = (
-                urlsafe_b64encode(header.encode()).decode() + '.' +
-                urlsafe_b64encode(payload.encode()).decode())
-        signature = self._sign(signing_content)
-        return signing_content + '.' + signature
-
-    def _sign(self, content):
-        if keystore is None or not path.exists(keystore):
-            raise IllegalArgumentException(
-                'Unable to find the keystore: ' + keystore)
-        with open(keystore, 'r') as key_file:
-            private_key = PrivateKey.load_pkcs1(key_file.read().encode())
-        try:
-            signature = sign(content, private_key, 'SHA-256')
-            return urlsafe_b64encode(signature)
-        except TypeError:
-            signature = sign(content.encode(), private_key, 'SHA-256')
-            return urlsafe_b64encode(signature).decode()
-
-
-class NoSecurityAccessTokenProvider(AccessTokenProvider):
-    def __init__(self, ns_tenant_id):
-        super(NoSecurityAccessTokenProvider, self).__init__()
-        self._ns_tenant_id = ns_tenant_id
-
-    def get_account_access_token(self):
-        return self._ns_tenant_id
-
-    def get_service_access_token(self):
-        return self._ns_tenant_id
+    def set_required_headers(self, request, auth_string, headers):
+        compartment_id = request.get_compartment_id()
+        if compartment_id is None:
+            """
+            If request doesn't has compartment id, set the tenant id as the
+            default compartment, which is the root compartment in IAM if using
+            user principal.
+            """
+            compartment_id = self._tenant_id
+        if compartment_id is not None:
+            headers['(request-target)'] = compartment_id
+        headers['Authorization'] = self.get_authorization_string()

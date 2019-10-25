@@ -12,10 +12,10 @@ from requests import ConnectionError
 
 from borneo import (
     GetRequest, IllegalArgumentException, OperationThrottlingException,
-    DefaultRetryHandler, RetryableException, RetryHandler,
+    DefaultRetryHandler, Regions, RetryableException, RetryHandler,
     SecurityInfoNotReadyException, NoSQLHandle, NoSQLHandleConfig, TableRequest)
 from parameters import (
-    consistency, pool_connections, pool_maxsize, security, table_name,
+    consistency, endpoint, pool_connections, pool_maxsize, security, table_name,
     tenant_id, timeout, table_request_timeout)
 from testutils import (
     get_handle_config, get_simple_handle_config, proxy_host, proxy_port,
@@ -28,6 +28,22 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.table_request = TableRequest().set_statement(
             'DROP TABLE IF EXISTS ' + table_name)
         self.get_request = GetRequest()
+
+    def testNoSQLHandleConfigIllegalInit(self):
+        # illegal endpoint
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          {'IllegalEndpoint': endpoint})
+        # illegal region
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          region='IllegalRegion')
+        # illegal provider
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          endpoint, provider='IllegalProvider')
+        # no endpoint and region
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig)
+        # both endpoint and region
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          endpoint, Regions.UK_LONDON_1)
 
     def testNoSQLHandleConfigSetIllegalEndpoint(self):
         # illegal endpoint
@@ -237,6 +253,8 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         url = config.get_service_url()
         (self.assertIsNotNone(url) if service_url is None
          else self.assertEqual(url, service_url))
+        # check the region
+        self.assertIsNone(config.get_region())
         # check default timeout
         self.assertEqual(config.get_default_timeout(), timeout)
         # check default table request timeout

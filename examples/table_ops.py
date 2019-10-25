@@ -69,7 +69,7 @@ def main():
         # List any existing tables for this tenant
         #
         print('Listing tables')
-        ltr = ListTablesRequest()
+        ltr = ListTablesRequest().set_compartment_id(tenant_id)
         lr_result = handle.list_tables(ltr)
         print('Existing tables: ' + str(lr_result))
 
@@ -80,7 +80,7 @@ def main():
 sid integer, name string, primary key(shard(sid), id))'
         print('Creating table: ' + statement)
         request = TableRequest().set_statement(statement).set_table_limits(
-            TableLimits(30, 10, 1))
+            TableLimits(30, 10, 1)).set_compartment_id(tenant_id)
         handle.do_table_request(request, 40000, 3000)
         print('After create table')
 
@@ -90,21 +90,24 @@ sid integer, name string, primary key(shard(sid), id))'
         statement = ('Create index if not exists ' + index_name + ' on ' +
                      table_name + '(name)')
         print('Creating index: ' + statement)
-        request = TableRequest().set_statement(statement)
+        request = TableRequest().set_statement(statement).set_compartment_id(
+            tenant_id)
         handle.do_table_request(request, 40000, 3000)
         print('After create index')
 
         #
         # Get the table
         #
-        request = GetTableRequest().set_table_name(table_name)
+        request = GetTableRequest().set_table_name(
+            table_name).set_compartment_id(tenant_id)
         result = handle.get_table(request)
         print('After get table: ' + str(result))
 
         #
         # Get the indexes
         #
-        request = GetIndexesRequest().set_table_name(table_name)
+        request = GetIndexesRequest().set_table_name(
+            table_name).set_compartment_id(tenant_id)
         result = handle.get_indexes(request)
         print('The indexes for: ' + table_name)
         for idx in result.get_indexes():
@@ -114,7 +117,8 @@ sid integer, name string, primary key(shard(sid), id))'
         # Get the table usage information, on-prem mode not supported
         #
         if not using_on_prem:
-            request = TableUsageRequest().set_table_name(table_name)
+            request = TableUsageRequest().set_table_name(
+                table_name).set_compartment_id(tenant_id)
             result = handle.get_table_usage(request)
             print('The table usage information for: ' + table_name)
             for record in result.get_usage_records():
@@ -124,8 +128,9 @@ sid integer, name string, primary key(shard(sid), id))'
         # Drop the table
         #
         if drop_table:
-            request = TableRequest().set_statement('drop table if exists ' +
-                                                   table_name)
+            request = TableRequest().set_statement(
+                'drop table if exists ' + table_name).set_compartment_id(
+                tenant_id)
             handle.do_table_request(request, 30000, 2000)
             print('After drop table')
         else:

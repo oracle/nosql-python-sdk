@@ -71,14 +71,15 @@ def main():
 sid integer, name string, primary key(shard(sid), id))'
         print('Creating table: ' + statement)
         request = TableRequest().set_statement(statement).set_table_limits(
-            TableLimits(30, 10, 1))
+            TableLimits(30, 10, 1)).set_compartment_id(tenant_id)
         handle.do_table_request(request, 50000, 3000)
         print('After create table')
 
         #
         # Put a few rows
         #
-        request = PutRequest().set_table_name(table_name)
+        request = PutRequest().set_table_name(table_name).set_compartment_id(
+            tenant_id)
         for i in range(10):
             value = {'id': i, 'sid': 0, 'name': 'myname' + str(i)}
             request.set_value(value)
@@ -89,7 +90,7 @@ sid integer, name string, primary key(shard(sid), id))'
         # Get the row
         #
         request = GetRequest().set_key({'id': 1, 'sid': 0}).set_table_name(
-            table_name)
+            table_name).set_compartment_id(tenant_id)
         result = handle.get(request)
         print('After get: ' + str(result))
 
@@ -97,7 +98,8 @@ sid integer, name string, primary key(shard(sid), id))'
         # Query, using a range
         #
         statement = 'select * from ' + table_name + ' where id > 2 and id < 8'
-        request = QueryRequest().set_statement(statement)
+        request = QueryRequest().set_statement(statement).set_compartment_id(
+            tenant_id)
         result = handle.query(request)
         print('Query results for: ' + statement)
         for r in result.get_results():
@@ -107,7 +109,7 @@ sid integer, name string, primary key(shard(sid), id))'
         # Delete the row
         #
         request = DeleteRequest().set_key({'id': 1, 'sid': 0}).set_table_name(
-            table_name)
+            table_name).set_compartment_id(tenant_id)
         result = handle.delete(request)
         print('After delete: ' + str(result))
 
@@ -115,7 +117,7 @@ sid integer, name string, primary key(shard(sid), id))'
         # Get again to show deletion
         #
         request = GetRequest().set_key({'id': 1, 'sid': 0}).set_table_name(
-            table_name)
+            table_name).set_compartment_id(tenant_id)
         result = handle.get(request)
         print('After get (should be None): ' + str(result))
 
@@ -123,8 +125,9 @@ sid integer, name string, primary key(shard(sid), id))'
         # Drop the table
         #
         if drop_table:
-            request = TableRequest().set_statement('drop table if exists ' +
-                                                   table_name)
+            request = TableRequest().set_statement(
+                'drop table if exists ' + table_name).set_compartment_id(
+                tenant_id)
             result = handle.table_request(request)
 
             #

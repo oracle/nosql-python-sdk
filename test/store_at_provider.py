@@ -23,7 +23,7 @@ from borneo import IllegalArgumentException
 from borneo.kv import StoreAccessTokenProvider
 
 
-class TestDefaultAccessTokenProvider(unittest.TestCase):
+class TestStoreAccessTokenProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global LOGIN_PATH, LOGOUT_PATH, RENEW_PATH
@@ -41,8 +41,18 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         LOGIN_TOKEN = 'LOGIN_TOKEN'
         RENEW_TOKEN = 'RENEW_TOKEN'
 
+        global PORT
+        PORT = cls._find_port_start_server(TokenHandler)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.httpd is not None:
+            cls.httpd.shutdown()
+            cls.httpd.server_close()
+            cls.httpd = None
+
     def setUp(self):
-        self.base = 'https://localhost:' + str(8000)
+        self.base = 'https://localhost:' + str(PORT)
         self.token_provider = None
 
     def tearDown(self):
@@ -107,17 +117,15 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                           'IllegalRequest')
 
     def testAccessTokenProviderGets(self):
+        base = 'https://localhost:80'
         self.token_provider = StoreAccessTokenProvider(
-            USER_NAME, PASSWORD).set_auto_renew(False).set_endpoint(self.base)
+            USER_NAME, PASSWORD).set_auto_renew(False).set_endpoint(base)
         self.assertTrue(self.token_provider.is_secure())
         self.assertFalse(self.token_provider.is_auto_renew())
-        self.assertEqual(self.token_provider.get_endpoint(), self.base)
+        self.assertEqual(self.token_provider.get_endpoint(), base)
         self.assertIsNone(self.token_provider.get_logger())
 
     def testAccessTokenProviderGetAuthorizationString(self):
-        httpd, port = self._find_port_start_server(TokenHandler)
-
-        self.base = 'https://localhost:' + str(port)
         self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
         self.token_provider.set_endpoint(self.base)
         self.token_provider.set_url_for_test()
@@ -132,12 +140,8 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         self.assertEqual(result[len(AUTH_TOKEN_PREFIX):], RENEW_TOKEN)
         self.token_provider.close()
         self.assertIsNone(self.token_provider.get_authorization_string())
-        self._stop_server(httpd)
 
     def testAccessTokenProviderMultiThreads(self):
-        httpd, port = self._find_port_start_server(TokenHandler)
-
-        self.base = 'https://localhost:' + str(port)
         self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
         self.token_provider.set_endpoint(self.base)
         self.token_provider.set_url_for_test()
@@ -149,19 +153,20 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
         for t in threads:
             t.join()
 
-    def _find_port_start_server(self, token_handler):
-        port = 8000
+    @classmethod
+    def _find_port_start_server(cls, token_handler):
+        port = 9000
         while True:
             try:
-                httpd = TCPServer(('', port), token_handler)
+                cls.httpd = TCPServer(('', port), token_handler)
             except error:
                 port += 1
             else:
                 break
-        thread = Thread(target=httpd.serve_forever)
+        thread = Thread(target=cls.httpd.serve_forever)
         thread.setDaemon(True)
         thread.start()
-        return httpd, port
+        return port
 
     def _run(self):
         try:
@@ -169,10 +174,6 @@ class TestDefaultAccessTokenProvider(unittest.TestCase):
                 self.token_provider.bootstrap_login()
         finally:
             self.token_provider.close()
-
-    def _stop_server(self, httpd):
-        httpd.shutdown()
-        httpd.server_close()
 
 
 class TokenHandler(SimpleHTTPRequestHandler, object):

@@ -21,6 +21,7 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.get_max_content_length
       ~NoSQLHandleConfig.get_pool_connections
       ~NoSQLHandleConfig.get_pool_maxsize
+      ~NoSQLHandleConfig.get_region
       ~NoSQLHandleConfig.get_retry_handler
       ~NoSQLHandleConfig.get_sec_info_timeout
       ~NoSQLHandleConfig.get_service_url
@@ -49,6 +50,7 @@ NoSQLHandleConfig
    .. automethod:: get_max_content_length
    .. automethod:: get_pool_connections
    .. automethod:: get_pool_maxsize
+   .. automethod:: get_region
    .. automethod:: get_retry_handler
    .. automethod:: get_sec_info_timeout
    .. automethod:: get_service_url

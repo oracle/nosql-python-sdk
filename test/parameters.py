@@ -40,8 +40,6 @@ from borneo import Consistency
 
 # A test tenant_id, only used for the Cloud Simulator.
 tenant_id = 'test_tenant'
-# Your entitlement id.
-entitlement_id = None
 # A prefix for table names.
 table_prefix = 'pytest'
 # The table name to use.
@@ -77,7 +75,9 @@ wait_timeout = 120000
 #
 
 
-def idcs_url():
+def iam_principal():
+    # Use 'user principal' or 'instance principal' for production pod, and use
+    # None for minicloud testing.
     return None
 
 
@@ -98,7 +98,7 @@ def is_onprem():
 
 
 def is_prod_pod():
-    return idcs_url() is not None
+    return iam_principal() is not None
 
 
 def is_pod():
