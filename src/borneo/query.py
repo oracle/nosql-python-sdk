@@ -2096,9 +2096,12 @@ class Compare(object):
         res.clear()
         if v0 is None and v1 is None:
             res.comp = 0
-        elif v0 is None or v1 is None:
+        elif v0 is None and v1 is not None:
             res.comp = (
-                -1 if v0 < v1 and sort_specs[sort_pos].nones_first else 1)
+                -1 if sort_specs[sort_pos].nones_first else 1)
+        elif v0 is not None and v1 is None:
+            res.comp = (
+                1 if sort_specs[sort_pos].nones_first else -1)
         else:
             Compare.compare_atomics(rcb, v0, v1, res)
         return -res.comp if sort_specs[sort_pos].is_desc else res.comp

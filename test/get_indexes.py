@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     GetIndexesRequest, IllegalArgumentException, IndexNotFoundException,
     TableLimits, TableNotFoundException, TableRequest)
-from parameters import index_name, table_name, tenant_id, timeout
+from parameters import index_name, is_minicloud, table_name, tenant_id, timeout
 from test_base import TestBase
 
 
@@ -55,6 +55,8 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                 create_index_request = TableRequest().set_statement(
                     create_index_statement).set_compartment_id(tenant_id)
                 cls.table_request(create_index_request)
+            if is_minicloud():
+                index_names[table].reverse()
 
     @classmethod
     def tearDownClass(cls):
@@ -133,10 +135,10 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         indexes = result.get_indexes()
         self.assertEqual(len(indexes), num_idxes)
         for index in range(len(indexes)):
-            self.assertEqual(indexes[index].get_index_name(),
-                             index_names[table][index])
+            idx_name = indexes[index].get_index_name()
+            self.assertEqual(idx_name, index_names[table][index])
             self.assertEqual(indexes[index].get_field_names(),
-                             index_fields[index])
+                             index_fields[int(idx_name[len(index_name):])])
 
 
 if __name__ == '__main__':

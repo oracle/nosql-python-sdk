@@ -401,6 +401,9 @@ class HttpConstants(object):
     # The service name prefix for public NoSQL services
     NOSQL_PATH_NAME = 'nosql'
 
+    # A header for transferring the compartment id on an http request.
+    REQUEST_COMPARTMENT_ID = 'x-nosql-compartment-id'
+
     # The http header that identifies the client scoped unique request id
     # associated with each request. The request header is returned by the
     # server, as part of the response and serves to associate the response with

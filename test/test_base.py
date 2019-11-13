@@ -11,11 +11,10 @@ from sys import version_info
 from time import sleep
 from unittest import TestCase
 
-from borneo import (
-    ListTablesRequest, QueryResult, State, TableRequest, TableResult, TimeUnit)
+from borneo import ListTablesRequest, QueryResult, TableRequest, TimeUnit
 from parameters import (
-    is_onprem, is_pod, is_minicloud, not_cloudsim, table_prefix, table_name,
-    tenant_id, wait_timeout)
+    is_onprem, is_pod, not_cloudsim, table_prefix, table_name, tenant_id,
+    wait_timeout)
 from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
 
 
@@ -201,16 +200,4 @@ class TestBase(object):
         #
         if is_pod():
             sleep(20)
-        # TODO: For minicloud, the SC module doesn't return operation id for
-        # now. In TableResult.wait_for_completion, it check if the operation id
-        # is none, if none, raise IllegalArgumentException, at the moment we
-        # should ignore this exception in minicloud testing. This affects drop
-        # table as well as create/drop index. When the SC is changed to return
-        # the operation id, the test need to be changed.
-        if is_minicloud():
-            result = test_handle.table_request(request)
-            TableResult.wait_for_state(
-                test_handle, [State.ACTIVE, State.DROPPED], wait_timeout, 1000,
-                result=result)
-        else:
-            test_handle.do_table_request(request, wait_timeout, 1000)
+        test_handle.do_table_request(request, wait_timeout, 1000)

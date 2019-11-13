@@ -14,7 +14,7 @@ from borneo import (
     IllegalArgumentException, OperationNotSupportedException, State,
     TableLimits, TableNotFoundException, TableRequest, TableResult)
 from parameters import (
-    is_minicloud, is_onprem, is_pod, not_cloudsim, table_name,
+    is_cloudsim, is_minicloud, is_onprem, is_pod, table_name,
     table_request_timeout, tenant_id, wait_timeout)
 from test_base import TestBase
 from testutils import get_handle_config
@@ -76,8 +76,14 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                           self.table_request)
         self.table_request.set_statement(
             'ALTER TABLE IllegalTable (DROP fld_num)')
-        self.assertRaises(TableNotFoundException, self.handle.table_request,
-                          self.table_request)
+        if is_cloudsim() or is_onprem():
+            self.assertRaises(TableNotFoundException, self.handle.table_request,
+                              self.table_request)
+        else:
+            result = self.handle.table_request(self.table_request)
+            self.assertRaises(TableNotFoundException,
+                              result.wait_for_completion, self.handle,
+                              wait_timeout, 1000)
 
     def testTableRequestSetIllegalCompartmentId(self):
         self.assertRaises(IllegalArgumentException,
@@ -103,8 +109,14 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         if not is_onprem():
             self.table_request.set_table_name('IllegalTable').set_table_limits(
                 self.table_limits)
-            self.assertRaises(TableNotFoundException, self.handle.table_request,
-                              self.table_request)
+            if is_cloudsim():
+                self.assertRaises(TableNotFoundException,
+                                  self.handle.table_request, self.table_request)
+            else:
+                result = self.handle.table_request(self.table_request)
+                self.assertRaises(TableNotFoundException,
+                                  result.wait_for_completion, self.handle,
+                                  wait_timeout, 1000)
 
     def testTableRequestSetIllegalTimeout(self):
         self.assertRaises(IllegalArgumentException,
@@ -166,21 +178,17 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         else:
             self.check_table_result(
                 result, State.CREATING, self.table_limits, False)
-        self._wait_for_completion(result)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table by resetting the statement
         self.table_request.set_statement(self.drop_tb_statement)
         result = self.handle.table_request(self.table_request)
-        # TODO: A difference between old cloud proxy and new cloud proxy, during
-        # DROPPING phase, the table limit is not none for old proxy but none for
-        # new proxy.
-        self.check_table_result(result, State.DROPPING, check_limit=False)
-        self._wait_for_completion(result)
-        # TODO: A difference between old cloud proxy and new cloud proxy, after
-        # table DROPPED, the table limit is not none for old proxy but none for
-        # new proxy.
-        self.check_table_result(result, State.DROPPED, has_schema=False,
-                                check_limit=False)
+        if is_minicloud():
+            self.check_table_result(result, State.DROPPING, has_schema=False)
+        else:
+            self.check_table_result(result, State.DROPPING)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self.check_table_result(result, State.DROPPED, has_schema=False)
 
     def testTableRequestCreateDropIndex(self):
         # create table before creating index
@@ -190,14 +198,20 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # create index by resetting the statement
         self.table_request.set_statement(self.create_idx_statement)
         result = self.handle.table_request(self.table_request)
-        self.check_table_result(result, State.UPDATING, self.table_limits)
-        self._wait_for_completion(result)
+        if is_minicloud():
+            self.check_table_result(result, State.UPDATING, has_schema=False)
+        else:
+            self.check_table_result(result, State.UPDATING, self.table_limits)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop index by resetting the statement
         self.table_request.set_statement(self.drop_idx_statement)
         result = self.handle.table_request(self.table_request)
-        self.check_table_result(result, State.UPDATING, self.table_limits)
-        self._wait_for_completion(result)
+        if is_minicloud():
+            self.check_table_result(result, State.UPDATING, has_schema=False)
+        else:
+            self.check_table_result(result, State.UPDATING, self.table_limits)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after dropping index
         self.table_request.set_statement(self.drop_tb_statement)
@@ -217,8 +231,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # alter table succeed without TableLimits set
         self.table_request.set_statement(self.alter_fld_statement)
         result = self.handle.table_request(self.table_request)
-        self.check_table_result(result, State.UPDATING, self.table_limits)
-        self._wait_for_completion(result)
+        if is_minicloud():
+            self.check_table_result(result, State.UPDATING, has_schema=False)
+        else:
+            self.check_table_result(result, State.UPDATING, self.table_limits)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
@@ -233,8 +250,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # alter table ttl
         self.table_request.set_statement(self.alter_ttl_statement)
         result = self.handle.table_request(self.table_request)
-        self.check_table_result(result, State.UPDATING, self.table_limits)
-        self._wait_for_completion(result)
+        if is_minicloud():
+            self.check_table_result(result, State.UPDATING, has_schema=False)
+        else:
+            self.check_table_result(result, State.UPDATING, self.table_limits)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
@@ -257,10 +277,12 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         result = self.handle.table_request(self.table_request)
         self.assertEqual(result.get_table_name(), table_name)
         self.assertEqual(result.get_state(), State.UPDATING)
-        if not_cloudsim():
+        if is_minicloud():
+            self.assertIsNone(result.get_schema())
+        else:
             self.assertIsNotNone(result.get_schema())
         self.assertIsNotNone(result.get_operation_id())
-        self._wait_for_completion(result)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, table_limits)
         # drop table after modifying the table limits
         request.set_statement(self.drop_tb_statement)
@@ -274,20 +296,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         if is_pod():
             sleep(20)
         result = self.handle.table_request(request)
-        self._wait_for_completion(result)
-
-    def _wait_for_completion(self, result):
-        # TODO: For minicloud, the SC module doesn't return operation id for
-        # now. In TableResult.wait_for_completion, it check if the operation id
-        # is none, if none, raise IllegalArgumentException, at the moment we
-        # should ignore this exception in minicloud testing. This affects drop
-        # table as well as create/drop index. When the SC is changed to return
-        # the operation id, the test need to be changed.
-        if is_minicloud():
-            result.wait_for_state(self.handle, [State.ACTIVE, State.DROPPED],
-                                  wait_timeout, 1000, result=result)
-        else:
-            result.wait_for_completion(self.handle, wait_timeout, 1000)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
 
 
 if __name__ == '__main__':

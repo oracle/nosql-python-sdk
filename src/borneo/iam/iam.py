@@ -12,12 +12,13 @@ from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.hashes import SHA256
 from datetime import datetime
 from locale import LC_ALL, setlocale
-from oci.auth.signers import InstancePrincipalsSecurityTokenSigner
-from oci.config import from_file
-from oci.signer import Signer
 from re import match
 from requests import Session
 from threading import Timer
+try:
+    import oci
+except ImportError:
+    oci = None
 
 from borneo.auth import AuthorizationProvider
 from borneo.common import CheckValue, HttpConstants, LogUtils, Memoize
@@ -73,39 +74,47 @@ class SignatureProvider(AuthorizationProvider):
             raise IllegalArgumentException(
                 'Access token cannot be cached longer than ' +
                 str(SignatureProvider.MAX_ENTRY_LIFE_TIME) + ' seconds.')
-        if provider is not None:
-            if config_file is not None or profile_name is not None:
-                raise IllegalArgumentException(
-                    'config_file and profile_name are not allowed to be set ' +
-                    'if provider is set.')
-            if not isinstance(
-                    provider, (dict, InstancePrincipalsSecurityTokenSigner)):
-                raise IllegalArgumentException(
-                    'provider should be a dict or an instance of ' +
-                    'InstancePrincipalsSecurityTokenSigner.')
-            self._provider = provider
-        else:
-            CheckValue.check_str(config_file, 'config_file', True)
-            CheckValue.check_str(profile_name, 'profile_name', True)
-            if config_file is None and profile_name is None:
-                # Use default user profile and private key from default path of
-                # configuration file ~/.oci/config.
-                self._provider = from_file()
-            elif config_file is None and profile_name is not None:
-                # Use user profile with given profile name and private key from
-                # default path of configuration file ~/.oci/config.
-                self._provider = from_file(profile_name=profile_name)
-            elif config_file is not None and profile_name is None:
-                # Use user profile with default profile name and private key
-                # from specified configuration file.
-                self._provider = from_file(file_location=config_file)
-            elif profile_name is not None and config_file is not None:
-                # Use user profile with given profile name and private key from
-                # specified configuration file.
-                self._provider = from_file(
-                    file_location=config_file, profile_name=profile_name)
+        try:
+            if provider is not None:
+                if config_file is not None or profile_name is not None:
+                    raise IllegalArgumentException(
+                        'config_file and profile_name are not allowed to be ' +
+                        'set if provider is set.')
+                if not isinstance(
+                    provider,
+                    (dict,
+                     oci.auth.signers.InstancePrincipalsSecurityTokenSigner)):
+                    raise IllegalArgumentException(
+                        'provider should be a dict or an instance of ' +
+                        'InstancePrincipalsSecurityTokenSigner.')
+                self._provider = provider
+            else:
+                CheckValue.check_str(config_file, 'config_file', True)
+                CheckValue.check_str(profile_name, 'profile_name', True)
+                if config_file is None and profile_name is None:
+                    # Use default user profile and private key from default path
+                    # of configuration file ~/.oci/config.
+                    self._provider = oci.config.from_file()
+                elif config_file is None and profile_name is not None:
+                    # Use user profile with given profile name and private key
+                    # from default path of configuration file ~/.oci/config.
+                    self._provider = oci.config.from_file(
+                        profile_name=profile_name)
+                elif config_file is not None and profile_name is None:
+                    # Use user profile with default profile name and private key
+                    # from specified configuration file.
+                    self._provider = oci.config.from_file(
+                        file_location=config_file)
+                elif profile_name is not None and config_file is not None:
+                    # Use user profile with given profile name and private key
+                    # from specified configuration file.
+                    self._provider = oci.config.from_file(
+                        file_location=config_file, profile_name=profile_name)
+        except AttributeError:
+            raise ImportError('No module named oci')
+
         if isinstance(self._provider, dict):
-            signer = Signer(
+            signer = oci.signer.Signer(
                 tenancy=self._provider['tenancy'], user=self._provider['user'],
                 fingerprint=self._provider['fingerprint'],
                 private_key_file_location=self._provider['key_file'])
@@ -167,7 +176,7 @@ class SignatureProvider(AuthorizationProvider):
             # user principal.
             compartment_id = self._get_tenant_ocid()
         if compartment_id is not None:
-            headers[HttpConstants.REQUEST_TARGET] = compartment_id
+            headers[HttpConstants.REQUEST_COMPARTMENT_ID] = compartment_id
 
     def set_service_host(self, config):
         service_url = config.get_service_url()
@@ -185,7 +194,8 @@ class SignatureProvider(AuthorizationProvider):
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
         """
-        return SignatureProvider(InstancePrincipalsSecurityTokenSigner())
+        return SignatureProvider(
+            oci.auth.signers.InstancePrincipalsSecurityTokenSigner())
 
     def _is_valid_ocid(self, ocid):
         return match(SignatureProvider.OCID_PATTERN, ocid)

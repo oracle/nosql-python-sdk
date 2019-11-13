@@ -512,9 +512,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         expect_expiration = ttl.to_expiration_time(int(round(time() * 1000)))
         records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'NumRowsUpdated': 1})
-        # TODO: A difference between old cloud proxy and new cloud proxy, the
-        # cost of old proxy is 1 less than that of new proxy.
-        # self.check_cost(result, 2 + prepare_cost, 4 + prepare_cost, 6, 6)
+        self.check_cost(result, 2 + prepare_cost, 4 + prepare_cost, 6, 6)
         # check the record after update ttl request succeed
         self.get_request.set_key({'fld_sid': 1, 'fld_id': 3})
         result = self.handle.get(self.get_request)

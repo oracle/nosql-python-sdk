@@ -265,6 +265,5 @@ class TestSignatureProvider(AuthorizationProvider):
             user principal.
             """
             compartment_id = self._tenant_id
-        if compartment_id is not None:
-            headers['(request-target)'] = compartment_id
+        headers['x-nosql-compartment-id'] = compartment_id
         headers['Authorization'] = self.get_authorization_string()

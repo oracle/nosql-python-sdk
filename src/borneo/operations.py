@@ -15,8 +15,7 @@ from time import mktime, sleep, time
 from .common import (
     CheckValue, Consistency, FieldRange, PreparedStatement, PutOption, State,
     SystemState, TableLimits, TimeToLive, Version)
-from .exception import (
-    IllegalArgumentException, RequestTimeoutException, TableNotFoundException)
+from .exception import IllegalArgumentException, RequestTimeoutException
 from .serde import (
     BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
     GetRequestSerializer, GetTableRequestSerializer,
@@ -4090,38 +4089,18 @@ class TableResult(Result):
                     raise RequestTimeoutException(
                         'Expected state for table ' + table_name +
                         ' not reached.', wait_millis)
-            # delay.
-            try:
-                if res is not None:
-                    # only delay after the first get_table.
-                    sleep(delay_s)
-                res = handle.get_table(get_table)
-                if isinstance(state, list):
-                    # partial "copy" of possibly modified state. Don't modify
-                    # operationId as that is what we are waiting to complete.
-                    assert result is not None
-                    result.set_state(res.get_state())
-                    result.set_table_limits(res.get_table_limits())
-                    result.set_schema(res.get_schema())
-                else:
-                    # If using operation_id, re-acquire from the current result.
-                    # It can change.
-                    if operation_id is not None:
-                        get_table.set_operation_id(res.get_operation_id())
-            except TableNotFoundException as tnf:
-                if isinstance(state, list):
-                    # The operation was probably a drop. There was an
-                    # operation_id, which means that the table existed when the
-                    # original request was made. Throwing tnf doesn't add value
-                    # here.
-                    result.set_state(State.DROPPED)
-                    res = result
-                else:
-                    # table not found is == DROPPED.
-                    if state == State.DROPPED:
-                        return TableResult().set_table_name(
-                            table_name).set_state(State.DROPPED)
-                    raise tnf
+
+            if res is not None:
+                # only delay after the first get_table.
+                sleep(delay_s)
+            res = handle.get_table(get_table)
+            if isinstance(state, list):
+                # partial "copy" of possibly modified state. Don't modify
+                # operationId as that is what we are waiting to complete.
+                assert result is not None
+                result.set_state(res.get_state())
+                result.set_table_limits(res.get_table_limits())
+                result.set_schema(res.get_schema())
             if res.get_state() == state or res.get_state() in state:
                 break
         return res

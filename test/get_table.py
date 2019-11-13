@@ -91,8 +91,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testGetTableNormal(self):
         self.get_table_request.set_table_name(table_name)
         result = self.handle.get_table(self.get_table_request)
-        self.check_table_result(result, State.ACTIVE, table_limits,
-                                has_operation_id=False)
+        if is_minicloud():
+            self.check_table_result(result, State.ACTIVE, table_limits)
+        else:
+            self.check_table_result(result, State.ACTIVE, table_limits,
+                                    has_operation_id=False)
 
     def testGetTableWithOperationId(self):
         drop_request = TableRequest().set_statement(
@@ -101,18 +104,14 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.get_table_request.set_table_name(table_name).set_operation_id(
             table_result.get_operation_id())
         result = self.handle.get_table(self.get_table_request)
-        # TODO: A difference between old cloud proxy and new cloud proxy, during
-        # DROPPING phase, the table limit is not none for old proxy but none for
-        # new proxy.
-        self.check_table_result(
-            result, [State.DROPPING, State.DROPPED], check_limit=False,
-            check_schema=False, check_operation_id=False)
         if is_minicloud():
-            table_result.wait_for_state(
-                self.handle, [State.ACTIVE, State.DROPPED], wait_timeout, 1000,
-                result=table_result)
+            self.check_table_result(
+                result, [State.DROPPING, State.DROPPED], table_limits,
+                has_schema=False)
         else:
-            table_result.wait_for_completion(self.handle, wait_timeout, 1000)
+            self.check_table_result(
+                result, [State.DROPPING, State.DROPPED])
+        table_result.wait_for_completion(self.handle, wait_timeout, 1000)
 
 
 if __name__ == '__main__':
