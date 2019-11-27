@@ -14,7 +14,7 @@ from borneo import (
     IllegalArgumentException, OperationNotSupportedException, State,
     TableLimits, TableNotFoundException, TableRequest, TableResult)
 from parameters import (
-    is_cloudsim, is_minicloud, is_onprem, is_pod, table_name,
+    index_name, is_minicloud, is_onprem, is_pod, table_name,
     table_request_timeout, tenant_id, wait_timeout)
 from test_base import TestBase
 from testutils import get_handle_config
@@ -32,7 +32,6 @@ class TestTableRequest(unittest.TestCase, TestBase):
     def setUp(self):
         self.set_up()
         self.handle_config = get_handle_config(tenant_id)
-        index_name = 'idx_' + table_name
         self.create_tb_statement = (
             'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
@@ -75,15 +74,9 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(IllegalArgumentException, self.handle.table_request,
                           self.table_request)
         self.table_request.set_statement(
-            'ALTER TABLE IllegalTable (DROP fld_num)')
-        if is_cloudsim() or is_onprem():
-            self.assertRaises(TableNotFoundException, self.handle.table_request,
-                              self.table_request)
-        else:
-            result = self.handle.table_request(self.table_request)
-            self.assertRaises(TableNotFoundException,
-                              result.wait_for_completion, self.handle,
-                              wait_timeout, 1000)
+            'CREATE INDEX ' + index_name + ' ON IllegalTable(fld_num)')
+        self.assertRaises(TableNotFoundException, self.handle.table_request,
+                          self.table_request)
 
     def testTableRequestSetIllegalCompartmentId(self):
         self.assertRaises(IllegalArgumentException,
@@ -109,14 +102,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         if not is_onprem():
             self.table_request.set_table_name('IllegalTable').set_table_limits(
                 self.table_limits)
-            if is_cloudsim():
-                self.assertRaises(TableNotFoundException,
-                                  self.handle.table_request, self.table_request)
-            else:
-                result = self.handle.table_request(self.table_request)
-                self.assertRaises(TableNotFoundException,
-                                  result.wait_for_completion, self.handle,
-                                  wait_timeout, 1000)
+            self.assertRaises(TableNotFoundException,
+                              self.handle.table_request, self.table_request)
 
     def testTableRequestSetIllegalTimeout(self):
         self.assertRaises(IllegalArgumentException,
