@@ -14,8 +14,8 @@ from borneo import (
     IllegalArgumentException, OperationNotSupportedException, State,
     TableLimits, TableNotFoundException, TableRequest, TableResult)
 from parameters import (
-    index_name, is_minicloud, is_onprem, is_pod, table_name,
-    table_request_timeout, tenant_id, wait_timeout)
+    index_name, is_onprem, is_pod, table_name, table_request_timeout, tenant_id,
+    wait_timeout)
 from test_base import TestBase
 from testutils import get_handle_config
 
@@ -170,10 +170,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # drop table by resetting the statement
         self.table_request.set_statement(self.drop_tb_statement)
         result = self.handle.table_request(self.table_request)
-        if is_minicloud():
-            self.check_table_result(result, State.DROPPING, has_schema=False)
-        else:
-            self.check_table_result(result, State.DROPPING)
+        self.check_table_result(
+            result, State.DROPPING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.DROPPED, has_schema=False)
 
@@ -185,19 +183,15 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # create index by resetting the statement
         self.table_request.set_statement(self.create_idx_statement)
         result = self.handle.table_request(self.table_request)
-        if is_minicloud():
-            self.check_table_result(result, State.UPDATING, has_schema=False)
-        else:
-            self.check_table_result(result, State.UPDATING, self.table_limits)
+        self.check_table_result(
+            result, State.UPDATING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop index by resetting the statement
         self.table_request.set_statement(self.drop_idx_statement)
         result = self.handle.table_request(self.table_request)
-        if is_minicloud():
-            self.check_table_result(result, State.UPDATING, has_schema=False)
-        else:
-            self.check_table_result(result, State.UPDATING, self.table_limits)
+        self.check_table_result(
+            result, State.UPDATING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after dropping index
@@ -218,10 +212,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # alter table succeed without TableLimits set
         self.table_request.set_statement(self.alter_fld_statement)
         result = self.handle.table_request(self.table_request)
-        if is_minicloud():
-            self.check_table_result(result, State.UPDATING, has_schema=False)
-        else:
-            self.check_table_result(result, State.UPDATING, self.table_limits)
+        self.check_table_result(
+            result, State.UPDATING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
@@ -237,10 +229,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # alter table ttl
         self.table_request.set_statement(self.alter_ttl_statement)
         result = self.handle.table_request(self.table_request)
-        if is_minicloud():
-            self.check_table_result(result, State.UPDATING, has_schema=False)
-        else:
-            self.check_table_result(result, State.UPDATING, self.table_limits)
+        self.check_table_result(
+            result, State.UPDATING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
         # drop table after altering table
@@ -262,13 +252,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
                               self.handle.table_request, self.table_request)
             return
         result = self.handle.table_request(self.table_request)
-        self.assertEqual(result.get_table_name(), table_name)
-        self.assertEqual(result.get_state(), State.UPDATING)
-        if is_minicloud():
-            self.assertIsNone(result.get_schema())
-        else:
-            self.assertIsNotNone(result.get_schema())
-        self.assertIsNotNone(result.get_operation_id())
+        self.check_table_result(
+            result, State.UPDATING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, table_limits)
         # drop table after modifying the table limits

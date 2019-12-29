@@ -9,7 +9,7 @@
 
 from json import loads
 from logging import FileHandler, WARNING, getLogger
-from os import mkdir, path, sep
+from os import mkdir, path
 from sys import argv
 
 from .client import Client
@@ -667,8 +667,8 @@ class NoSQLHandle(object):
         else:
             logger = getLogger(self.__class__.__name__)
             logger.setLevel(WARNING)
-            log_dir = (path.abspath(path.dirname(argv[0])) + sep + 'logs')
+            log_dir = path.join(path.abspath(path.dirname(argv[0])), 'logs')
             if not path.exists(log_dir):
                 mkdir(log_dir)
-            logger.addHandler(FileHandler(log_dir + sep + 'driver.log'))
+            logger.addHandler(FileHandler(path.join(log_dir, 'driver.log')))
         return logger

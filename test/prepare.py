@@ -12,8 +12,7 @@ import unittest
 from borneo import (
     IllegalArgumentException, PrepareRequest, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import (
-    index_name, table_name, tenant_id, test_advanced_query, timeout)
+from parameters import index_name, table_name, tenant_id, timeout
 from test_base import TestBase
 
 
@@ -134,119 +133,118 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.assertEqual(prepared_statement.get_statement(), statement)
         self.assertEqual(prepared_statement.get_variables(), {})
 
-    if test_advanced_query():
-        def testPrepareOrderBy(self):
-            # test order by primary index field
-            statement = ('SELECT fld_time FROM ' + table_name +
-                         ' ORDER BY fld_id')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
-            # test order by secondary index field
-            statement = ('SELECT fld_time FROM ' + table_name +
-                         ' ORDER BY fld_str')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
+    def testPrepareOrderBy(self):
+        # test order by primary index field
+        statement = ('SELECT fld_time FROM ' + table_name +
+                     ' ORDER BY fld_id')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
+        # test order by secondary index field
+        statement = ('SELECT fld_time FROM ' + table_name +
+                     ' ORDER BY fld_str')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
 
-        def testPrepareFuncMinMaxGroupBy(self):
-            # test min function group by primary index field
-            statement = ('SELECT min(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_id')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
-            # test max function group by primary index field
-            statement = ('SELECT max(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_id')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
-            # test min function group by secondary index field
-            statement = ('SELECT min(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_str')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                False)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
-            # test max function group by secondary index field
-            statement = ('SELECT max(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_str')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
+    def testPrepareFuncMinMaxGroupBy(self):
+        # test min function group by primary index field
+        statement = ('SELECT min(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_id')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
+        # test max function group by primary index field
+        statement = ('SELECT max(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_id')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
+        # test min function group by secondary index field
+        statement = ('SELECT min(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_str')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            False)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
+        # test max function group by secondary index field
+        statement = ('SELECT max(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_str')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
 
-        def testPrepareFuncSumGroupBy(self):
-            # test sum function group by primary index field
-            statement = ('SELECT sum(fld_float) FROM ' + table_name +
-                         ' GROUP BY fld_id')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
-            # test sum function group by secondary index field
-            statement = ('SELECT sum(fld_float) FROM ' + table_name +
-                         ' GROUP BY fld_str')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
+    def testPrepareFuncSumGroupBy(self):
+        # test sum function group by primary index field
+        statement = ('SELECT sum(fld_float) FROM ' + table_name +
+                     ' GROUP BY fld_id')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
+        # test sum function group by secondary index field
+        statement = ('SELECT sum(fld_float) FROM ' + table_name +
+                     ' GROUP BY fld_str')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
 
-        def testPrepareFuncAvgGroupBy(self):
-            # test avg function group by primary index field
-            statement = ('SELECT avg(fld_double) FROM ' + table_name +
-                         ' GROUP BY fld_id')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
-            # test avg function group by secondary index field
-            statement = ('SELECT avg(fld_double) FROM ' + table_name +
-                         ' GROUP BY fld_str')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
+    def testPrepareFuncAvgGroupBy(self):
+        # test avg function group by primary index field
+        statement = ('SELECT avg(fld_double) FROM ' + table_name +
+                     ' GROUP BY fld_id')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
+        # test avg function group by secondary index field
+        statement = ('SELECT avg(fld_double) FROM ' + table_name +
+                     ' GROUP BY fld_str')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
 
-        def testPrepareFuncCountGroupBy(self):
-            # test count function group by primary index field
-            statement = ('SELECT count(*) FROM ' + table_name +
-                         ' GROUP BY fld_id')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
-            # test count function group by secondary index field
-            statement = ('SELECT count(*) FROM ' + table_name +
-                         ' GROUP BY fld_str')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
+    def testPrepareFuncCountGroupBy(self):
+        # test count function group by primary index field
+        statement = ('SELECT count(*) FROM ' + table_name +
+                     ' GROUP BY fld_id')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
+        # test count function group by secondary index field
+        statement = ('SELECT count(*) FROM ' + table_name +
+                     ' GROUP BY fld_str')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
 
-        def testPrepareOrderByWithLimit(self):
-            statement = ('SELECT fld_str FROM ' + table_name +
-                         ' ORDER BY fld_str LIMIT 10')
-            self.prepare_request.set_statement(statement).set_get_query_plan(
-                True)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result, True)
+    def testPrepareOrderByWithLimit(self):
+        statement = ('SELECT fld_str FROM ' + table_name +
+                     ' ORDER BY fld_str LIMIT 10')
+        self.prepare_request.set_statement(statement).set_get_query_plan(
+            True)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result, True)
 
-        def testPrepareOrderByWithOffset(self):
-            statement = ('DECLARE $offset INTEGER; SELECT fld_str FROM ' +
-                         table_name + ' ORDER BY fld_str OFFSET $offset')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
+    def testPrepareOrderByWithOffset(self):
+        statement = ('DECLARE $offset INTEGER; SELECT fld_str FROM ' +
+                     table_name + ' ORDER BY fld_str OFFSET $offset')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
 
-        def testPrepareFuncGeoNear(self):
-            statement = (
-                'SELECT fld_id, tb.fld_json.point FROM ' + table_name +
-                ' tb WHERE geo_near(tb.fld_json.point, ' +
-                '{"type": "point", "coordinates": [ 24.0175, 35.5156 ]}, 5000)')
-            self.prepare_request.set_statement(statement)
-            result = self.handle.prepare(self.prepare_request)
-            self._check_prepared_result(result)
+    def testPrepareFuncGeoNear(self):
+        statement = (
+            'SELECT fld_id, tb.fld_json.point FROM ' + table_name +
+            ' tb WHERE geo_near(tb.fld_json.point, ' +
+            '{"type": "point", "coordinates": [ 24.0175, 35.5156 ]}, 5000)')
+        self.prepare_request.set_statement(statement)
+        result = self.handle.prepare(self.prepare_request)
+        self._check_prepared_result(result)
 
     def _check_prepared_result(self, result, has_query_plan=False,
                                has_sql_text=True, variables=None):

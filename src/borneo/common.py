@@ -8,6 +8,7 @@
 #
 
 from datetime import datetime
+from decimal import Decimal
 from functools import wraps
 from logging import Logger
 from platform import architecture
@@ -144,20 +145,22 @@ class CheckValue(object):
 
     @staticmethod
     def check_int(data, name):
-        if not CheckValue.is_int(data):
+        if not (CheckValue.is_int(data) or CheckValue.is_long(data)):
             raise IllegalArgumentException(
                 name + ' must be an integer. Got:' + str(data))
 
     @staticmethod
     def check_int_ge_zero(data, name):
-        if not CheckValue.is_int(data) or data < 0:
+        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
+                data < 0):
             raise IllegalArgumentException(
                 name + ' must be an integer that is not negative. Got:' +
                 str(data))
 
     @staticmethod
     def check_int_gt_zero(data, name):
-        if not CheckValue.is_int(data) or data <= 0:
+        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
+                data <= 0):
             raise IllegalArgumentException(
                 name + ' must be an positive integer. Got:' + str(data))
 
@@ -178,18 +181,40 @@ class CheckValue(object):
 
     @staticmethod
     def check_str(data, name, allow_none=False):
-        if (allow_none and data is not None and
-                (not CheckValue.is_str(data) or len(data) == 0) or
-                not allow_none and
+        if (not allow_none and data is None or data is not None and
                 (not CheckValue.is_str(data) or len(data) == 0)):
             raise IllegalArgumentException(
                 name + ' must be a string that is not empty.')
 
     @staticmethod
+    def is_digit(data):
+        if (CheckValue.is_int(data) or CheckValue.is_long(data) or
+                isinstance(data, float) or isinstance(data, Decimal)):
+            return True
+        return False
+
+    @staticmethod
     def is_int(data):
-        if ((version_info.major == 2 and isinstance(data, (int, long)) or
+        if ((version_info.major == 2 and isinstance(data, int) or
                 version_info.major == 3 and isinstance(data, int)) and
+                -pow(2, 31) <= data < pow(2, 31)):
+            return True
+        return False
+
+    @staticmethod
+    def is_long(data):
+        if ((version_info.major == 2 and isinstance(data, (int, long)) or
+             version_info.major == 3 and isinstance(data, int)) and
+                not CheckValue.is_int(data) and
                 -pow(2, 63) <= data < pow(2, 63)):
+            return True
+        return False
+
+    @staticmethod
+    def is_overlong(data):
+        if ((version_info.major == 2 and isinstance(data, long) or
+             version_info.major == 3 and isinstance(data, int)) and
+                (data < -pow(2, 63) or data >= pow(2, 63))):
             return True
         return False
 
@@ -860,7 +885,7 @@ class PackedInteger(object):
         value in big endian order.
         """
         if negative:
-            value = 0xFFFFFFFF
+            value = -1
         else:
             value = 0
         if byte_len > 3:
@@ -920,7 +945,7 @@ class PackedInteger(object):
         value in big endian order.
         """
         if negative:
-            value = 0xFFFFFFFFFFFFFFFF
+            value = -1
         else:
             value = 0
         if byte_len > 7:

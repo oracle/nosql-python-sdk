@@ -26,9 +26,9 @@ from .serde import (
     TableRequestSerializer, TableUsageRequestSerializer,
     WriteMultipleRequestSerializer)
 try:
-    import config
-except ImportError:
     from . import config
+except ImportError:
+    import config
 
 
 class Request(object):
@@ -2720,8 +2720,9 @@ class TableUsageRequest(Request):
         return TableUsageRequestSerializer()
 
     def _check_time(self, dt):
-        if (not (CheckValue.is_int(dt) or CheckValue.is_str(dt)) or
-                CheckValue.is_int(dt) and dt < 0):
+        if (not (CheckValue.is_int(dt) or CheckValue.is_long(dt) or
+                 CheckValue.is_str(dt)) or
+                not CheckValue.is_str(dt) and dt < 0):
             raise IllegalArgumentException(
                 'dt must be an integer that is not negative or an ISO ' +
                 '8601 formatted string. Got:' + str(dt))

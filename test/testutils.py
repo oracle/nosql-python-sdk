@@ -11,7 +11,7 @@ from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal
 from logging import FileHandler, Logger
-from os import mkdir, path, sep
+from os import mkdir, path
 from requests import codes, delete, post
 from struct import pack
 from sys import argv
@@ -39,19 +39,10 @@ retry_handler = DefaultRetryHandler(delay_s=5)
 # The timeout for waiting security information is available.
 sec_info_timeout = 20000
 
-andc_client_id = 'test-user'
-andc_client_secret = 'test-client-secret'
-andc_username = 'test-user'
-andc_user_pwd = 'test-user-pwd%%'
-
-testdir = path.abspath(path.dirname(argv[0])) + sep
-
-credentials_file = testdir + 'creds'
-fake_credentials_file = testdir + 'testcreds'
-properties_file = testdir + 'testprops'
-key_file = testdir + 'key.pem'
-fake_key_file = testdir + 'testkey.pem'
-keystore = testdir + 'tenant.pem'
+testdir = path.abspath(path.dirname(argv[0]))
+credentials_file = path.join(testdir, 'creds')
+fake_credentials_file = path.join(testdir, 'testcreds')
+fake_key_file = path.join(testdir, 'testkey.pem')
 
 #
 # HTTP proxy settings are generally not required. If the server used for
@@ -226,10 +217,10 @@ def get_logger():
     if logger is None:
         logger = Logger('unittest')
         logger.setLevel(logger_level)
-        log_dir = (path.abspath(path.dirname(argv[0])) + sep + 'logs')
+        log_dir = path.join(path.abspath(path.dirname(argv[0])), 'logs')
         if not path.exists(log_dir):
             mkdir(log_dir)
-        logger.addHandler(FileHandler(log_dir + sep + 'unittest.log'))
+        logger.addHandler(FileHandler(path.join(log_dir, 'unittest.log')))
 
 
 class InsecureAuthorizationProvider(AuthorizationProvider):
@@ -266,4 +257,4 @@ class TestSignatureProvider(AuthorizationProvider):
             """
             compartment_id = self._tenant_id
         headers['x-nosql-compartment-id'] = compartment_id
-        headers['Authorization'] = self.get_authorization_string()
+        headers['Authorization'] = auth_string

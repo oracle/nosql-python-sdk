@@ -135,7 +135,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
                          start_str)
         self.assertEqual(self.table_usage_request.get_end_time(), end)
         self.assertEqual(self.table_usage_request.get_end_time_string(),
-                         end_str[0:end_str.index('.')])
+                         end_str[0:end_str.find('.')])
         self.assertEqual(self.table_usage_request.get_limit(), 5)
 
     def testTableUsageIllegalRequest(self):

@@ -9,18 +9,17 @@
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, setcontext
 from sys import getsizeof, version_info
-from traceback import format_exc
 
 from .common import ByteOutputStream, CheckValue, SizeOf, enum
 from .exception import (
     IllegalArgumentException, IllegalStateException, NoSQLException,
     QueryException, QueryStateException, RetryableException)
 try:
-    import serde
-except ImportError:
     from . import serde
+except ImportError:
+    import serde
 
 
 class PlanIterState(object):
@@ -269,9 +268,9 @@ class PlanIter(object):
             size = 0
         elif isinstance(value, float):
             size = SizeOf.OBJECT_OVERHEAD + 8
-        elif CheckValue.is_int(value) and -pow(2, 31) <= value < pow(2, 31):
-            size = SizeOf.OBJECT_OVERHEAD + 4
         elif CheckValue.is_int(value):
+            size = SizeOf.OBJECT_OVERHEAD + 4
+        elif CheckValue.is_long(value):
             size = SizeOf.OBJECT_OVERHEAD + 8
         elif isinstance(value, dict):
             size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
@@ -573,7 +572,7 @@ class ArithOpIter(PlanIter):
                     res_type = serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE
             elif isinstance(arg_val, int):
                 pass
-            elif version_info.major == 2 and isinstance(arg_val, long):
+            elif version_info.major == 2 and CheckValue.is_long(arg_val):
                 if res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER:
                     res_type = serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG
             elif isinstance(arg_val, Decimal):
@@ -583,10 +582,12 @@ class ArithOpIter(PlanIter):
                     'Operand in arithmetic operation has illegal type\n' +
                     'Operand : ' + str(i) + ' type :\n' + str(type(arg_val)),
                     self.get_location())
-        if (res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE or
-                res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER or
-                res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG):
+        if res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE:
+            res = float(self._init_result)
+        elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER:
             res = self._init_result
+        elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG:
+            res = long(self._init_result)
         elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER:
             res = None
         else:
@@ -829,20 +830,18 @@ class FieldStepIter(PlanIter):
         while True:
             more = self._input_iter.next(rcb)
             ctx_item = rcb.get_reg_val(input_reg)
-            if not more or ctx_item is None:
+            if not more:
                 state.done()
                 return False
-            if not isinstance(ctx_item, (dict, list)):
-                continue
-            if ctx_item is None:
-                rcb.set_reg_val(self.result_reg, ctx_item)
-                return True
-            if not isinstance(ctx_item, dict):
+            if isinstance(ctx_item, list):
                 raise QueryStateException(
                     'Input value in field step has invalid type.\n' +
                     str(ctx_item))
-            result = ctx_item.get(self._field_name)
-            if result is None:
+            if not isinstance(ctx_item, dict):
+                continue
+            try:
+                result = ctx_item[self._field_name]
+            except KeyError:
                 continue
             rcb.set_reg_val(self.result_reg, result)
             return True
@@ -1011,8 +1010,7 @@ class FuncSumIter(PlanIter):
 
     @staticmethod
     def _sum_new_value(state, val):
-        if (CheckValue.is_int(val) or isinstance(val, float) or
-                isinstance(val, Decimal)):
+        if CheckValue.is_digit(val):
             state.count += 1
             state.sum += val
 
@@ -1209,6 +1207,7 @@ class ReceiveIter(PlanIter):
         # above QueryRequest, collect the results for P and create a scanner
         # that will be used during phase 2 to collect further results from P
         # only.
+        res_idx = 0
         for p in range(num_pids):
             pid = result.get_pid(p)
             num_results = result.get_num_partition_results(p)
@@ -1216,11 +1215,12 @@ class ReceiveIter(PlanIter):
             assert num_results > 0
             partition_results = list()
             for i in range(num_results):
-                res = results[p * num_results + i]
+                res = results[res_idx]
                 partition_results.append(res)
                 if rcb.get_trace_level() >= 1:
                     rcb.trace('Added result for partition ' + str(pid) + ':\n' +
                               str(res))
+                res_idx += 1
             scanner = ReceiveIter.RemoteScanner(self, rcb, state, False, pid)
             scanner.add_results(partition_results, cont_key)
             ReceiveIter.add_scanner(state.sorted_scanners, scanner)
@@ -1314,9 +1314,9 @@ class ReceiveIter(PlanIter):
     def _write_value(self, out, value, i):
         if isinstance(value, float):
             out.write_float(value)
-        elif CheckValue.is_int(value) and -pow(2, 31) <= value < pow(2, 31):
-            serde.BinaryProtocol.write_packed_int(out, value)
         elif CheckValue.is_int(value):
+            serde.BinaryProtocol.write_packed_int(out, value)
+        elif CheckValue.is_long(value):
             serde.BinaryProtocol.write_packed_long(out, value)
         elif CheckValue.is_str(value):
             serde.BinaryProtocol.write_string(out, value)
@@ -2048,7 +2048,7 @@ class VarRefIter(PlanIter):
 class Compare(object):
 
     @staticmethod
-    def compare_atomics(rcb, v0, v1, res):
+    def compare_atomics(rcb, v0, v1, res, for_sort=False):
         """
         Compare 2 atomic values.
 
@@ -2064,21 +2064,28 @@ class Compare(object):
         res.clear()
         if v0 is None or v1 is None:
             return
-        elif (CheckValue.is_int(v0) or isinstance(v0, float) or
-                isinstance(v0, Decimal)):
-            if (CheckValue.is_int(v1) or isinstance(v1, float) or
-                    isinstance(v1, Decimal)):
+        elif CheckValue.is_digit(v0):
+            if CheckValue.is_digit(v1):
                 res.comp = -1 if v0 < v1 else (0 if v0 == v1 else 1)
+            elif isinstance(v1, (str, bool)) and for_sort:
+                res.comp = -1
             else:
                 res.incompatible = True
         elif CheckValue.is_str(v0):
             if CheckValue.is_str(v1):
                 res.comp = -1 if v0 < v1 else (0 if v0 == v1 else 1)
+            elif CheckValue.is_digit(v1) and for_sort:
+                res.comp = 1
+            elif isinstance(v1, bool) and for_sort:
+                res.comp = -1
             else:
                 res.incompatible = True
         elif isinstance(v0, bool):
             if isinstance(v1, bool):
                 res.comp = -1 if v0 < v1 else (0 if v0 == v1 else 1)
+            elif ((CheckValue.is_digit(v1) or CheckValue.is_str(v1)) and
+                  for_sort):
+                res.comp = 1
             else:
                 res.incompatible = True
         elif isinstance(v0, datetime):
@@ -2103,7 +2110,7 @@ class Compare(object):
             res.comp = (
                 1 if sort_specs[sort_pos].nones_first else -1)
         else:
-            Compare.compare_atomics(rcb, v0, v1, res)
+            Compare.compare_atomics(rcb, v0, v1, res, True)
         return -res.comp if sort_specs[sort_pos].is_desc else res.comp
 
     @staticmethod
@@ -2112,6 +2119,9 @@ class Compare(object):
             v0 = r0.get(sort_fields[i])
             v1 = r1.get(sort_fields[i])
             comp = Compare.sort_atomics(rcb, v0, v1, i, sort_specs, res)
+            if rcb.get_trace_level() >= 3:
+                rcb.trace("Sort-Compared " + str(v0) + " with " + str(v1) +
+                          " res = " + str(comp))
             if comp != 0:
                 return comp
         return 0
@@ -2122,8 +2132,8 @@ class Compare(object):
             self.incompatible = False
 
         def __str__(self):
-            return ('(comp, incompatible, haveNull) = (' + str(self.comp) +
-                    ', ' + str(self.incompatible) + ')')
+            return ('(comp, incompatible) = (' + str(self.comp) + ', ' +
+                    str(self.incompatible) + ')')
 
         def clear(self):
             self.incompatible = False
@@ -2214,7 +2224,6 @@ class QueryDriver(object):
                 op_iter.close(self._rcb)
                 del self._results[:]
                 self._results = None
-            print(format_exc())
             raise e
         if not more:
             if self._rcb.reached_limit():
@@ -2316,6 +2325,8 @@ class RuntimeControlBlock(object):
         self._read_units = 0
         self._write_kb = 0
         self._memory_consumption = 0
+        self._math_context = driver.get_request().get_math_context()
+        setcontext(self._math_context)
 
     def dec_memory_consumption(self, v):
         self._memory_consumption -= v
@@ -2336,7 +2347,7 @@ class RuntimeControlBlock(object):
         return self._external_vars
 
     def get_math_context(self):
-        return self.get_request().get_math_context()
+        return self._math_context
 
     def get_max_memory_consumption(self):
         return self.get_request().get_max_memory_consumption()

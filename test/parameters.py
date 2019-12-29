@@ -112,7 +112,3 @@ def not_cloudsim():
 def security():
     # Set to enable security is using on-prem security mode.
     return False
-
-
-def test_advanced_query():
-    return True
