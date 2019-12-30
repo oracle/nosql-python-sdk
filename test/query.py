@@ -1024,7 +1024,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.assertEqual(records, [])
                 self.check_cost(result, 0, 0, 0, 0, True)
 
-    def _expected_row(self, fld_sid, fld_id, fld_long=None):
+    @staticmethod
+    def _expected_row(fld_sid, fld_id, fld_long=None):
         expected_row = OrderedDict()
         expected_row['fld_sid'] = fld_sid
         expected_row['fld_id'] = fld_id

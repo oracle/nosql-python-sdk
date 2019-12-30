@@ -155,17 +155,20 @@ class DefaultRetryHandler(RetryHandler):
             msec = self._sec_info_not_ready_delay(num_retried)
         sleep(float(msec) / 1000)
 
-    def _check_request(self, request):
+    @staticmethod
+    def _check_request(request):
         if not isinstance(request, Request):
             raise IllegalArgumentException(
                 'The parameter request should be an instance of Request.')
 
-    def _check_retryable_exception(self, re):
+    @staticmethod
+    def _check_retryable_exception(re):
         if not isinstance(re, RetryableException):
             raise IllegalArgumentException(
                 're must be an instance of RetryableException.')
 
-    def _compute_backoff_delay(self, num_retried, base_delay):
+    @staticmethod
+    def _compute_backoff_delay(num_retried, base_delay):
         """
         Use an exponential backoff algorithm to compute time of delay.
 
@@ -176,7 +179,8 @@ class DefaultRetryHandler(RetryHandler):
         msec += random() * base_delay
         return msec
 
-    def _sec_info_not_ready_delay(self, num_retried):
+    @staticmethod
+    def _sec_info_not_ready_delay(num_retried):
         """
         Handle security information not ready retries. If number of retries is
         smaller than 10, delay for DefaultRetryHandler._SEC_ERROR_DELAY_MS.
@@ -184,7 +188,7 @@ class DefaultRetryHandler(RetryHandler):
         """
         msec = DefaultRetryHandler._SEC_ERROR_DELAY_MS
         if num_retried > 10:
-            msec = self._compute_backoff_delay(
+            msec = DefaultRetryHandler._compute_backoff_delay(
                 num_retried - 10, DefaultRetryHandler._SEC_ERROR_DELAY_MS)
         return msec
 

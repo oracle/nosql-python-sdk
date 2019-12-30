@@ -638,19 +638,6 @@ class NoSQLHandle(object):
             results.append(UserInfo(user['id'], user['name']))
         return results
 
-    def _config_auth_provider(self, config, logger):
-        provider = config.get_authorization_provider()
-        if provider.get_logger() is None:
-            provider.set_logger(logger)
-        if (isinstance(provider, StoreAccessTokenProvider) and
-                provider.is_secure() and provider.get_endpoint() is None):
-            endpoint = config.get_service_url().geturl()
-            if endpoint.endswith('/'):
-                endpoint = endpoint[:len(endpoint) - 1]
-            provider.set_endpoint(endpoint)
-        elif isinstance(provider, SignatureProvider):
-            provider.set_service_host(config)
-
     def _execute(self, request):
         # Ensure that the client exists and hasn't been closed.
         if self._client is None:
@@ -672,3 +659,17 @@ class NoSQLHandle(object):
                 mkdir(log_dir)
             logger.addHandler(FileHandler(path.join(log_dir, 'driver.log')))
         return logger
+
+    @staticmethod
+    def _config_auth_provider(config, logger):
+        provider = config.get_authorization_provider()
+        if provider.get_logger() is None:
+            provider.set_logger(logger)
+        if (isinstance(provider, StoreAccessTokenProvider) and
+                provider.is_secure() and provider.get_endpoint() is None):
+            endpoint = config.get_service_url().geturl()
+            if endpoint.endswith('/'):
+                endpoint = endpoint[:len(endpoint) - 1]
+            provider.set_endpoint(endpoint)
+        elif isinstance(provider, SignatureProvider):
+            provider.set_service_host(config)

@@ -151,7 +151,8 @@ class TestSystemRequest(unittest.TestCase, TestBase):
             else:
                 self.assertIsNone(results)
 
-        def _is_str(self, data):
+        @staticmethod
+        def _is_str(data):
             if ((version_info.major == 2 and isinstance(data, (str, unicode)) or
                     version_info.major == 3 and isinstance(data, str)) and
                     len(data) != 0):

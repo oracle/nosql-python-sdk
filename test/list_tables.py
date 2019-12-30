@@ -209,7 +209,8 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 self.assertEqual(result.get_last_returned_index(),
                                  last_returned_index[handle])
 
-    def _make_table_name(self, name):
+    @staticmethod
+    def _make_table_name(name):
         return table_prefix + name
 
 

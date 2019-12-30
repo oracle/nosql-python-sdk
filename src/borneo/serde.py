@@ -961,7 +961,8 @@ class GetIndexesRequestSerializer(RequestSerializer):
         result.set_indexes(indexes)
         return result
 
-    def _deserialize_index_info(self, bis):
+    @staticmethod
+    def _deserialize_index_info(bis):
         index_name = BinaryProtocol.read_string(bis)
         num_fields = BinaryProtocol.read_packed_int(bis)
         field_names = list()
@@ -1127,7 +1128,8 @@ class PutRequestSerializer(RequestSerializer):
         BinaryProtocol.deserialize_generated_value(bis, result)
         return result
 
-    def _get_op_code(self, request):
+    @staticmethod
+    def _get_op_code(request):
         """
         Assumes that the request has been validated and only one of the if
         options is set, if any.
@@ -1301,7 +1303,8 @@ class TableUsageRequestSerializer(RequestSerializer):
         result.set_usage_records(usage_records)
         return result
 
-    def _deserialize_usage(self, bis):
+    @staticmethod
+    def _deserialize_usage(bis):
         start_time_ms = BinaryProtocol.read_packed_long(bis)
         seconds_in_period = BinaryProtocol.read_packed_int(bis)
         read_units = BinaryProtocol.read_packed_int(bis)
@@ -1354,7 +1357,8 @@ class WriteMultipleRequestSerializer(RequestSerializer):
             result.add_result(self._create_operation_result(bis))
         return result
 
-    def _create_operation_result(self, bis):
+    @staticmethod
+    def _create_operation_result(bis):
         op_result = operations.OperationResult()
         op_result.set_success(bis.read_boolean())
         if bis.read_boolean():

@@ -362,7 +362,8 @@ class RequestUtils(object):
         err = BinaryProtocol.read_string(bis)
         raise BinaryProtocol.map_exception(code, err)
 
-    def _process_not_ok_response(self, content, status):
+    @staticmethod
+    def _process_not_ok_response(content, status):
         """
         Process not OK response. The method typically throws an appropriate
         exception. A normal return indicates that the method declined to handle
@@ -380,7 +381,8 @@ class RequestUtils(object):
             raise NoSQLException('Error response: ' + err_msg)
         raise NoSQLException('Error response = ' + str(status))
 
-    def _timeout_request(self, start_time, request_timeout, sec_timeout_ms,
+    @staticmethod
+    def _timeout_request(start_time, request_timeout, sec_timeout_ms,
                          exception):
         """
         Determine if the request should be timed out. If the last exception if

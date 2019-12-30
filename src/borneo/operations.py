@@ -78,12 +78,6 @@ class Request(object):
         # Returns True if this request should be retried.
         return True
 
-    def _check_config(self, cfg):
-        if not isinstance(cfg, config.NoSQLHandleConfig):
-            raise IllegalArgumentException(
-                'set_defaults requires an instance of NoSQLHandleConfig as ' +
-                'parameter.')
-
     def _set_compartment_id(self, compartment_id):
         CheckValue.check_str(compartment_id, 'compartment_id')
         self._compartment_id = compartment_id
@@ -94,6 +88,13 @@ class Request(object):
 
     def _get_timeout(self):
         return self._timeout_ms
+
+    @staticmethod
+    def _check_config(cfg):
+        if not isinstance(cfg, config.NoSQLHandleConfig):
+            raise IllegalArgumentException(
+                'set_defaults requires an instance of NoSQLHandleConfig as ' +
+                'parameter.')
 
 
 class WriteRequest(Request):
@@ -126,7 +127,8 @@ class WriteRequest(Request):
     def _get_return_row(self):
         return self._return_row
 
-    def _validate_write_request(self, request_name):
+    @staticmethod
+    def _validate_write_request(request_name):
         if request_name is None:
             raise IllegalArgumentException(
                 request_name + ' requires table name')
@@ -372,7 +374,8 @@ class DeleteRequest(WriteRequest):
         if self._key is None:
             raise IllegalArgumentException('DeleteRequest requires a key.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return DeleteRequestSerializer()
 
 
@@ -486,7 +489,8 @@ class GetIndexesRequest(Request):
             raise IllegalArgumentException(
                 'GetIndexesRequest requires a table name.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return GetIndexesRequestSerializer()
 
 
@@ -625,7 +629,8 @@ class GetRequest(ReadRequest):
         if self._key is None:
             raise IllegalArgumentException('GetRequest requires a key.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return GetRequestSerializer()
 
 
@@ -749,7 +754,8 @@ class GetTableRequest(Request):
             raise IllegalArgumentException(
                 'GetTableRequest requires a table name.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return GetTableRequestSerializer()
 
 
@@ -917,7 +923,8 @@ class ListTablesRequest(Request):
                 'ListTables: start index and number of tables must be ' +
                 'non-negative.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return ListTablesRequestSerializer()
 
 
@@ -1132,7 +1139,8 @@ class MultiDeleteRequest(Request):
         if self._range is not None:
             self._range.validate()
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return MultiDeleteRequestSerializer()
 
 
@@ -1250,7 +1258,8 @@ class PrepareRequest(Request):
             raise IllegalArgumentException(
                 'PrepareRequest requires a statement.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return PrepareRequestSerializer()
 
 
@@ -1625,7 +1634,8 @@ class PutRequest(WriteRequest):
                 'PutRequest: only one of set_use_table_default_ttl or set_ttl' +
                 ' may be specified')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return PutRequestSerializer()
 
 
@@ -2101,7 +2111,8 @@ class QueryRequest(Request):
             raise IllegalArgumentException(
                 'Either statement or prepared statement should be set.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return QueryRequestSerializer()
 
 
@@ -2197,7 +2208,8 @@ class SystemRequest(Request):
             raise IllegalArgumentException(
                 'SystemRequest requires a statement.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return SystemRequestSerializer()
 
 
@@ -2314,7 +2326,8 @@ class SystemStatusRequest(Request):
             raise IllegalArgumentException(
                 'SystemStatusRequest requires an operation id.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return SystemStatusRequestSerializer()
 
 
@@ -2499,7 +2512,8 @@ class TableRequest(Request):
         if self._limits is not None:
             self._limits.validate()
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return TableRequestSerializer()
 
 
@@ -2716,10 +2730,12 @@ class TableUsageRequest(Request):
             raise IllegalArgumentException(
                 'TableUsageRequest requires a table name.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return TableUsageRequestSerializer()
 
-    def _check_time(self, dt):
+    @staticmethod
+    def _check_time(dt):
         if (not (CheckValue.is_int(dt) or CheckValue.is_long(dt) or
                  CheckValue.is_str(dt)) or
                 not CheckValue.is_str(dt) and dt < 0):
@@ -2727,7 +2743,8 @@ class TableUsageRequest(Request):
                 'dt must be an integer that is not negative or an ISO ' +
                 '8601 formatted string. Got:' + str(dt))
 
-    def _iso_time_to_timestamp(self, dt):
+    @staticmethod
+    def _iso_time_to_timestamp(dt):
         dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
         return int(mktime(dt.timetuple()) * 1000)
 
@@ -2887,7 +2904,8 @@ class WriteMultipleRequest(Request):
         if not self._ops:
             raise IllegalArgumentException('The requests list is empty.')
 
-    def create_serializer(self):
+    @staticmethod
+    def create_serializer():
         return WriteMultipleRequestSerializer()
 
     class OperationRequest(object):

@@ -1311,7 +1311,8 @@ class ReceiveIter(PlanIter):
             rcb.set_reached_limit(True)
             return False
 
-    def _write_value(self, out, value, i):
+    @staticmethod
+    def _write_value(out, value, i):
         if isinstance(value, float):
             out.write_float(value)
         elif CheckValue.is_int(value):
@@ -2422,7 +2423,8 @@ class RuntimeControlBlock(object):
     def tally_write_kb(self, nkb):
         self._write_kb += nkb
 
-    def trace(self, msg):
+    @staticmethod
+    def trace(msg):
         print('D-QUERY: ' + msg)
 
 

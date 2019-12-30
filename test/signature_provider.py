@@ -132,7 +132,8 @@ class TestSignatureProvider(unittest.TestCase):
                     auth_string,
                     self.token_provider.get_authorization_string(self.request))
 
-        def _generate_credentials_file(self):
+        @staticmethod
+        def _generate_credentials_file():
             # Generate credentials file
             if path.exists(fake_credentials_file):
                 remove(fake_credentials_file)
