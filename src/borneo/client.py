@@ -175,11 +175,8 @@ class Client(object):
                     str(self._proxy_port))
             sess.proxies = {'http': proxy_url, 'https': proxy_url}
 
-    def _trace(self, msg, level):
-        if level <= Client.TRACE_LEVEL:
-            print('DRIVER: ' + msg)
-
-    def _make_user_agent(self):
+    @staticmethod
+    def _make_user_agent():
         if version_info.major >= 3:
             pyversion = python_version()
         else:
@@ -187,7 +184,13 @@ class Client(object):
                                       version_info.micro)
         return '%s/%s (Python %s)' % ('NoSQL-PythonSDK', __version__, pyversion)
 
-    def _write_content(self, request):
+    @staticmethod
+    def _trace(msg, level):
+        if level <= Client.TRACE_LEVEL:
+            print('DRIVER: ' + msg)
+
+    @staticmethod
+    def _write_content(request):
         """
         Serializes the request payload, sent as http content.
 

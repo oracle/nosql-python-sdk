@@ -16,8 +16,7 @@ from borneo import (
     Consistency, GetRequest, IllegalArgumentException, PrepareRequest,
     PutRequest, QueryRequest, TableLimits, TableNotFoundException, TableRequest,
     TimeToLive, WriteMultipleRequest)
-from parameters import (
-    is_onprem, table_name, tenant_id, test_advanced_query, timeout)
+from parameters import is_onprem, table_name, tenant_id, timeout
 from testutils import get_handle_config, get_row
 from test_base import TestBase
 
@@ -52,12 +51,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             'CREATE INDEX ' + index_name + '3 ON ' + table_name + '(fld_bool)')
         create_idx_request.set_statement(create_idx_statement)
         cls.table_request(create_idx_request)
-        if test_advanced_query():
-            create_idx_statement = (
-                'CREATE INDEX ' + index_name + '4 ON ' + table_name +
-                '(fld_json.location as point)')
-            create_idx_request.set_statement(create_idx_statement)
-            cls.table_request(create_idx_request)
+        create_idx_statement = (
+            'CREATE INDEX ' + index_name + '4 ON ' + table_name +
+            '(fld_json.location as point)')
+        create_idx_request.set_statement(create_idx_statement)
+        cls.table_request(create_idx_request)
         global prepare_cost
         prepare_cost = 2
         global query_statement
@@ -522,512 +520,512 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertLess(actual_expect_diff, hour_in_milliseconds)
         self.check_cost(result, 1, 2, 0, 0)
 
-    if test_advanced_query():
-        def testQueryOrderBy(self):
-            num_records = 12
-            num_ids = 6
-            # test order by primary index field
-            statement = ('SELECT fld_sid, fld_id FROM ' + table_name +
-                         ' ORDER BY fld_sid, fld_id')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_records, rec=records)
-                    for idx in range(num_records):
-                        self.assertEqual(
-                            records[idx],
-                            self._expected_row(idx // num_ids, idx % num_ids))
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
-
-            # test order by secondary index field
-            statement = ('SELECT fld_str FROM ' + table_name +
-                         ' ORDER BY fld_str')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_records, rec=records)
-                    for idx in range(num_records):
-                        self.assertEqual(
-                            records[idx],
-                            {'fld_str': '{"name": u' + str(idx).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryFuncMinMaxGroupBy(self):
-            num_sids = 2
-            # test min function
-            statement = ('SELECT min(fld_time) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
+    def testQueryOrderBy(self):
+        num_records = 12
+        num_ids = 6
+        # test order by primary index field
+        statement = ('SELECT fld_sid, fld_id FROM ' + table_name +
+                     ' ORDER BY fld_sid, fld_id')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
             result = self.handle.query(query_request)
-            records = self.check_query_result(result, 1)
-            self.assertEqual(records[0], {'Column_1': self.min_time[0]})
-            self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_records, rec=records)
+                for idx in range(num_records):
+                    self.assertEqual(
+                        records[idx],
+                        self._expected_row(idx // num_ids, idx % num_ids))
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
 
-            # test max function
-            statement = ('SELECT max(fld_time) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
+        # test order by secondary index field
+        statement = ('SELECT fld_str FROM ' + table_name +
+                     ' ORDER BY fld_str')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
             result = self.handle.query(query_request)
-            records = self.check_query_result(result, 1)
-            self.assertEqual(records[0], {'Column_1': self.max_time[1]})
-            self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_records, rec=records)
+                for idx in range(num_records):
+                    self.assertEqual(
+                        records[idx],
+                        {'fld_str': '{"name": u' + str(idx).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
 
-            # test min function group by primary index field
-            statement = ('SELECT min(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx], {'Column_1': self.min_time[idx]})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
+    def testQueryFuncMinMaxGroupBy(self):
+        num_sids = 2
+        # test min function
+        statement = ('SELECT min(fld_time) FROM ' + table_name)
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        result = self.handle.query(query_request)
+        records = self.check_query_result(result, 1)
+        self.assertEqual(records[0], {'Column_1': self.min_time[0]})
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
-            # test max function group by primary index field
-            statement = ('SELECT max(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx], {'Column_1': self.max_time[idx]})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
+        # test max function
+        statement = ('SELECT max(fld_time) FROM ' + table_name)
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        result = self.handle.query(query_request)
+        records = self.check_query_result(result, 1)
+        self.assertEqual(records[0], {'Column_1': self.max_time[1]})
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
-            # test min function group by secondary index field
-            statement = ('SELECT min(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx], {'Column_1': self.min_time[idx]})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-            # test max function group by secondary index field
-            statement = ('SELECT max(fld_time) FROM ' + table_name +
-                         ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx], {'Column_1': self.max_time[idx]})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryFuncSumGroupBy(self):
-            num_records = 12
-            num_sids = 2
-            # test sum function
-            statement = ('SELECT sum(fld_double) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
+        # test min function group by primary index field
+        statement = ('SELECT min(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_sid')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
             result = self.handle.query(query_request)
-            records = self.check_query_result(result, 1)
-            self.assertEqual(records[0], {'Column_1': 3.1415 * num_records})
-            self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.min_time[idx]})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
 
-            # test sum function group by primary index field
-            statement = ('SELECT sum(fld_double) FROM ' + table_name +
-                         ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx],
-                            {'Column_1': 3.1415 * (num_records // num_sids)})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
-
-            # test sum function group by secondary index field
-            statement = ('SELECT sum(fld_double) FROM ' + table_name +
-                         ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx],
-                            {'Column_1': 3.1415 * (num_records // num_sids)})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryFuncAvgGroupBy(self):
-            num_sids = 2
-            # test avg function
-            statement = ('SELECT avg(fld_double) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
+        # test max function group by primary index field
+        statement = ('SELECT max(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_sid')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
             result = self.handle.query(query_request)
-            records = self.check_query_result(result, 1)
-            self.assertEqual(records[0], {'Column_1': 3.1415})
-            self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.max_time[idx]})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
 
-            # test avg function group by primary index field
-            statement = ('SELECT avg(fld_double) FROM ' + table_name +
-                         ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(records[idx], {'Column_1': 3.1415})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
-
-            # test avg function group by secondary index field
-            statement = ('SELECT avg(fld_double) FROM ' + table_name +
-                         ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(records[idx], {'Column_1': 3.1415})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryFuncCountGroupBy(self):
-            num_records = 12
-            num_sids = 2
-            # test count function
-            statement = ('SELECT count(*) FROM ' + table_name)
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
+        # test min function group by secondary index field
+        statement = ('SELECT min(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_bool')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
             result = self.handle.query(query_request)
-            records = self.check_query_result(result, 1)
-            self.assertEqual(records[0], {'Column_1': num_records})
-            self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.min_time[idx]})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
 
-            # test count function group by primary index field
-            statement = ('SELECT count(*) FROM ' + table_name +
-                         ' GROUP BY fld_sid')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx], {'Column_1': num_records // num_sids})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
-
-            # test count function group by secondary index field
-            statement = ('SELECT count(*) FROM ' + table_name +
-                         ' GROUP BY fld_bool')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_sids, rec=records)
-                    for idx in range(num_sids):
-                        self.assertEqual(
-                            records[idx], {'Column_1': num_records // num_sids})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryOrderByWithLimit(self):
-            num_records = 12
-            limit = 10
-            # test order by primary index field with limit
-            statement = ('SELECT fld_str FROM ' + table_name +
-                         ' ORDER BY fld_sid, fld_id LIMIT 10')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, limit, rec=records)
-                    for idx in range(limit):
-                        self.assertEqual(
-                            records[idx],
-                            {'fld_str': '{"name": u' +
-                             str(num_records - idx - 1).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
-
-            # test order by secondary index field with limit
-            statement = ('SELECT fld_str FROM ' + table_name +
-                         ' ORDER BY fld_str LIMIT 10')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, limit, rec=records)
-                    for idx in range(limit):
-                        self.assertEqual(
-                            records[idx],
-                            {'fld_str': '{"name": u' + str(idx).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryOrderByWithOffset(self):
-            offset = 4
-            num_get = 8
-            # test order by primary index field with offset
-            statement = (
-                'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
-                ' ORDER BY fld_sid, fld_id OFFSET $offset')
-            prepare_request = PrepareRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            prepare_result = self.handle.prepare(prepare_request)
-            prepared_statement = prepare_result.get_prepared_statement()
-            prepared_statement.set_variable('$offset', offset)
-            query_request = QueryRequest().set_prepared_statement(
-                prepared_statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_get, rec=records)
-                    for idx in range(num_get):
-                        self.assertEqual(
-                            records[idx],
-                            {'fld_str': '{"name": u' +
-                             str(num_get - idx - 1).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
-
-            # test order by secondary index field with offset
-            statement = (
-                'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
-                ' ORDER BY fld_str OFFSET $offset')
-            prepare_request = PrepareRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            prepare_result = self.handle.prepare(prepare_request)
-            prepared_statement = prepare_result.get_prepared_statement()
-            prepared_statement.set_variable('$offset', offset)
-            query_request = QueryRequest().set_prepared_statement(
-                prepared_statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_get, rec=records)
-                    for idx in range(num_get):
-                        self.assertEqual(
-                            records[idx], {'fld_str': '{"name": u' +
-                                           str(offset + idx).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-
-        def testQueryFuncGeoNear(self):
-            num_get = 6
-            longitude = 21.547
-            latitude = 37.291
-            # test geo_near function
-            statement = (
-                'SELECT tb.fld_json.location FROM ' + table_name +
-                ' tb WHERE geo_near(tb.fld_json.location, ' +
-                '{"type": "point", "coordinates": [' + str(longitude) + ', ' +
-                str(latitude) + ']}, 215000)')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
+        # test max function group by secondary index field
+        statement = ('SELECT max(fld_time) FROM ' + table_name +
+                     ' GROUP BY fld_bool')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
             result = self.handle.query(query_request)
-            records = self.check_query_result(result, num_get)
-            for i in range(1, num_get):
-                pre = records[i - 1]['location']['coordinates']
-                curr = records[i]['location']['coordinates']
-                self.assertLess(abs(pre[0] - longitude),
-                                abs(curr[0] - longitude))
-                self.assertLess(abs(pre[1] - latitude),
-                                abs(curr[1] - latitude))
-            self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': self.max_time[idx]})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
 
-            # test geo_near function order by primary index field
-            statement = (
-                'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
-                'tb.fld_json.location, {"type": "point", "coordinates": [' +
-                str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
-                'ORDER BY fld_sid, fld_id')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            count = 0
-            while True:
-                count += 1
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_get, rec=records)
-                    name = [10, 9, 8, 4, 3, 2]
-                    for i in range(num_get):
-                        self.assertEqual(
-                            records[i], {'fld_str': '{"name": u' +
-                                         str(name[i]).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
-            self.assertEqual(count, 2)
+    def testQueryFuncSumGroupBy(self):
+        num_records = 12
+        num_sids = 2
+        # test sum function
+        statement = ('SELECT sum(fld_double) FROM ' + table_name)
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        result = self.handle.query(query_request)
+        records = self.check_query_result(result, 1)
+        self.assertEqual(records[0], {'Column_1': 3.1415 * num_records})
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
 
-            # test geo_near function order by secondary index field
-            statement = (
-                'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
-                'tb.fld_json.location, {"type": "point", "coordinates": [' +
-                str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
-                'ORDER BY fld_str')
-            query_request = QueryRequest().set_statement(
-                statement).set_compartment_id(tenant_id)
-            while True:
-                result = self.handle.query(query_request)
-                records = result.get_results()
-                if query_request.is_done():
-                    self.check_query_result(result, num_get, rec=records)
-                    name = [2, 3, 4, 8, 9, 10]
-                    for i in range(num_get):
-                        self.assertEqual(
-                            records[i], {'fld_str': '{"name": u' +
-                                         str(name[i]).zfill(2) + '}'})
-                    self.check_cost(result, 0, 0, 0, 0)
-                    break
-                else:
-                    self.check_query_result(result, 0, True, records)
-                    self.assertEqual(records, [])
-                    self.check_cost(result, 0, 0, 0, 0, True)
+        # test sum function group by primary index field
+        statement = ('SELECT sum(fld_double) FROM ' + table_name +
+                     ' GROUP BY fld_sid')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx],
+                        {'Column_1': 3.1415 * (num_records // num_sids)})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
 
-    def _expected_row(self, fld_sid, fld_id, fld_long=None):
+        # test sum function group by secondary index field
+        statement = ('SELECT sum(fld_double) FROM ' + table_name +
+                     ' GROUP BY fld_bool')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx],
+                        {'Column_1': 3.1415 * (num_records // num_sids)})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+
+    def testQueryFuncAvgGroupBy(self):
+        num_sids = 2
+        # test avg function
+        statement = ('SELECT avg(fld_double) FROM ' + table_name)
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        result = self.handle.query(query_request)
+        records = self.check_query_result(result, 1)
+        self.assertEqual(records[0], {'Column_1': 3.1415})
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+
+        # test avg function group by primary index field
+        statement = ('SELECT avg(fld_double) FROM ' + table_name +
+                     ' GROUP BY fld_sid')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(records[idx], {'Column_1': 3.1415})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
+
+        # test avg function group by secondary index field
+        statement = ('SELECT avg(fld_double) FROM ' + table_name +
+                     ' GROUP BY fld_bool')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(records[idx], {'Column_1': 3.1415})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+
+    def testQueryFuncCountGroupBy(self):
+        num_records = 12
+        num_sids = 2
+        # test count function
+        statement = ('SELECT count(*) FROM ' + table_name)
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        result = self.handle.query(query_request)
+        records = self.check_query_result(result, 1)
+        self.assertEqual(records[0], {'Column_1': num_records})
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+
+        # test count function group by primary index field
+        statement = ('SELECT count(*) FROM ' + table_name +
+                     ' GROUP BY fld_sid')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': num_records // num_sids})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
+
+        # test count function group by secondary index field
+        statement = ('SELECT count(*) FROM ' + table_name +
+                     ' GROUP BY fld_bool')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_sids, rec=records)
+                for idx in range(num_sids):
+                    self.assertEqual(
+                        records[idx], {'Column_1': num_records // num_sids})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+
+    def testQueryOrderByWithLimit(self):
+        num_records = 12
+        limit = 10
+        # test order by primary index field with limit
+        statement = ('SELECT fld_str FROM ' + table_name +
+                     ' ORDER BY fld_sid, fld_id LIMIT 10')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, limit, rec=records)
+                for idx in range(limit):
+                    self.assertEqual(
+                        records[idx],
+                        {'fld_str': '{"name": u' +
+                         str(num_records - idx - 1).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
+
+        # test order by secondary index field with limit
+        statement = ('SELECT fld_str FROM ' + table_name +
+                     ' ORDER BY fld_str LIMIT 10')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, limit, rec=records)
+                for idx in range(limit):
+                    self.assertEqual(
+                        records[idx],
+                        {'fld_str': '{"name": u' + str(idx).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+
+    def testQueryOrderByWithOffset(self):
+        offset = 4
+        num_get = 8
+        # test order by primary index field with offset
+        statement = (
+            'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
+            ' ORDER BY fld_sid, fld_id OFFSET $offset')
+        prepare_request = PrepareRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        prepare_result = self.handle.prepare(prepare_request)
+        prepared_statement = prepare_result.get_prepared_statement()
+        prepared_statement.set_variable('$offset', offset)
+        query_request = QueryRequest().set_prepared_statement(
+            prepared_statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_get, rec=records)
+                for idx in range(num_get):
+                    self.assertEqual(
+                        records[idx],
+                        {'fld_str': '{"name": u' +
+                         str(num_get - idx - 1).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
+
+        # test order by secondary index field with offset
+        statement = (
+            'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
+            ' ORDER BY fld_str OFFSET $offset')
+        prepare_request = PrepareRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        prepare_result = self.handle.prepare(prepare_request)
+        prepared_statement = prepare_result.get_prepared_statement()
+        prepared_statement.set_variable('$offset', offset)
+        query_request = QueryRequest().set_prepared_statement(
+            prepared_statement).set_compartment_id(tenant_id)
+        while True:
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_get, rec=records)
+                for idx in range(num_get):
+                    self.assertEqual(
+                        records[idx], {'fld_str': '{"name": u' +
+                                       str(offset + idx).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+
+    def testQueryFuncGeoNear(self):
+        num_get = 6
+        longitude = 21.547
+        latitude = 37.291
+        # test geo_near function
+        statement = (
+            'SELECT tb.fld_json.location FROM ' + table_name +
+            ' tb WHERE geo_near(tb.fld_json.location, ' +
+            '{"type": "point", "coordinates": [' + str(longitude) + ', ' +
+            str(latitude) + ']}, 215000)')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        result = self.handle.query(query_request)
+        records = self.check_query_result(result, num_get)
+        for i in range(1, num_get):
+            pre = records[i - 1]['location']['coordinates']
+            curr = records[i]['location']['coordinates']
+            self.assertLess(abs(pre[0] - longitude),
+                            abs(curr[0] - longitude))
+            self.assertLess(abs(pre[1] - latitude),
+                            abs(curr[1] - latitude))
+        self.check_cost(result, prepare_cost, prepare_cost, 0, 0, True)
+
+        # test geo_near function order by primary index field
+        statement = (
+            'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
+            'tb.fld_json.location, {"type": "point", "coordinates": [' +
+            str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
+            'ORDER BY fld_sid, fld_id')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        count = 0
+        while True:
+            count += 1
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_get, rec=records)
+                name = [10, 9, 8, 4, 3, 2]
+                for i in range(num_get):
+                    self.assertEqual(
+                        records[i], {'fld_str': '{"name": u' +
+                                     str(name[i]).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+        self.assertEqual(count, 2)
+
+        # test geo_near function order by secondary index field
+        statement = (
+            'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
+            'tb.fld_json.location, {"type": "point", "coordinates": [' +
+            str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
+            'ORDER BY fld_str')
+        query_request = QueryRequest().set_statement(
+            statement).set_compartment_id(tenant_id)
+        while True:
+            result = self.handle.query(query_request)
+            records = result.get_results()
+            if query_request.is_done():
+                self.check_query_result(result, num_get, rec=records)
+                name = [2, 3, 4, 8, 9, 10]
+                for i in range(num_get):
+                    self.assertEqual(
+                        records[i], {'fld_str': '{"name": u' +
+                                     str(name[i]).zfill(2) + '}'})
+                self.check_cost(result, 0, 0, 0, 0)
+                break
+            else:
+                self.check_query_result(result, 0, True, records)
+                self.assertEqual(records, [])
+                self.check_cost(result, 0, 0, 0, 0, True)
+
+    @staticmethod
+    def _expected_row(fld_sid, fld_id, fld_long=None):
         expected_row = OrderedDict()
         expected_row['fld_sid'] = fld_sid
         expected_row['fld_id'] = fld_id

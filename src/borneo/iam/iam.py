@@ -197,9 +197,6 @@ class SignatureProvider(AuthorizationProvider):
         return SignatureProvider(
             oci.auth.signers.InstancePrincipalsSecurityTokenSigner())
 
-    def _is_valid_ocid(self, ocid):
-        return match(SignatureProvider.OCID_PATTERN, ocid)
-
     def _get_key_id(self):
         tenant_id = self._provider['tenancy']
         user_id = self._provider['user']
@@ -286,6 +283,10 @@ class SignatureProvider(AuthorizationProvider):
     def _signing_content(self, date_str):
         return ('(request-target): post /' + HttpConstants.NOSQL_DATA_PATH +
                 '\nhost: ' + self._service_host + '\ndate: ' + date_str)
+
+    @staticmethod
+    def _is_valid_ocid(ocid):
+        return match(SignatureProvider.OCID_PATTERN, ocid)
 
     class SignatureDetails(object):
         def __init__(self, signature_header, date_str):

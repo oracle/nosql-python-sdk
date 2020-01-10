@@ -32,9 +32,9 @@ from .exception import (
 from .kv import AuthenticationException
 from .query import PlanIter, QueryDriver, TopologyInfo
 try:
-    import operations
-except ImportError:
     from . import operations
+except ImportError:
+    import operations
 
 
 class BinaryProtocol(object):
@@ -66,7 +66,8 @@ class BinaryProtocol(object):
                             TIMESTAMP=8,
                             NUMBER=9,
                             JSON_NULL=10,
-                            NULL=11)
+                            NULL=11,
+                            EMPTY=12)
 
     # Operation codes
     OP_CODE = enum(DELETE=0,
@@ -343,17 +344,16 @@ class BinaryProtocol(object):
     def read_datetime(bis):
         # Deserialize a datetime value.
         dt = BinaryProtocol.read_string(bis)
-        if '.' in dt:
-            place = dt.index('.')
-            if len(dt[place + 1:]) <= 6:
-                return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
-            else:
-                rounding = int(dt[place + 7])
-                dt = dt[:place + 7]
-                dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
-                return dt if rounding < 5 else (dt + timedelta(microseconds=1))
-        else:
+        place = dt.find('.')
+        if place == -1:
             return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S')
+        elif len(dt[place + 1:]) <= 6:
+            return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
+        else:
+            rounding = int(dt[place + 7])
+            dt = dt[:place + 7]
+            dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
+            return dt if rounding < 5 else (dt + timedelta(microseconds=1))
 
     @staticmethod
     def read_decimal(bis):
@@ -401,7 +401,8 @@ class BinaryProtocol(object):
         elif t == BinaryProtocol.FIELD_VALUE_TYPE.NUMBER:
             return BinaryProtocol.read_decimal(bis)
         elif (t == BinaryProtocol.FIELD_VALUE_TYPE.NULL or
-              t == BinaryProtocol.FIELD_VALUE_TYPE.JSON_NULL):
+              t == BinaryProtocol.FIELD_VALUE_TYPE.JSON_NULL or
+              t == BinaryProtocol.FIELD_VALUE_TYPE.EMPTY):
             return None
         else:
             raise IllegalStateException('Unknown value type code: ' + str(t))
@@ -544,7 +545,7 @@ class BinaryProtocol(object):
         bis.read_fully(buf)
         if version_info.major == 2:
             return str(buf)
-        return buf.decode()
+        return buf.decode('utf-8')
 
     @staticmethod
     def read_string_array(bis):
@@ -639,7 +640,6 @@ class BinaryProtocol(object):
         start = bos.get_offset()
         bos.write_int(len(value))
         for key in value:
-            CheckValue.check_str(key, 'key')
             BinaryProtocol.write_string(bos, key)
             BinaryProtocol.write_field_value(bos, value[key])
         # Update the length value.
@@ -679,6 +679,8 @@ class BinaryProtocol(object):
             elif isinstance(value, float):
                 bos.write_float(value)
             elif CheckValue.is_int(value):
+                BinaryProtocol.write_packed_int(bos, value)
+            elif CheckValue.is_long(value):
                 BinaryProtocol.write_packed_long(bos, value)
             elif isinstance(value, dict):
                 BinaryProtocol.write_dict(bos, value)
@@ -686,10 +688,11 @@ class BinaryProtocol(object):
                 BinaryProtocol.write_string(bos, value)
             elif isinstance(value, datetime):
                 BinaryProtocol.write_datetime(bos, value)
-            elif isinstance(value, Decimal):
+            elif isinstance(value, Decimal) or CheckValue.is_overlong(value):
                 BinaryProtocol.write_decimal(bos, value)
             else:
-                raise IllegalStateException('Unknown type ' + str(type(value)))
+                raise IllegalStateException(
+                    'Unknown value type ' + str(type(value)))
 
     @staticmethod
     def write_list(bos, value):
@@ -811,7 +814,7 @@ class BinaryProtocol(object):
         if value is None:
             return BinaryProtocol.write_packed_int(bos, -1)
         try:
-            buf = bytearray(value.encode())
+            buf = bytearray(value.encode('utf-8'))
         except UnicodeDecodeError:
             buf = bytearray(value)
         length = len(buf)
@@ -864,15 +867,17 @@ class BinaryProtocol(object):
         elif isinstance(value, float):
             return BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE
         elif CheckValue.is_int(value):
+            return BinaryProtocol.FIELD_VALUE_TYPE.INTEGER
+        elif CheckValue.is_long(value):
             return BinaryProtocol.FIELD_VALUE_TYPE.LONG
         elif isinstance(value, dict):
             return BinaryProtocol.FIELD_VALUE_TYPE.MAP
         elif CheckValue.is_str(value):
             return BinaryProtocol.FIELD_VALUE_TYPE.STRING
         elif isinstance(value, datetime):
-            return BinaryProtocol.FIELD_VALUE_TYPE.STRING
-        elif isinstance(value, Decimal):
-            return BinaryProtocol.FIELD_VALUE_TYPE.STRING
+            return BinaryProtocol.FIELD_VALUE_TYPE.TIMESTAMP
+        elif isinstance(value, Decimal) or CheckValue.is_overlong(value):
+            return BinaryProtocol.FIELD_VALUE_TYPE.NUMBER
         elif value is None:
             return BinaryProtocol.FIELD_VALUE_TYPE.NULL
         else:
@@ -956,7 +961,8 @@ class GetIndexesRequestSerializer(RequestSerializer):
         result.set_indexes(indexes)
         return result
 
-    def _deserialize_index_info(self, bis):
+    @staticmethod
+    def _deserialize_index_info(bis):
         index_name = BinaryProtocol.read_string(bis)
         num_fields = BinaryProtocol.read_packed_int(bis)
         field_names = list()
@@ -1122,7 +1128,8 @@ class PutRequestSerializer(RequestSerializer):
         BinaryProtocol.deserialize_generated_value(bis, result)
         return result
 
-    def _get_op_code(self, request):
+    @staticmethod
+    def _get_op_code(request):
         """
         Assumes that the request has been validated and only one of the if
         options is set, if any.
@@ -1296,7 +1303,8 @@ class TableUsageRequestSerializer(RequestSerializer):
         result.set_usage_records(usage_records)
         return result
 
-    def _deserialize_usage(self, bis):
+    @staticmethod
+    def _deserialize_usage(bis):
         start_time_ms = BinaryProtocol.read_packed_long(bis)
         seconds_in_period = BinaryProtocol.read_packed_int(bis)
         read_units = BinaryProtocol.read_packed_int(bis)
@@ -1349,7 +1357,8 @@ class WriteMultipleRequestSerializer(RequestSerializer):
             result.add_result(self._create_operation_result(bis))
         return result
 
-    def _create_operation_result(self, bis):
+    @staticmethod
+    def _create_operation_result(bis):
         op_result = operations.OperationResult()
         op_result.set_success(bis.read_boolean())
         if bis.read_boolean():

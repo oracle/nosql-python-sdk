@@ -9,7 +9,7 @@
 
 from json import loads
 from logging import FileHandler, WARNING, getLogger
-from os import mkdir, path, sep
+from os import mkdir, path
 from sys import argv
 
 from .client import Client
@@ -638,19 +638,6 @@ class NoSQLHandle(object):
             results.append(UserInfo(user['id'], user['name']))
         return results
 
-    def _config_auth_provider(self, config, logger):
-        provider = config.get_authorization_provider()
-        if provider.get_logger() is None:
-            provider.set_logger(logger)
-        if (isinstance(provider, StoreAccessTokenProvider) and
-                provider.is_secure() and provider.get_endpoint() is None):
-            endpoint = config.get_service_url().geturl()
-            if endpoint.endswith('/'):
-                endpoint = endpoint[:len(endpoint) - 1]
-            provider.set_endpoint(endpoint)
-        elif isinstance(provider, SignatureProvider):
-            provider.set_service_host(config)
-
     def _execute(self, request):
         # Ensure that the client exists and hasn't been closed.
         if self._client is None:
@@ -667,8 +654,22 @@ class NoSQLHandle(object):
         else:
             logger = getLogger(self.__class__.__name__)
             logger.setLevel(WARNING)
-            log_dir = (path.abspath(path.dirname(argv[0])) + sep + 'logs')
+            log_dir = path.join(path.abspath(path.dirname(argv[0])), 'logs')
             if not path.exists(log_dir):
                 mkdir(log_dir)
-            logger.addHandler(FileHandler(log_dir + sep + 'driver.log'))
+            logger.addHandler(FileHandler(path.join(log_dir, 'driver.log')))
         return logger
+
+    @staticmethod
+    def _config_auth_provider(config, logger):
+        provider = config.get_authorization_provider()
+        if provider.get_logger() is None:
+            provider.set_logger(logger)
+        if (isinstance(provider, StoreAccessTokenProvider) and
+                provider.is_secure() and provider.get_endpoint() is None):
+            endpoint = config.get_service_url().geturl()
+            if endpoint.endswith('/'):
+                endpoint = endpoint[:len(endpoint) - 1]
+            provider.set_endpoint(endpoint)
+        elif isinstance(provider, SignatureProvider):
+            provider.set_service_host(config)

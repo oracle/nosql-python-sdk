@@ -106,8 +106,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         result = self.handle.get_table(self.get_table_request)
         if is_minicloud():
             self.check_table_result(
-                result, [State.DROPPING, State.DROPPED], table_limits,
-                has_schema=False)
+                result, [State.DROPPING, State.DROPPED], table_limits)
         else:
             self.check_table_result(
                 result, [State.DROPPING, State.DROPPED])

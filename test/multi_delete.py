@@ -294,7 +294,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         (self.assertIsNotNone(cont_key) if continuation_key
          else self.assertIsNone(cont_key))
 
-    def _expected_row(self, fld_sid, fld_id):
+    @staticmethod
+    def _expected_row(fld_sid, fld_id):
         expected_row = OrderedDict()
         expected_row['fld_sid'] = fld_sid
         expected_row['fld_id'] = fld_id
