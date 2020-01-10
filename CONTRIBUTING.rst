@@ -2,7 +2,7 @@ Contributing to the Oracle NoSQL Database Python SDK
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-*Copyright (c) 2018, 2019, Oracle and/or its affiliates. All rights reserved.*
+*Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.*
 
 Pull requests can be made under
 `The Oracle Contributor Agreement <https://www.oracle.com/technetwork/community/
