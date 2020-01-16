@@ -79,6 +79,12 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(IllegalArgumentException,
                           self.put_request.set_compartment_id, '')
 
+    def testPutSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.put_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.put_request.set_compartment_name, '')
+
     def testPutSetIllegalOption(self):
         self.put_request.set_option('IllegalOption')
         self.assertRaises(IllegalStateException, self.handle.put,
@@ -155,7 +161,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             True).set_exact_match(True).set_identity_cache_size(
             identity_cache_size).set_return_row(True)
         self.assertEqual(self.put_request.get_value(), self.row)
-        self.assertEqual(self.put_request.get_compartment_id(), tenant_id)
+        self.assertEqual(self.put_request.get_compartment_id_or_name(),
+                         tenant_id)
         self.assertEqual(self.put_request.get_option(), PutOption.IF_ABSENT)
         self.assertEqual(self.put_request.get_match_version(), version)
         self.assertEqual(self.put_request.get_ttl(), self.ttl)

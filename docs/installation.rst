@@ -158,7 +158,7 @@ _______________________________________
 Credentials are used to establish the initial connection from your application
 to the service. The way to supply the credentials is to use a credentials file,
 :class:`borneo.iam.SignatureProvider` reads credentials from the credentials
-file, by default the credentials file is found in *$HOME/.oci/config but the
+file, by default the credentials file is found in *$HOME/.oci/config* but the
 location can be changed using::
 
     SignatureProvider(config_file=<path-to-your-credentials-file>)

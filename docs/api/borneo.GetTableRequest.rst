@@ -10,22 +10,24 @@ GetTableRequest
 
    .. autosummary::
 
-      ~GetTableRequest.get_compartment_id
+      ~GetTableRequest.get_compartment_id_or_name
       ~GetTableRequest.get_operation_id
       ~GetTableRequest.get_table_name
       ~GetTableRequest.get_timeout
       ~GetTableRequest.set_compartment_id
+      ~GetTableRequest.set_compartment_name
       ~GetTableRequest.set_operation_id
       ~GetTableRequest.set_table_name
       ~GetTableRequest.set_timeout
 
    .. rubric:: Methods Documentation
 
-   .. automethod:: get_compartment_id
+   .. automethod:: get_compartment_id_or_name
    .. automethod:: get_operation_id
    .. automethod:: get_table_name
    .. automethod:: get_timeout
    .. automethod:: set_compartment_id
+   .. automethod:: set_compartment_name
    .. automethod:: set_operation_id
    .. automethod:: set_table_name
    .. automethod:: set_timeout

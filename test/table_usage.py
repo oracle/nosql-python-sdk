@@ -85,6 +85,12 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.assertRaises(IllegalArgumentException,
                           self.table_usage_request.set_compartment_id, '')
 
+    def testTableUsageSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.table_usage_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.table_usage_request.set_compartment_name, '')
+
     def testTableUsageSetIllegalStartTime(self):
         self.assertRaises(IllegalArgumentException,
                           self.table_usage_request.set_start_time,
@@ -128,7 +134,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start).set_end_time(end_str).set_limit(5)
         self.assertEqual(self.table_usage_request.get_table_name(), table_name)
-        self.assertEqual(self.table_usage_request.get_compartment_id(),
+        self.assertEqual(self.table_usage_request.get_compartment_id_or_name(),
                          tenant_id)
         self.assertEqual(self.table_usage_request.get_start_time(), start)
         self.assertEqual(self.table_usage_request.get_start_time_string(),

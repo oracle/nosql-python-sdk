@@ -84,6 +84,12 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.assertRaises(IllegalArgumentException,
                           self.get_indexes_request.set_compartment_id, '')
 
+    def testGetIndexesSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.get_indexes_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.get_indexes_request.set_compartment_name, '')
+
     def testGetIndexesSetIllegalIndexName(self):
         self.get_indexes_request.set_table_name(table_names[0])
         self.assertRaises(IllegalArgumentException,
@@ -110,7 +116,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.get_indexes_request.set_table_name(table_name).set_index_name(
             index_name)
         self.assertEqual(self.get_indexes_request.get_table_name(), table_name)
-        self.assertEqual(self.get_indexes_request.get_compartment_id(),
+        self.assertEqual(self.get_indexes_request.get_compartment_id_or_name(),
                          tenant_id)
         self.assertEqual(self.get_indexes_request.get_index_name(), index_name)
 

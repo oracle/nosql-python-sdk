@@ -34,6 +34,20 @@ class SignatureProvider(AuthorizationProvider):
     An instance of :py:class:`borneo.AuthorizationProvider` that generates and
     caches signature for each request as authorization string.
 
+    There are two mechanisms for providing authorization information:
+
+        Using a user's identity and optional profile. This authenticates and
+        authorizes the application based on a specific user identity.\n
+        Using an Instance Principal, which can be done when running on a compute
+        instance in the Oracle Cloud Infrastructure (OCI). See
+        :py:meth:`create_with_instance_principal`.
+
+    The latter can be simpler to use when running on an OCI compute instance,
+    but limits the ability to use a compartment name vs OCID when naming
+    compartments and tables in :py:class:`Request` classes and when naming
+    tables in queries. A specific user identity is best for naming flexibility,
+    allowing both compartment names and OCIDs.
+
     :param provider: the oci config or InstancePrincipalsSecurityTokenSigner.
     :type provider: dict or InstancePrincipalsSecurityTokenSigner
     :param profile_name: user profile name.
@@ -169,14 +183,15 @@ class SignatureProvider(AuthorizationProvider):
         headers[HttpConstants.AUTHORIZATION] = (
             sig_details.get_signature_header())
         headers[HttpConstants.DATE] = sig_details.get_date()
-        compartment_id = request.get_compartment_id()
-        if compartment_id is None:
+        compartment_id_or_name = request.get_compartment_id_or_name()
+        if compartment_id_or_name is None:
             # If request doesn't has compartment id, set the tenant id as the
             # default compartment, which is the root compartment in IAM if using
             # user principal.
-            compartment_id = self._get_tenant_ocid()
-        if compartment_id is not None:
-            headers[HttpConstants.REQUEST_COMPARTMENT_ID] = compartment_id
+            compartment_id_or_name = self._get_tenant_ocid()
+        if compartment_id_or_name is not None:
+            headers[HttpConstants.REQUEST_COMPARTMENT_ID] = (
+                compartment_id_or_name)
 
     def set_service_host(self, config):
         service_url = config.get_service_url()
@@ -189,7 +204,9 @@ class SignatureProvider(AuthorizationProvider):
     def create_with_instance_principal():
         """
         Create the SignatureProvider that generates and caches request signature
-        using instance principal.
+        using instance principal. It's used to call service API from Oracle
+        Cloud compute instance. It authenticates with instance principal and
+        uses security token issued by IAM to do the actual request signing.
 
         :returns: a SignatureProvider.
         :rtype: SignatureProvider

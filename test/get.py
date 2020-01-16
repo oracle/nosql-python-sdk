@@ -86,6 +86,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(IllegalArgumentException,
                           self.get_request.set_compartment_id, '')
 
+    def testGetSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.get_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.get_request.set_compartment_name, '')
+
     def testGetSetIllegalConsistency(self):
         self.assertRaises(IllegalArgumentException,
                           self.get_request.set_consistency,
@@ -106,7 +112,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
 
     def testGetGets(self):
         self.assertEqual(self.get_request.get_key(), self.key)
-        self.assertEqual(self.get_request.get_compartment_id(), tenant_id)
+        self.assertEqual(self.get_request.get_compartment_id_or_name(),
+                         tenant_id)
 
     def testGetIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.get,

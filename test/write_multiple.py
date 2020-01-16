@@ -123,6 +123,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertRaises(IllegalArgumentException,
                           self.write_multiple_request.set_compartment_id, '')
 
+    def testWriteMultipleSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.write_multiple_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.write_multiple_request.set_compartment_name, '')
+
     def testWriteMultipleAddIllegalRequestAndAbortIfUnsuccessful(self):
         self.assertRaises(IllegalArgumentException,
                           self.write_multiple_request.add,
@@ -181,8 +187,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         num_operations = 6
         for request in self.requests:
             self.write_multiple_request.add(request, True)
-        self.assertEqual(self.write_multiple_request.get_compartment_id(),
-                         tenant_id)
+        self.assertEqual(
+            self.write_multiple_request.get_compartment_id_or_name(), tenant_id)
         self.assertEqual(self.write_multiple_request.get_table_name(),
                          table_name)
         self.assertEqual(self.write_multiple_request.get_request(2),

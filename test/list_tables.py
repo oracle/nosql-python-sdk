@@ -104,11 +104,11 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
         self.assertRaises(IllegalArgumentException,
                           self.list_tables_request.set_compartment_id, '')
 
-    def testListTablesSetIllegalCompartmentPath(self):
+    def testListTablesSetIllegalCompartmentName(self):
         self.assertRaises(IllegalArgumentException,
-                          self.list_tables_request.set_compartment_path, {})
+                          self.list_tables_request.set_compartment_name, {})
         self.assertRaises(IllegalArgumentException,
-                          self.list_tables_request.set_compartment_path, '')
+                          self.list_tables_request.set_compartment_name, '')
 
     def testListTablesSetIllegalStartIndex(self):
         self.assertRaises(IllegalArgumentException,
@@ -138,7 +138,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def testListTablesGets(self):
         self.list_tables_request.set_limit(5).set_namespace(namespace)
-        self.assertEqual(self.list_tables_request.get_compartment_id(),
+        self.assertEqual(self.list_tables_request.get_compartment_id_or_name(),
                          tenant_id)
         self.assertEqual(self.list_tables_request.get_start_index(), 0)
         self.assertEqual(self.list_tables_request.get_limit(), 5)
@@ -159,7 +159,10 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
         # set a start index larger than the number of tables
         for handle in range(self.num_handles):
             self.list_tables_requests[handle].set_start_index(5)
-        self._check_list_tables_result([[], []], last_returned_index)
+        if is_minicloud():
+            self._check_list_tables_result([[], []], [5, 5])
+        else:
+            self._check_list_tables_result([[], []], last_returned_index)
         # set start_index = 1
         part_table_names = [[self._make_table_name('Users1'),
                              self._make_table_name('Users2')],
@@ -193,13 +196,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(
                 self.list_tables_requests[handle])
-            if is_minicloud():
-                # TODO: Minicloud doesn't handle start index and limit so far,
-                # and the last index returned is always 0.
-                self.assertEqual(sorted(result.get_tables()),
-                                 table_names[handle])
-                self.assertEqual(result.get_last_returned_index(), 0)
-            elif is_onprem() and not eq or is_prod_pod():
+            if is_onprem() and not eq or is_prod_pod():
                 self.assertTrue(
                     set(result.get_tables()).issuperset(set(names[handle])))
                 self.assertGreater(result.get_last_returned_index(),

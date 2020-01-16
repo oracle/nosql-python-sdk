@@ -248,7 +248,7 @@ class TestSignatureProvider(AuthorizationProvider):
         return 'Signature ' + self._tenant_id + ':' + self._user_id
 
     def set_required_headers(self, request, auth_string, headers):
-        compartment_id = request.get_compartment_id()
+        compartment_id = request.get_compartment_id_or_name()
         if compartment_id is None:
             """
             If request doesn't has compartment id, set the tenant id as the

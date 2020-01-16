@@ -98,6 +98,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         self.assertRaises(IllegalArgumentException,
                           self.multi_delete_request.set_compartment_id, '')
 
+    def testMultiDeleteSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.multi_delete_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.multi_delete_request.set_compartment_name, '')
+
     def testMultiDeleteSetIllegalContinuationKey(self):
         self.assertRaises(IllegalArgumentException,
                           self.multi_delete_request.set_continuation_key,
@@ -155,7 +161,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         self.assertEqual(self.multi_delete_request.get_table_name(),
                          table_name)
         self.assertEqual(self.multi_delete_request.get_key(), self.key)
-        self.assertEqual(self.multi_delete_request.get_compartment_id(),
+        self.assertEqual(self.multi_delete_request.get_compartment_id_or_name(),
                          tenant_id)
         self.assertEqual(self.multi_delete_request.get_continuation_key(),
                          continuation_key)

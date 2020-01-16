@@ -61,6 +61,12 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(IllegalArgumentException,
                           self.get_table_request.set_compartment_id, '')
 
+    def testGetTableSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.get_table_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.get_table_request.set_compartment_name, '')
+
     def testGetTableSetIllegalOperationId(self):
         self.assertRaises(IllegalArgumentException,
                           self.get_table_request.set_operation_id, 0)
@@ -80,7 +86,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testGetTableGets(self):
         self.get_table_request.set_table_name(table_name)
         self.assertEqual(self.get_table_request.get_table_name(), table_name)
-        self.assertEqual(self.get_table_request.get_compartment_id(),
+        self.assertEqual(self.get_table_request.get_compartment_id_or_name(),
                          tenant_id)
         self.assertIsNone(self.get_table_request.get_operation_id())
 

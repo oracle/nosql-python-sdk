@@ -84,6 +84,12 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(IllegalArgumentException,
                           self.table_request.set_compartment_id, '')
 
+    def testTableRequestSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.table_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.table_request.set_compartment_name, '')
+
     def testTableRequestSetIllegalTableLimits(self):
         self.assertRaises(IllegalArgumentException,
                           self.table_request.set_table_limits,
@@ -142,7 +148,8 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             self.create_tb_statement).set_table_limits(self.table_limits)
         self.assertEqual(self.table_request.get_statement(),
                          self.create_tb_statement)
-        self.assertEqual(self.table_request.get_compartment_id(), tenant_id)
+        self.assertEqual(self.table_request.get_compartment_id_or_name(),
+                         tenant_id)
         self.assertEqual(self.table_request.get_table_limits(),
                          self.table_limits)
         self.assertEqual(self.table_request.get_table_name(), table_name)

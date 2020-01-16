@@ -124,6 +124,12 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertRaises(IllegalArgumentException,
                           self.query_request.set_compartment_id, '')
 
+    def testQuerySetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.query_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.query_request.set_compartment_name, '')
+
     def testQuerySetIllegalLimit(self):
         self.assertRaises(IllegalArgumentException,
                           self.query_request.set_limit, 'IllegalLimit')
@@ -217,7 +223,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.prepare_result_select).set_limit(3).set_max_read_kb(
             2).set_max_write_kb(3).set_max_memory_consumption(
             5).set_math_context(context).set_continuation_key(continuation_key)
-        self.assertEqual(self.query_request.get_compartment_id(), tenant_id)
+        self.assertEqual(self.query_request.get_compartment_id_or_name(),
+                         tenant_id)
         self.assertFalse(self.query_request.is_done())
         self.assertEqual(self.query_request.get_limit(), 3)
         self.assertEqual(self.query_request.get_max_read_kb(), 2)

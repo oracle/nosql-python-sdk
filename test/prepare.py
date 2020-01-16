@@ -74,6 +74,12 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.assertRaises(IllegalArgumentException,
                           self.prepare_request.set_compartment_id, '')
 
+    def testPrepareSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.prepare_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.prepare_request.set_compartment_name, '')
+
     def testPrepareSetIllegalGetQueryPlan(self):
         self.assertRaises(IllegalArgumentException,
                           self.prepare_request.set_get_query_plan,
@@ -96,7 +102,8 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             self.prepare_statement).set_get_query_plan(True)
         self.assertEqual(self.prepare_request.get_statement(),
                          self.prepare_statement)
-        self.assertEqual(self.prepare_request.get_compartment_id(), tenant_id)
+        self.assertEqual(self.prepare_request.get_compartment_id_or_name(),
+                         tenant_id)
         self.assertTrue(self.prepare_request.get_query_plan())
         self.assertEqual(self.prepare_request.get_timeout(), timeout)
 

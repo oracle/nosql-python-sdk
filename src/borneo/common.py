@@ -11,7 +11,6 @@ from datetime import datetime
 from decimal import Decimal
 from functools import wraps
 from logging import Logger
-from platform import architecture
 from struct import pack, unpack
 from sys import version_info
 from threading import Lock
@@ -1175,96 +1174,6 @@ class PutOption(object):
     """Set PutOption.IF_PRESENT to perform put if present operation."""
     IF_VERSION = 2
     """Set PutOption.IF_VERSION to perform put if version operation."""
-
-
-class SizeOf(object):
-    ARRAY_OVERHEAD = 0
-    ARRAY_OVERHEAD_32 = 16
-    ARRAY_OVERHEAD_64 = 24
-
-    ARRAY_SIZE_INCLUDED = 0
-    ARRAY_SIZE_INCLUDED_32 = 4
-    ARRAY_SIZE_INCLUDED_64 = 0
-
-    HASHMAP_ENTRY_OVERHEAD = 0
-    HASHMAP_ENTRY_OVERHEAD_32 = 24
-    HASHMAP_ENTRY_OVERHEAD_64 = 52
-
-    HASHMAP_OVERHEAD = 0
-    HASHMAP_OVERHEAD_32 = 120
-    HASHMAP_OVERHEAD_64 = 219
-
-    HASHSET_ENTRY_OVERHEAD = 0
-    HASHSET_ENTRY_OVERHEAD_32 = 24
-    HASHSET_ENTRY_OVERHEAD_64 = 55
-
-    HASHSET_OVERHEAD = 0
-    HASHSET_OVERHEAD_32 = 136
-    HASHSET_OVERHEAD_64 = 240
-
-    OBJECT_OVERHEAD = 0
-    OBJECT_OVERHEAD_32 = 8
-    OBJECT_OVERHEAD_64 = 16
-
-    OBJECT_REF_OVERHEAD = 0
-    OBJECT_REF_OVERHEAD_32 = 4
-    OBJECT_REF_OVERHEAD_64 = 8
-
-    ARRAYLIST_OVERHEAD = 0
-
-    @staticmethod
-    def object_array_size(array_len):
-        return SizeOf.byte_array_size(array_len * SizeOf.OBJECT_REF_OVERHEAD)
-
-    @staticmethod
-    def byte_array_size(array_len, array_overhead=ARRAY_OVERHEAD,
-                        array_size_included=ARRAY_SIZE_INCLUDED):
-        """
-        Returns the memory size occupied by a byte array of a given length. All
-        arrays (regardless of element type) have the same overhead for a zero
-        length array. On 32b Python, there are 4 bytes included in that fixed
-        overhead that can be used for the first N elements -- however many fit
-        in 4 bytes. On 64b Python, there is no extra space included. In all
-        cases, space is allocated in 8 byte chunks.
-        """
-        size = array_overhead
-        if array_len > array_size_included:
-            size += (array_len - array_size_included + 7) // 8 * 8
-        return size
-
-    @staticmethod
-    def string_size(s):
-        return (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                SizeOf.byte_array_size(2 * len(s)))
-
-    def _byte_array_size(*args):
-        size = args[1]
-        if args[0] > args[2]:
-            size += (args[0] - args[2] + 7) // 8 * 8
-        return size
-
-    if architecture()[0] == '64bit':
-        ARRAY_OVERHEAD = ARRAY_OVERHEAD_64
-        ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_64
-        HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_64
-        HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_64
-        HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_64
-        HASHSET_OVERHEAD = HASHSET_OVERHEAD_64
-        OBJECT_OVERHEAD = OBJECT_OVERHEAD_64
-        OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_64
-        ARRAYLIST_OVERHEAD = (64 - _byte_array_size(
-            0 * OBJECT_REF_OVERHEAD, ARRAY_OVERHEAD, ARRAY_SIZE_INCLUDED))
-    else:
-        ARRAY_OVERHEAD = ARRAY_OVERHEAD_32
-        ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_32
-        HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_32
-        HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_32
-        HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_32
-        HASHSET_OVERHEAD = HASHSET_OVERHEAD_32
-        OBJECT_OVERHEAD = OBJECT_OVERHEAD_32
-        OBJECT_REF_OVERHEAD = OBJECT_REF_OVERHEAD_32
-        ARRAYLIST_OVERHEAD = (40 - _byte_array_size(
-            0 * OBJECT_REF_OVERHEAD, ARRAY_OVERHEAD, ARRAY_SIZE_INCLUDED))
 
 
 class State(object):

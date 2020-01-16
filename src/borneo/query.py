@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal, setcontext
 from sys import getsizeof, version_info
 
-from .common import ByteOutputStream, CheckValue, SizeOf, enum
+from .common import ByteOutputStream, CheckValue, enum
 from .exception import (
     IllegalArgumentException, IllegalStateException, NoSQLException,
     QueryException, QueryStateException, RetryableException)
@@ -253,47 +253,6 @@ class PlanIter(object):
         state = rcb.get_state(self.state_pos)
         return state.is_done() or state.is_closed()
 
-    def sizeof(self, value):
-        if isinstance(value, list):
-            size = (
-                SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                SizeOf.ARRAYLIST_OVERHEAD +
-                SizeOf.object_array_size(len(value)))
-            for elem in value:
-                size += self.sizeof(elem)
-        elif isinstance(value, bytearray):
-            size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                    SizeOf.byte_array_size(len(value)))
-        elif isinstance(value, bool):
-            size = 0
-        elif isinstance(value, float):
-            size = SizeOf.OBJECT_OVERHEAD + 8
-        elif CheckValue.is_int(value):
-            size = SizeOf.OBJECT_OVERHEAD + 4
-        elif CheckValue.is_long(value):
-            size = SizeOf.OBJECT_OVERHEAD + 8
-        elif isinstance(value, dict):
-            size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                    SizeOf.HASHMAP_OVERHEAD)
-            for key in value:
-                size += SizeOf.HASHMAP_ENTRY_OVERHEAD
-                size += SizeOf.string_size(key)
-                size += self.sizeof(value[key])
-        elif CheckValue.is_str(value):
-            size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                    SizeOf.string_size(value))
-        elif isinstance(value, datetime):
-            size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                    SizeOf.string_size(value.isoformat()) + 4)
-        elif isinstance(value, Decimal):
-            size = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD +
-                    SizeOf.byte_array_size(getsizeof(value) // 8))
-        elif value is None:
-            size = 0
-        else:
-            raise IllegalStateException('Unknown type ' + str(type(value)))
-        return size
-
     @staticmethod
     def deserialize_iter(bis):
         kind = bis.read_byte()
@@ -389,6 +348,10 @@ class PlanIter(object):
                 raise IllegalArgumentException(
                     str(value) + ' is invalid, it must be a positive value.')
         return value
+
+    @staticmethod
+    def sizeof(value):
+        return getsizeof(value) // 8
 
     @abstractmethod
     def close(self, rcb):
@@ -1131,7 +1094,7 @@ class ReceiveIter(PlanIter):
             return True
         else:
             state.prim_keys_set.append(bin_prim_key)
-        sz = self.sizeof(bin_prim_key) + SizeOf.HASHSET_ENTRY_OVERHEAD
+        sz = self.sizeof(bin_prim_key)
         state.memory_consumption += sz
         state.dup_elim_memory += sz
         rcb.inc_memory_consumption(sz)
@@ -1545,7 +1508,6 @@ class ReceiveIter(PlanIter):
             self.results_size = 0
             for res in self.results:
                 self.results_size += self._out.sizeof(res)
-            self.results_size += len(self.results) * SizeOf.OBJECT_REF_OVERHEAD
             self.state.total_num_results += len(self.results)
             self.state.total_results_size += self.results_size
             self.state.memory_consumption += self.results_size
@@ -1875,9 +1837,6 @@ class SortIter(PlanIter):
     It is used by the driver to implement the geo_near function, which sorts
     results by distance.
     """
-    FIXED_MEMORY_CONSUMPTION = (
-        2 * SizeOf.OBJECT_REF_OVERHEAD + SizeOf.ARRAYLIST_OVERHEAD +
-        SizeOf.OBJECT_OVERHEAD + 12)
 
     def __init__(self, bis):
         super(SortIter, self).__init__(bis)
@@ -1916,7 +1875,7 @@ class SortIter(PlanIter):
             while more:
                 val = rcb.get_reg_val(self._input.get_result_reg())
                 self._add_result(state.results, val, rcb, state.comp_res)
-                size = self.sizeof(val) + SizeOf.OBJECT_REF_OVERHEAD
+                size = self.sizeof(val)
                 state.memory_consumption += size
                 rcb.inc_memory_consumption(size)
                 more = self._input.next(rcb)
@@ -1979,6 +1938,8 @@ class SortIter(PlanIter):
             self.curr_result = 0
             del self.results[:]
             self.memory_consumption = SortIter.FIXED_MEMORY_CONSUMPTION
+
+    FIXED_MEMORY_CONSUMPTION = PlanIter.sizeof(SortIterState)
 
 
 class VarRefIter(PlanIter):

@@ -93,6 +93,12 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(IllegalArgumentException,
                           self.delete_request.set_compartment_id, '')
 
+    def testDeleteSetIllegalCompartmentName(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.delete_request.set_compartment_name, {})
+        self.assertRaises(IllegalArgumentException,
+                          self.delete_request.set_compartment_name, '')
+
     def testDeleteSetIllegalReturnRow(self):
         self.assertRaises(IllegalArgumentException,
                           self.delete_request.set_return_row,
@@ -107,7 +113,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.delete_request.set_match_version(
             self.version).set_return_row(True)
         self.assertEqual(self.delete_request.get_key(), self.key)
-        self.assertEqual(self.delete_request.get_compartment_id(), tenant_id)
+        self.assertEqual(self.delete_request.get_compartment_id_or_name(),
+                         tenant_id)
         self.assertEqual(self.delete_request.get_match_version(), self.version)
         self.assertEqual(self.delete_request.get_timeout(), timeout)
         self.assertEqual(self.delete_request.get_table_name(), table_name)
