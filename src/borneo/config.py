@@ -194,28 +194,46 @@ class DefaultRetryHandler(RetryHandler):
 
 
 class Region(object):
-    ENDPOINT_FORMAT = 'https://ndcs.{0}.oraclecloud.com'
+    OC1_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.com'
+    GOV_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.com'
 
     def __init__(self, region_id):
         self._region_id = region_id
 
     def endpoint(self):
         """
-        Returns the endpoint generated from region id.
+        Get NoSQL Database Cloud Service Endpoint of this region.
 
-        :returns: the endpoint.
+        :returns: NoSQL Database Cloud Service Endpoint.
         :rtype: str
+        :raises IllegalArgumentException: raises the exception if region_id is
+            unknwon.
         """
-        return str.format(Region.ENDPOINT_FORMAT, self._region_id)
+        if self._is_oc1_region():
+            return str.format(Region.OC1_EP_BASE, self._region_id)
+        if self._is_gov_region():
+            return str.format(Region.GOV_EP_BASE, self._region_id)
+        raise IllegalArgumentException(
+            'Unable to find endpoint for unknwon region ' + self._region_id)
 
     def get_region_id(self):
         """
+        Internal use only.
+
         Returns the region id of this region.
 
         :returns: the region id.
         :rtype: str
         """
         return self._region_id
+
+    def _is_gov_region(self):
+        # Internal use only
+        return Regions.GOV_REGIONS.get(self._region_id) != None
+
+    def _is_oc1_region(self):
+        # Internal use only
+        return Regions.OC1_REGIONS.get(self._region_id) != None
 
 
 class Regions(object):
@@ -227,36 +245,90 @@ class Regions(object):
     # OC1
     AP_SEOUL_1 = Region('ap-seoul-1')
     AP_TOKYO_1 = Region('ap-tokyo-1')
-    CA_TORONTO_1 = Region('ca-toronto-1')
+    AP_MUMBAI_1 = Region('ap-mumbai-1')
+    AP_SYDNEY_1 = Region('ap-sydney-1')
+
     UK_LONDON_1 = Region('uk-london-1')
-    # TODO: may need change, current endpoint using OCI-C region id
-    EU_FRANKFURT_1 = Region('eucom-central-1')
-    US_ASHBURN_1 = Region('uscom-east-1')
-    US_PHOENIX_1 = Region('uscom-west-1')
+    EU_FRANKFURT_1 = Region('eu-frankfurt-1')
+    EU_ZURICH_1 = Region('eu-zurich-1')
 
-    KNOWN_REGIONS = dict()
-    KNOWN_REGIONS[AP_SEOUL_1.get_region_id()] = AP_SEOUL_1
-    KNOWN_REGIONS[AP_TOKYO_1.get_region_id()] = AP_TOKYO_1
-    KNOWN_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
-    KNOWN_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
+    US_ASHBURN_1 = Region('us-ashburn-1')
+    US_PHOENIX_1 = Region('us-phoenix-1')
+    CA_TORONTO_1 = Region('ca-toronto-1')
 
-    KNOWN_REGIONS[EU_FRANKFURT_1.get_region_id()] = EU_FRANKFURT_1
-    KNOWN_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
-    KNOWN_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
+    SA_SAOPAULO_1 = Region('sa-saopaulo-1')
 
-    KNOWN_REGIONS['eu-frankfurt-1'] = EU_FRANKFURT_1
-    KNOWN_REGIONS['us-ashburn-1'] = US_ASHBURN_1
-    KNOWN_REGIONS['us-phoenix-1'] = US_PHOENIX_1
+    # OC2
+    US_LANGLEY_1 = Region('us-langley-1')
+    US_LUKE_1 = Region('us-luke-1')
+
+    # OC3
+    US_GOV_ASHBURN_1 = Region('us-gov-ashburn-1')
+    US_GOV_CHICAGO_1 = Region('us-gov-chicago-1')
+    US_GOV_PHOENIX_1 = Region('us-gov-phoenix-1')
+
+    # OC4
+    UK_GOV_LONDON_1 = Region('uk-gov-london-1')
+
+    # OC1
+    OC1_REGIONS = dict()
+    # APAC
+    OC1_REGIONS[AP_SEOUL_1.get_region_id()] = AP_SEOUL_1
+    OC1_REGIONS[AP_TOKYO_1.get_region_id()] = AP_TOKYO_1
+    OC1_REGIONS[AP_MUMBAI_1.get_region_id()] = AP_MUMBAI_1
+    OC1_REGIONS[AP_SYDNEY_1.get_region_id()] = AP_SYDNEY_1
+
+    # EMEA
+    OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
+    OC1_REGIONS[EU_FRANKFURT_1.get_region_id()] = EU_FRANKFURT_1
+    OC1_REGIONS[EU_ZURICH_1.get_region_id()] = EU_ZURICH_1
+
+    # LAD
+    OC1_REGIONS[SA_SAOPAULO_1.get_region_id()] = SA_SAOPAULO_1
+
+    # North America
+    OC1_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
+    OC1_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
+    OC1_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
+
+    GOV_REGIONS = dict()
+    # OC2
+    GOV_REGIONS[US_LANGLEY_1.get_region_id()] = US_LANGLEY_1
+    GOV_REGIONS[US_LUKE_1.get_region_id()] = US_LUKE_1
+
+    # OC3
+    GOV_REGIONS[US_GOV_ASHBURN_1.get_region_id()] = US_GOV_ASHBURN_1
+    GOV_REGIONS[US_GOV_CHICAGO_1.get_region_id()] = US_GOV_CHICAGO_1
+    GOV_REGIONS[US_GOV_PHOENIX_1.get_region_id()] = US_GOV_PHOENIX_1
+
+    # OC4
+    GOV_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
+
+    @staticmethod
+    def get_gov_regions():
+        # Internal use only
+        return Regions.GOV_REGIONS.values()
+
+    @staticmethod
+    def get_oc1_regions():
+        # Internal use only
+        return Regions.OC1_REGIONS.values()
 
     @staticmethod
     def from_region_id(region_id):
         """
+        Internal use only.
+
         Returns the region according to the given region_id.
 
+        :param region_id: the region id.
+        :type region_id: str
         :returns: the region.
         :rtype: Region
         """
-        region = Regions.KNOWN_REGIONS.get(region_id)
+        region = Regions.OC1_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.GOV_REGIONS.get(region_id)
         if region is not None:
             return region
         raise IllegalArgumentException('Unknown region_id: ' + region_id)

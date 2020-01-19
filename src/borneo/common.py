@@ -413,17 +413,11 @@ class HttpConstants(object):
     # The name of the Authorization header.
     AUTHORIZATION = 'Authorization'
 
-    # The service name of the NoSQL data service (the driver protocol)
-    DATA_PATH_NAME = 'data'
-
     # The name of the date header.
     DATE = 'date'
 
     # The current version of the protocol
-    NOSQL_VERSION = 'V0'
-
-    # The service name prefix for public NoSQL services
-    NOSQL_PATH_NAME = 'nosql'
+    NOSQL_VERSION = 'V2'
 
     # A header for transferring the compartment id on an http request.
     REQUEST_COMPARTMENT_ID = 'x-nosql-compartment-id'
@@ -449,11 +443,12 @@ class HttpConstants(object):
             path += '/' + args[index]
         return path
 
-    # The service name of the nosql prefix
-    NOSQL_PREFIX = _make_path(NOSQL_VERSION, NOSQL_PATH_NAME)
+    # The base path to the on-premise security services. All users need a
+    # leading "/" so add it here.
+    KV_SECURITY_PATH = _make_path('/' + NOSQL_VERSION, 'nosql/security')
 
     # The path denoting a NoSQL request
-    NOSQL_DATA_PATH = _make_path(NOSQL_PREFIX, DATA_PATH_NAME)
+    NOSQL_DATA_PATH = _make_path(NOSQL_VERSION, 'nosql/data')
 
 
 class IndexInfo(object):

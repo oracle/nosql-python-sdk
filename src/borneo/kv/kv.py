@@ -20,7 +20,7 @@ except ImportError:
 
 import borneo.http
 from borneo.auth import AuthorizationProvider
-from borneo.common import CheckValue, LogUtils, synchronized
+from borneo.common import CheckValue, HttpConstants, LogUtils, synchronized
 from borneo.config import NoSQLHandleConfig
 from borneo.exception import (
     IllegalArgumentException, InvalidAuthorizationException, NoSQLException)
@@ -85,7 +85,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         self._disable_ssl_hook = False
         self._is_closed = False
         # The base path for security related services.
-        self._base_path = '/V0/nosql/security'
+        self._base_path = HttpConstants.KV_SECURITY_PATH
         # The login token expiration time.
         self._expiration_time = 0
         self._logger = None

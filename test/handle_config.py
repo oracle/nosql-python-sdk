@@ -192,6 +192,17 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com:443')
         self._check_service_url(config, 'http', 'ndcs.com', 443)
 
+    def testNoSQLHandleConfigRegions(self):
+        for r in Regions.get_oc1_regions():
+            self.assertEqual(
+                r.endpoint(),
+                'https://nosql.' + r.get_region_id() + '.oci.oraclecloud.com')
+        for r in Regions.get_gov_regions():
+            self.assertEqual(
+                r.endpoint(),
+                'https://nosql.' + r.get_region_id() +
+                '.oci.oraclegovcloud.com')
+
     def testNoSQLHandleConfigClone(self):
         config = get_handle_config(tenant_id)
         clone_config = config.clone()

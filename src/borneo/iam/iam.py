@@ -201,18 +201,27 @@ class SignatureProvider(AuthorizationProvider):
         return self
 
     @staticmethod
-    def create_with_instance_principal():
+    def create_with_instance_principal(iam_auth_uri=None):
         """
         Create the SignatureProvider that generates and caches request signature
         using instance principal. It's used to call service API from Oracle
         Cloud compute instance. It authenticates with instance principal and
         uses security token issued by IAM to do the actual request signing.
 
+        :param iam_auth_uri: the URI is usually detected automatically, specify
+            the URI if need to overwrite the default, or encounter *Invalid IAM
+            URI* error, it is optional.
+        :type iam_auth_uri: str
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
         """
-        return SignatureProvider(
-            oci.auth.signers.InstancePrincipalsSecurityTokenSigner())
+        if iam_auth_uri is None:
+            return SignatureProvider(
+                oci.auth.signers.InstancePrincipalsSecurityTokenSigner())
+        else:
+            return SignatureProvider(
+                oci.auth.signers.InstancePrincipalsSecurityTokenSigner(
+                    federation_endpoint=iam_auth_uri))
 
     def _get_key_id(self):
         tenant_id = self._provider['tenancy']
@@ -298,8 +307,9 @@ class SignatureProvider(AuthorizationProvider):
         self._timer.start()
 
     def _signing_content(self, date_str):
-        return ('(request-target): post /' + HttpConstants.NOSQL_DATA_PATH +
-                '\nhost: ' + self._service_host + '\ndate: ' + date_str)
+        return (HttpConstants.REQUEST_TARGET + ': post /' +
+                HttpConstants.NOSQL_DATA_PATH + '\nhost: ' +
+                self._service_host + '\ndate: ' + date_str)
 
     @staticmethod
     def _is_valid_ocid(ocid):

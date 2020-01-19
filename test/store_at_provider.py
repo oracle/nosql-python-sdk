@@ -27,9 +27,9 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global LOGIN_PATH, LOGOUT_PATH, RENEW_PATH
-        LOGIN_PATH = '/V0/nosql/security/login'
-        LOGOUT_PATH = '/V0/nosql/security/logout'
-        RENEW_PATH = '/V0/nosql/security/renew'
+        LOGIN_PATH = '/V2/nosql/security/login'
+        LOGOUT_PATH = '/V2/nosql/security/logout'
+        RENEW_PATH = '/V2/nosql/security/renew'
         # basicAuthString matching user name test and password NoSql00__123456
         global USER_NAME, PASSWORD, BASIC_AUTH_STRING
         USER_NAME = 'test'
