@@ -229,11 +229,11 @@ class Region(object):
 
     def _is_gov_region(self):
         # Internal use only
-        return Regions.GOV_REGIONS.get(self._region_id) != None
+        return Regions.GOV_REGIONS.get(self._region_id) is not None
 
     def _is_oc1_region(self):
         # Internal use only
-        return Regions.OC1_REGIONS.get(self._region_id) != None
+        return Regions.OC1_REGIONS.get(self._region_id) is not None
 
 
 class Regions(object):
