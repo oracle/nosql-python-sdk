@@ -207,14 +207,14 @@ class Region(object):
         :returns: NoSQL Database Cloud Service Endpoint.
         :rtype: str
         :raises IllegalArgumentException: raises the exception if region_id is
-            unknwon.
+            unknown.
         """
         if self._is_oc1_region():
             return str.format(Region.OC1_EP_BASE, self._region_id)
         if self._is_gov_region():
             return str.format(Region.GOV_EP_BASE, self._region_id)
         raise IllegalArgumentException(
-            'Unable to find endpoint for unknwon region ' + self._region_id)
+            'Unable to find endpoint for unknown region ' + self._region_id)
 
     def get_region_id(self):
         """
