@@ -194,8 +194,15 @@ class DefaultRetryHandler(RetryHandler):
 
 
 class Region(object):
+    """
+    Cloud service only.
+
+    The class represents a region of Oracle NoSQL Database Cloud.
+    """
+
     OC1_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.com'
     GOV_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.com'
+    OC4_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.uk'
 
     def __init__(self, region_id):
         self._region_id = region_id
@@ -213,6 +220,8 @@ class Region(object):
             return str.format(Region.OC1_EP_BASE, self._region_id)
         if self._is_gov_region():
             return str.format(Region.GOV_EP_BASE, self._region_id)
+        if self._is_oc4_region():
+            return str.format(Region.OC4_EP_BASE, self._region_id)
         raise IllegalArgumentException(
             'Unable to find endpoint for unknown region ' + self._region_id)
 
@@ -235,6 +244,10 @@ class Region(object):
         # Internal use only
         return Regions.OC1_REGIONS.get(self._region_id) is not None
 
+    def _is_oc4_region(self):
+        # Internal use only
+        return Regions.OC4_REGIONS.get(self._region_id) is not None
+
 
 class Regions(object):
     """
@@ -244,34 +257,52 @@ class Regions(object):
     """
     # OC1
     AP_SEOUL_1 = Region('ap-seoul-1')
+    """Region Location: Seoul, South Korea"""
     AP_TOKYO_1 = Region('ap-tokyo-1')
+    """Region Location: Tokyo, Japan"""
     AP_MUMBAI_1 = Region('ap-mumbai-1')
+    """Region Location: Mumbai, India"""
     AP_SYDNEY_1 = Region('ap-sydney-1')
+    """Region Location: Sydney, Australia"""
 
     UK_LONDON_1 = Region('uk-london-1')
+    """Region Location: London, United Kingdom"""
     EU_FRANKFURT_1 = Region('eu-frankfurt-1')
+    """Region Location: Frankfurt, Germany"""
     EU_ZURICH_1 = Region('eu-zurich-1')
+    """Region Location: Zurich, Switzerland"""
 
     US_ASHBURN_1 = Region('us-ashburn-1')
+    """Region Location: Ashburn, VA"""
     US_PHOENIX_1 = Region('us-phoenix-1')
+    """Region Location: Phoenix, AZ"""
     CA_TORONTO_1 = Region('ca-toronto-1')
+    """Region Location: Toronto, Canada"""
 
     SA_SAOPAULO_1 = Region('sa-saopaulo-1')
+    """Region Location: Sao Paulo, Brazil"""
 
     # OC2
     US_LANGLEY_1 = Region('us-langley-1')
+    """Region Location: Ashburn, VA"""
     US_LUKE_1 = Region('us-luke-1')
+    """Region Location: Phoenix, AZ"""
 
     # OC3
     US_GOV_ASHBURN_1 = Region('us-gov-ashburn-1')
+    """Region Location: Ashburn, VA"""
     US_GOV_CHICAGO_1 = Region('us-gov-chicago-1')
+    """Region Location: Chicago, IL"""
     US_GOV_PHOENIX_1 = Region('us-gov-phoenix-1')
+    """Region Location: Phoenix, AZ"""
 
     # OC4
     UK_GOV_LONDON_1 = Region('uk-gov-london-1')
+    """Region Location: London, United Kingdom"""
 
     # OC1
     OC1_REGIONS = dict()
+    """A dict that save all the OC1 regions."""
     # APAC
     OC1_REGIONS[AP_SEOUL_1.get_region_id()] = AP_SEOUL_1
     OC1_REGIONS[AP_TOKYO_1.get_region_id()] = AP_TOKYO_1
@@ -292,6 +323,7 @@ class Regions(object):
     OC1_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
 
     GOV_REGIONS = dict()
+    """A dict that save all the government regions."""
     # OC2
     GOV_REGIONS[US_LANGLEY_1.get_region_id()] = US_LANGLEY_1
     GOV_REGIONS[US_LUKE_1.get_region_id()] = US_LUKE_1
@@ -302,7 +334,9 @@ class Regions(object):
     GOV_REGIONS[US_GOV_PHOENIX_1.get_region_id()] = US_GOV_PHOENIX_1
 
     # OC4
-    GOV_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
+    OC4_REGIONS = dict()
+    """A dict that save all the OC4 regions."""
+    OC4_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
 
     @staticmethod
     def get_gov_regions():
@@ -313,6 +347,11 @@ class Regions(object):
     def get_oc1_regions():
         # Internal use only
         return Regions.OC1_REGIONS.values()
+
+    @staticmethod
+    def get_oc4_regions():
+        # Internal use only
+        return Regions.OC4_REGIONS.values()
 
     @staticmethod
     def from_region_id(region_id):
