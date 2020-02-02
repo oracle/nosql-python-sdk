@@ -209,7 +209,7 @@ class Region(object):
 
     def endpoint(self):
         """
-        Get NoSQL Database Cloud Service Endpoint of this region.
+        Returns the NoSQL Database Cloud Service Endpoint for this region.
 
         :returns: NoSQL Database Cloud Service Endpoint.
         :rtype: str
@@ -253,7 +253,39 @@ class Regions(object):
     """
     Cloud service only.
 
-    The class contains all the available regions of Oracle NoSQL Database Cloud.
+    The class contains the regions in the Oracle Cloud Infrastructure at the
+    time of this release. The Oracle NoSQL Database Cloud Service is not
+    available in all of these regions. For a definitive list of regions in which
+    the Oracle NoSQL Database Cloud Service is available see `Data Regions for
+    Platform and Infrastructure Services <https://www.oracle.com/cloud/
+    data-regions.html>`_.
+
+    A Region may be provided to :py:class:`NoSQLHandleConfig` to configure a
+    handle to communicate in a specific Region.
+
+    The string-based endpoints associated with regions for the Oracle NoSQL
+    Database Cloud Service are of the format::
+
+        https://nosql.{region}.{secondLevelDomain}
+
+    Examples of known second level domains include
+
+     * oci.oraclecloud.com
+     * oci.oraclegovcloud.com
+     * oci.oraclegovcloud.uk
+
+    For example, this is a valid endpoint for the Oracle NoSQL Database Cloud
+    Service in the U.S. East region::
+
+        https://nosql.us-ashburn-1.oci.oraclecloud.com
+
+    If the Oracle NoSQL Database Cloud Service becomes available in a region
+    not listed here it is possible to connect to that region using the endpoint
+    rather than a Region.
+
+    For more information about Oracle Cloud Infrastructure regions see `Regions
+    and Availability Domains <https://docs.cloud.oracle.com/en-us/iaas/Content/
+    General/Concepts/regions.htm>`_.
     """
     # OC1
     AP_SEOUL_1 = Region('ap-seoul-1')
@@ -356,16 +388,21 @@ class Regions(object):
     @staticmethod
     def from_region_id(region_id):
         """
-        Internal use only.
+        Returns the Region associated with the string value supplied, or None if
+        the string does not represent a known region.
 
-        Returns the region according to the given region_id.
-
-        :param region_id: the region id.
+        :param region_id: the string value of the region.
         :type region_id: str
-        :returns: the region.
+        :returns: the Region or None if the string does not represent a Region.
         :rtype: Region
         """
+        if region_id is None:
+            raise IllegalArgumentException(
+                'Invalid region id ' + str(region_id))
+        region_id = region_id.lower()
         region = Regions.OC1_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC4_REGIONS.get(region_id)
         if region is None:
             region = Regions.GOV_REGIONS.get(region_id)
         if region is not None:
@@ -386,33 +423,39 @@ class NoSQLHandleConfig(object):
     overridden in individual operations.
 
     Most of the configuration parameters are optional and have default values if
-    not specified. 
+    not specified.
 
     The service endpoint or region is required by constructor used to connect to
     the Oracle NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
     Database proxy server. The service endpoint will be inferred from the given
-    region if the region is provided.
+    region if the region is provided. When using the Oracle NoSQL Database Cloud
+    Service it is recommended that a region be provided rather than an endpoint.
+    See py:class:`Regions` for more information.
 
-    Endpoint must include the target address, and may include protocol and port.
-    The valid syntax is [http[s]://]host[:port], For example, these are valid
-    endpoint arguments:
+    Endpoint strings must include the target address, and may include protocol
+    and port. The valid syntax is [http[s]://]host[:port], For example, these
+    are valid endpoint arguments:
 
-     * ndcs.uscom-east-1.oracle.cloud.com
+     * nosql.us-ashburn-1.oci.oraclecloud.com (equivalent to using Region
+       Regions.US_ASHBURN_1 as the region argument)
+     * https\://nosql.us-ashburn-1.oci.oraclecloud.com:443
      * localhost:8080 - used for connecting to a Cloud Simulator instance
-     * https\://ndcs.eucom-central-1.oraclecloud.com:443
+       running locally on port 8080
      * https\://machine-hosting-proxy:443
 
-    If protocol is omitted, the endpoint uses https if the port is 443, and
+    If the protocol is omitted, the endpoint uses https if the port is 443, and
     http in all other cases.
 
     If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
     all other cases.
 
-    If using the Cloud Service see the documentation online for the complete set
-    of available regions.
+    If using the Cloud Service see :py:class:`Regions` for the complete set of
+    available regions. If using the Cloud Service the region is recommended to
+    be used rather than using a Region's endpoint directly.
 
-    :param endpoint: Identifies a server for use by the NoSQLHandle. This is a
-        required parameter.
+    Either endpoint or region must be provided but not both.
+
+    :param endpoint: Identifies a server for use by the NoSQLHandle.
     :type endpoint: str
     :param region: identifies the region will be accessed by the NoSQLHandle.
     :type region: Region
@@ -450,6 +493,7 @@ class NoSQLHandleConfig(object):
         self._service_url = NoSQLHandleConfig.create_url(endpoint, '/')
         self._region = region
         self._auth_provider = provider
+        self._compartment = None
         self._timeout = 0
         self._table_request_timeout = 0
         self._sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
@@ -510,6 +554,47 @@ class NoSQLHandleConfig(object):
         :rtype: AuthorizationProvider
         """
         return self._auth_provider
+
+    def set_default_compartment(self, compartment):
+        """
+        Cloud service only.
+
+        Sets the default compartment to use for requests sent using the handle.
+        Setting the default is optional and if set it is overridden by any
+        compartment specified in a request or table name. If no compartment is
+        set for a request, either using this default or by specification in a
+        request, the behavior varies with how the application is authenticated:
+
+        * If authenticated with a user identity the default is the root
+          compartment of the tenancy
+        * If authenticated as an instance principal (see
+          :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`
+          ) the compartment id (OCID) must be specified by either using this
+          method or in each Request object. If not an exception is thrown.
+
+        :param compartment: may be either the name of a compartment or the id
+            (OCID) of a compartment.
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a string.
+        """
+        CheckValue.check_str(compartment, 'compartment')
+        self._compartment = compartment
+        return self
+
+    def get_default_compartment(self):
+        """
+        Cloud service only.
+
+        Returns the default compartment to use for requests or None if not set.
+        The value may be a compartment name or id, as set by
+        :py:meth:`set_default_compartment`.
+
+        :returns: the compartment, or None.
+        :rtype: str or None
+        """
+        return self._compartment
 
     def get_default_timeout(self):
         """

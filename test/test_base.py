@@ -179,7 +179,7 @@ class TestBase(object):
 
     @classmethod
     def drop_all_tables(cls):
-        ltr = ListTablesRequest().set_compartment_id(tenant_id)
+        ltr = ListTablesRequest()
         result = cls.handle.list_tables(ltr)
         for table in result.get_tables():
             if table.startswith(table_prefix):
@@ -187,8 +187,7 @@ class TestBase(object):
 
     @classmethod
     def drop_table(cls, table):
-        dtr = TableRequest().set_compartment_id(tenant_id).set_statement(
-            'DROP TABLE IF EXISTS ' + table)
+        dtr = TableRequest().set_statement('DROP TABLE IF EXISTS ' + table)
         cls.table_request(dtr)
 
     @classmethod

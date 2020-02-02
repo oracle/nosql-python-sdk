@@ -17,7 +17,7 @@ from borneo import (
     BatchOperationNumberLimitException, DeleteRequest, GetRequest,
     IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest,
     TableLimits, TableRequest, TimeToLive, TimeUnit, WriteMultipleRequest)
-from parameters import is_onprem, table_name, tenant_id, timeout
+from parameters import is_onprem, table_name, timeout
 from test_base import TestBase
 from testutils import get_row
 
@@ -34,8 +34,8 @@ fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(SHARD(fld_sid), fld_id))')
         limits = TableLimits(50, 50, 1)
-        create_request = TableRequest().set_compartment_id(
-            tenant_id).set_statement(create_statement).set_table_limits(limits)
+        create_request = TableRequest().set_statement(
+            create_statement).set_table_limits(limits)
         cls.table_request(create_request)
 
     @classmethod
@@ -65,7 +65,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.rows[sk].append(row)
                 self.new_rows[sk].append(new_row)
                 put_request = PutRequest().set_value(row).set_table_name(
-                    table_name).set_ttl(ttl).set_compartment_id(tenant_id)
+                    table_name).set_ttl(ttl)
                 self.versions[sk].append(
                     self.handle.put(put_request).get_version())
         self.old_expect_expiration = ttl.to_expiration_time(
@@ -75,59 +75,50 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         illegal_sk = 1
         self.requests.append(PutRequest().set_value(
             self.new_rows[self.ops_sk][0]).set_table_name(table_name).set_ttl(
-            self.ttl).set_return_row(True).set_compartment_id(tenant_id))
+            self.ttl).set_return_row(True))
         self.requests.append(PutRequest().set_value(
             self.new_rows[self.ops_sk][1]).set_table_name(
             table_name).set_option(PutOption.IF_ABSENT).set_ttl(
-            self.ttl).set_return_row(True).set_compartment_id(tenant_id))
+            self.ttl).set_return_row(True))
         self.requests.append(PutRequest().set_value(
             self.new_rows[self.ops_sk][2]).set_use_table_default_ttl(
-            True).set_table_name(table_name).set_compartment_id(
-            tenant_id).set_option(PutOption.IF_PRESENT).set_return_row(True))
+            True).set_table_name(table_name).set_option(
+            PutOption.IF_PRESENT).set_return_row(True))
         self.requests.append(PutRequest().set_value(
-            self.new_rows[self.ops_sk][3]).set_table_name(
-            table_name).set_option(PutOption.IF_VERSION).set_ttl(
-            self.ttl).set_compartment_id(tenant_id).set_match_version(
+            self.new_rows[self.ops_sk][3]).set_table_name(table_name).set_ttl(
+            self.ttl).set_option(PutOption.IF_VERSION).set_match_version(
             self.versions[self.ops_sk][3]).set_return_row(True))
         self.requests.append(DeleteRequest().set_key(
             {'fld_sid': self.ops_sk, 'fld_id': 4}).set_table_name(
-            table_name).set_return_row(True).set_compartment_id(tenant_id))
+            table_name).set_return_row(True))
         self.requests.append(DeleteRequest().set_key(
             {'fld_sid': self.ops_sk, 'fld_id': 5}).set_table_name(
-            table_name).set_compartment_id(tenant_id).set_match_version(
-            self.versions[self.ops_sk][0]).set_return_row(True))
+            table_name).set_return_row(True).set_match_version(
+            self.versions[self.ops_sk][0]))
         self.illegal_requests.append(DeleteRequest().set_key(
             {'fld_sid': self.ops_sk, 'fld_id': 0}).set_table_name(
-            'IllegalUsers').set_compartment_id(tenant_id))
+            'IllegalUsers'))
         self.illegal_requests.append(DeleteRequest().set_key(
-            {'fld_sid': illegal_sk, 'fld_id': 0}).set_table_name(
-            table_name).set_compartment_id(tenant_id))
+            {'fld_sid': illegal_sk, 'fld_id': 0}).set_table_name(table_name))
         self.write_multiple_request = WriteMultipleRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
-        self.get_request = GetRequest().set_table_name(
-            table_name).set_compartment_id(tenant_id)
+            timeout)
+        self.get_request = GetRequest().set_table_name(table_name)
         self.hour_in_milliseconds = 60 * 60 * 1000
         self.day_in_milliseconds = 24 * 60 * 60 * 1000
 
     def tearDown(self):
         for sk in self.shardkeys:
             key = {'fld_sid': sk}
-            request = MultiDeleteRequest().set_table_name(
-                table_name).set_key(key).set_compartment_id(tenant_id)
+            request = MultiDeleteRequest().set_table_name(table_name).set_key(
+                key)
             self.handle.multi_delete(request)
         self.tear_down()
 
-    def testWriteMultipleSetIllegalCompartmentId(self):
+    def testWriteMultipleSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.write_multiple_request.set_compartment_id, {})
+                          self.write_multiple_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.write_multiple_request.set_compartment_id, '')
-
-    def testWriteMultipleSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.write_multiple_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.write_multiple_request.set_compartment_name, '')
+                          self.write_multiple_request.set_compartment, '')
 
     def testWriteMultipleAddIllegalRequestAndAbortIfUnsuccessful(self):
         self.assertRaises(IllegalArgumentException,
@@ -187,8 +178,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         num_operations = 6
         for request in self.requests:
             self.write_multiple_request.add(request, True)
-        self.assertEqual(
-            self.write_multiple_request.get_compartment_id_or_name(), tenant_id)
+        self.assertIsNone(self.write_multiple_request.get_compartment())
         self.assertEqual(self.write_multiple_request.get_table_name(),
                          table_name)
         self.assertEqual(self.write_multiple_request.get_request(2),
@@ -280,18 +270,16 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
     def testWriteMultipleWithIdentityColumn(self):
         num_operations = 10
         id_table = table_prefix + 'Identity'
-        create_request = TableRequest().set_compartment_id(
-            tenant_id).set_statement('CREATE TABLE ' + id_table + '(sid \
-INTEGER, id LONG GENERATED ALWAYS AS IDENTITY, name STRING, PRIMARY KEY\
-(SHARD(sid), id))')
+        create_request = TableRequest().set_statement(
+            'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
+ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         create_request.set_table_limits(TableLimits(50, 50, 1))
         self.table_request(create_request)
 
         # add ten operations
         row = {'name': 'myname', 'sid': 1}
         for idx in range(num_operations):
-            put_request = PutRequest().set_table_name(id_table).set_value(
-                row).set_compartment_id(tenant_id)
+            put_request = PutRequest().set_table_name(id_table).set_value(row)
             put_request.set_identity_cache_size(idx)
             self.write_multiple_request.add(put_request, False)
         # execute the write multiple request

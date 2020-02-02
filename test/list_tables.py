@@ -48,8 +48,8 @@ class TestListTables(unittest.TestCase, TestBase):
                 #
                 if is_pod():
                     sleep(60)
-                drop_request = TableRequest().set_compartment_id(
-                    tenant).set_statement('DROP TABLE IF EXISTS ' + tb_name)
+                drop_request = TableRequest().set_statement(
+                    'DROP TABLE IF EXISTS ' + tb_name)
                 cls.table_request(drop_request, cls.handles[handle])
                 create_statement = (
                     'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
@@ -60,8 +60,7 @@ fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
                 limits = TableLimits(10, 10, 1)
                 create_request = TableRequest().set_statement(
-                    create_statement).set_table_limits(
-                    limits).set_compartment_id(tenant)
+                    create_statement).set_table_limits(limits)
                 cls.table_request(create_request, cls.handles[handle])
 
     @classmethod
@@ -69,13 +68,12 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
         for handle in range(len(cls.handles)):
             tenant = tenant_id + ('' if handle == 0 else str(handle))
             try:
-                ltr = ListTablesRequest().set_compartment_id(tenant)
+                ltr = ListTablesRequest()
                 result = cls.handles[handle].list_tables(ltr)
                 for table in result.get_tables():
                     if table.startswith(table_prefix):
                         drop_request = TableRequest().set_statement(
-                            'DROP TABLE IF EXISTS ' + table).set_compartment_id(
-                            tenant)
+                            'DROP TABLE IF EXISTS ' + table)
                         cls.table_request(drop_request, cls.handles[handle])
             finally:
                 cls.handles[handle].close()
@@ -90,25 +88,18 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
             tenant = tenant_id + ('' if handle == 0 else str(handle))
             self.handles.append(get_handle(tenant))
             self.list_tables_requests.append(ListTablesRequest().set_timeout(
-                timeout).set_compartment_id(tenant))
-        self.list_tables_request = ListTablesRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
+                timeout))
+        self.list_tables_request = ListTablesRequest().set_timeout(timeout)
 
     def tearDown(self):
         for handle in self.handles:
             handle.close()
 
-    def testListTablesSetIllegalCompartmentId(self):
+    def testListTablesSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.list_tables_request.set_compartment_id, {})
+                          self.list_tables_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.list_tables_request.set_compartment_id, '')
-
-    def testListTablesSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.list_tables_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.list_tables_request.set_compartment_name, '')
+                          self.list_tables_request.set_compartment, '')
 
     def testListTablesSetIllegalStartIndex(self):
         self.assertRaises(IllegalArgumentException,
@@ -138,8 +129,7 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def testListTablesGets(self):
         self.list_tables_request.set_limit(5).set_namespace(namespace)
-        self.assertEqual(self.list_tables_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.list_tables_request.get_compartment())
         self.assertEqual(self.list_tables_request.get_start_index(), 0)
         self.assertEqual(self.list_tables_request.get_limit(), 5)
         self.assertEqual(self.list_tables_request.get_namespace(), namespace)

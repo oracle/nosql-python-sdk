@@ -7,4 +7,4 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-__version__ = '5.1.0'
+__version__ = '5.2.0'

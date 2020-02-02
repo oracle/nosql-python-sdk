@@ -39,22 +39,37 @@ class Request(object):
 
     def __init__(self):
         # Cloud service only.
-        self._compartment_id_or_name = None
+        self._compartment = None
         self._timeout_ms = 0
 
-    def get_compartment_id_or_name(self):
+    def get_compartment(self):
         """
         Cloud service only.
 
-        Get the compartment id or name.
+        Get the compartment id or name if set for the request.
 
-        :returns: compartment id or name.
+        :returns: compartment id or name if set for the request, otherwise None
+            if not set.
         :rtype: str
         """
-        return self._compartment_id_or_name
+        return self._compartment
 
     def is_query_request(self):
         return False
+
+    def set_compartment_internal(self, compartment):
+        """
+        Internal use only.
+
+        Sets the compartment id or name to use for the operation.
+
+        :param compartment: the compartment name or id.
+        :type compartment: str or None.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str or None.
+        """
+        CheckValue.check_str(compartment, 'compartment', True)
+        self._compartment = compartment
 
     def set_defaults(self, cfg):
         """
@@ -77,10 +92,6 @@ class Request(object):
     def should_retry(self):
         # Returns True if this request should be retried.
         return True
-
-    def _set_compartment_id_or_name(self, compartment_id_or_name):
-        CheckValue.check_str(compartment_id_or_name, 'compartment_id_or_name')
-        self._compartment_id_or_name = compartment_id_or_name
 
     def _set_timeout(self, timeout_ms):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
@@ -248,42 +259,30 @@ class DeleteRequest(WriteRequest):
         """
         return self._key
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_match_version(self, version):
@@ -439,42 +438,30 @@ class GetIndexesRequest(Request):
         """
         return self._table_name
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_index_name(self, index_name):
@@ -605,42 +592,30 @@ class GetRequest(ReadRequest):
         self._set_table_name(table_name)
         return self
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_consistency(self, consistency):
@@ -742,42 +717,30 @@ class GetTableRequest(Request):
         """
         return self._table_name
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_operation_id(self, operation_id):
@@ -867,42 +830,30 @@ class ListTablesRequest(Request):
         self._limit = 0
         self._namespace = None
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_start_index(self, start_index):
@@ -1107,42 +1058,30 @@ class MultiDeleteRequest(Request):
         """
         return self._key
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_continuation_key(self, continuation_key):
@@ -1309,42 +1248,30 @@ class PrepareRequest(Request):
         """
         return self._statement
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_get_query_plan(self, get_query_plan):
@@ -1491,42 +1418,30 @@ class PutRequest(WriteRequest):
         """
         return self._value
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_option(self, option):
@@ -1880,7 +1795,7 @@ class QueryRequest(Request):
         # Creates an internal QueryRequest out of the application-provided
         # request.
         internal_req = QueryRequest()
-        internal_req.set_compartment_id(self.get_compartment_id_or_name())
+        internal_req.set_compartment(self.get_compartment())
         internal_req.set_timeout(self.get_timeout())
         internal_req.set_trace_level(self._trace_level)
         internal_req.set_limit(self._limit)
@@ -1912,42 +1827,30 @@ class QueryRequest(Request):
         """
         return self._continuation_key is None
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_trace_level(self, trace_level):
@@ -2582,42 +2485,30 @@ class TableRequest(Request):
         """
         return self._statement
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_table_limits(self, table_limits):
@@ -2710,6 +2601,10 @@ class TableRequest(Request):
         self._check_config(cfg)
         if self._get_timeout() == 0:
             self._set_timeout(cfg.get_default_table_request_timeout())
+
+        # Use the default compartment if not set
+        if self.get_compartment() is None:
+            self.set_compartment_internal(cfg.get_default_compartment())
         return self
 
     def should_retry(self):
@@ -2783,42 +2678,30 @@ class TableUsageRequest(Request):
         """
         return self._table_name
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def set_start_time(self, start_time):
@@ -3061,42 +2944,30 @@ class WriteMultipleRequest(Request):
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
 
-    def set_compartment_id(self, compartment_id):
+    def set_compartment(self, compartment):
         """
         Cloud service only.
 
-        Sets the compartment id to use for the operation.
+        Sets the name or id of a compartment to be used for this operation.
 
-        :param compartment_id: the compartment id.
-        :type compartment_id: str
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if compartment_id
-            is not a str.
-        """
-        self._set_compartment_id_or_name(compartment_id)
-        return self
-
-    def set_compartment_name(self, compartment_name):
-        """
-        Cloud service only.
-
-        Sets the compartment name to use for the operation. This is the name of
-        compartment created in the user's tenancy. This method is only
-        applicable when authenticated using a specific user identity. It is not
-        available if authenticated as an Instance Principal which can be done
-        when calling the service from a compute instance in the Oracle Cloud
-        Infrastructure. See
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
 
-        :param compartment_name: the compartment name. For nested compartments,
-            specify the full compartment path compartmentA.compartmentB, but
-            exclude the name of the root compartment (tenant).
-        :type compartment_name: str
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            compartment_name is not a str.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
         """
-        self._set_compartment_id_or_name(compartment_name)
+        self.set_compartment_internal(compartment)
         return self
 
     def get_request(self, index):
@@ -4298,7 +4169,7 @@ class TableResult(Result):
 
     @staticmethod
     def wait_for_state(handle, state, wait_millis, delay_millis,
-                       table_name=None, compartment_id=None, operation_id=None,
+                       table_name=None, compartment=None, operation_id=None,
                        result=None):
         """
         Waits for the specified table to reach the desired state. This is a
@@ -4320,9 +4191,9 @@ class TableResult(Result):
         :type delay_millis: int
         :param table_name: the optional table name.
         :type table_name: str
-        :param compartment_id: the optional compartment id if using cloud
-            service
-        :type compartment_id: str
+        :param compartment: optional compartment name or id if using cloud
+            service.
+        :type compartment: str
         :param operation_id: the optional operation id.
         :type operation_id: str
         :param result: a optional previously received TableResult.
@@ -4335,9 +4206,9 @@ class TableResult(Result):
             times out.
         """
         if (result is not None and table_name is None and operation_id is None
-                and compartment_id is None):
+                and compartment is None):
             table_name = result.get_table_name()
-            compartment_id = result.get_compartment_id()
+            compartment = result.get_compartment_id()
             operation_id = result.get_operation_id()
         elif result is None and table_name is not None:
             pass
@@ -4356,9 +4227,8 @@ class TableResult(Result):
         start_time = int(round(time() * 1000))
         delay_s = float(delay_ms) / 1000
         get_table = GetTableRequest().set_table_name(
-            table_name).set_operation_id(operation_id)
-        if compartment_id is not None:
-            get_table.set_compartment_id(compartment_id)
+            table_name).set_operation_id(operation_id).set_compartment(
+            compartment)
         res = None
         while True:
             cur_time = int(round(time() * 1000))

@@ -10,14 +10,13 @@ DeleteRequest
 
    .. autosummary::
 
-      ~DeleteRequest.get_compartment_id_or_name
+      ~DeleteRequest.get_compartment
       ~DeleteRequest.get_key
       ~DeleteRequest.get_match_version
       ~DeleteRequest.get_return_row
       ~DeleteRequest.get_table_name
       ~DeleteRequest.get_timeout
-      ~DeleteRequest.set_compartment_id
-      ~DeleteRequest.set_compartment_name
+      ~DeleteRequest.set_compartment
       ~DeleteRequest.set_key
       ~DeleteRequest.set_key_from_json
       ~DeleteRequest.set_match_version
@@ -27,14 +26,13 @@ DeleteRequest
 
    .. rubric:: Methods Documentation
 
-   .. automethod:: get_compartment_id_or_name
+   .. automethod:: get_compartment
    .. automethod:: get_key
    .. automethod:: get_match_version
    .. automethod:: get_return_row
    .. automethod:: get_table_name
    .. automethod:: get_timeout
-   .. automethod:: set_compartment_id
-   .. automethod:: set_compartment_name
+   .. automethod:: set_compartment
    .. automethod:: set_key
    .. automethod:: set_key_from_json
    .. automethod:: set_match_version

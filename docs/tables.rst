@@ -16,8 +16,8 @@ Obtain a NoSQL Handle
 it must be closed using the method :func:`borneo.NoSQLHandle.close` in order to
 clean up resources. Handles are thread-safe and intended to be shared. A handle
 is created by first creating a :class:`borneo.NoSQLHandleConfig` instance to
-configure the communication endpoint, authorization information, as well as
-default values for handle configuration.
+configure the communication region or endpoint, authorization information, as
+well as default values for handle configuration.
 
 Configuration requires an :class:`borneo.AuthorizationProvider` to provide
 identity and authorization information to the handle. There are different
@@ -27,20 +27,62 @@ instances of this class for the different environments:
 2. Oracle NoSQL Cloud Simulator
 3. Oracle NoSQL Database on-premise
 
-An example for the Oracle NoSQL Cloud Service:
+==================
+About Compartments
+==================
+
+In the Oracle NoSQL Cloud Service environment tables are always created in an
+Oracle Cloud Infrastructure *compartment* (see `Managing Compartments <https://
+docs.cloud.oracle.com/en-us/iaas/Content/Identity/Tasks/managingcompartments.
+htm>`_). It is recommended that compartments be created for tables to better
+organize them and control security, which is a feature of compartments. When
+authorized as a specific user the default compartment for tables is the root
+compartment of the user's tenancy. A method exists to allow specification of a
+default compartment for requests in
+:func:`borneo.NoSQLHandleConfig.set_compartment`. This overrides the user's
+default. In addition it is possible to specify a compartment is each
+:class:`Request` instance.
+
+The *set_compartment* methods take either an id (OCID) or a compartment name
+or path. If a compartment name is used it may be the name of a top-level
+compartment. If a compartment path is used to reference a nested compartment,
+the path is a dot-separate path that excludes the top-level compartment of the
+path, for example *compartmentA.compartmentB*.
+
+Instead of setting a compartment in the request it is possible to use a
+compartment name to prefix a table name in a request, query, or DDL statement.
+This usage overrides any other setting of the compartment. E.g.
 
 .. code-block:: pycon
 
-    from borneo import AuthorizationProvider, NoSQLHandle, NoSQLHandleConfig
+   ...
+   request = PutRequest().set_table_name('mycompartment:mytable')
+   ...
+   create_statement = 'create table mycompartment:mytable(...)'
+   ...
+   request = GetRequest().set_table_name('compartmentA.compartmentB')
+
+If the application is authorized using an instance principal
+(see :func:`borneo.iam.SignatureProvider.create_with_instance_principal`) a
+compartment must be specified either using a default or in each request, and
+it **must** be specified as an id, as there is no default root compartment in
+this path.
+
+An example of acquiring a NoSQL Handle for the Oracle NoSQL Cloud Service:
+
+.. code-block:: pycon
+
+    from borneo import (
+        AuthorizationProvider, NoSQLHandle, NoSQLHandleConfig, Regions)
     from borneo.iam import SignatureProvider
 
     # create AuthorizationProvider
     provider = SignatureProvider()
 
     # create handle config using the correct endpoint for the desired region
-    config = NoSQLHandleConfig(
-        'ndcs.uscom-east-1.oracle.cloud.com').set_authorization_provider(
-        provider)
+    # add a default compartment
+    config = NoSQLHandleConfig(Regions.US_ASHBURN_1)
+        .set_authorization_provider(provider).set_compartment('mycompartment')
 
     # create the handle
     handle = NoSQLHandle(config)
@@ -55,7 +97,7 @@ An example using the on-premise Oracle NoSQL Database in a secure configuration:
     # create AuthorizationProvider
     provider = StoreAccessTokenProvider(<userName>, <password>)
 
-    # create handle config using the correct endpoint for the desired region
+    # create handle config using the correct endpoint for the running proxy
     config = NoSQLHandleConfig(
         'https://localhost:443').set_authorization_provider(provider)
 
@@ -103,8 +145,10 @@ Examples of DDL statements are::
 
 DDL statements are executing using the :class:`borneo.TableRequest` class. All
 calls to :func:`borneo.NoSQLHandle.table_request` are asynchronous so it is
-necessary to check the result and call :func:`borneo.TableResult.wait_for_state`
-to wait for the expected state.
+necessary to check the result and call
+:func:`borneo.TableResult.wait_for_completion` to wait for operation to
+complete. The convenience method, :func:`borneo.NoSQLHandle.do_table_request`,
+exists to combine execution of the operation with waiting for completion.
 
 .. code-block:: pycon
 
@@ -122,6 +166,11 @@ to wait for the expected state.
     # assume that a handle has been created, as handle, make the request wait
     # for 40 seconds, polling every 3 seconds
     result = handle.do_table_request(request, 40000, 3000)
+
+    # the above call to do_table_request is equivalent to
+    result = handle.table_request(request)
+    result.wait_for_completion(handle, 40000, 3000)
+
 
 --------
 Add Data
@@ -389,9 +438,9 @@ using :func:`borneo.TableRequest.set_table_limits`, for example:
     request.set_tableLimits( TableLimits(40, 10, 5))
     result = handle.table_request(request)
 
-    # table_request is asynchronous, so wait for the ACTIVE state
+    # table_request is asynchronous, so wait for the operation to complete
     # wait for 40 seconds, polling every 3 seconds
-    result.wait_for_state(handle, 'users', State.ACTIVE, 40000, 3000)
+    result.wait_for_completion(handle, 40000, 3000)
 
 
 -------------------------

@@ -130,6 +130,9 @@ class Client(object):
                    'Accept': 'application/octet-stream',
                    'Content-Length': str(len(content)),
                    'User-Agent': self._user_agent}
+        if request.get_compartment() is None:
+            request.set_compartment_internal(
+                self._config.get_default_compartment())
         if self._logutils.is_enabled_for(DEBUG):
             self._logutils.log_debug('Request: ' + request.__class__.__name__)
         request_utils = RequestUtils(

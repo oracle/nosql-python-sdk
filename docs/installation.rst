@@ -106,9 +106,6 @@ can start `here <https://cloud.oracle.com/home>`_
 Acquire Credentials for the Oracle NoSQL Database Cloud Service
 _______________________________________________________________
 
-See `Required Keys and OCIDs <https://docs.cloud.oracle.com/iaas/Content/API/
-Concepts/apisigningkey.htm>`_ for additional information.
-
 Several pieces of information comprise your credentials used by the Oracle NoSQL
 Database Cloud Service:
 
@@ -117,39 +114,18 @@ Database Cloud Service:
  * Fingerprint
  * Private Key File
 
-How to acquire Tenancy ID, and User ID:
+Information about how to acquire this information is found  in the `Required
+Keys and OCIDs <https://docs.cloud.oracle.com/iaas/Content/API/Concepts/
+apisigningkey.htm>`_  page. Specifically these topics can be found on that page:
 
- 1. Sign into your **Oracle Cloud Infrastructure Console** page.
- 2. Open the navigation menu, under Governance and Administration, go to
-    **Administration** and click **Tenancy Details**.
- 3. The Tenancy ID is shown under **Tenancy Information**. Click **Copy** to
-    copy it to your clipboard, then paste it to your credentials file.
- 4. Go back to **Oracle Cloud Infrastructure Console** page, open the
-    **Profile** menu (User menu icon) and click **User Settings**.
- 5. The User ID is shown under **User Information**. Click **Copy** to copy it
-    to your clipboard, then paste it to your credentials file.
- 
-How to generate an API Signing Key, upload the public key and get the
-fingerprint:
-
- 1. If you haven't already, create a .oci directory to store the credentials.
-    $ mkdir ~/.oci
- 2. Generate the private key with one of the following commands.
-    $ openssl genrsa -out ~/.oci/key.pem 2048
- 3. Ensure that only you can read the private key file.
-    $ chmod go-rwx ~/.oci/key.pem
- 4. Generate the public key.
-    $ openssl rsa -pubout -in ~/.oci/key.pem -out ~/.oci/key_public.pem
- 5. Sign into your **Oracle Cloud Infrastructure Console** page.
- 6. Click your username in the top-right corner of the Console, and then click
-    **User Settings**.
- 7. Click **Add Public Key** and paste the contents of the PEM public key in the
-    dialog box and click **Add**.
- 8. The key's fingerprint is displayed (for example, 12:34:56:78:90:ab:cd:ef:12:
-    34:56:78:90:ab:cd:ef).
- 9. Copy the key's fingerprint to your clipboard, then paste it to your
-    credentials file.
- 10. Put the path to your private key to your credentials file.
+ * `Where to Get the Tenancy's OCID and User's OCID <https://docs.cloud.oracle.
+   com/en-us/iaas/Content/API/Concepts/apisigningkey.htm#Other>`_
+ * `How to Generate an API Signing Key <https://docs.cloud.oracle.com/en-us/
+   iaas/Content/API/Concepts/apisigningkey.htm#How>`_
+ * `How to Get the Key's Fingerprint <https://docs.cloud.oracle.com/en-us/iaas/
+   Content/API/Concepts/apisigningkey.htm#How3>`_
+ * `How to Upload the Public Key <https://docs.cloud.oracle.com/en-us/iaas/
+   Content/API/Concepts/apisigningkey.htm#How2>`_
 
 
 Supplying Credentials to an Application
@@ -162,7 +138,7 @@ file, by default the credentials file is found in *$HOME/.oci/config* but the
 location can be changed using::
 
     SignatureProvider(config_file=<path-to-your-credentials-file>)
-    
+
 The format of the file is that of a properties file with the format of
 *key=value*, with one property per line. The contents and format are::
 
@@ -171,6 +147,10 @@ The format of the file is that of a properties file with the format of
     user=<your-user-id>
     fingerprint=<fingerprint-of-your-public-key>
     key_file=<path-to-your-private-key-file>
+
+Details of the configuration file can be found on the `SDK and Configuration
+File <https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/
+sdkconfig.htm>`_ page.
 
 The Tenancy ID, User ID and fingerprint should be acquired using the
 instructions above. The path to your private key file is the absolute path of
@@ -193,19 +173,21 @@ _________________________
 The first step in any Oracle NoSQL Database Cloud Service application is to
 create a *handle* used to send requests to the service. The handle is configured
 using your credentials and other authentication information as well as the
-communication endpoint. The endpoint is specific to the region you use, for
-example, **ndcs.uscom-east-1.oraclecloud.com** or, if connecting to the Cloud
-Simulator, **localhost:8080**.
+region to which the application will connect. An example region is
+**Regions.US_ASHBURN_1**. Information on regions can be found in
+:class:`borneo.Regions`.
 
 .. code-block:: pycon
 
-                from borneo import NoSQLHandle, NoSQLHandleConfig
+                from borneo import NoSQLHandle, NoSQLHandleConfig, Regions
                 from borneo.iam import SignatureProvider
 
                 #
                 # Required information:
                 #
-                endpoint=<communication_endpoint>
+
+                # the region to which the application will connect
+                region=<region>
 
                 # if using a specified credentials file
                 credentials_file=<path-to-your-credentials-file>
@@ -218,7 +200,7 @@ Simulator, **localhost:8080**.
                 #
                 # create a configuration object
                 #
-                config = NoSQLHandleConfig(endpoint, provider=at_provider)
+                config = NoSQLHandleConfig(region=region, provider=at_provider)
 
                 #
                 # create a handle from the configuration object

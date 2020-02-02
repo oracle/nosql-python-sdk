@@ -66,7 +66,8 @@ def get_handle_config(tenant_id):
         timeout).set_consistency(consistency).set_pool_connections(
         pool_connections).set_pool_maxsize(pool_maxsize).set_retry_handler(
         retry_handler).set_logger(logger).set_table_request_timeout(
-        table_request_timeout).set_sec_info_timeout(sec_info_timeout)
+        table_request_timeout).set_sec_info_timeout(
+        sec_info_timeout).set_default_compartment(tenant_id)
     if proxy_host is not None:
         config.set_proxy_host(proxy_host)
     if proxy_port != 0:
@@ -248,13 +249,13 @@ class TestSignatureProvider(AuthorizationProvider):
         return 'Signature ' + self._tenant_id + ':' + self._user_id
 
     def set_required_headers(self, request, auth_string, headers):
-        compartment_id = request.get_compartment_id_or_name()
-        if compartment_id is None:
+        compartment = request.get_compartment()
+        if compartment is None:
             """
             If request doesn't has compartment id, set the tenant id as the
             default compartment, which is the root compartment in IAM if using
             user principal.
             """
-            compartment_id = self._tenant_id
-        headers['x-nosql-compartment-id'] = compartment_id
+            compartment = self._tenant_id
+        headers['x-nosql-compartment-id'] = compartment
         headers['Authorization'] = auth_string

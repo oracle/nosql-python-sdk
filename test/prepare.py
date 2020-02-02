@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     IllegalArgumentException, PrepareRequest, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import index_name, table_name, tenant_id, timeout
+from parameters import index_name, table_name, timeout
 from test_base import TestBase
 
 
@@ -28,11 +28,11 @@ fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(100, 100, 1)
-        create_request = TableRequest().set_compartment_id(
-            tenant_id).set_statement(create_statement).set_table_limits(limits)
+        create_request = TableRequest().set_statement(
+            create_statement).set_table_limits(limits)
         cls.table_request(create_request)
 
-        create_idx_request = TableRequest().set_compartment_id(tenant_id)
+        create_idx_request = TableRequest()
         create_idx_statement = ('CREATE INDEX ' + index_name + '1 ON ' +
                                 table_name + '(fld_str)')
         create_idx_request.set_statement(create_idx_statement)
@@ -49,8 +49,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
     def setUp(self):
         self.set_up()
         self.prepare_statement = ('SELECT fld_id FROM ' + table_name)
-        self.prepare_request = PrepareRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
+        self.prepare_request = PrepareRequest().set_timeout(timeout)
 
     def tearDown(self):
         self.tear_down()
@@ -68,17 +67,11 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.assertRaises(TableNotFoundException, self.handle.prepare,
                           self.prepare_request)
 
-    def testPrepareSetIllegalCompartmentId(self):
+    def testPrepareSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.prepare_request.set_compartment_id, {})
+                          self.prepare_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.prepare_request.set_compartment_id, '')
-
-    def testPrepareSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.prepare_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.prepare_request.set_compartment_name, '')
+                          self.prepare_request.set_compartment, '')
 
     def testPrepareSetIllegalGetQueryPlan(self):
         self.assertRaises(IllegalArgumentException,
@@ -102,8 +95,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             self.prepare_statement).set_get_query_plan(True)
         self.assertEqual(self.prepare_request.get_statement(),
                          self.prepare_statement)
-        self.assertEqual(self.prepare_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.prepare_request.get_compartment())
         self.assertTrue(self.prepare_request.get_query_plan())
         self.assertEqual(self.prepare_request.get_timeout(), timeout)
 

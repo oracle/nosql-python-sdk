@@ -103,9 +103,11 @@ using_service = False
 using_on_prem = False
 
 # Endpoint is required.
+#
 # Cloud Simulator: 'http://localhost:8080' or the host running Cloud Simulator
 # or a on-prem proxy started by the customer.
-# Service: 'ndcs.uscom-east-1.oraclecloud.com' or appropriate region host
+# Service: get endpoint from a Region, using for example:
+#  Regions.US_ASHBURN_1.endpoint()
 # on-premise: 'http://localhost:80' or 'https://localhost:443' (or use the
 # appropriate host:port for the proxy)
 endpoint = 'http://localhost:8080'

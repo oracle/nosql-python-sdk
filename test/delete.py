@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     DeleteRequest, GetRequest, IllegalArgumentException, PutRequest,
     TableLimits, TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
-from parameters import table_name, tenant_id, timeout
+from parameters import table_name, timeout
 from test_base import TestBase
 from testutils import get_row
 from time import time
@@ -32,8 +32,7 @@ fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
-            create_statement).set_compartment_id(tenant_id).set_table_limits(
-            TableLimits(100, 100, 1))
+            create_statement).set_table_limits(TableLimits(100, 100, 1))
         cls.table_request(create_request)
 
     @classmethod
@@ -45,12 +44,12 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.row = get_row(with_sid=False)
         self.key = {'fld_id': 1}
         self.put_request = PutRequest().set_value(self.row).set_table_name(
-            table_name).set_compartment_id(tenant_id)
+            table_name)
         self.version = self.handle.put(self.put_request).get_version()
         self.get_request = GetRequest().set_key(self.key).set_table_name(
-            table_name).set_compartment_id(tenant_id)
+            table_name)
         self.delete_request = DeleteRequest().set_key(self.key).set_table_name(
-            table_name).set_timeout(timeout).set_compartment_id(tenant_id)
+            table_name).set_timeout(timeout)
 
     def tearDown(self):
         self.tear_down()
@@ -87,17 +86,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(TableNotFoundException, self.handle.delete,
                           self.delete_request)
 
-    def testDeleteSetIllegalCompartmentId(self):
+    def testDeleteSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.delete_request.set_compartment_id, {})
+                          self.delete_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.delete_request.set_compartment_id, '')
-
-    def testDeleteSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.delete_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.delete_request.set_compartment_name, '')
+                          self.delete_request.set_compartment, '')
 
     def testDeleteSetIllegalReturnRow(self):
         self.assertRaises(IllegalArgumentException,
@@ -113,8 +106,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.delete_request.set_match_version(
             self.version).set_return_row(True)
         self.assertEqual(self.delete_request.get_key(), self.key)
-        self.assertEqual(self.delete_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.delete_request.get_compartment())
         self.assertEqual(self.delete_request.get_match_version(), self.version)
         self.assertEqual(self.delete_request.get_timeout(), timeout)
         self.assertEqual(self.delete_request.get_table_name(), table_name)

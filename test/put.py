@@ -36,8 +36,7 @@ fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
-            create_statement).set_table_limits(
-            TableLimits(50, 50, 1)).set_compartment_id(tenant_id)
+            create_statement).set_table_limits(TableLimits(50, 50, 1))
         cls.table_request(create_request)
 
     @classmethod
@@ -49,16 +48,15 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.row = get_row(with_sid=False)
         self.key = {'fld_id': 1}
         self.put_request = PutRequest().set_value(self.row).set_table_name(
-            table_name).set_timeout(timeout).set_compartment_id(tenant_id)
+            table_name).set_timeout(timeout)
         self.get_request = GetRequest().set_key(self.key).set_table_name(
-            table_name).set_compartment_id(tenant_id)
+            table_name)
         self.ttl = TimeToLive.of_hours(24)
         self.hour_in_milliseconds = 60 * 60 * 1000
         self.day_in_milliseconds = 24 * 60 * 60 * 1000
 
     def tearDown(self):
-        request = DeleteRequest().set_key(self.key).set_table_name(
-            table_name).set_compartment_id(tenant_id)
+        request = DeleteRequest().set_key(self.key).set_table_name(table_name)
         self.handle.delete(request)
         self.tear_down()
 
@@ -73,17 +71,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertRaises(IllegalArgumentException, self.handle.put,
                           self.put_request)
 
-    def testPutSetIllegalCompartmentId(self):
+    def testPutSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.put_request.set_compartment_id, {})
+                          self.put_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.put_request.set_compartment_id, '')
-
-    def testPutSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.put_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.put_request.set_compartment_name, '')
+                          self.put_request.set_compartment, '')
 
     def testPutSetIllegalOption(self):
         self.put_request.set_option('IllegalOption')
@@ -161,8 +153,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             True).set_exact_match(True).set_identity_cache_size(
             identity_cache_size).set_return_row(True)
         self.assertEqual(self.put_request.get_value(), self.row)
-        self.assertEqual(self.put_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertEqual(self.put_request.get_compartment(), tenant_id)
         self.assertEqual(self.put_request.get_option(), PutOption.IF_ABSENT)
         self.assertEqual(self.put_request.get_match_version(), version)
         self.assertEqual(self.put_request.get_ttl(), self.ttl)
@@ -326,10 +317,9 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
 
     def testPutWithIdentityColumn(self):
         id_table = table_prefix + 'Identity'
-        create_request = TableRequest().set_compartment_id(
-            tenant_id).set_statement('CREATE TABLE ' + id_table + '(sid \
-INTEGER, id LONG GENERATED ALWAYS AS IDENTITY, name STRING, PRIMARY KEY\
-(SHARD(sid), id))')
+        create_request = TableRequest().set_statement(
+            'CREATE TABLE ' + id_table + '(sid INTEGER, id LONG GENERATED \
+ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         create_request.set_table_limits(TableLimits(50, 50, 1))
         self.table_request(create_request)
 

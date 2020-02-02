@@ -14,7 +14,7 @@ from borneo import (
     FieldRange, IllegalArgumentException, MultiDeleteRequest, PrepareRequest,
     PutRequest, QueryRequest, TableLimits, TableNotFoundException, TableRequest,
     WriteMultipleRequest)
-from parameters import table_name, tenant_id, timeout
+from parameters import table_name, timeout
 from test_base import TestBase
 from testutils import get_row
 
@@ -31,8 +31,8 @@ fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(100, 100, 1)
-        create_request = TableRequest().set_compartment_id(
-            tenant_id).set_statement(create_statement).set_table_limits(limits)
+        create_request = TableRequest().set_statement(
+            create_statement).set_table_limits(limits)
         cls.table_request(create_request)
 
     @classmethod
@@ -43,27 +43,23 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         self.set_up()
         self.shardkeys = [0, 1]
         ids = [0, 1, 2, 3, 4, 5]
-        write_multiple_request = WriteMultipleRequest().set_compartment_id(
-            tenant_id)
+        write_multiple_request = WriteMultipleRequest()
         for sk in self.shardkeys:
             for i in ids:
                 row = get_row()
                 row['fld_sid'] = sk
                 row['fld_id'] = i
                 write_multiple_request.add(
-                    PutRequest().set_value(row).set_table_name(
-                        table_name).set_compartment_id(tenant_id), True)
+                    PutRequest().set_value(row).set_table_name(table_name),
+                    True)
             self.handle.write_multiple(write_multiple_request)
             write_multiple_request.clear()
         self.key = {'fld_sid': 1}
-        self.multi_delete_request = MultiDeleteRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
+        self.multi_delete_request = MultiDeleteRequest().set_timeout(timeout)
         prep_request = PrepareRequest().set_statement(
-            'SELECT fld_sid, fld_id FROM ' + table_name).set_compartment_id(
-            tenant_id)
+            'SELECT fld_sid, fld_id FROM ' + table_name)
         prep_result = self.handle.prepare(prep_request)
-        self.query_request = QueryRequest().set_prepared_statement(
-            prep_result).set_compartment_id(tenant_id)
+        self.query_request = QueryRequest().set_prepared_statement(prep_result)
 
     def tearDown(self):
         self.multi_delete_request.set_table_name(table_name)
@@ -92,17 +88,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         self.assertRaises(IllegalArgumentException, self.handle.multi_delete,
                           self.multi_delete_request)
 
-    def testMultiDeleteSetIllegalCompartmentId(self):
+    def testMultiDeleteSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.multi_delete_request.set_compartment_id, {})
+                          self.multi_delete_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.multi_delete_request.set_compartment_id, '')
-
-    def testMultiDeleteSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.multi_delete_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.multi_delete_request.set_compartment_name, '')
+                          self.multi_delete_request.set_compartment, '')
 
     def testMultiDeleteSetIllegalContinuationKey(self):
         self.assertRaises(IllegalArgumentException,
@@ -161,8 +151,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
         self.assertEqual(self.multi_delete_request.get_table_name(),
                          table_name)
         self.assertEqual(self.multi_delete_request.get_key(), self.key)
-        self.assertEqual(self.multi_delete_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.multi_delete_request.get_compartment())
         self.assertEqual(self.multi_delete_request.get_continuation_key(),
                          continuation_key)
         self.assertEqual(self.multi_delete_request.get_range(), field_range)

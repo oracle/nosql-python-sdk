@@ -19,7 +19,7 @@ except ImportError:
 
 from borneo import IllegalArgumentException, NoSQLHandleConfig, TableRequest
 from borneo.iam import SignatureProvider
-from parameters import iam_principal, tenant_id
+from parameters import iam_principal
 from testutils import fake_credentials_file, fake_key_file
 
 
@@ -30,7 +30,7 @@ class TestSignatureProvider(unittest.TestCase):
             self._generate_credentials_file()
             self.token_provider = None
             # Not matter which request.
-            self.request = TableRequest().set_compartment_id(tenant_id)
+            self.request = TableRequest()
             self.handle_config = NoSQLHandleConfig(self.base)
 
         def tearDown(self):

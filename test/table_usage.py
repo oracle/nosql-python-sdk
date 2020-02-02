@@ -15,7 +15,7 @@ from borneo import (
     GetRequest, IllegalArgumentException, OperationNotSupportedException,
     PutRequest, TableLimits, TableNotFoundException, TableRequest,
     TableUsageRequest)
-from parameters import is_onprem, not_cloudsim, table_name, tenant_id, timeout
+from parameters import is_onprem, not_cloudsim, table_name, timeout
 from test_base import TestBase
 from testutils import get_row
 
@@ -33,16 +33,14 @@ fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         limits = TableLimits(100, 100, 1)
-        create_request = TableRequest().set_compartment_id(
-            tenant_id).set_statement(create_statement).set_table_limits(limits)
+        create_request = TableRequest().set_statement(
+            create_statement).set_table_limits(limits)
         cls.table_request(create_request)
         # put and get some data, read_units = 100, write_units = 199
         row = get_row()
         key = {'fld_id': 1}
-        put_request = PutRequest().set_value(row).set_table_name(
-            table_name).set_compartment_id(tenant_id)
-        get_request = GetRequest().set_key(key).set_table_name(
-            table_name).set_compartment_id(tenant_id)
+        put_request = PutRequest().set_value(row).set_table_name(table_name)
+        get_request = GetRequest().set_key(key).set_table_name(table_name)
         count = 0
         while count < 100:
             cls.handle.put(put_request)
@@ -63,8 +61,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
 
     def setUp(self):
         self.set_up()
-        self.table_usage_request = TableUsageRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
+        self.table_usage_request = TableUsageRequest().set_timeout(timeout)
 
     def tearDown(self):
         self.tear_down()
@@ -79,17 +76,11 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
                               self.handle.get_table_usage,
                               self.table_usage_request)
 
-    def testTableUsageSetIllegalCompartmentId(self):
+    def testTableUsageSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.table_usage_request.set_compartment_id, {})
+                          self.table_usage_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.table_usage_request.set_compartment_id, '')
-
-    def testTableUsageSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.table_usage_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.table_usage_request.set_compartment_name, '')
+                          self.table_usage_request.set_compartment, '')
 
     def testTableUsageSetIllegalStartTime(self):
         self.assertRaises(IllegalArgumentException,
@@ -134,8 +125,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start).set_end_time(end_str).set_limit(5)
         self.assertEqual(self.table_usage_request.get_table_name(), table_name)
-        self.assertEqual(self.table_usage_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.table_usage_request.get_compartment())
         self.assertEqual(self.table_usage_request.get_start_time(), start)
         self.assertEqual(self.table_usage_request.get_start_time_string(),
                          start_str)

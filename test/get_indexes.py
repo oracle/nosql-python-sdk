@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     GetIndexesRequest, IllegalArgumentException, IndexNotFoundException,
     TableLimits, TableNotFoundException, TableRequest)
-from parameters import index_name, is_minicloud, table_name, tenant_id, timeout
+from parameters import index_name, is_minicloud, table_name, timeout
 from test_base import TestBase
 
 
@@ -41,8 +41,7 @@ fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
             limits = TableLimits(50, 50, 1)
             create_request = TableRequest().set_statement(
-                create_statement).set_table_limits(limits).set_compartment_id(
-                tenant_id)
+                create_statement).set_table_limits(limits)
             cls.table_request(create_request)
 
             index_names.append(list())
@@ -53,7 +52,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                     'CREATE INDEX ' + idx_name + ' ON ' + tb_name +
                     '(' + ','.join(index_fields[index]) + ')')
                 create_index_request = TableRequest().set_statement(
-                    create_index_statement).set_compartment_id(tenant_id)
+                    create_index_statement)
                 cls.table_request(create_index_request)
             if is_minicloud():
                 index_names[table].reverse()
@@ -64,8 +63,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
 
     def setUp(self):
         self.set_up()
-        self.get_indexes_request = GetIndexesRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
+        self.get_indexes_request = GetIndexesRequest().set_timeout(timeout)
 
     def tearDown(self):
         self.tear_down()
@@ -78,17 +76,11 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.assertRaises(TableNotFoundException, self.handle.get_indexes,
                           self.get_indexes_request)
 
-    def testGetIndexesSetIllegalCompartmentId(self):
+    def testGetIndexesSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.get_indexes_request.set_compartment_id, {})
+                          self.get_indexes_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.get_indexes_request.set_compartment_id, '')
-
-    def testGetIndexesSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.get_indexes_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.get_indexes_request.set_compartment_name, '')
+                          self.get_indexes_request.set_compartment, '')
 
     def testGetIndexesSetIllegalIndexName(self):
         self.get_indexes_request.set_table_name(table_names[0])
@@ -116,8 +108,7 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
         self.get_indexes_request.set_table_name(table_name).set_index_name(
             index_name)
         self.assertEqual(self.get_indexes_request.get_table_name(), table_name)
-        self.assertEqual(self.get_indexes_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.get_indexes_request.get_compartment())
         self.assertEqual(self.get_indexes_request.get_index_name(), index_name)
 
     def testGetIndexesIllegalRequest(self):

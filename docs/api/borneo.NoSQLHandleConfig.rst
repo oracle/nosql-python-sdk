@@ -14,6 +14,7 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.configure_default_retry_handler
       ~NoSQLHandleConfig.get_authorization_provider
       ~NoSQLHandleConfig.get_consistency
+      ~NoSQLHandleConfig.get_default_compartment
       ~NoSQLHandleConfig.get_default_consistency
       ~NoSQLHandleConfig.get_default_table_request_timeout
       ~NoSQLHandleConfig.get_default_timeout
@@ -29,6 +30,7 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.get_timeout
       ~NoSQLHandleConfig.set_authorization_provider
       ~NoSQLHandleConfig.set_consistency
+      ~NoSQLHandleConfig.set_default_compartment
       ~NoSQLHandleConfig.set_logger
       ~NoSQLHandleConfig.set_pool_connections
       ~NoSQLHandleConfig.set_pool_maxsize
@@ -43,6 +45,7 @@ NoSQLHandleConfig
    .. automethod:: configure_default_retry_handler
    .. automethod:: get_authorization_provider
    .. automethod:: get_consistency
+   .. automethod:: get_default_compartment
    .. automethod:: get_default_consistency
    .. automethod:: get_default_table_request_timeout
    .. automethod:: get_default_timeout
@@ -58,6 +61,7 @@ NoSQLHandleConfig
    .. automethod:: get_timeout
    .. automethod:: set_authorization_provider
    .. automethod:: set_consistency
+   .. automethod:: set_default_compartment
    .. automethod:: set_logger
    .. automethod:: set_pool_connections
    .. automethod:: set_pool_maxsize

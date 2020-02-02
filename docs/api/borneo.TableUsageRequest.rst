@@ -10,7 +10,7 @@ TableUsageRequest
 
    .. autosummary::
 
-      ~TableUsageRequest.get_compartment_id_or_name
+      ~TableUsageRequest.get_compartment
       ~TableUsageRequest.get_end_time
       ~TableUsageRequest.get_end_time_string
       ~TableUsageRequest.get_limit
@@ -18,8 +18,7 @@ TableUsageRequest
       ~TableUsageRequest.get_start_time_string
       ~TableUsageRequest.get_table_name
       ~TableUsageRequest.get_timeout
-      ~TableUsageRequest.set_compartment_id
-      ~TableUsageRequest.set_compartment_name
+      ~TableUsageRequest.set_compartment
       ~TableUsageRequest.set_end_time
       ~TableUsageRequest.set_limit
       ~TableUsageRequest.set_start_time
@@ -28,7 +27,7 @@ TableUsageRequest
 
    .. rubric:: Methods Documentation
 
-   .. automethod:: get_compartment_id_or_name
+   .. automethod:: get_compartment
    .. automethod:: get_end_time
    .. automethod:: get_end_time_string
    .. automethod:: get_limit
@@ -36,8 +35,7 @@ TableUsageRequest
    .. automethod:: get_start_time_string
    .. automethod:: get_table_name
    .. automethod:: get_timeout
-   .. automethod:: set_compartment_id
-   .. automethod:: set_compartment_name
+   .. automethod:: set_compartment
    .. automethod:: set_end_time
    .. automethod:: set_limit
    .. automethod:: set_start_time

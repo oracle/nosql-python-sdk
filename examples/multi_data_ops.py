@@ -71,15 +71,14 @@ def main():
 sid integer, name string, primary key(shard(sid), id))'
         print('Creating table: ' + statement)
         request = TableRequest().set_statement(statement).set_table_limits(
-            TableLimits(30, 10, 1)).set_compartment_id(tenant_id)
+            TableLimits(30, 10, 1))
         handle.do_table_request(request, 50000, 3000)
         print('After create table')
 
         #
         # Put a few rows
         #
-        request = PutRequest().set_table_name(table_name).set_compartment_id(
-            tenant_id)
+        request = PutRequest().set_table_name(table_name)
         for i in range(10):
             value = {'id': i, 'sid': 0, 'name': 'myname' + str(i)}
             request.set_value(value)
@@ -89,11 +88,11 @@ sid integer, name string, primary key(shard(sid), id))'
         #
         # Multiple write a few rows
         #
-        request = WriteMultipleRequest().set_compartment_id(tenant_id)
+        request = WriteMultipleRequest()
         for i in range(10):
             value = {'id': i, 'sid': 0, 'name': 'newname' + str(i)}
             request.add(PutRequest().set_value(value).set_table_name(
-                table_name).set_compartment_id(tenant_id), True)
+                table_name), True)
         result = handle.write_multiple(request)
         print('After multiple write: ' + str(result))
 
@@ -101,16 +100,14 @@ sid integer, name string, primary key(shard(sid), id))'
         # Prepare a statement
         #
         statement = 'select * from ' + table_name + ' where id > 2 and id < 8'
-        request = PrepareRequest().set_statement(statement).set_compartment_id(
-            tenant_id)
+        request = PrepareRequest().set_statement(statement)
         prepared_result = handle.prepare(request)
         print('After prepare the statement: ' + statement)
 
         #
         # Query, using the prepared statement
         #
-        request = QueryRequest().set_prepared_statement(
-            prepared_result).set_compartment_id(tenant_id)
+        request = QueryRequest().set_prepared_statement(prepared_result)
         result = handle.query(request)
         print('Query results for the prepared statement: ')
         for r in result.get_results():
@@ -120,7 +117,7 @@ sid integer, name string, primary key(shard(sid), id))'
         # Multiple delete the rows
         #
         request = MultiDeleteRequest().set_table_name(table_name).set_key(
-            {'sid': 0}).set_compartment_id(tenant_id)
+            {'sid': 0})
         result = handle.multi_delete(request)
         print('After multiple delete: ' + str(result))
 
@@ -128,7 +125,7 @@ sid integer, name string, primary key(shard(sid), id))'
         # Query again to show deletions, using the prepared statement
         #
         request = QueryRequest().set_prepared_statement(
-            prepared_result).set_compartment_id(tenant_id)
+            prepared_result)
         result = handle.query(request)
         print('Query results for the prepared statement (should be no rows): ')
         for r in result.get_results():
@@ -139,8 +136,7 @@ sid integer, name string, primary key(shard(sid), id))'
         #
         if drop_table:
             request = TableRequest().set_statement(
-                'drop table if exists ' + table_name).set_compartment_id(
-                tenant_id)
+                'drop table if exists ' + table_name)
             result = handle.table_request(request)
 
             #

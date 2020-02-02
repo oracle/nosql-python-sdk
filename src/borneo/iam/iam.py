@@ -32,7 +32,22 @@ class SignatureProvider(AuthorizationProvider):
     Cloud service only.
 
     An instance of :py:class:`borneo.AuthorizationProvider` that generates and
-    caches signature for each request as authorization string.
+    caches signature for each request as authorization string. A number of
+    pieces of information are required for configuration. See
+    `SDK Configuration File <https://docs.cloud.oracle.com/iaas/Content/API/
+    Concepts/sdkconfig.htm>`_ and `Required Keys and OCIDs <https://docs.cloud.
+    oracle.com/iaas/Content/API/Concepts/apisigningkey.htm>`_ for additional
+    information as well as instructions on how to create required keys and OCIDs
+    for configuration. The required information includes:
+
+        * A signing key, used to sign requests.
+        * A pass phrase for the key, if it is encrypted.
+        * The fingerprint of the key pair used for signing.
+        * The OCID of the tenancy.
+        * The OCID of a user in the tenancy.
+
+    All of this information is required to authenticate and authorize access to
+    the service.
 
     There are two mechanisms for providing authorization information:
 
@@ -40,13 +55,24 @@ class SignatureProvider(AuthorizationProvider):
         authorizes the application based on a specific user identity.\n
         Using an Instance Principal, which can be done when running on a compute
         instance in the Oracle Cloud Infrastructure (OCI). See
-        :py:meth:`create_with_instance_principal`.
+        :py:meth:`create_with_instance_principal` and `Calling Services from
+        Instances <https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/
+        callingservicesfrominstances.htm>`_.
 
     The latter can be simpler to use when running on an OCI compute instance,
     but limits the ability to use a compartment name vs OCID when naming
     compartments and tables in :py:class:`Request` classes and when naming
     tables in queries. A specific user identity is best for naming flexibility,
     allowing both compartment names and OCIDs.
+
+    When using a specific user's identity there are several options to provide
+    the required information:
+
+        Using a configuration file. See `SDK Configuration File <https://docs.
+        cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm>`_ for details
+        on the file contents. By default the file is stored in ~/.oci/config,
+        but you may supply a path to another location. The configuration file
+        may include multiple profiles.
 
     :param provider: the oci config or InstancePrincipalsSecurityTokenSigner.
     :type provider: dict or InstancePrincipalsSecurityTokenSigner
@@ -183,15 +209,20 @@ class SignatureProvider(AuthorizationProvider):
         headers[HttpConstants.AUTHORIZATION] = (
             sig_details.get_signature_header())
         headers[HttpConstants.DATE] = sig_details.get_date()
-        compartment_id_or_name = request.get_compartment_id_or_name()
-        if compartment_id_or_name is None:
-            # If request doesn't has compartment id, set the tenant id as the
+        compartment = request.get_compartment()
+        if compartment is None:
+            # If request doesn't has compartment, set the tenant id as the
             # default compartment, which is the root compartment in IAM if using
-            # user principal.
-            compartment_id_or_name = self._get_tenant_ocid()
-        if compartment_id_or_name is not None:
-            headers[HttpConstants.REQUEST_COMPARTMENT_ID] = (
-                compartment_id_or_name)
+            # user principal. If using an instance principal this value is
+            # None.
+            compartment = self._get_tenant_ocid()
+        if compartment is not None:
+            headers[HttpConstants.REQUEST_COMPARTMENT_ID] = compartment
+        else:
+            raise IllegalArgumentException(
+                'Compartment is None. When authenticating using an Instance ' +
+                'Principal the compartment for the operation must be specified.'
+            )
 
     def set_service_host(self, config):
         service_url = config.get_service_url()
@@ -203,14 +234,24 @@ class SignatureProvider(AuthorizationProvider):
     @staticmethod
     def create_with_instance_principal(iam_auth_uri=None):
         """
-        Create the SignatureProvider that generates and caches request signature
-        using instance principal. It's used to call service API from Oracle
-        Cloud compute instance. It authenticates with instance principal and
-        uses security token issued by IAM to do the actual request signing.
+        Creates a SignatureProvider using an instance principal. This method may
+        be used when calling the Oracle NoSQL Database Cloud Service from an
+        Oracle Cloud compute instance. It authenticates with the instance
+        principal and uses a security token issued by IAM to do the actual
+        request signing.
+
+        When using an instance principal the compartment (OCID) must be
+        specified on each request or defaulted by using
+        :py:meth:`borneo.NoSQLHandleConfig.set_default_compartment`. If the
+        compartment is not specified for an operation an exception will be
+        thrown.
+
+        See `Calling Services from Instances <https://docs.cloud.oracle.com/
+        iaas/Content/Identity/Tasks/callingservicesfrominstances.htm>`_
 
         :param iam_auth_uri: the URI is usually detected automatically, specify
-            the URI if need to overwrite the default, or encounter *Invalid IAM
-            URI* error, it is optional.
+            the URI if you need to overwrite the default, or encounter the
+            *Invalid IAM URI* error, it is optional.
         :type iam_auth_uri: str
         :returns: a SignatureProvider.
         :rtype: SignatureProvider

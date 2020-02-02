@@ -49,7 +49,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.drop_idx_statement = (
             'DROP INDEX ' + index_name + ' ON ' + table_name)
         self.drop_tb_statement = ('DROP TABLE IF EXISTS ' + table_name)
-        self.table_request = TableRequest().set_compartment_id(tenant_id)
+        self.table_request = TableRequest()
         self.table_limits = TableLimits(100, 100, 1)
 
     def tearDown(self):
@@ -57,8 +57,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             sleep(1)
             TableResult.wait_for_state(self.handle, State.ACTIVE, wait_timeout,
                                        1000, table_name, tenant_id)
-            drop_request = TableRequest().set_statement(
-                self.drop_tb_statement).set_compartment_id(tenant_id)
+            drop_request = TableRequest().set_statement(self.drop_tb_statement)
             self._do_table_request(drop_request)
         except TableNotFoundException:
             pass
@@ -78,17 +77,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(TableNotFoundException, self.handle.table_request,
                           self.table_request)
 
-    def testTableRequestSetIllegalCompartmentId(self):
+    def testTableRequestSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.table_request.set_compartment_id, {})
+                          self.table_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.table_request.set_compartment_id, '')
-
-    def testTableRequestSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.table_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.table_request.set_compartment_name, '')
+                          self.table_request.set_compartment, '')
 
     def testTableRequestSetIllegalTableLimits(self):
         self.assertRaises(IllegalArgumentException,
@@ -148,8 +141,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             self.create_tb_statement).set_table_limits(self.table_limits)
         self.assertEqual(self.table_request.get_statement(),
                          self.create_tb_statement)
-        self.assertEqual(self.table_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.table_request.get_compartment())
         self.assertEqual(self.table_request.get_table_limits(),
                          self.table_limits)
         self.assertEqual(self.table_request.get_table_name(), table_name)
@@ -184,7 +176,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
 
     def testTableRequestCreateDropIndex(self):
         # create table before creating index
-        request = TableRequest().set_compartment_id(tenant_id).set_statement(
+        request = TableRequest().set_statement(
             self.create_tb_statement).set_table_limits(self.table_limits)
         self._do_table_request(request)
         # create index by resetting the statement
@@ -208,8 +200,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestAlterTable(self):
         # create table before altering table
         request = TableRequest().set_statement(
-            self.create_tb_statement).set_table_limits(
-            self.table_limits).set_compartment_id(tenant_id)
+            self.create_tb_statement).set_table_limits(self.table_limits)
         self._do_table_request(request)
         # alter table failed with TableLimits set
         if not is_onprem():
@@ -230,8 +221,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestAlterTableTTL(self):
         # create table before altering table
         request = TableRequest().set_statement(
-            self.create_tb_statement).set_table_limits(
-            self.table_limits).set_compartment_id(tenant_id)
+            self.create_tb_statement).set_table_limits(self.table_limits)
         self._do_table_request(request)
         # alter table ttl
         self.table_request.set_statement(self.alter_ttl_statement)
@@ -247,8 +237,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testTableRequestModifyTableLimits(self):
         # create table before modifying the table limits
         request = TableRequest().set_statement(
-            self.create_tb_statement).set_table_limits(
-            self.table_limits).set_compartment_id(tenant_id)
+            self.create_tb_statement).set_table_limits(self.table_limits)
         self._do_table_request(request)
         # modify the table limits
         table_limits = TableLimits(50, 50, 1)

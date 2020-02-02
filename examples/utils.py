@@ -21,7 +21,8 @@ from parameters import (
 class ExampleAuthorizationProvider(AuthorizationProvider):
     """
     This class is used as an AuthorizationProvider when using the Cloud
-    Simulator, which has no security configuration.
+    Simulator, which has no security configuration. It accepts a string tenant
+    id that is used as a simple namespace for tables.
     """
 
     def __init__(self, tenant_id):
@@ -65,8 +66,10 @@ def create_access_token_provider(tenant_id):
 def get_handle(tenant_id):
     """
     Constructs a NoSQLHandle. Additional configuration options can be added
-    here.
+    here. Use the tenant_id as the default compartment for all operations. This
+    puts tables in the root compartment of the tenancy.
     """
     config = NoSQLHandleConfig(endpoint).set_authorization_provider(
-        create_access_token_provider(tenant_id))
+        create_access_token_provider(tenant_id)).set_default_compartment(
+        tenant_id)
     return NoSQLHandle(config)

@@ -12,8 +12,7 @@ import unittest
 from borneo import (
     GetTableRequest, IllegalArgumentException, State, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import (
-    is_minicloud, table_name, tenant_id, timeout, wait_timeout)
+from parameters import is_minicloud, table_name, timeout, wait_timeout
 from test_base import TestBase
 
 
@@ -31,8 +30,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         global table_limits
         table_limits = TableLimits(100, 100, 1)
         create_request = TableRequest().set_statement(
-            create_statement).set_table_limits(table_limits).set_compartment_id(
-            tenant_id)
+            create_statement).set_table_limits(table_limits)
         cls.table_request(create_request)
 
     @classmethod
@@ -41,8 +39,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
 
     def setUp(self):
         self.set_up()
-        self.get_table_request = GetTableRequest().set_timeout(
-            timeout).set_compartment_id(tenant_id)
+        self.get_table_request = GetTableRequest().set_timeout(timeout)
 
     def tearDown(self):
         self.tear_down()
@@ -55,17 +52,11 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.assertRaises(TableNotFoundException, self.handle.get_table,
                           self.get_table_request)
 
-    def testGetTableSetIllegalCompartmentId(self):
+    def testGetTableSetIllegalCompartment(self):
         self.assertRaises(IllegalArgumentException,
-                          self.get_table_request.set_compartment_id, {})
+                          self.get_table_request.set_compartment, {})
         self.assertRaises(IllegalArgumentException,
-                          self.get_table_request.set_compartment_id, '')
-
-    def testGetTableSetIllegalCompartmentName(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.get_table_request.set_compartment_name, {})
-        self.assertRaises(IllegalArgumentException,
-                          self.get_table_request.set_compartment_name, '')
+                          self.get_table_request.set_compartment, '')
 
     def testGetTableSetIllegalOperationId(self):
         self.assertRaises(IllegalArgumentException,
@@ -86,8 +77,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testGetTableGets(self):
         self.get_table_request.set_table_name(table_name)
         self.assertEqual(self.get_table_request.get_table_name(), table_name)
-        self.assertEqual(self.get_table_request.get_compartment_id_or_name(),
-                         tenant_id)
+        self.assertIsNone(self.get_table_request.get_compartment())
         self.assertIsNone(self.get_table_request.get_operation_id())
 
     def testGetTableIllegalRequest(self):
@@ -105,7 +95,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
 
     def testGetTableWithOperationId(self):
         drop_request = TableRequest().set_statement(
-            'DROP TABLE IF EXISTS ' + table_name).set_compartment_id(tenant_id)
+            'DROP TABLE IF EXISTS ' + table_name)
         table_result = self.handle.table_request(drop_request)
         self.get_table_request.set_table_name(table_name).set_operation_id(
             table_result.get_operation_id())
