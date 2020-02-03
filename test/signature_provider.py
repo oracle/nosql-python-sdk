@@ -44,11 +44,50 @@ class TestSignatureProvider(unittest.TestCase):
             self.assertRaises(IllegalArgumentException, SignatureProvider,
                               'IllegalProvider')
             # illegal config_file
-            self.assertRaises(IllegalArgumentException, SignatureProvider,
-                              config_file={'config_file': fake_credentials_file})
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider,
+                config_file={'config_file': fake_credentials_file})
             # illegal profile_name
             self.assertRaises(IllegalArgumentException, SignatureProvider,
                               profile_name={'profile_name': 'DEFAULT'})
+            # illegal tenant_id
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id={},
+                user_id='user', fingerprint='fingerprint', private_key='key')
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='',
+                user_id='user', fingerprint='fingerprint', private_key='key')
+            # illegal user_id
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id={}, fingerprint='fingerprint', private_key='key')
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='', fingerprint='fingerprint', private_key='key')
+            # illegal fingerprint
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint={}, private_key='key')
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint='', private_key='key')
+            # illegal private_key
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint='fingerprint', private_key={})
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint='fingerprint', private_key='')
+            # illegal passphrase
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint='fingerprint', private_key='key',
+                passphrase={})
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint='fingerprint', private_key='key',
+                passphrase='')
+
             # illegal cache duration seconds
             self.assertRaises(IllegalArgumentException, SignatureProvider,
                               duration_seconds='IllegalDurationSeconds')
@@ -65,9 +104,6 @@ class TestSignatureProvider(unittest.TestCase):
                               refresh_ahead=0)
             self.assertRaises(IllegalArgumentException, SignatureProvider,
                               refresh_ahead=-1)
-            # both provider and config_file
-            self.assertRaises(IllegalArgumentException, SignatureProvider,
-                              {}, fake_credentials_file)
 
         def testAccessTokenProviderSetIllegalLogger(self):
             self.token_provider = SignatureProvider(
@@ -75,7 +111,7 @@ class TestSignatureProvider(unittest.TestCase):
             self.assertRaises(IllegalArgumentException,
                               self.token_provider.set_logger, 'IllegalLogger')
 
-        def testAccessTokenProviderGetAuthorizationStringWithIllegalRequest(self):
+        def testAccessTokenProviderGetAuthStringWithIllegalRequest(self):
             provider = oci.config.from_file(
                 file_location=fake_credentials_file)
             self.token_provider = SignatureProvider(provider)
@@ -88,7 +124,7 @@ class TestSignatureProvider(unittest.TestCase):
                 config_file=fake_credentials_file)
             self.assertIsNone(self.token_provider.get_logger())
 
-        def testAccessTokenProviderGetAuthorizationString(self):
+        def testAccessTokenProviderGetAuthStringWithConfigFile(self):
             self.token_provider = SignatureProvider(
                 config_file=fake_credentials_file, duration_seconds=5,
                 refresh_ahead=1)
@@ -109,8 +145,30 @@ class TestSignatureProvider(unittest.TestCase):
                 auth_string,
                 self.token_provider.get_authorization_string(self.request))
 
+        def testAccessTokenProviderGetAuthStringWithoutConfigFile(self):
+            self.token_provider = SignatureProvider(
+                tenant_id='ocid1.tenancy.oc1..tenancy',
+                user_id='ocid1.user.oc1..user', fingerprint='fingerprint',
+                private_key=fake_key_file, duration_seconds=5, refresh_ahead=1)
+            self.assertRaises(
+                IllegalArgumentException,
+                self.token_provider.get_authorization_string, self.request)
+            self.token_provider.set_service_host(self.handle_config)
+            auth_string = self.token_provider.get_authorization_string(
+                self.request)
+            # Cache duration is about 5s, string should be the same.
+            self.assertEqual(
+                auth_string,
+                self.token_provider.get_authorization_string(self.request))
+            # Wait for the refresh to complete.
+            sleep(5)
+            # The new signature string should be cached.
+            self.assertNotEqual(
+                auth_string,
+                self.token_provider.get_authorization_string(self.request))
+
         if iam_principal() == 'instance principal':
-            def testInstancePrincipalGetAuthorizationString(self):
+            def testInstancePrincipalGetAuthString(self):
                 signer = (
                     oci.auth.signers.InstancePrincipalsSecurityTokenSigner())
                 self.token_provider = SignatureProvider(

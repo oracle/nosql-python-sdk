@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.hashes import SHA256
 from datetime import datetime
 from locale import LC_ALL, setlocale
+from os import path
 from re import match
 from requests import Session
 from threading import Timer
@@ -103,6 +104,8 @@ class SignatureProvider(AuthorizationProvider):
         '^([0-9a-zA-Z-_]+[.:])([0-9a-zA-Z-_]*[.:]){3,}([0-9a-zA-Z-_]+)$')
 
     def __init__(self, provider=None, config_file=None, profile_name=None,
+                 tenant_id=None, user_id=None, fingerprint=None,
+                 private_key=None, passphrase=None,
                  duration_seconds=MAX_ENTRY_LIFE_TIME,
                  refresh_ahead=DEFAULT_REFRESH_AHEAD):
         """
@@ -116,10 +119,6 @@ class SignatureProvider(AuthorizationProvider):
                 str(SignatureProvider.MAX_ENTRY_LIFE_TIME) + ' seconds.')
         try:
             if provider is not None:
-                if config_file is not None or profile_name is not None:
-                    raise IllegalArgumentException(
-                        'config_file and profile_name are not allowed to be ' +
-                        'set if provider is set.')
                 if not isinstance(
                     provider,
                     (dict,
@@ -128,7 +127,8 @@ class SignatureProvider(AuthorizationProvider):
                         'provider should be a dict or an instance of ' +
                         'InstancePrincipalsSecurityTokenSigner.')
                 self._provider = provider
-            else:
+            elif (tenant_id is None or user_id is None or fingerprint is None or
+                  private_key is None):
                 CheckValue.check_str(config_file, 'config_file', True)
                 CheckValue.check_str(profile_name, 'profile_name', True)
                 if config_file is None and profile_name is None:
@@ -150,6 +150,20 @@ class SignatureProvider(AuthorizationProvider):
                     # from specified configuration file.
                     self._provider = oci.config.from_file(
                         file_location=config_file, profile_name=profile_name)
+            else:
+                CheckValue.check_str(tenant_id, 'tenant_id')
+                CheckValue.check_str(user_id, 'user_id')
+                CheckValue.check_str(fingerprint, 'fingerprint')
+                CheckValue.check_str(private_key, 'private_key')
+                CheckValue.check_str(passphrase, 'passphrase', True)
+                self._provider = {
+                    'tenancy': tenant_id, 'user': user_id,
+                    'fingerprint': fingerprint, 'key_file': None,
+                    'pass_phrase': passphrase}
+                if path.isfile(private_key):
+                    self._provider.update({'key_file': private_key})
+                else:
+                    self._provider.update({'key_content': private_key})
         except AttributeError:
             raise ImportError('No module named oci')
 
@@ -157,7 +171,9 @@ class SignatureProvider(AuthorizationProvider):
             signer = oci.signer.Signer(
                 tenancy=self._provider['tenancy'], user=self._provider['user'],
                 fingerprint=self._provider['fingerprint'],
-                private_key_file_location=self._provider['key_file'])
+                private_key_file_location=self._provider['key_file'],
+                private_key_content=self._provider.get('key_content'),
+                pass_phrase=self._provider.get('pass_phrase'))
             self._private_key = signer.private_key
         self._signature_cache = Memoize(duration_seconds)
         self._refresh_interval_s = (duration_seconds - refresh_ahead if
@@ -291,12 +307,14 @@ class SignatureProvider(AuthorizationProvider):
     def _get_signature_details_internal(self):
         setlocale(LC_ALL, 'en_US')
         date_str = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-        if isinstance(self._provider, dict):
-            key_id = self._get_key_id()
-        else:
+        if isinstance(self._provider,
+                      oci.auth.signers.InstancePrincipalsSecurityTokenSigner):
             self._provider.refresh_security_token()
             self._private_key = self._provider.private_key
             key_id = self._provider.api_key
+        else:
+            key_id = self._get_key_id()
+
         try:
             signature = self._private_key.sign(
                 self._signing_content(date_str), PKCS1v15(), SHA256())
