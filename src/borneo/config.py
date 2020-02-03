@@ -266,13 +266,13 @@ class Regions(object):
     The string-based endpoints associated with regions for the Oracle NoSQL
     Database Cloud Service are of the format::
 
-        https://nosql.{region}.{secondLevelDomain}
+        https://nosql.{region}.oci.{secondLevelDomain}
 
     Examples of known second level domains include
 
-     * oci.oraclecloud.com
-     * oci.oraclegovcloud.com
-     * oci.oraclegovcloud.uk
+     * oraclecloud.com
+     * oraclegovcloud.com
+     * oraclegovcloud.uk
 
     For example, this is a valid endpoint for the Oracle NoSQL Database Cloud
     Service in the U.S. East region::
