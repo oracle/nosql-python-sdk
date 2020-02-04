@@ -36,7 +36,7 @@ class ExampleAuthorizationProvider(AuthorizationProvider):
         return 'Bearer ' + self._tenant_id
 
 
-def create_access_token_provider(tenant_id):
+def create_authorization_provider(tenant_id):
     # Creates an AuthorizationProvider instance based on the environment.
     if using_cloud_sim:
         provider = ExampleAuthorizationProvider(tenant_id)
@@ -70,6 +70,6 @@ def get_handle(tenant_id):
     puts tables in the root compartment of the tenancy.
     """
     config = NoSQLHandleConfig(endpoint).set_authorization_provider(
-        create_access_token_provider(tenant_id)).set_default_compartment(
+        create_authorization_provider(tenant_id)).set_default_compartment(
         tenant_id)
     return NoSQLHandle(config)

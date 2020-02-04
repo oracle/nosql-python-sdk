@@ -76,7 +76,7 @@ def get_handle_config(tenant_id):
         config.set_proxy_username(proxy_username)
     if proxy_password is not None:
         config.set_proxy_password(proxy_password)
-    set_access_token_provider(config, tenant_id)
+    set_authorization_provider(config, tenant_id)
     return config
 
 
@@ -85,7 +85,7 @@ def get_simple_handle_config(tenant_id, ep=endpoint):
     get_logger()
     config = NoSQLHandleConfig(ep).set_logger(
         logger)
-    set_access_token_provider(config, tenant_id)
+    set_authorization_provider(config, tenant_id)
     return config
 
 
@@ -130,7 +130,7 @@ def get_row(with_sid=True):
     return row
 
 
-def set_access_token_provider(config, tenant_id):
+def set_authorization_provider(config, tenant_id):
     if is_cloudsim():
         authorization_provider = InsecureAuthorizationProvider(tenant_id)
     elif is_dev_pod() or is_minicloud():
