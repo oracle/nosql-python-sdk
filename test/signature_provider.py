@@ -78,15 +78,15 @@ class TestSignatureProvider(unittest.TestCase):
             self.assertRaises(
                 IllegalArgumentException, SignatureProvider, tenant_id='tenant',
                 user_id='user', fingerprint='fingerprint', private_key='')
-            # illegal passphrase
+            # illegal pass phrase
             self.assertRaises(
                 IllegalArgumentException, SignatureProvider, tenant_id='tenant',
                 user_id='user', fingerprint='fingerprint', private_key='key',
-                passphrase={})
+                pass_phrase={})
             self.assertRaises(
                 IllegalArgumentException, SignatureProvider, tenant_id='tenant',
                 user_id='user', fingerprint='fingerprint', private_key='key',
-                passphrase='')
+                pass_phrase='')
 
             # illegal cache duration seconds
             self.assertRaises(IllegalArgumentException, SignatureProvider,

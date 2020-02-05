@@ -100,71 +100,113 @@ Configure for the Cloud Service
 
 The SDK requires an Oracle Cloud account and a subscription to the Oracle NoSQL
 Database Cloud Service. If you do not already have an Oracle Cloud account you
-can start `here <https://cloud.oracle.com/home>`_
+can start `here <https://www.oracle.com/cloud>`_. Credentials used for
+connecting an application are associated with a specific user. If needed, create
+a user for the person or system using the api. See `Adding Users <https://docs.
+cloud.oracle.com/en-us/iaas/Content/GSG/Tasks/addingusers.htm>`_.
 
+.. _creds-label:
 
 Acquire Credentials for the Oracle NoSQL Database Cloud Service
 _______________________________________________________________
 
-Several pieces of information comprise your credentials used by the Oracle NoSQL
-Database Cloud Service:
+These steps only need to be performed one time for a user. If they have already
+been done they can be skipped. You need to obtain the following credentials:
 
  * Tenancy ID
  * User ID
- * Fingerprint
- * Private Key File
+ * API signing key (private key in PEM format)
+ * Private key pass phrase, only needed if the private key is encrypted
+ * Fingerprint for the public key uploaded to the user's account
 
-Information about how to acquire this information is found  in the `Required
-Keys and OCIDs <https://docs.cloud.oracle.com/iaas/Content/API/Concepts/
-apisigningkey.htm>`_  page. Specifically these topics can be found on that page:
+See `Required Keys and OCIDs <https://docs.cloud.oracle.com/iaas/Content/API/
+Concepts/apisigningkey.htm>`_  for detailed descriptions of the above
+credentials and the steps you need to perform to obtain them. Specifically:
 
- * `Where to Get the Tenancy's OCID and User's OCID <https://docs.cloud.oracle.
-   com/en-us/iaas/Content/API/Concepts/apisigningkey.htm#Other>`_
  * `How to Generate an API Signing Key <https://docs.cloud.oracle.com/en-us/
    iaas/Content/API/Concepts/apisigningkey.htm#How>`_
  * `How to Get the Key's Fingerprint <https://docs.cloud.oracle.com/en-us/iaas/
    Content/API/Concepts/apisigningkey.htm#How3>`_
  * `How to Upload the Public Key <https://docs.cloud.oracle.com/en-us/iaas/
    Content/API/Concepts/apisigningkey.htm#How2>`_
+ * `Where to Get the Tenancy's OCID and User's OCID <https://docs.cloud.oracle.
+   com/en-us/iaas/Content/API/Concepts/apisigningkey.htm#Other>`_
 
 
 Supplying Credentials to an Application
 _______________________________________
 
 Credentials are used to establish the initial connection from your application
-to the service. The way to supply the credentials is to use a credentials file,
-:class:`borneo.iam.SignatureProvider` reads credentials from the credentials
-file, by default the credentials file is found in *$HOME/.oci/config* but the
-location can be changed using::
+to the service. There are 2 ways to supply credentials to the application:
 
-    SignatureProvider(config_file=<path-to-your-credentials-file>)
+ 1. Directly, via API
+ 2. Using a configuration file
 
-The format of the file is that of a properties file with the format of
-*key=value*, with one property per line. The contents and format are::
+Both mechanisms use :class:`borneo.iam.SignatureProvider` to handle credentials.
+If using a configuration file it's default location is *$HOME/.oci/config*, but
+the location can be changed using the api.
+
+The format of the configuration file is that of a properties file with the
+format of *key=value*, with one property per line. The contents and format are::
 
     [DEFAULT]
     tenancy=<your-tenancy-id>
     user=<your-user-id>
     fingerprint=<fingerprint-of-your-public-key>
     key_file=<path-to-your-private-key-file>
-
-Details of the configuration file can be found on the `SDK and Configuration
-File <https://docs.cloud.oracle.com/en-us/iaas/Content/API/Concepts/
-sdkconfig.htm>`_ page.
+    pass_phrase=<optional-pass-phrase-for-key-file>
 
 The Tenancy ID, User ID and fingerprint should be acquired using the
 instructions above. The path to your private key file is the absolute path of
-the RSA private key. The order of the properties does not matter.
+the RSA private key. The order of the properties does not matter. The
+*[DEFAULT]* portion is the *profile*. A configuration file may contain multiple
+profiles with the target profile specified in the
+:class:`borneo.iam.SignatureProvider` parameters.
+
+Provide credentials without a configuration file:
 
 .. code-block:: pycon
 
                 from borneo.iam import SignatureProvider
 
                 #
-                # Use SignatureProvider with a default credentials file
-                # $HOME/.oci/config
+                # Use SignatureProvider directly via API. Note that the
+                # private_key argument can either point to a key file or be the
+                # string content of the private key itself.
+                #
+                at_provider = SignatureProvider(
+                    tenant_id='ocid1.tenancy.oc1..tenancy',
+                    user_id='ocid1.user.oc1..user',
+                    private_key=key_file_or_key,
+                    fingerprint='fingerprint',
+                    pass_phrase='mypassphrase')
+
+Provide credentials using a configuration file in the default location, using
+the default profile:
+
+.. code-block:: pycon
+
+                from borneo.iam import SignatureProvider
+
+                #
+                # Use SignatureProvider with a default credentials file and
+                # profile $HOME/.oci/config
                 #
                 at_provider = SignatureProvider()
+
+Provide credentials using a configuration file in a non-default location and
+non-default profile:
+
+.. code-block:: pycon
+
+                from borneo.iam import SignatureProvider
+
+                #
+                # Use SignatureProvider with a non-default credentials file and
+                # profile
+                #
+                at_provider = SignatureProvider(config_file='myconfigfile',
+                    profile_name='myprofile')
 
 
 Connecting an Application
@@ -187,7 +229,7 @@ region to which the application will connect. An example region is
                 #
 
                 # the region to which the application will connect
-                region=<region>
+                region=Regions.US_ASHBURN_1
 
                 # if using a specified credentials file
                 credentials_file=<path-to-your-credentials-file>

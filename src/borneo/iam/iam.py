@@ -34,12 +34,11 @@ class SignatureProvider(AuthorizationProvider):
 
     An instance of :py:class:`borneo.AuthorizationProvider` that generates and
     caches signature for each request as authorization string. A number of
-    pieces of information are required for configuration. See
-    `SDK Configuration File <https://docs.cloud.oracle.com/iaas/Content/API/
-    Concepts/sdkconfig.htm>`_ and `Required Keys and OCIDs <https://docs.cloud.
-    oracle.com/iaas/Content/API/Concepts/apisigningkey.htm>`_ for additional
-    information as well as instructions on how to create required keys and OCIDs
-    for configuration. The required information includes:
+    pieces of information are required for configuration. See `Required Keys and
+    OCIDs <https://docs.cloud.oracle.com/iaas/Content/API/Concepts/
+    apisigningkey.htm>`_ for information and instructions on how to create the
+    required keys and OCIDs for configuration. The required information
+    includes:
 
         * A signing key, used to sign requests.
         * A pass phrase for the key, if it is encrypted.
@@ -48,17 +47,17 @@ class SignatureProvider(AuthorizationProvider):
         * The OCID of a user in the tenancy.
 
     All of this information is required to authenticate and authorize access to
-    the service.
+    the service. See :ref:`creds-label` for information on how to acquire this
+    information.
 
-    There are two mechanisms for providing authorization information:
+    There are two different ways to authorize an application:
 
-        Using a user's identity and optional profile. This authenticates and
-        authorizes the application based on a specific user identity.\n
-        Using an Instance Principal, which can be done when running on a compute
-        instance in the Oracle Cloud Infrastructure (OCI). See
-        :py:meth:`create_with_instance_principal` and `Calling Services from
-        Instances <https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/
-        callingservicesfrominstances.htm>`_.
+    1. Using a specific user's identity.
+    2. Using an Instance Principal, which can be done when running on a compute
+       instance in the Oracle Cloud Infrastructure (OCI). See
+       :py:meth:`create_with_instance_principal` and `Calling Services from
+       Instances <https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/
+       callingservicesfrominstances.htm>`_.
 
     The latter can be simpler to use when running on an OCI compute instance,
     but limits the ability to use a compartment name vs OCID when naming
@@ -66,24 +65,40 @@ class SignatureProvider(AuthorizationProvider):
     tables in queries. A specific user identity is best for naming flexibility,
     allowing both compartment names and OCIDs.
 
-    When using a specific user's identity there are several options to provide
-    the required information:
+    When using a specific user's identity there are 2 options for providing the
+    required information:
 
-        Using a configuration file. See `SDK Configuration File <https://docs.
-        cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm>`_ for details
-        on the file contents. By default the file is stored in ~/.oci/config,
-        but you may supply a path to another location. The configuration file
-        may include multiple profiles.
+    1. Using a configuration file
+    2. Directly providing the credentials via parameters
+
+    Only one method of providing credentials can be used, and if they are mixed
+    the priority from high to low is:
+
+    * Oci config in dict or InstancePrincipalsSecurityTokenSigner
+      (provider is used)
+    * Credentials as arguments (tenant_id, etc used)
+    * Configuration file (config_file is used)
 
     :param provider: the oci config or InstancePrincipalsSecurityTokenSigner.
     :type provider: dict or InstancePrincipalsSecurityTokenSigner
-    :param profile_name: user profile name.
-    :type profile_name: str
     :param config_file: path of configuration file.
     :type config_file: str
-    :param duration_seconds: the cache duration in seconds.
+    :param profile_name: user profile name. Only valid with config_file.
+    :type profile_name: str
+    :param tenant_id: id of the tenancy
+    :type tenant_id: str
+    :param user_id: id of a specific user
+    :type user_id: str
+    :param private_key: path to private key or private key content
+    :type private_key: str
+    :param fingerprint: fingerprint for the private key
+    :type fingerprint: str
+    :param pass_phrase: pass_phrase for the private key if created
+    :type pass_phrase: str
+    :param duration_seconds: the signature cache duration in seconds.
     :type duration_seconds: int
-    :param refresh_ahead: the refresh time before AT expiry in seconds.
+    :param refresh_ahead: the refresh time before signature cache expiry
+       in seconds.
     :type refresh_ahead: int
     :raises IllegalArgumentException: raises the exception if the parameters
         are not valid.
@@ -105,7 +120,7 @@ class SignatureProvider(AuthorizationProvider):
 
     def __init__(self, provider=None, config_file=None, profile_name=None,
                  tenant_id=None, user_id=None, fingerprint=None,
-                 private_key=None, passphrase=None,
+                 private_key=None, pass_phrase=None,
                  duration_seconds=MAX_ENTRY_LIFE_TIME,
                  refresh_ahead=DEFAULT_REFRESH_AHEAD):
         """
@@ -155,11 +170,11 @@ class SignatureProvider(AuthorizationProvider):
                 CheckValue.check_str(user_id, 'user_id')
                 CheckValue.check_str(fingerprint, 'fingerprint')
                 CheckValue.check_str(private_key, 'private_key')
-                CheckValue.check_str(passphrase, 'passphrase', True)
+                CheckValue.check_str(pass_phrase, 'pass_phrase', True)
                 self._provider = {
                     'tenancy': tenant_id, 'user': user_id,
                     'fingerprint': fingerprint, 'key_file': None,
-                    'pass_phrase': passphrase}
+                    'pass_phrase': pass_phrase}
                 if path.isfile(private_key):
                     self._provider.update({'key_file': private_key})
                 else:
