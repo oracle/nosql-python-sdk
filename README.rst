@@ -5,13 +5,6 @@ Oracle NoSQL Database Python SDK
 About
 =====
 
- .. note::
-
-    This release of the Python SDK for Oracle NoSQL Database supports only the
-    on-premise release, starting with 19.3. It will not work with the Oracle NoSQL
-    Database Cloud Service. To work with the Cloud Service use the 5.0.1 release
-    or the next release of this SDK that does not have this notice.
-
 This is the Python SDK for Oracle NoSQL Database. Python 2.7+ and 3.5+ are
 supported. The SDK provides interfaces, documentation, and examples to help
 develop Python applications that connect to the Oracle NoSQL

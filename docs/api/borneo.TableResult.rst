@@ -16,7 +16,6 @@ TableResult
       ~TableResult.get_table_limits
       ~TableResult.get_table_name
       ~TableResult.wait_for_completion
-      ~TableResult.wait_for_state
 
    .. rubric:: Methods Documentation
 
@@ -26,4 +25,3 @@ TableResult
    .. automethod:: get_table_limits
    .. automethod:: get_table_name
    .. automethod:: wait_for_completion
-   .. automethod:: wait_for_state

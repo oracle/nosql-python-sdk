@@ -1173,8 +1173,7 @@ class PutOption(object):
 
 class State(object):
     """
-    Represents the table state, usually used when
-    :py:meth:`TableResult.wait_for_state` is called.
+    Represents the table state.
     """
     ACTIVE = 'ACTIVE'
     """Represents the table is active."""

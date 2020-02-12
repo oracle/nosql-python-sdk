@@ -4024,8 +4024,8 @@ class TableResult(Result):
     operation has been performed it is necessary to call
     :py:meth:`NoSQLHandle.get_table` until the status of the table is
     State.ACTIVE or there is an error condition. The method
-    :py:meth:`wait_for_state` exists to perform this task and should be used
-    whenever possible.
+    :py:meth:`wait_for_completion` exists to perform this task and should
+    be used to wait for an operation to complete.
 
     :py:meth:`NoSQLHandle.get_table` is synchronous, returning static
     information about the table as well as its current state.
@@ -4164,13 +4164,13 @@ class TableResult(Result):
             return
         if self._operation_id is None:
             raise IllegalArgumentException('Operation id must not be none.')
-        TableResult.wait_for_state(
+        TableResult._wait_for_state(
             handle, terminal, wait_millis, delay_millis, result=self)
 
     @staticmethod
-    def wait_for_state(handle, state, wait_millis, delay_millis,
-                       table_name=None, compartment=None, operation_id=None,
-                       result=None):
+    def _wait_for_state(handle, state, wait_millis, delay_millis,
+                        table_name=None, compartment=None, operation_id=None,
+                        result=None):
         """
         Waits for the specified table to reach the desired state. This is a
         blocking, polling style wait that delays for the specified number of
