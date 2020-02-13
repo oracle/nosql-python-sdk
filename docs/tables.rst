@@ -16,8 +16,8 @@ Obtain a NoSQL Handle
 it must be closed using the method :func:`borneo.NoSQLHandle.close` in order to
 clean up resources. Handles are thread-safe and intended to be shared. A handle
 is created by first creating a :class:`borneo.NoSQLHandleConfig` instance to
-configure the communication region or endpoint, authorization information, as
-well as default values for handle configuration.
+configure the communication endpoint, authorization information, as well as
+default values for handle configuration.
 
 Configuration requires an :class:`borneo.AuthorizationProvider` to provide
 identity and authorization information to the handle. There are different
@@ -79,8 +79,8 @@ An example of acquiring a NoSQL Handle for the Oracle NoSQL Cloud Service:
     # create AuthorizationProvider
     provider = SignatureProvider()
 
-    # create handle config using the correct endpoint for the desired region
-    # add a default compartment
+    # create handle config using the correct desired region as endpoint, add a
+    # default compartment.
     config = NoSQLHandleConfig(Regions.US_ASHBURN_1)
         .set_authorization_provider(provider).set_compartment('mycompartment')
 

@@ -106,11 +106,12 @@ using_on_prem = False
 #
 # Cloud Simulator: 'http://localhost:8080' or the host running Cloud Simulator
 # or a on-prem proxy started by the customer.
-# Service: get endpoint from a Region, using for example:
-#  Regions.US_ASHBURN_1.endpoint()
+# Service: a endpoint string, a region id or a Region, using for example:
+#  'us-ashburn-1', 'nosql.us-ashburn-1.oci.oraclecloud.com' or
+#  Regions.US_ASHBURN_1
 # on-premise: 'http://localhost:80' or 'https://localhost:443' (or use the
 # appropriate host:port for the proxy)
-endpoint = 'http://localhost:8080'
+endpoint = 'localhost:8080'
 
 # On-premise only:
 # Non-secure store: None

@@ -160,7 +160,7 @@ class SignatureProvider(AuthorizationProvider):
                     # from specified configuration file.
                     self._provider = oci.config.from_file(
                         file_location=config_file)
-                elif profile_name is not None and config_file is not None:
+                elif config_file is not None and profile_name is not None:
                     # Use user profile with given profile name and private key
                     # from specified configuration file.
                     self._provider = oci.config.from_file(

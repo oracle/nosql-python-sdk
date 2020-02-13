@@ -215,8 +215,8 @@ _________________________
 The first step in any Oracle NoSQL Database Cloud Service application is to
 create a *handle* used to send requests to the service. The handle is configured
 using your credentials and other authentication information as well as the
-region to which the application will connect. An example region is
-**Regions.US_ASHBURN_1**. Information on regions can be found in
+endpoint to which the application will connect. An example endpoint is to use
+the region **Regions.US_ASHBURN_1**. Information on regions can be found in
 :class:`borneo.Regions`.
 
 .. code-block:: pycon
@@ -229,7 +229,7 @@ region to which the application will connect. An example region is
                 #
 
                 # the region to which the application will connect
-                region=Regions.US_ASHBURN_1
+                region = Regions.US_ASHBURN_1
 
                 # if using a specified credentials file
                 credentials_file=<path-to-your-credentials-file>
@@ -242,7 +242,7 @@ region to which the application will connect. An example region is
                 #
                 # create a configuration object
                 #
-                config = NoSQLHandleConfig(region=region, provider=at_provider)
+                config = NoSQLHandleConfig(region, at_provider)
 
                 #
                 # create a handle from the configuration object

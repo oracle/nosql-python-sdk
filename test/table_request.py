@@ -11,8 +11,8 @@ import unittest
 from time import sleep
 
 from borneo import (
-    IllegalArgumentException, OperationNotSupportedException, State,
-    TableLimits, TableNotFoundException, TableRequest, TableResult)
+    GetTableRequest, IllegalArgumentException, OperationNotSupportedException,
+    State, TableLimits, TableNotFoundException, TableRequest)
 from parameters import (
     index_name, is_onprem, is_pod, table_name, table_request_timeout, tenant_id,
     wait_timeout)
@@ -54,9 +54,9 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
 
     def tearDown(self):
         try:
-            sleep(1)
-            TableResult._wait_for_state(self.handle, State.ACTIVE, wait_timeout,
-                                        1000, table_name, tenant_id)
+            get_table = GetTableRequest().set_table_name(table_name)
+            result = self.handle.get_table(get_table)
+            result.wait_for_completion(self.handle, wait_timeout, 1000)
             drop_request = TableRequest().set_statement(self.drop_tb_statement)
             self._do_table_request(drop_request)
         except TableNotFoundException:
@@ -262,7 +262,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         # in the real service
         #
         if is_pod():
-            sleep(20)
+            sleep(30)
         result = self.handle.table_request(request)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
 

@@ -12,7 +12,7 @@ import unittest
 from borneo import (
     GetTableRequest, IllegalArgumentException, State, TableLimits,
     TableNotFoundException, TableRequest)
-from parameters import is_minicloud, table_name, timeout, wait_timeout
+from parameters import is_minicloud, is_pod, table_name, timeout, wait_timeout
 from test_base import TestBase
 
 
@@ -87,7 +87,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
     def testGetTableNormal(self):
         self.get_table_request.set_table_name(table_name)
         result = self.handle.get_table(self.get_table_request)
-        if is_minicloud():
+        if is_minicloud() or is_pod():
             self.check_table_result(result, State.ACTIVE, table_limits)
         else:
             self.check_table_result(result, State.ACTIVE, table_limits,
@@ -100,7 +100,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.get_table_request.set_table_name(table_name).set_operation_id(
             table_result.get_operation_id())
         result = self.handle.get_table(self.get_table_request)
-        if is_minicloud():
+        if is_minicloud() or is_pod():
             self.check_table_result(
                 result, [State.DROPPING, State.DROPPED], table_limits)
         else:

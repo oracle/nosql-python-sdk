@@ -60,7 +60,7 @@ class TestBase(object):
         # check version
         ver = result.get_version()
         if version is None:
-            self.assertIsNone(ver)
+            self.assertIsNone(ver) if ver_eq else self.assertIsNotNone(ver)
         elif ver_eq:
             self.assertEqual(ver.get_bytes(), version.get_bytes())
         else:
@@ -198,5 +198,5 @@ class TestBase(object):
         # in the real service
         #
         if is_pod():
-            sleep(20)
+            sleep(30)
         test_handle.do_table_request(request, wait_timeout, 1000)

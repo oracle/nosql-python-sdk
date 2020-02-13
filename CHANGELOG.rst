@@ -13,26 +13,20 @@ _____
 
 * OCI Native support for the cloud service
 
-  * Include support for IAM based security in the cloud service
-  * When using the cloud service tables are now created in compartments.
+  * Include support for IAM based security in the cloud service.
+  * When using the cloud service, tables are now created in compartments.
     Compartments can be specified for tables in APIs and query statements. By
     default the compartment is the root compartment of the tenancy when
-    authenticated as a specific user. The compartment name or id can be specified
-    by default in NoSQLHandleConfig or specified in each Request object. The
-    compartment name can also be used a prefix on a table name where table
-    names are accepted and in queries, e.g. "mycompartment:mytable".
-
-Changed
-_______
-
-* Deprecated use of TableResult.waitForState methods in favor of the simpler,
-  not static, TableResult.waitForCompletion method.
+    authenticated as a specific user. The compartment name or id can be
+    specified by default in NoSQLHandleConfig or specified in each Request
+    object. The compartment name can also be used as a prefix on a table name
+    where table names are accepted and in queries, e.g. "mycompartment:mytable".
 
 Removed
 _______
 
-* Removed support for IDCS based security in the cloud service
-* TableResult.wait_for_state() has been removed. Use wait_for_completion()
+* Removed support for IDCS based security in the cloud service.
+* TableResult.wait_for_state() has been removed. Use wait_for_completion().
 
 ====================
  5.1.0 - 2019-08-30
@@ -85,7 +79,7 @@ Added
     waiting for its completion in a single, synchronous call.
   * Now that the driver can access both the cloud service and an on-premise
     store some operations, classes and exceptions are specific to each
-    environment. These are  noted in updated API documentation.
+    environment. These are noted in updated API documentation.
 
 
 Changed

@@ -209,9 +209,10 @@ class Region(object):
 
     def endpoint(self):
         """
-        Returns the NoSQL Database Cloud Service Endpoint for this region.
+        Returns the NoSQL Database Cloud Service endpoint string for this
+        region.
 
-        :returns: NoSQL Database Cloud Service Endpoint.
+        :returns: NoSQL Database Cloud Service endpoint string.
         :rtype: str
         :raises IllegalArgumentException: raises the exception if region_id is
             unknown.
@@ -281,7 +282,7 @@ class Regions(object):
 
     If the Oracle NoSQL Database Cloud Service becomes available in a region
     not listed here it is possible to connect to that region using the endpoint
-    rather than a Region.
+    string rather than a Region.
 
     For more information about Oracle Cloud Infrastructure regions see `Regions
     and Availability Domains <https://docs.cloud.oracle.com/en-us/iaas/Content/
@@ -425,19 +426,21 @@ class NoSQLHandleConfig(object):
     Most of the configuration parameters are optional and have default values if
     not specified.
 
-    The service endpoint or region is required by constructor used to connect to
-    the Oracle NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
-    Database proxy server. The service endpoint will be inferred from the given
-    region if the region is provided. When using the Oracle NoSQL Database Cloud
-    Service it is recommended that a region be provided rather than an endpoint.
-    See py:class:`Regions` for more information.
+    The service endpoint is required by constructor used to connect to the
+    Oracle NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
+    Database proxy server. It should be a string that inferred from the given
+    region or a region object. When using the Oracle NoSQL Database Cloud
+    Service, it is recommended that a region object be provided rather than an
+    endpoint string. See py:class:`Regions` for more information.
 
-    Endpoint strings must include the target address, and may include protocol
-    and port. The valid syntax is [http[s]://]host[:port], For example, these
-    are valid endpoint arguments:
+    If a string is provided to endpoint argument, it must include the target
+    address, and may include protocol and port. The valid syntax is
+    [http[s]://]host[:port], For example, these are valid endpoint arguments:
 
+     * us-ashburn-1 (equivalent to using Region Regions.US_ASHBURN_1 as the
+       endpoint argument)
      * nosql.us-ashburn-1.oci.oraclecloud.com (equivalent to using Region
-       Regions.US_ASHBURN_1 as the region argument)
+       Regions.US_ASHBURN_1 as the endpoint argument)
      * https\://nosql.us-ashburn-1.oci.oraclecloud.com:443
      * localhost:8080 - used for connecting to a Cloud Simulator instance
        running locally on port 8080
@@ -449,16 +452,14 @@ class NoSQLHandleConfig(object):
     If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
     all other cases.
 
-    If using the Cloud Service see :py:class:`Regions` for the complete set of
-    available regions. If using the Cloud Service the region is recommended to
-    be used rather than using a Region's endpoint directly.
+    If a region is provided to endpoint argument, see :py:class:`Regions` for
+    the complete set of available regions, For example:
 
-    Either endpoint or region must be provided but not both.
+     * Regions.US_ASHBURN_1
 
-    :param endpoint: Identifies a server for use by the NoSQLHandle.
-    :type endpoint: str
-    :param region: identifies the region will be accessed by the NoSQLHandle.
-    :type region: Region
+    :param endpoint: identifies the endpoint string, region id or region that
+        will be accessed by NoSQLHandle.
+    :type endpoint: str or Region
     :param provider: :py:class:`AuthorizationProvider` to use for the handle.
     :type provider: AuthorizationProvider
     :raises IllegalArgumentException: raises the exception if the endpoint is
@@ -474,24 +475,24 @@ class NoSQLHandleConfig(object):
     _DEFAULT_SEC_INFO_TIMEOUT = 10000
     _DEFAULT_CONSISTENCY = Consistency.EVENTUAL
 
-    def __init__(self, endpoint=None, region=None, provider=None):
+    def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
-        if endpoint is not None and region is None:
-            CheckValue.check_str(endpoint, 'endpoint')
-        elif endpoint is None and region is not None:
-            if not isinstance(region, Region):
-                raise IllegalArgumentException(
-                    'region should be an instance of Region')
-            endpoint = region.endpoint()
-        else:
+        if not isinstance(endpoint, (str, Region)):
             raise IllegalArgumentException(
-                'One and only one of endpoint and region need to be set.')
+                'endpoint should be a string or instance of Region.')
         if (provider is not None and
                 not isinstance(provider, AuthorizationProvider)):
             raise IllegalArgumentException(
                 'provider must be an instance of AuthorizationProvider.')
-        self._service_url = NoSQLHandleConfig.create_url(endpoint, '/')
-        self._region = region
+        if isinstance(endpoint, str):
+            try:
+                self._region = Regions.from_region_id(endpoint)
+            except IllegalArgumentException:
+                self._region = None
+        else:
+            self._region = endpoint
+        self._service_url = NoSQLHandleConfig.create_url(
+            endpoint if self._region is None else self._region.endpoint(), '/')
         self._auth_provider = provider
         self._compartment = None
         self._timeout = 0

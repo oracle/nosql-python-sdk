@@ -4021,9 +4021,9 @@ class TableResult(Result):
 
     Operations available in :py:meth:`NoSQLHandle.table_request` such as table
     creation, modification, and drop are asynchronous operations. When such an
-    operation has been performed it is necessary to call
+    operation has been performed, it is necessary to call
     :py:meth:`NoSQLHandle.get_table` until the status of the table is
-    State.ACTIVE or there is an error condition. The method
+    State.ACTIVE, State.DROPPED or there is an error condition. The method
     :py:meth:`wait_for_completion` exists to perform this task and should
     be used to wait for an operation to complete.
 
@@ -4164,60 +4164,6 @@ class TableResult(Result):
             return
         if self._operation_id is None:
             raise IllegalArgumentException('Operation id must not be none.')
-        TableResult._wait_for_state(
-            handle, terminal, wait_millis, delay_millis, result=self)
-
-    @staticmethod
-    def _wait_for_state(handle, state, wait_millis, delay_millis,
-                        table_name=None, compartment=None, operation_id=None,
-                        result=None):
-        """
-        Waits for the specified table to reach the desired state. This is a
-        blocking, polling style wait that delays for the specified number of
-        milliseconds between each polling operation. The state of State.DROPPED
-        is treated specially in that it will be returned as success, even if the
-        table does not exist. Other states will throw an exception if the table
-        is not found.
-
-        :param handle: the NoSQLHandle to use.
-        :type handle: NoSQLHandle
-        :param state: the desired state.
-        :type wait_millis: State
-        :param wait_millis: the total amount of time to wait, in milliseconds.
-            This value must be non-zero and greater than delay_millis.
-        :type wait_millis: int
-        :param delay_millis: the amount of time to wait between polling
-            attempts, in milliseconds. If 0 it will default to 500.
-        :type delay_millis: int
-        :param table_name: the optional table name.
-        :type table_name: str
-        :param compartment: optional compartment name or id if using cloud
-            service.
-        :type compartment: str
-        :param operation_id: the optional operation id.
-        :type operation_id: str
-        :param result: a optional previously received TableResult.
-        :type result: TableResult
-        :returns: the TableResult representing the table at the desired state.
-        :rtype: TableResult
-        :raises IllegalArgumentException: raises the exception if the parameters
-            are not valid.
-        :raises RequestTimeoutException: raises the exception if the operation
-            times out.
-        """
-        if (result is not None and table_name is None and operation_id is None
-                and compartment is None):
-            table_name = result.get_table_name()
-            compartment = result.get_compartment_id()
-            operation_id = result.get_operation_id()
-        elif result is None and table_name is not None:
-            pass
-        else:
-            raise IllegalArgumentException(
-                'Parameters are not valid, the optional parameters should be ' +
-                'set as:\n1 Set only result.\n2 Set only table_name.' +
-                '\n3 Set only table_name and operation_id.')
-
         default_delay = 500
         delay_ms = delay_millis if delay_millis != 0 else default_delay
         if wait_millis < delay_millis:
@@ -4227,49 +4173,31 @@ class TableResult(Result):
         start_time = int(round(time() * 1000))
         delay_s = float(delay_ms) / 1000
         get_table = GetTableRequest().set_table_name(
-            table_name).set_operation_id(operation_id).set_compartment(
-            compartment)
+            self._table_name).set_operation_id(
+            self._operation_id).set_compartment(self._compartment_id)
         res = None
         while True:
             cur_time = int(round(time() * 1000))
             if cur_time - start_time > wait_millis:
-                if isinstance(state, list):
-                    raise RequestTimeoutException(
-                        'Operation not completed in expected time', wait_millis)
-                else:
-                    raise RequestTimeoutException(
-                        'Expected state for table ' + table_name +
-                        ' not reached.', wait_millis)
-
+                raise RequestTimeoutException(
+                    'Operation not completed in expected time', wait_millis)
             try:
                 if res is not None:
                     # only delay after the first get_table.
                     sleep(delay_s)
                 res = handle.get_table(get_table)
-                if isinstance(state, list):
-                    # partial "copy" of possibly modified state. Don't modify
-                    # operationId as that is what we are waiting to complete.
-                    assert result is not None
-                    result.set_state(res.get_state())
-                    result.set_table_limits(res.get_table_limits())
-                    result.set_schema(res.get_schema())
-            except TableNotFoundException as tnf:
-                if isinstance(state, list):
-                    # The operation was probably a drop. There was an
-                    # operation_id, which means that the table existed when the
-                    # original request was made. Throwing tnf doesn't add value
-                    # here.
-                    result.set_state(State.DROPPED)
-                    res = result
-                else:
-                    # table not found is == DROPPED.
-                    if state == State.DROPPED:
-                        return TableResult().set_table_name(
-                            table_name).set_state(State.DROPPED)
-                    raise tnf
-            if res.get_state() == state or res.get_state() in state:
+                # partial "copy" of possibly modified state. Don't modify
+                # operationId as that is what we are waiting to complete.
+                self._state = res.get_state()
+                self._limits = res.get_table_limits()
+                self._schema = res.get_schema()
+            except TableNotFoundException:
+                # The operation was probably a drop. There was an operation_id,
+                # which means that the table existed when the original request
+                # was made. Throwing tnf doesn't add value here.
+                self._state = State.DROPPED
+            if self._state in terminal:
                 break
-        return res
 
 
 class TableUsageResult(Result):

@@ -33,17 +33,11 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         # illegal endpoint
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
                           {'IllegalEndpoint': endpoint})
-        # illegal region
-        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
-                          region='IllegalRegion')
         # illegal provider
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
                           endpoint, provider='IllegalProvider')
-        # no endpoint and region
+        # no endpoint
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig)
-        # both endpoint and region
-        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
-                          endpoint, Regions.UK_LONDON_1)
 
     def testNoSQLHandleConfigSetIllegalEndpoint(self):
         # illegal endpoint
@@ -191,6 +185,18 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         # set proto:host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com:443')
         self._check_service_url(config, 'http', 'ndcs.com', 443)
+        # set a Region Regions.US_ASHBURN_1 as endpoint.
+        config = get_simple_handle_config(tenant_id, Regions.US_ASHBURN_1)
+        self._check_service_url(
+            config, 'https', 'nosql.us-ashburn-1.oci.oraclecloud.com', 443)
+        # set a Region Regions.US_LANGLEY_1 as endpoint.
+        config = get_simple_handle_config(tenant_id, Regions.US_LANGLEY_1)
+        self._check_service_url(
+            config, 'https', 'nosql.us-langley-1.oci.oraclegovcloud.com', 443)
+        # set a Region Regions.UK_GOV_LONDON_1 as endpoint.
+        config = get_simple_handle_config(tenant_id, Regions.UK_GOV_LONDON_1)
+        self._check_service_url(
+            config, 'https', 'nosql.uk-gov-london-1.oci.oraclegovcloud.uk', 443)
 
     def testNoSQLHandleConfigRegions(self):
         for r in Regions.get_oc1_regions():
