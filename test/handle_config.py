@@ -185,6 +185,18 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         # set proto:host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com:443')
         self._check_service_url(config, 'http', 'ndcs.com', 443)
+        # set a Region's id 'us-AshBURN-1' as endpoint.
+        config = get_simple_handle_config(tenant_id, 'us-AshBURN-1')
+        self._check_service_url(
+            config, 'https', 'nosql.us-ashburn-1.oci.oraclecloud.com', 443)
+        # set a Region's id 'US-LangLEY-1' as endpoint.
+        config = get_simple_handle_config(tenant_id, 'US-LangLEY-1')
+        self._check_service_url(
+            config, 'https', 'nosql.us-langley-1.oci.oraclegovcloud.com', 443)
+        # set a Region's id 'UK-GOV-LONDON-1' as endpoint.
+        config = get_simple_handle_config(tenant_id, 'UK-GOV-LONDON-1')
+        self._check_service_url(
+            config, 'https', 'nosql.uk-gov-london-1.oci.oraclegovcloud.uk', 443)
         # set a Region Regions.US_ASHBURN_1 as endpoint.
         config = get_simple_handle_config(tenant_id, Regions.US_ASHBURN_1)
         self._check_service_url(

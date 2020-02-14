@@ -406,9 +406,7 @@ class Regions(object):
             region = Regions.OC4_REGIONS.get(region_id)
         if region is None:
             region = Regions.GOV_REGIONS.get(region_id)
-        if region is not None:
-            return region
-        raise IllegalArgumentException('Unknown region_id: ' + region_id)
+        return region
 
 
 class NoSQLHandleConfig(object):
@@ -423,19 +421,26 @@ class NoSQLHandleConfig(object):
     handles which are immutable. NoSQLHandle state with default values can be
     overridden in individual operations.
 
-    Most of the configuration parameters are optional and have default values if
+    Some of the configuration parameters are optional and have default values if
     not specified.
 
     The service endpoint is required by constructor used to connect to the
     Oracle NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
-    Database proxy server. It should be a string that inferred from the given
-    region or a region object. When using the Oracle NoSQL Database Cloud
-    Service, it is recommended that a region object be provided rather than an
-    endpoint string. See py:class:`Regions` for more information.
+    Database proxy server. It should be a string or a :py:class:`Region`.
 
-    If a string is provided to endpoint argument, it must include the target
-    address, and may include protocol and port. The valid syntax is
-    [http[s]://]host[:port], For example, these are valid endpoint arguments:
+    If a string is provided to endpoint argument, there is flexibility in how
+    endpoints are specified. A fully specified endpoint is of the format:
+
+     * http[s]://host:port
+
+    It also accepts portions of a fully specified endpoint, including a region
+    id (see :py:class:`Region`) string if using the Cloud service. A valid
+    endpoint is one of these:
+
+     * region id string (cloud service only)
+     * a string with the syntax [http[s]://]host[:port]
+
+    For example, these are valid endpoint arguments:
 
      * us-ashburn-1 (equivalent to using Region Regions.US_ASHBURN_1 as the
        endpoint argument)
@@ -446,19 +451,21 @@ class NoSQLHandleConfig(object):
        running locally on port 8080
      * https\://machine-hosting-proxy:443
 
-    If the protocol is omitted, the endpoint uses https if the port is 443, and
-    http in all other cases.
-
-    If port is omitted, the endpoint uses 8080 if protocol is http, and 443 in
+    When using the endpoint (vs region id) syntax, if the port is omitted, the
+    endpoint uses 8080 if protocol is http, and 443 in all other cases. If the
+    protocol is omitted, the endpoint uses https if the port is 443, and http in
     all other cases.
 
-    If a region is provided to endpoint argument, see :py:class:`Regions` for
-    the complete set of available regions, For example:
+    When using the Oracle NoSQL Database Cloud Service, it is recommended that a
+    :py:class:`Region` object is provided rather than a Region's id string.
+
+    If a :py:class:`Region` object is provided to endpoint argument, See
+    :py:class:`Regions` for information on available regions. For example:
 
      * Regions.US_ASHBURN_1
 
-    :param endpoint: identifies the endpoint string, region id or region that
-        will be accessed by NoSQLHandle.
+    :param endpoint: identifies a server, region id or :py:class:`Region` for
+        use by the NoSQLHandle. This is a required parameter.
     :type endpoint: str or Region
     :param provider: :py:class:`AuthorizationProvider` to use for the handle.
     :type provider: AuthorizationProvider
@@ -485,10 +492,7 @@ class NoSQLHandleConfig(object):
             raise IllegalArgumentException(
                 'provider must be an instance of AuthorizationProvider.')
         if isinstance(endpoint, str):
-            try:
-                self._region = Regions.from_region_id(endpoint)
-            except IllegalArgumentException:
-                self._region = None
+            self._region = Regions.from_region_id(endpoint)
         else:
             self._region = endpoint
         self._service_url = NoSQLHandleConfig.create_url(

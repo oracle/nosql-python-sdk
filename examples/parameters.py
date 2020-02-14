@@ -107,7 +107,7 @@ using_on_prem = False
 # Cloud Simulator: 'http://localhost:8080' or the host running Cloud Simulator
 # or a on-prem proxy started by the customer.
 # Service: a endpoint string, a region id or a Region, using for example:
-#  'us-ashburn-1', 'nosql.us-ashburn-1.oci.oraclecloud.com' or
+#  'nosql.us-ashburn-1.oci.oraclecloud.com', 'us-ashburn-1' or
 #  Regions.US_ASHBURN_1
 # on-premise: 'http://localhost:80' or 'https://localhost:443' (or use the
 # appropriate host:port for the proxy)

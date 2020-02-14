@@ -119,8 +119,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
     def testGetEventual(self):
         self.get_request.set_consistency(Consistency.EVENTUAL)
         result = self.handle.get(self.get_request)
-        self.check_get_result(result, row, None, tb_expect_expiration,
-                              TimeUnit.HOURS, False)
+        self.check_get_result(
+            result, row, expect_expiration=tb_expect_expiration,
+            timeunit=TimeUnit.HOURS, ver_eq=False)
         self.check_cost(result, 1, 1, 0, 0)
 
     def testGetNonExisting(self):
