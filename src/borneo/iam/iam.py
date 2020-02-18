@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives.hashes import SHA256
 from datetime import datetime
 from locale import LC_ALL, setlocale
 from os import path
-from re import match
 from requests import Session
 from threading import Timer
 try:
@@ -25,7 +24,6 @@ from borneo.auth import AuthorizationProvider
 from borneo.common import CheckValue, HttpConstants, LogUtils, Memoize
 from borneo.exception import IllegalArgumentException
 from borneo.http import RequestUtils
-from borneo.operations import Request
 
 
 class SignatureProvider(AuthorizationProvider):
@@ -65,22 +63,24 @@ class SignatureProvider(AuthorizationProvider):
     tables in queries. A specific user identity is best for naming flexibility,
     allowing both compartment names and OCIDs.
 
-    When using a specific user's identity there are 2 options for providing the
+    When using a specific user's identity there are 3 options for providing the
     required information:
 
-    1. Using a configuration file
+    1. Using a instance of oci.signer.Signer or
+       oci.auth.signers.InstancePrincipalsSecurityTokenSigner
     2. Directly providing the credentials via parameters
+    3. Using a configuration file
 
     Only one method of providing credentials can be used, and if they are mixed
     the priority from high to low is:
 
-    * Oci config in dict or InstancePrincipalsSecurityTokenSigner
-      (provider is used)
+    * Signer or InstancePrincipalsSecurityTokenSigner(provider is used)
     * Credentials as arguments (tenant_id, etc used)
     * Configuration file (config_file is used)
 
-    :param provider: the oci config or InstancePrincipalsSecurityTokenSigner.
-    :type provider: dict or InstancePrincipalsSecurityTokenSigner
+    :param provider: an instance of oci.signer.Signer or
+        oci.auth.signers.InstancePrincipalsSecurityTokenSigner.
+    :type provider: Signer or InstancePrincipalsSecurityTokenSigner
     :param config_file: path of configuration file.
     :type config_file: str
     :param profile_name: user profile name. Only valid with config_file.
@@ -115,8 +115,6 @@ class SignatureProvider(AuthorizationProvider):
         'Signature headers="{0}",keyId="{1}",algorithm="{2}",signature="{3}",' +
         'version="{4}"')
     SIGNATURE_VERSION = 1
-    OCID_PATTERN = (
-        '^([0-9a-zA-Z-_]+[.:])([0-9a-zA-Z-_]*[.:]){3,}([0-9a-zA-Z-_]+)$')
 
     def __init__(self, provider=None, config_file=None, profile_name=None,
                  tenant_id=None, user_id=None, fingerprint=None,
@@ -136,10 +134,11 @@ class SignatureProvider(AuthorizationProvider):
             if provider is not None:
                 if not isinstance(
                     provider,
-                    (dict,
+                    (oci.signer.Signer,
                      oci.auth.signers.InstancePrincipalsSecurityTokenSigner)):
                     raise IllegalArgumentException(
-                        'provider should be a dict or an instance of ' +
+                        'provider should be an instance of oci.signer.Signer' +
+                        'or oci.auth.signers.' +
                         'InstancePrincipalsSecurityTokenSigner.')
                 self._provider = provider
             elif (tenant_id is None or user_id is None or fingerprint is None or
@@ -149,47 +148,41 @@ class SignatureProvider(AuthorizationProvider):
                 if config_file is None and profile_name is None:
                     # Use default user profile and private key from default path
                     # of configuration file ~/.oci/config.
-                    self._provider = oci.config.from_file()
+                    config = oci.config.from_file()
                 elif config_file is None and profile_name is not None:
                     # Use user profile with given profile name and private key
                     # from default path of configuration file ~/.oci/config.
-                    self._provider = oci.config.from_file(
-                        profile_name=profile_name)
+                    config = oci.config.from_file(profile_name=profile_name)
                 elif config_file is not None and profile_name is None:
                     # Use user profile with default profile name and private key
                     # from specified configuration file.
-                    self._provider = oci.config.from_file(
-                        file_location=config_file)
+                    config = oci.config.from_file(file_location=config_file)
                 elif config_file is not None and profile_name is not None:
                     # Use user profile with given profile name and private key
                     # from specified configuration file.
-                    self._provider = oci.config.from_file(
+                    config = oci.config.from_file(
                         file_location=config_file, profile_name=profile_name)
+                self._provider = oci.signer.Signer(
+                    config['tenancy'], config['user'], config['fingerprint'],
+                    config['key_file'], config.get('pass_phrase'),
+                    config.get('key_content'))
             else:
                 CheckValue.check_str(tenant_id, 'tenant_id')
                 CheckValue.check_str(user_id, 'user_id')
                 CheckValue.check_str(fingerprint, 'fingerprint')
                 CheckValue.check_str(private_key, 'private_key')
                 CheckValue.check_str(pass_phrase, 'pass_phrase', True)
-                self._provider = {
-                    'tenancy': tenant_id, 'user': user_id,
-                    'fingerprint': fingerprint, 'key_file': None,
-                    'pass_phrase': pass_phrase}
                 if path.isfile(private_key):
-                    self._provider.update({'key_file': private_key})
+                    key_file = private_key
+                    key_content = None
                 else:
-                    self._provider.update({'key_content': private_key})
+                    key_file = None
+                    key_content = private_key
+                self._provider = oci.signer.Signer(
+                    tenant_id, user_id, fingerprint, key_file, pass_phrase,
+                    key_content)
         except AttributeError:
             raise ImportError('No module named oci')
-
-        if isinstance(self._provider, dict):
-            signer = oci.signer.Signer(
-                tenancy=self._provider['tenancy'], user=self._provider['user'],
-                fingerprint=self._provider['fingerprint'],
-                private_key_file_location=self._provider['key_file'],
-                private_key_content=self._provider.get('key_content'),
-                pass_phrase=self._provider.get('pass_phrase'))
-            self._private_key = signer.private_key
         self._signature_cache = Memoize(duration_seconds)
         self._refresh_interval_s = (duration_seconds - refresh_ahead if
                                     duration_seconds > refresh_ahead else 0)
@@ -211,10 +204,6 @@ class SignatureProvider(AuthorizationProvider):
             self._timer = None
 
     def get_authorization_string(self, request=None):
-        if not isinstance(request, Request):
-            raise IllegalArgumentException(
-                'get_authorization_string requires an instance of Request as ' +
-                'parameter.')
         if self._service_host is None:
             raise IllegalArgumentException(
                 'Unable to find service host, use set_service_host to load ' +
@@ -295,21 +284,6 @@ class SignatureProvider(AuthorizationProvider):
                 oci.auth.signers.InstancePrincipalsSecurityTokenSigner(
                     federation_endpoint=iam_auth_uri))
 
-    def _get_key_id(self):
-        tenant_id = self._provider['tenancy']
-        user_id = self._provider['user']
-        fingerprint = self._provider['fingerprint']
-        CheckValue.check_str(tenant_id, 'tenant_id')
-        CheckValue.check_str(user_id, 'user_id')
-        CheckValue.check_str(fingerprint, 'fingerprint')
-        if not self._is_valid_ocid(tenant_id):
-            raise IllegalArgumentException(
-                'Tenant Id ' + tenant_id + ' does not match OCID pattern')
-        if not self._is_valid_ocid(user_id):
-            raise IllegalArgumentException(
-                'User Id ' + user_id + ' does not match OCID pattern')
-        return str.format('{0}/{1}/{2}', tenant_id, user_id, fingerprint)
-
     def _get_signature_details(self):
         sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
         if sig_details is not None:
@@ -325,17 +299,15 @@ class SignatureProvider(AuthorizationProvider):
         if isinstance(self._provider,
                       oci.auth.signers.InstancePrincipalsSecurityTokenSigner):
             self._provider.refresh_security_token()
-            self._private_key = self._provider.private_key
-            key_id = self._provider.api_key
-        else:
-            key_id = self._get_key_id()
+        private_key = self._provider.private_key
+        key_id = self._provider.api_key
 
         try:
-            signature = self._private_key.sign(
+            signature = private_key.sign(
                 self._signing_content(date_str), PKCS1v15(), SHA256())
             signature = b64encode(signature)
         except TypeError:
-            signature = self._private_key.sign(
+            signature = private_key.sign(
                 self._signing_content(date_str).encode(), PKCS1v15(), SHA256())
             signature = b64encode(signature).decode()
         sig_header = str.format(
@@ -351,8 +323,8 @@ class SignatureProvider(AuthorizationProvider):
         :returns: tenant OCID of user.
         :rtype: str
         """
-        if isinstance(self._provider, dict):
-            return self._provider['tenancy']
+        if isinstance(self._provider, oci.signer.Signer):
+            return self._provider.api_key.split('/')[0]
 
     def _refresh_task(self):
         try:
@@ -384,10 +356,6 @@ class SignatureProvider(AuthorizationProvider):
         return (HttpConstants.REQUEST_TARGET + ': post /' +
                 HttpConstants.NOSQL_DATA_PATH + '\nhost: ' +
                 self._service_host + '\ndate: ' + date_str)
-
-    @staticmethod
-    def _is_valid_ocid(ocid):
-        return match(SignatureProvider.OCID_PATTERN, ocid)
 
     class SignatureDetails(object):
         def __init__(self, signature_header, date_str):

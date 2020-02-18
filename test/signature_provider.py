@@ -112,8 +112,11 @@ class TestSignatureProvider(unittest.TestCase):
                               self.token_provider.set_logger, 'IllegalLogger')
 
         def testAccessTokenProviderGetAuthStringWithIllegalRequest(self):
-            provider = oci.config.from_file(
-                file_location=fake_credentials_file)
+            config = oci.config.from_file(file_location=fake_credentials_file)
+            provider = oci.signer.Signer(
+                config['tenancy'], config['user'], config['fingerprint'],
+                config['key_file'], config.get('pass_phrase'),
+                config.get('key_content'))
             self.token_provider = SignatureProvider(provider)
             self.assertRaises(IllegalArgumentException,
                               self.token_provider.get_authorization_string,
