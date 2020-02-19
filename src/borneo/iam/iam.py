@@ -130,6 +130,13 @@ class SignatureProvider(AuthorizationProvider):
             raise IllegalArgumentException(
                 'Access token cannot be cached longer than ' +
                 str(SignatureProvider.MAX_ENTRY_LIFE_TIME) + ' seconds.')
+
+        #
+        # This class depends on the oci package
+        #
+        if oci is None:
+            raise ImportError('Package \'oci\' is required; please install')
+
         try:
             if provider is not None:
                 if not isinstance(
@@ -182,7 +189,7 @@ class SignatureProvider(AuthorizationProvider):
                     tenant_id, user_id, fingerprint, key_file, pass_phrase,
                     key_content)
         except AttributeError:
-            raise ImportError('No module named oci')
+            raise ImportError('Package \'oci\' is required; please install')
         self._signature_cache = Memoize(duration_seconds)
         self._refresh_interval_s = (duration_seconds - refresh_ahead if
                                     duration_seconds > refresh_ahead else 0)
