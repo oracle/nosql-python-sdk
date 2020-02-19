@@ -105,6 +105,11 @@ connecting an application are associated with a specific user. If needed, create
 a user for the person or system using the api. See `Adding Users <https://docs.
 cloud.oracle.com/en-us/iaas/Content/GSG/Tasks/addingusers.htm>`_.
 
+Using the SDK with the Oracle NoSQL Database Cloud Service also requires
+installation of the Oracle Cloud Infrastructure (OCI) Python SDK::
+
+    pip install oci
+
 .. _creds-label:
 
 Acquire Credentials for the Oracle NoSQL Database Cloud Service
