@@ -157,7 +157,7 @@ class SignatureProvider(AuthorizationProvider):
                     # Use user profile with default profile name and private key
                     # from specified configuration file.
                     config = oci.config.from_file(file_location=config_file)
-                elif config_file is not None and profile_name is not None:
+                else:  # config_file is not None and profile_name is not None
                     # Use user profile with given profile name and private key
                     # from specified configuration file.
                     config = oci.config.from_file(

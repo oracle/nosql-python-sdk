@@ -87,8 +87,8 @@ modifications. The instructions assume that is stored as quickstart.py, but you
 can use any name you like. The quickstart example supports 3 environments:
 
 1. Oracle NoSQL Database Cloud Service
-2. Oracle NoSQL  Cloud Simulator
-3. Oracle NoSQL  Database on-premise, using the proxy server
+2. Oracle NoSQL Cloud Simulator
+3. Oracle NoSQL Database on-premise, using the proxy server
 
 See `Running Quickstart <#run-quickstart>`_ for instructions on how to edit and
 run the quickstart program in different environments. The instructions assume
@@ -106,63 +106,67 @@ that the *borneo* package has been installed.
     #
 
     #
-    # This is a simple quickstart to demonstrate use of the Python driver for the
-    # Oracle NoSQL Database. It can be used to run against the Oracle NoSQL Database
-    # Cloud Service, against the Cloud Simulator, or against an on-premise Oracle
-    # NoSQL database.
+    # This is a simple quickstart to demonstrate use of the Python driver for
+    # the Oracle NoSQL Database. It can be used to run against the Oracle NoSQL
+    # Database Cloud Service, against the Cloud Simulator, or against an
+    # on-premise Oracle NoSQL database.
     #
     # Usage:
-    #   python quickstart.py <cloud|cloudsim|kvstore>
+    #   python quickstart.py <cloud | cloudsim | kvstore>
     #
     # Use cloud for the Cloud Service
     # Use cloudsim for the Cloud Simulator
     # Use kvstore for the on-premise database
     #
-    # This example is not intended to be an exhaustive overview of the API, which
-    # has a number of additional operations.
+    # This example is not intended to be an exhaustive overview of the API,
+    # which has a number of additional operations.
     #
     # Requirements:
     #  1. Python 2.7 or 3.5+
     #  2. Python dependencies (install using pip or other mechanism):
     #   o requests
     #   o oci (only if running against the Cloud Service)
-    #  3. If running against the Cloud Simulator, it can be downloaded from here:
+    #  3. If running against the Cloud Simulator, it can be downloaded from
+    #  here:
     #   http://www.oracle.com/technetwork/topics/cloud/downloads/index.html
     #  It requires Java
-    #  4. If running against the Oracle NoSQL Database Cloud Service an account must
-    #  be used.
+    #  4. If running against the Oracle NoSQL Database Cloud Service an account
+    #  must be used.
     #
 
     import sys
 
     from borneo import (
-        AuthorizationProvider, DeleteRequest, GetRequest, IllegalArgumentException,
-        NoSQLHandle, NoSQLHandleConfig, PutRequest, QueryRequest, Regions,
-        TableLimits, TableRequest)
-    from borneo.iam import(SignatureProvider)
-    from borneo.kv import(StoreAccessTokenProvider)
+        AuthorizationProvider, DeleteRequest, GetRequest,
+        IllegalArgumentException, NoSQLHandle, NoSQLHandleConfig, PutRequest,
+        QueryRequest, Regions, TableLimits, TableRequest)
+    from borneo.iam import SignatureProvider
+    from borneo.kv import StoreAccessTokenProvider
 
 
     #
-    # EDIT: these values based on desired region and/or endpoint for a local server
+    # EDIT: these values based on desired region and/or endpoint for a local
+    # server
     #
     cloud_region = Regions.EU_ZURICH_1
     cloudsim_endpoint = 'localhost:8080'
     kvstore_endpoint = 'localhost:80'
-    cloudsim_id = 'cloudsim' # a fake user id/namespace for the Cloud Simulator
+    cloudsim_id = 'cloudsim'  # a fake user id/namespace for the Cloud Simulator
 
     # Cloud Service Only
     #
     # EDIT: set these variables to the credentials to use if you are not using
     # a configuration file in ~/.oci/config
-    # Use of these credentials vs a file is determined by a value of
-    # tenancy other than None.
+    # Use of these credentials vs a file is determined by a value of tenancy
+    # other than None.
     #
-    tenancy = None # tenancy'd OCID (string)
-    user = None # user's OCID (string)
+    tenancy = None  # tenancy'd OCID (string)
+    user = None  # user's OCID (string)
     private_key = 'path-to-private-key-or-private-key-content'
     fingerprint = 'fingerprint for uploaded public key'
-    pass_phrase = None # pass phrase (string) for private key, or None if not set
+    # pass phrase (string) for private key, or None if not set
+    pass_phrase = None
+
 
     class CloudsimAuthorizationProvider(AuthorizationProvider):
         """
@@ -170,33 +174,31 @@ that the *borneo* package has been installed.
 
         This class is used as an AuthorizationProvider when using the Cloud
         Simulator, which has no security configuration. It accepts a string
-        id that is used as a simple namespace for tables.
+        tenant_id that is used as a simple namespace for tables.
         """
 
-        def __init__(self, id):
+        def __init__(self, tenant_id):
             super(CloudsimAuthorizationProvider, self).__init__()
-            self._id = id
+            self._tenant_id = tenant_id
 
         def close(self):
             pass
 
         def get_authorization_string(self, request=None):
-            return 'Bearer ' + self._id
+            return 'Bearer ' + self._tenant_id
 
 
     def get_handle(nosql_env):
         """
-        Returns a NoSQLHandle based on the requested environment. The differences
-        among the supported environments are encapsulated in this method.
+        Returns a NoSQLHandle based on the requested environment. The
+        differences among the supported environments are encapsulated in this
+        method.
         """
-        provider = None
-        endpoint = None
-
         if nosql_env == 'cloud':
             endpoint = cloud_region
             #
-            # Get credentials using SignatureProvider. SignatureProvider
-            # has several ways to accept credentials. See the documentation:
+            # Get credentials using SignatureProvider. SignatureProvider has
+            # several ways to accept credentials. See the documentation:
             #  https://nosql-python-sdk.readthedocs.io/en/latest/api/borneo.iam.SignatureProvider.html
             #
             if tenancy is not None:
@@ -204,11 +206,11 @@ that the *borneo* package has been installed.
                 #
                 # Credentials are provided directly
                 #
-                provider = SignatureProvider(tenant_id = tenancy,
-                                             user_id = user,
-                                             fingerprint = fingerprint,
-                                             private_key = private_key,
-                                             pass_phrase = pass_phrase)
+                provider = SignatureProvider(tenant_id=tenancy,
+                                             user_id=user,
+                                             fingerprint=fingerprint,
+                                             private_key=private_key,
+                                             pass_phrase=pass_phrase)
             else:
                 #
                 # Credentials will come from a file.
@@ -216,7 +218,8 @@ that the *borneo* package has been installed.
                 # By default the file is ~/.oci/config. A config_file = <path>
                 # argument can be passed to specify a different file.
                 #
-                print('Using credentials and DEFAULT profile from ~/.oci/config')
+                print('Using credentials and DEFAULT profile from ' +
+                      '~/.oci/config')
                 provider = SignatureProvider()
         elif nosql_env == 'cloudsim':
             print('Using cloud simulator endpoint ' + cloudsim_endpoint)
@@ -233,12 +236,13 @@ that the *borneo* package has been installed.
 
         return NoSQLHandle(NoSQLHandleConfig(endpoint, provider))
 
+
     def main():
 
         table_name = 'PythonQuickstart'
 
         if len(sys.argv) != 2:
-            print('Usage: python quickstart.py <cloud|cloudsim|kvstore>')
+            print('Usage: python quickstart.py <cloud | cloudsim | kvstore>')
             raise SystemExit
 
         nosql_env = sys.argv[1:][0]
@@ -255,8 +259,9 @@ that the *borneo* package has been installed.
             #
             # Create a table
             #
-            statement = ('Create table if not exists {} (id integer, ' +
-                         'sid integer, name string, primary key(shard(sid), id))').format(table_name)
+            statement = (
+                'Create table if not exists {} (id integer, sid integer, ' +
+                'name string, primary key(shard(sid), id))').format(table_name)
             request = TableRequest().set_statement(statement).set_table_limits(
                 TableLimits(30, 10, 1))
             handle.do_table_request(request, 50000, 3000)
@@ -283,7 +288,8 @@ that the *borneo* package has been installed.
             #
             # Query, using a range
             #
-            statement = 'select * from ' + table_name + ' where id > 2 and id < 8'
+            statement = (
+                'select * from ' + table_name + ' where id > 2 and id < 8')
             request = QueryRequest().set_statement(statement)
             result = handle.query(request)
             print('Query results for: ' + statement)
@@ -293,8 +299,8 @@ that the *borneo* package has been installed.
             #
             # Delete the row
             #
-            request = DeleteRequest().set_key({'id': 1, 'sid': 0}).set_table_name(
-                table_name)
+            request = DeleteRequest().set_table_name(table_name).set_key(
+                {'id': 1, 'sid': 0})
             result = handle.delete(request)
             print('After delete: ' + str(result))
 
@@ -341,8 +347,9 @@ Run Against the Oracle NoSQL Database Cloud Service
 ===================================================
 
 Running against the Cloud Service requires an Oracle Cloud account. See
-`Configure for the Cloud Service <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-cloud-service>`_ for information on getting
-an account and acquiring required credentials.
+`Configure for the Cloud Service <https://nosql-python-sdk.readthedocs.io/en/
+latest/installation.html#configure-for-the-cloud-service>`_ for information on
+getting an account and acquiring required credentials.
 
 1. Collect the following information:
 
@@ -352,7 +359,7 @@ an account and acquiring required credentials.
  * Fingerprint for the public key uploaded to the user's account
  * Private key pass phrase, needed only if the private key is encrypted
 
-2. Edit *quickstart.py*  and add your information. There are 2 ways to supply
+2. Edit *quickstart.py* and add your information. There are 2 ways to supply
    credentials in the program:
 
    * Directly provide the credential information. To use this method, modify the
@@ -360,7 +367,10 @@ an account and acquiring required credentials.
      *private_key*, *fingerprint*, and *pass_phrase*, setting them to the
      corresponding information you've collected.
    * Using a configuration file. In this case the information you've collected
-     goes into a file, ~/.oci/config. `Configure for the Cloud Service <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-cloud-service>`_ describes the contents of the file. It will look like this::
+     goes into a file, ~/.oci/config. `Configure for the Cloud Service <https://
+     nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-
+     the-cloud-service>`_ describes the contents of the file. It will look like
+     this::
 
       [DEFAULT]
       tenancy=<your-tenancy-id>
@@ -370,8 +380,9 @@ an account and acquiring required credentials.
       pass_phrase=<optional-pass-phrase-for-key-file>
 
 3. Decide which region you want to use and modify the *cloud_region* variable to
-   the desired region. See `Regions documentation <https://nosql-python-sdk.readthedocs.io/en/latest/api/borneo.Regions.html>`_ for possible regions. Not all support
-   the Oracle NoSQL Database Cloud Service.
+   the desired region. See `Regions documentation <https://nosql-python-sdk.
+   readthedocs.io/en/latest/api/borneo.Regions.html>`_ for possible regions. Not
+   all support the Oracle NoSQL Database Cloud Service.
 
 4. Run the program:
 
@@ -379,13 +390,13 @@ an account and acquiring required credentials.
 
     python quickstart.py cloud
 
-
 Run Against the Oracle NoSQL Cloud Simulator
 ============================================
 
 Running against the Oracle NoSQL Cloud Simulator requires a running Cloud
-Simulator instance. See `Using the Cloud Simulator <https://oracle.github.io/nosql-node-sdk/tutorial-connect-cloud.html#cloudsim>`_ for information on how to download
-and start the Cloud Simulator.
+Simulator instance. See `Using the Cloud Simulator <https://oracle.github.io/
+nosql-node-sdk/tutorial-connect-cloud.html#cloudsim>`_ for information on how to
+download and start the Cloud Simulator.
 
 1. Start the Cloud Simulator based on instructions above. Note the HTTP port
    used. By default it is *8080* on *localhost*.
@@ -402,21 +413,22 @@ and start the Cloud Simulator.
 Run Against Oracle NoSQL on-premise
 ===================================
 
-Running against the Oracle NoSQL Database on-premise requires a running
-Oracle NoSQL Database instance as well as a running NoSQL Proxy server instance.
-The program will connect to the proxy server.
+Running against the Oracle NoSQL Database on-premise requires a running Oracle
+NoSQL Database instance as well as a running NoSQL Proxy server instance. The
+program will connect to the proxy server.
 
-See `Connecting to an On-Premise Oracle NoSQL Database <https://oracle.github.io/nosql-node-sdk/tutorial-connect-on-prem.html>`_ for information on how to download
-and start the database instance and proxy server. The database and proxy should
-be started without security enabled for this quickstart program to operate
-correctly. A secure configuration requires a secure proxy and more complex
-configuration.
+See `Connecting to an On-Premise Oracle NoSQL Database <https://oracle.github.io
+/nosql-node-sdk/tutorial-connect-on-prem.html>`_ for information on how to
+download and start the database instance and proxy server. The database and
+proxy should be started without security enabled for this quickstart program to
+operate correctly. A secure configuration requires a secure proxy and more
+complex configuration.
 
-1. Start the Oracle NoSQL Database and proxy server  based on instructions above.
+1. Start the Oracle NoSQL Database and proxy server based on instructions above.
    Note the HTTP port used. By default the endpoint is *localhost:80*.
 
-2. The *quickstart.py* program defaults to *localhost:80*. If the proxy was started
-   using a different host or port edit the settings accordingly.
+2. The *quickstart.py* program defaults to *localhost:80*. If the proxy was
+   started using a different host or port edit the settings accordingly.
 
 3. Run the program:
 
