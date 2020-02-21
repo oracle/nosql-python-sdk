@@ -115,7 +115,7 @@ Learn how to create tables and indexes in Oracle NoSQL Database.
 Creating a table is the first step of developing your application. You use
 the :class:`borneo.TableRequest` class and its methods to execute Data
 Definition Language (DDL) statements, such as, creating, modifying, and dropping
-tables. If using the Oracle NoSQL Cloud Service or CloudSimulator you must also
+tables. If using the Oracle NoSQL Cloud Service or Cloud Simulator you must also
 set table limits using :func:`borneo.TableRequest.set_table_limits` method.
 Limits are ignored on-premise, if provided.
 
