@@ -672,4 +672,4 @@ class NoSQLHandle(object):
                 endpoint = endpoint[:len(endpoint) - 1]
             provider.set_endpoint(endpoint)
         elif isinstance(provider, SignatureProvider):
-            provider.set_service_host(config)
+            provider.set_service_url(config)

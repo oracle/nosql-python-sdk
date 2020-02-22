@@ -24,8 +24,8 @@ Clone the repository and Install dependencies.
 Running Tests and Examples
 ==========================
 
-During development the unit tests and examples run against either a local
-Cloud Simulator server, which can run on the local machine or an instance of the
+During development the unit tests and examples run against either a local Cloud
+Simulator server, which can run on the local machine or an instance of the
 on-premise Proxy that allows access to a local instance of the Oracle NoSQL
 Database. See `Download the Oracle NoSQL Cloud Simulator <https://docs.oracle.
 com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-3E11C056-B144-

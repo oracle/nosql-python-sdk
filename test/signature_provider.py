@@ -134,7 +134,7 @@ class TestSignatureProvider(unittest.TestCase):
             self.assertRaises(
                 IllegalArgumentException,
                 self.token_provider.get_authorization_string, self.request)
-            self.token_provider.set_service_host(self.handle_config)
+            self.token_provider.set_service_url(self.handle_config)
             auth_string = self.token_provider.get_authorization_string(
                 self.request)
             # Cache duration is about 5s, string should be the same.
@@ -156,7 +156,7 @@ class TestSignatureProvider(unittest.TestCase):
             self.assertRaises(
                 IllegalArgumentException,
                 self.token_provider.get_authorization_string, self.request)
-            self.token_provider.set_service_host(self.handle_config)
+            self.token_provider.set_service_url(self.handle_config)
             auth_string = self.token_provider.get_authorization_string(
                 self.request)
             # Cache duration is about 5s, string should be the same.
@@ -179,7 +179,7 @@ class TestSignatureProvider(unittest.TestCase):
                 self.assertRaises(
                     IllegalArgumentException,
                     self.token_provider.get_authorization_string, self.request)
-                self.token_provider.set_service_host(self.handle_config)
+                self.token_provider.set_service_url(self.handle_config)
                 auth_string = self.token_provider.get_authorization_string(
                     self.request)
                 # Cache duration is about 5s, string should be the same.

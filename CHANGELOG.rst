@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
- 5.2.0 - 2020-02-10
+ 5.2.1 - 2020-02-22
+====================
+
+Removed
+_______
+
+* The requirement of third party package "cryptography" has been removed.
+
+====================
+ 5.2.0 - 2020-02-20
 ====================
 
 Added

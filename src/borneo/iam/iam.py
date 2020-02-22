@@ -7,13 +7,8 @@
 # appropriate download for a copy of the license and additional information.
 #
 
-from base64 import b64encode
-from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
-from cryptography.hazmat.primitives.hashes import SHA256
-from datetime import datetime
-from locale import LC_ALL, setlocale
 from os import path
-from requests import Session
+from requests import Request, Session
 from threading import Timer
 try:
     import oci
@@ -104,17 +99,12 @@ class SignatureProvider(AuthorizationProvider):
         are not valid.
     """
 
-    SIGNING_HEADERS = '(request-target) host date'
     CACHE_KEY = 'signature'
     """Cache key name."""
     MAX_ENTRY_LIFE_TIME = 300
     """Maximum lifetime of signature 300 seconds."""
     DEFAULT_REFRESH_AHEAD = 10
     """Default refresh time before signature expiry, 10 seconds."""
-    SIGNATURE_HEADER_FORMAT = (
-        'Signature headers="{0}",keyId="{1}",algorithm="{2}",signature="{3}",' +
-        'version="{4}"')
-    SIGNATURE_VERSION = 1
 
     def __init__(self, provider=None, config_file=None, profile_name=None,
                  tenant_id=None, user_id=None, fingerprint=None,
@@ -124,6 +114,12 @@ class SignatureProvider(AuthorizationProvider):
         """
         The SignatureProvider that generates and caches request signature.
         """
+        #
+        # This class depends on the oci package
+        #
+        if oci is None:
+            raise ImportError('Package "oci" is required; please install.')
+
         CheckValue.check_int_gt_zero(duration_seconds, 'duration_seconds')
         CheckValue.check_int_gt_zero(refresh_ahead, 'refresh_ahead')
         if duration_seconds > SignatureProvider.MAX_ENTRY_LIFE_TIME:
@@ -131,72 +127,63 @@ class SignatureProvider(AuthorizationProvider):
                 'Access token cannot be cached longer than ' +
                 str(SignatureProvider.MAX_ENTRY_LIFE_TIME) + ' seconds.')
 
-        #
-        # This class depends on the oci package
-        #
-        if oci is None:
-            raise ImportError('Package \'oci\' is required; please install')
-
-        try:
-            if provider is not None:
-                if not isinstance(
-                    provider,
-                    (oci.signer.Signer,
-                     oci.auth.signers.InstancePrincipalsSecurityTokenSigner)):
-                    raise IllegalArgumentException(
-                        'provider should be an instance of oci.signer.Signer' +
-                        'or oci.auth.signers.' +
-                        'InstancePrincipalsSecurityTokenSigner.')
-                self._provider = provider
-            elif (tenant_id is None or user_id is None or fingerprint is None or
-                  private_key is None):
-                CheckValue.check_str(config_file, 'config_file', True)
-                CheckValue.check_str(profile_name, 'profile_name', True)
-                if config_file is None and profile_name is None:
-                    # Use default user profile and private key from default path
-                    # of configuration file ~/.oci/config.
-                    config = oci.config.from_file()
-                elif config_file is None and profile_name is not None:
-                    # Use user profile with given profile name and private key
-                    # from default path of configuration file ~/.oci/config.
-                    config = oci.config.from_file(profile_name=profile_name)
-                elif config_file is not None and profile_name is None:
-                    # Use user profile with default profile name and private key
-                    # from specified configuration file.
-                    config = oci.config.from_file(file_location=config_file)
-                else:  # config_file is not None and profile_name is not None
-                    # Use user profile with given profile name and private key
-                    # from specified configuration file.
-                    config = oci.config.from_file(
-                        file_location=config_file, profile_name=profile_name)
-                self._provider = oci.signer.Signer(
-                    config['tenancy'], config['user'], config['fingerprint'],
-                    config['key_file'], config.get('pass_phrase'),
-                    config.get('key_content'))
+        if provider is not None:
+            if not isinstance(
+                provider,
+                (oci.signer.Signer,
+                 oci.auth.signers.InstancePrincipalsSecurityTokenSigner)):
+                raise IllegalArgumentException(
+                    'provider should be an instance of oci.signer.Signer or ' +
+                    'oci.auth.signers.InstancePrincipalsSecurityTokenSigner.')
+            self._provider = provider
+        elif (tenant_id is None or user_id is None or fingerprint is None or
+              private_key is None):
+            CheckValue.check_str(config_file, 'config_file', True)
+            CheckValue.check_str(profile_name, 'profile_name', True)
+            if config_file is None and profile_name is None:
+                # Use default user profile and private key from default path of
+                # configuration file ~/.oci/config.
+                config = oci.config.from_file()
+            elif config_file is None and profile_name is not None:
+                # Use user profile with given profile name and private key from
+                # default path of configuration file ~/.oci/config.
+                config = oci.config.from_file(profile_name=profile_name)
+            elif config_file is not None and profile_name is None:
+                # Use user profile with default profile name and private key
+                # from specified configuration file.
+                config = oci.config.from_file(file_location=config_file)
+            else:  # config_file is not None and profile_name is not None
+                # Use user profile with given profile name and private key from
+                # specified configuration file.
+                config = oci.config.from_file(
+                    file_location=config_file, profile_name=profile_name)
+            self._provider = oci.signer.Signer(
+                config['tenancy'], config['user'], config['fingerprint'],
+                config['key_file'], config.get('pass_phrase'),
+                config.get('key_content'))
+        else:
+            CheckValue.check_str(tenant_id, 'tenant_id')
+            CheckValue.check_str(user_id, 'user_id')
+            CheckValue.check_str(fingerprint, 'fingerprint')
+            CheckValue.check_str(private_key, 'private_key')
+            CheckValue.check_str(pass_phrase, 'pass_phrase', True)
+            if path.isfile(private_key):
+                key_file = private_key
+                key_content = None
             else:
-                CheckValue.check_str(tenant_id, 'tenant_id')
-                CheckValue.check_str(user_id, 'user_id')
-                CheckValue.check_str(fingerprint, 'fingerprint')
-                CheckValue.check_str(private_key, 'private_key')
-                CheckValue.check_str(pass_phrase, 'pass_phrase', True)
-                if path.isfile(private_key):
-                    key_file = private_key
-                    key_content = None
-                else:
-                    key_file = None
-                    key_content = private_key
-                self._provider = oci.signer.Signer(
-                    tenant_id, user_id, fingerprint, key_file, pass_phrase,
-                    key_content)
-        except AttributeError:
-            raise ImportError('Package \'oci\' is required; please install')
+                key_file = None
+                key_content = private_key
+            self._provider = oci.signer.Signer(
+                tenant_id, user_id, fingerprint, key_file, pass_phrase,
+                key_content)
+
         self._signature_cache = Memoize(duration_seconds)
         self._refresh_interval_s = (duration_seconds - refresh_ahead if
                                     duration_seconds > refresh_ahead else 0)
 
         # Refresh timer.
         self._timer = None
-        self._service_host = None
+        self._service_url = None
         self._logger = None
         self._logutils = LogUtils()
         self._sess = Session()
@@ -211,13 +198,13 @@ class SignatureProvider(AuthorizationProvider):
             self._timer = None
 
     def get_authorization_string(self, request=None):
-        if self._service_host is None:
+        if self._service_url is None:
             raise IllegalArgumentException(
-                'Unable to find service host, use set_service_host to load ' +
+                'Unable to find service url, use set_service_url to load ' +
                 'from NoSQLHandleConfig')
         sig_details = self._get_signature_details()
         if sig_details is not None:
-            return sig_details.get_signature_header()
+            return sig_details['authorization']
 
     def get_logger(self):
         return self._logger
@@ -233,9 +220,8 @@ class SignatureProvider(AuthorizationProvider):
         sig_details = self._get_signature_details()
         if sig_details is None:
             return
-        headers[HttpConstants.AUTHORIZATION] = (
-            sig_details.get_signature_header())
-        headers[HttpConstants.DATE] = sig_details.get_date()
+        headers[HttpConstants.AUTHORIZATION] = sig_details['authorization']
+        headers[HttpConstants.DATE] = sig_details['date']
         compartment = request.get_compartment()
         if compartment is None:
             # If request doesn't has compartment, set the tenant id as the
@@ -251,11 +237,12 @@ class SignatureProvider(AuthorizationProvider):
                 'Principal the compartment for the operation must be specified.'
             )
 
-    def set_service_host(self, config):
+    def set_service_url(self, config):
         service_url = config.get_service_url()
         if service_url is None:
             raise IllegalArgumentException('Must set service URL first.')
-        self._service_host = service_url.hostname
+        self._service_url = (service_url.scheme + '://' + service_url.hostname +
+                             '/' + HttpConstants.NOSQL_DATA_PATH)
         return self
 
     @staticmethod
@@ -301,27 +288,9 @@ class SignatureProvider(AuthorizationProvider):
         return sig_details
 
     def _get_signature_details_internal(self):
-        setlocale(LC_ALL, 'en_US')
-        date_str = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-        if isinstance(self._provider,
-                      oci.auth.signers.InstancePrincipalsSecurityTokenSigner):
-            self._provider.refresh_security_token()
-        private_key = self._provider.private_key
-        key_id = self._provider.api_key
-
-        try:
-            signature = private_key.sign(
-                self._signing_content(date_str), PKCS1v15(), SHA256())
-            signature = b64encode(signature)
-        except TypeError:
-            signature = private_key.sign(
-                self._signing_content(date_str).encode(), PKCS1v15(), SHA256())
-            signature = b64encode(signature).decode()
-        sig_header = str.format(
-            SignatureProvider.SIGNATURE_HEADER_FORMAT,
-            SignatureProvider.SIGNING_HEADERS, key_id, 'rsa-sha256', signature,
-            SignatureProvider.SIGNATURE_VERSION)
-        return SignatureProvider.SignatureDetails(sig_header, date_str)
+        request = Request(method='post', url=self._service_url)
+        request = self._provider.without_content_headers(request.prepare())
+        return request.headers
 
     def _get_tenant_ocid(self):
         """
@@ -358,27 +327,3 @@ class SignatureProvider(AuthorizationProvider):
             self._timer = None
         self._timer = Timer(self._refresh_interval_s, self._refresh_task)
         self._timer.start()
-
-    def _signing_content(self, date_str):
-        return (HttpConstants.REQUEST_TARGET + ': post /' +
-                HttpConstants.NOSQL_DATA_PATH + '\nhost: ' +
-                self._service_host + '\ndate: ' + date_str)
-
-    class SignatureDetails(object):
-        def __init__(self, signature_header, date_str):
-            # Signing date, keep it and pass along with each request, so
-            # requests can reuse the signature within the 5-mins time window.
-            self._date = date_str
-            # Signature header string.
-            self._signature_header = signature_header
-
-        def get_date(self):
-            return self._date
-
-        def get_signature_header(self):
-            return self._signature_header
-
-        def is_valid(self, header):
-            if header is None:
-                return False
-            return header == self._signature_header
