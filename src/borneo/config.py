@@ -10,6 +10,7 @@
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from random import random
+from ssl import SSLContext
 from time import sleep
 try:
     from urlparse import urlparse
@@ -511,6 +512,9 @@ class NoSQLHandleConfig(object):
         self._proxy_port = 0
         self._proxy_username = None
         self._proxy_password = None
+        self._ssl_ciphers = None
+        self._ssl_ctx = None
+        self._ssl_protocol = None
         self._logger = None
 
     def get_service_url(self):
@@ -968,6 +972,69 @@ class NoSQLHandleConfig(object):
         :rtype: str or None
         """
         return self._proxy_password
+
+    def set_ssl_cipher_suites(self, ssl_ciphers):
+        """
+        Set SSL cipher suites to enable.
+
+        :param ssl_ciphers: ssl ciphers in a string in the OpenSSL cipher list
+            format.
+        :type ssl_ciphers: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if ssl_ciphers is
+            not a string.
+        """
+        CheckValue.check_str(ssl_ciphers, 'ssl_ciphers')
+        if self._ssl_ciphers is None:
+            self._ssl_ciphers = ssl_ciphers
+        else:
+            self._ssl_ciphers = ':'.join([self._ssl_ciphers, ssl_ciphers])
+        return self
+
+    def get_ssl_cipher_suites(self):
+        """
+        Returns the SSL cipher suites to enable.
+
+        :returns: ssl ciphers in a string in the OpenSSL cipher list format.
+        :rtype: str
+        """
+        return self._ssl_ciphers
+
+    def set_ssl_context(self, ssl_ctx):
+        # Internal use only
+        if not isinstance(ssl_ctx, SSLContext):
+            raise IllegalArgumentException(
+                'set_ssl_context requires an instance of SSLContext as ' +
+                'parameter.')
+        self._ssl_ctx = ssl_ctx
+        return self
+
+    def get_ssl_context(self):
+        # Internal use only
+        return self._ssl_ctx
+
+    def set_ssl_protocol(self, ssl_protocol):
+        """
+        Set SSL protocol to enable.
+
+        :param ssl_protocol: ssl protocol version.
+        :type ssl_protocol: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if ssl_protocol
+            is a negative integer.
+        """
+        CheckValue.check_int_ge_zero(ssl_protocol, 'ssl_protocol')
+        self._ssl_protocol = ssl_protocol
+        return self
+
+    def get_ssl_protocol(self):
+        """
+        Returns the SSL protocols to enable.
+
+        :returns: ssl protocols.
+        :rtype: int
+        """
+        return self._ssl_protocol
 
     def set_logger(self, logger):
         """

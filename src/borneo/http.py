@@ -60,7 +60,7 @@ class RequestUtils(object):
         self._client = client
         self._max_request_id = 1
         self._auth_provider = (
-            client.get_auth_provider() if client is not None else None)
+            None if client is None else client.get_auth_provider())
         self.lock = Lock()
 
     def do_delete_request(self, uri, headers, timeout_ms):
@@ -83,8 +83,7 @@ class RequestUtils(object):
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
-        return self._do_request('DELETE', uri, headers, None, timeout_ms,
-                                sec_timeout_ms=0)
+        return self._do_request('DELETE', uri, headers, None, timeout_ms)
 
     def do_get_request(self, uri, headers, timeout_ms):
         """
@@ -106,8 +105,7 @@ class RequestUtils(object):
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
-        return self._do_request('GET', uri, headers, None, timeout_ms,
-                                sec_timeout_ms=0)
+        return self._do_request('GET', uri, headers, None, timeout_ms)
 
     def do_post_request(self, uri, headers, payload, timeout_ms,
                         sec_timeout_ms=0):
@@ -168,7 +166,7 @@ class RequestUtils(object):
                                 sec_timeout_ms)
 
     def _do_request(self, method, uri, headers, payload, timeout_ms,
-                    sec_timeout_ms):
+                    sec_timeout_ms=0):
         start_ms = int(round(time() * 1000))
         timeout_s = float(timeout_ms) / 1000
         throttle_retried = 0

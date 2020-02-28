@@ -11,6 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 from functools import wraps
 from logging import Logger
+from requests import adapters
 from struct import pack, unpack
 from sys import version_info
 from threading import Lock
@@ -1169,6 +1170,26 @@ class PutOption(object):
     """Set PutOption.IF_PRESENT to perform put if present operation."""
     IF_VERSION = 2
     """Set PutOption.IF_VERSION to perform put if version operation."""
+
+
+class SSLAdapter(adapters.HTTPAdapter):
+    """
+    Internal use only.
+
+    An HTTPS Transport Adapter that uses an arbitrary SSLContext.
+    """
+
+    def __init__(self, ssl_context=None, **kwargs):
+        self._ssl_context = ssl_context
+        super(SSLAdapter, self).__init__(**kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs['ssl_context'] = self._ssl_context
+        return super(SSLAdapter, self).init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, *args, **kwargs):
+        kwargs['ssl_context'] = self._ssl_context
+        return super(SSLAdapter, self).proxy_manager_for(*args, **kwargs)
 
 
 class State(object):

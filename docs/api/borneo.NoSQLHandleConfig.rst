@@ -26,6 +26,8 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.get_retry_handler
       ~NoSQLHandleConfig.get_sec_info_timeout
       ~NoSQLHandleConfig.get_service_url
+      ~NoSQLHandleConfig.get_ssl_cipher_suites
+      ~NoSQLHandleConfig.get_ssl_protocol
       ~NoSQLHandleConfig.get_table_request_timeout
       ~NoSQLHandleConfig.get_timeout
       ~NoSQLHandleConfig.set_authorization_provider
@@ -36,6 +38,8 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.set_pool_maxsize
       ~NoSQLHandleConfig.set_retry_handler
       ~NoSQLHandleConfig.set_sec_info_timeout
+      ~NoSQLHandleConfig.set_ssl_cipher_suites
+      ~NoSQLHandleConfig.set_ssl_protocol
       ~NoSQLHandleConfig.set_table_request_timeout
       ~NoSQLHandleConfig.set_timeout
 
@@ -57,6 +61,8 @@ NoSQLHandleConfig
    .. automethod:: get_retry_handler
    .. automethod:: get_sec_info_timeout
    .. automethod:: get_service_url
+   .. automethod:: get_ssl_cipher_suites
+   .. automethod:: get_ssl_protocol
    .. automethod:: get_table_request_timeout
    .. automethod:: get_timeout
    .. automethod:: set_authorization_provider
@@ -67,5 +73,7 @@ NoSQLHandleConfig
    .. automethod:: set_pool_maxsize
    .. automethod:: set_retry_handler
    .. automethod:: set_sec_info_timeout
+   .. automethod:: set_ssl_cipher_suites
+   .. automethod:: set_ssl_protocol
    .. automethod:: set_table_request_timeout
    .. automethod:: set_timeout

@@ -12,9 +12,8 @@ Getting Started
 Clone the repository and Install dependencies.
 
 1. Make sure that Python is installed on your system, at least version 2.7.
-2. Install pip if it is not installed, follow
-   the `pip installation instructions <https://pip.pypa.io/en/stable/
-   installing>`_.
+2. Install pip if it is not installed, follow the `pip installation instructions
+   <https://pip.pypa.io/en/stable/installing>`_.
 3. Clone the repository and install development dependencies::
 
      git clone https://github.com/oracle/nosql-python-sdk.git
@@ -33,8 +32,8 @@ com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-3E11C056-B144-
 NoSQL Downloads <https://www.oracle.com/database/technologies/nosql-database-
 server-downloads.html>`_ to download the on-premise product and proxy server.
 
-Tests and examples have settings that can be changed based on environment.
-Test settings are in test/parameters.py. Refer to the comments in the tests and
+Tests and examples have settings that can be changed based on environment. Test
+settings are in test/parameters.py. Refer to the comments in the tests and
 examples for details. The default values will use a Cloud Simulator instance
 that is running on its default settings of localhost:8080.
 
@@ -69,7 +68,8 @@ Run Examples
 
     1. Set PYTHONPATH to point to the development tree.
 
-       $ export PYTHONPATH=<path-to-nosql-python-sdk>/nosql-python-sdk/src:$PYTHONPATH
+       $ export PYTHONPATH=<path-to-nosql-python-sdk>/nosql-python-sdk/src:\
+       $PYTHONPATH
 
     2. Modify <path-to-repo>/examples/parameters.py to suit your environment.
        The comments in that file tells you how to modify the settings.
@@ -84,8 +84,8 @@ Building Documentation
 ======================
 
 The documentation build depends on sphinx (http://sphinx-doc.org/install.html),
-sphinx-automodapi, and sphinx_rtd_theme. They should have been installed
-per the instructions above.
+sphinx-automodapi, and sphinx_rtd_theme. They should have been installed per the
+instructions above.
 
 .. code-block:: pycon
 

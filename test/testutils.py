@@ -58,16 +58,20 @@ proxy_username = None
 # The proxy password.
 proxy_password = None
 
+# ssl cipher suites
+ssl_cipher_suites = None
+# ssl protocol
+ssl_protocol = None
+
 
 def get_handle_config(tenant_id):
     # Creates a NoSQLHandleConfig
     get_logger()
-    config = NoSQLHandleConfig(endpoint).set_timeout(
-        timeout).set_consistency(consistency).set_pool_connections(
-        pool_connections).set_pool_maxsize(pool_maxsize).set_retry_handler(
-        retry_handler).set_logger(logger).set_table_request_timeout(
-        table_request_timeout).set_sec_info_timeout(
-        sec_info_timeout).set_default_compartment(tenant_id)
+    config = NoSQLHandleConfig(endpoint).set_timeout(timeout).set_consistency(
+        consistency).set_pool_connections(pool_connections).set_pool_maxsize(
+        pool_maxsize).set_retry_handler(retry_handler).set_default_compartment(
+        tenant_id).set_table_request_timeout(table_request_timeout).set_logger(
+        logger).set_sec_info_timeout(sec_info_timeout)
     if proxy_host is not None:
         config.set_proxy_host(proxy_host)
     if proxy_port != 0:

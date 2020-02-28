@@ -10,6 +10,7 @@
 from json import loads
 from logging import FileHandler, WARNING, getLogger
 from os import mkdir, path
+from ssl import SSLContext, SSLError, create_default_context
 from sys import argv
 
 from .client import Client
@@ -96,6 +97,9 @@ class NoSQLHandle(object):
             raise IllegalArgumentException(
                 'config must be an instance of NoSQLHandleConfig.')
         logger = self._get_logger(config)
+        # config SSLContext first, on-prem authorization provider will reuse the
+        # context in NoSQLHandleConfig
+        self._config_ssl_context(config)
         self._config_auth_provider(config, logger)
         self._client = Client(config, logger)
 
@@ -666,10 +670,28 @@ class NoSQLHandle(object):
         if provider.get_logger() is None:
             provider.set_logger(logger)
         if (isinstance(provider, StoreAccessTokenProvider) and
-                provider.is_secure() and provider.get_endpoint() is None):
-            endpoint = config.get_service_url().geturl()
-            if endpoint.endswith('/'):
-                endpoint = endpoint[:len(endpoint) - 1]
-            provider.set_endpoint(endpoint)
+                provider.is_secure()):
+            if provider.get_endpoint() is None:
+                endpoint = config.get_service_url().geturl()
+                if endpoint.endswith('/'):
+                    endpoint = endpoint[:len(endpoint) - 1]
+                provider.set_endpoint(endpoint)
+            provider.set_ssl_context(config.get_ssl_context())
         elif isinstance(provider, SignatureProvider):
             provider.set_service_url(config)
+
+    @staticmethod
+    def _config_ssl_context(config):
+        if config.get_ssl_context() is not None:
+            return
+        if config.get_service_url().scheme == 'https':
+            try:
+                if config.get_ssl_protocol() is None:
+                    ctx = create_default_context()
+                else:
+                    ctx = SSLContext(config.get_ssl_protocol())
+                if config.get_ssl_cipher_suites() is not None:
+                    ctx.set_ciphers(config.get_ssl_cipher_suites())
+                config.set_ssl_context(ctx)
+            except (SSLError, ValueError) as err:
+                raise IllegalArgumentException(str(err))

@@ -9,10 +9,11 @@
 
 from logging import DEBUG
 from platform import python_version
-from requests import Session, adapters
+from requests import Session
 from sys import version_info
 
-from .common import ByteOutputStream, CheckValue, HttpConstants, LogUtils
+from .common import (
+    ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter)
 from .config import DefaultRetryHandler
 from .exception import IllegalArgumentException
 from .http import RequestUtils
@@ -49,9 +50,17 @@ class Client(object):
             raise IllegalArgumentException(
                 'Must configure AuthorizationProvider.')
         self._sess = Session()
-        adapter = adapters.HTTPAdapter(pool_connections=self._pool_connections,
-                                       pool_maxsize=self._pool_maxsize,
-                                       max_retries=5, pool_block=True)
+        ssl_ctx = None
+        url_scheme = self._url.scheme
+        if url_scheme == 'https':
+            ssl_ctx = config.get_ssl_context()
+            if ssl_ctx is None:
+                raise IllegalArgumentException(
+                    'Unable to configure https: SSLContext is missing from ' +
+                    'config.')
+        adapter = SSLAdapter(
+            ssl_ctx, pool_connections=self._pool_connections,
+            pool_maxsize=self._pool_maxsize, max_retries=5, pool_block=True)
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)

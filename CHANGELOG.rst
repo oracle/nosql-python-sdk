@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
+ 5.2.2 - 2020-02-27
+====================
+
+Added
+_____
+
+* Added NoSQLHandleConfig.set_ssl_cipher_suites() to allow the user to configure
+  preferred SSL ciphers, and NoSQLHandleConfig.get_ssl_cipher_suites() to get
+  the ssl cipher setting.
+* Added NoSQLHandleConfig.set_ssl_protocol() to allow the user to configure
+  preferred SSL protocol, and NoSQLHandleConfig.get_ssl_protocol() to get the
+  ssl protocol setting.
+
+====================
  5.2.1 - 2020-02-22
 ====================
 
@@ -42,7 +56,7 @@ _______
 ====================
 
 Added
--------
+_____
 
 * Added PutRequest.set_exact_match() to allow the user to control whether an
   exact schema match is required on a put. The default behavior is false.
@@ -106,9 +120,8 @@ _______
  5.0.0 - 2019-03-31
 ====================
 
-
 Added
--------
+_____
 
 * Initial Release
 * Support for Oracle NoSQL Database Cloud Service

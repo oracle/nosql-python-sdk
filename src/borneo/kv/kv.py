@@ -20,7 +20,8 @@ except ImportError:
 
 import borneo.http
 from borneo.auth import AuthorizationProvider
-from borneo.common import CheckValue, HttpConstants, LogUtils, synchronized
+from borneo.common import (
+    CheckValue, HttpConstants, LogUtils, SSLAdapter, synchronized)
 from borneo.config import NoSQLHandleConfig
 from borneo.exception import (
     IllegalArgumentException, InvalidAuthorizationException, NoSQLException)
@@ -82,7 +83,6 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         self._url = None
         self._auth_string = None
         self._auto_renew = True
-        self._disable_ssl_hook = False
         self._is_closed = False
         # The base path for security related services.
         self._base_path = HttpConstants.KV_SECURITY_PATH
@@ -252,12 +252,15 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         CheckValue.check_logger(logger, 'logger')
         self._logger = logger
         self._logutils = LogUtils(logger)
-        self._request_utils = borneo.http.RequestUtils(
-            self._sess, self._logutils)
         return self
 
     def get_logger(self):
         return self._logger
+
+    def set_ssl_context(self, ssl_ctx):
+        # Internal use only
+        adapter = SSLAdapter(ssl_ctx)
+        self._sess.mount(self._url.scheme + '://', adapter)
 
     def set_url_for_test(self):
         self._url = urlparse(self._url.geturl().replace('https', 'http'))

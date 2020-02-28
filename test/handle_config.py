@@ -9,6 +9,7 @@
 
 import unittest
 from requests import ConnectionError
+from ssl import PROTOCOL_SSLv23, PROTOCOL_TLSv1_2
 
 from borneo import (
     GetRequest, IllegalArgumentException, OperationThrottlingException,
@@ -19,7 +20,8 @@ from parameters import (
     tenant_id, timeout, table_request_timeout)
 from testutils import (
     get_handle_config, get_simple_handle_config, proxy_host, proxy_port,
-    proxy_username, proxy_password, retry_handler, sec_info_timeout)
+    proxy_username, proxy_password, retry_handler, sec_info_timeout,
+    ssl_cipher_suites, ssl_protocol)
 
 
 class TestNoSQLHandleConfig(unittest.TestCase):
@@ -159,6 +161,42 @@ class TestNoSQLHandleConfig(unittest.TestCase):
     def testNoSQLHandleConfigSetIllegalLogger(self):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_logger, 'IllegalLogger')
+
+    def testNoSQLHandleConfigSetIllegalSSLCipherSuites(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_ssl_cipher_suites,
+                          {'IllegalCipherSuites': 'IllegalCipherSuites'})
+        if security():
+            # set illegal cipher suites
+            config = get_simple_handle_config(tenant_id).set_ssl_cipher_suites(
+                'IllegalCipherSuites')
+            self.assertRaises(IllegalArgumentException, NoSQLHandle, config)
+
+    def testNoSQLHandleConfigSetIllegalSSLProtocol(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_ssl_protocol, 'IllegalProtocol')
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_ssl_protocol, -1)
+        if security():
+            # set illegal protocol
+            config = get_simple_handle_config(tenant_id).set_ssl_protocol(10)
+            self.assertRaises(IllegalArgumentException, NoSQLHandle, config)
+
+    def testNoSQLHandleConfigSetLegalSSLProtocol(self):
+        if security():
+            # use default protocol
+            config = get_simple_handle_config(tenant_id)
+            handle = NoSQLHandle(config)
+            self.assertEqual(
+                config.get_ssl_context().protocol, PROTOCOL_SSLv23)
+            handle.close()
+            # set PROTOCOL_TLSv1_2 as ssl protocol
+            config = get_simple_handle_config(tenant_id).set_ssl_protocol(
+                PROTOCOL_TLSv1_2)
+            handle = NoSQLHandle(config)
+            self.assertEqual(
+                config.get_ssl_context().protocol, PROTOCOL_TLSv1_2)
+            handle.close()
 
     def testNoSQLHandleEndpointConfig(self):
         # set only the host as endpoint
@@ -325,6 +363,10 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertEqual(config.get_proxy_password(), proxy_password)
         # check authorization provider
         self.assertIsNotNone(config.get_authorization_provider())
+        # check ssl cipher suites
+        self.assertEqual(config.get_ssl_cipher_suites(), ssl_cipher_suites)
+        # check ssl protocol
+        self.assertEqual(config.get_ssl_protocol(), ssl_protocol)
         # check logger
         self.assertIsNotNone(config.get_logger())
 
