@@ -42,6 +42,14 @@ All tests require that your PYTHONPATH be set to the development tree:
  $ export PYTHONPATH=<path-to-nosql-python-sdk>/nosql-python-sdk/src:\
  $PYTHONPATH
 
+If using on-premise Oracle NoSQL database with security enabled, the certificate
+path can be specified through the REQUESTS_CA_BUNDLE environment variable:
+
+ $ export REQUESTS_CA_BUNDLE=<path-to-certificate>/certificate.pem:\
+ $REQUESTS_CA_BUNDLE
+
+Or use the API :func:`borneo.NoSQLHandleConfig.set_ssl_ca_certs` to specify it.
+
 Run Unit Tests
 --------------
 

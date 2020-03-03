@@ -43,8 +43,8 @@ default compartment for requests in
 default. In addition it is possible to specify a compartment is each
 :class:`Request` instance.
 
-The *set_compartment* methods take either an id (OCID) or a compartment name
-or path. If a compartment name is used it may be the name of a top-level
+The *set_compartment* methods take either an id (OCID) or a compartment name or
+path. If a compartment name is used it may be the name of a top-level
 compartment. If a compartment path is used to reference a nested compartment,
 the path is a dot-separate path that excludes the top-level compartment of the
 path, for example *compartmentA.compartmentB*.
@@ -62,18 +62,17 @@ This usage overrides any other setting of the compartment. E.g.
    ...
    request = GetRequest().set_table_name('compartmentA.compartmentB')
 
-If the application is authorized using an instance principal
-(see :func:`borneo.iam.SignatureProvider.create_with_instance_principal`) a
-compartment must be specified either using a default or in each request, and
-it **must** be specified as an id, as there is no default root compartment in
-this path.
+If the application is authorized using an instance principal (see
+:func:`borneo.iam.SignatureProvider.create_with_instance_principal`) a
+compartment must be specified either using a default or in each request, and it
+**must** be specified as an id, as there is no default root compartment in this
+path.
 
 An example of acquiring a NoSQL Handle for the Oracle NoSQL Cloud Service:
 
 .. code-block:: pycon
 
-    from borneo import (
-        AuthorizationProvider, NoSQLHandle, NoSQLHandleConfig, Regions)
+    from borneo import NoSQLHandle, NoSQLHandleConfig, Regions
     from borneo.iam import SignatureProvider
 
     # create AuthorizationProvider
@@ -81,13 +80,20 @@ An example of acquiring a NoSQL Handle for the Oracle NoSQL Cloud Service:
 
     # create handle config using the correct desired region as endpoint, add a
     # default compartment.
-    config = NoSQLHandleConfig(Regions.US_ASHBURN_1)
-        .set_authorization_provider(provider).set_compartment('mycompartment')
+    config = NoSQLHandleConfig(Regions.US_ASHBURN_1).set_authorization_provider(
+        provider).set_compartment('mycompartment')
 
     # create the handle
     handle = NoSQLHandle(config)
 
-An example using the on-premise Oracle NoSQL Database in a secure configuration:
+An example using the on-premise Oracle NoSQL Database in a secure configuration,
+a certificate path should be specified through the REQUESTS_CA_BUNDLE
+environment variable:
+
+ $ export REQUESTS_CA_BUNDLE=<path-to-certificate>/certificate.pem:\
+ $REQUESTS_CA_BUNDLE
+
+Or :func:`borneo.NoSQLHandleConfig.set_ssl_ca_certs`, for example:
 
 .. code-block:: pycon
 
@@ -95,11 +101,12 @@ An example using the on-premise Oracle NoSQL Database in a secure configuration:
     from borneo.kv import StoreAccessTokenProvider
 
     # create AuthorizationProvider
-    provider = StoreAccessTokenProvider(<userName>, <password>)
+    provider = StoreAccessTokenProvider(<user_name>, <password>)
 
     # create handle config using the correct endpoint for the running proxy
     config = NoSQLHandleConfig(
-        'https://localhost:443').set_authorization_provider(provider)
+        'https://localhost:443').set_authorization_provider(
+        provider).set_ssl_ca_certs(<ca_certs>)
 
     # create the handle
     handle = NoSQLHandle(config)
@@ -112,12 +119,12 @@ Create Tables and Indexes
 -------------------------
 Learn how to create tables and indexes in Oracle NoSQL Database.
 
-Creating a table is the first step of developing your application. You use
-the :class:`borneo.TableRequest` class and its methods to execute Data
-Definition Language (DDL) statements, such as, creating, modifying, and dropping
-tables. If using the Oracle NoSQL Cloud Service or Cloud Simulator you must also
-set table limits using :func:`borneo.TableRequest.set_table_limits` method.
-Limits are ignored on-premise, if provided.
+Creating a table is the first step of developing your application. You use the
+:class:`borneo.TableRequest` class and its methods to execute Data Definition
+Language (DDL) statements, such as, creating, modifying, and dropping tables. If
+using the Oracle NoSQL Cloud Service or Cloud Simulator you must also set table
+limits using :func:`borneo.TableRequest.set_table_limits` method. Limits are
+ignored on-premise, if provided.
 
 Before creating a table, learn about:
 
@@ -152,7 +159,7 @@ exists to combine execution of the operation with waiting for completion.
 
 .. code-block:: pycon
 
-    from borneo import State, TableLimits, TableRequest
+    from borneo import TableLimits, TableRequest
 
     statement = 'create table if not exists users(id integer, name string, ' +
                 'primary key(id)'
@@ -160,7 +167,7 @@ exists to combine execution of the operation with waiting for completion.
     # In the Cloud Service TableLimits is a required object for table creation.
     # It specifies the throughput and capacity for the table in ReadUnits,
     # WriteUnits, GB
-    request = TableRequest().set_statement(statement).set_tableLimits(
+    request = TableRequest().set_statement(statement).set_table_limits(
         TableLimits(20, 10, 5))
 
     # assume that a handle has been created, as handle, make the request wait
@@ -293,10 +300,10 @@ Use Queries
 -----------
 Learn about  using queries in your application.
 
-Oracle NoSQL Database provides a rich query language to read and
-update data. See the `SQL For NoSQL Specification <http://www.oracle.com/pls/
-topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=sql_nosql>`_ for a full
-description of the query language.
+Oracle NoSQL Database provides a rich query language to read and update data.
+See the `SQL For NoSQL Specification <http://www.oracle.com/pls/topic/lookup?
+ctx=en/cloud/paas/nosql-cloud&id=sql_nosql>`_ for a full description of the
+query language.
 
 To execute a query use the :func:`borneo.NoSQLHandle.query` method. For example,
 to execute a *SELECT* query to read data from your table:
@@ -325,6 +332,7 @@ the query loop should continue. For example:
 .. code-block:: pycon
 
     from borneo import QueryRequest
+
     statement = 'select * from users where name = "Taylor"'
     request = QueryRequest().set_statement(statement)
     result = handle.query(request)
@@ -396,8 +404,8 @@ value:
     if result.get_success():
        # success -- the row was deleted
 
-    # if the row didn't exist or was not deleted for any other reason,
-    # False is returned
+    # if the row didn't exist or was not deleted for any other reason, False is
+    # returned
 
 Delete operations can be conditional based on a :class:`borneo.Version` returned
 from a get operation.  See :class:`borneo.DeleteRequest`.
@@ -435,11 +443,11 @@ using :func:`borneo.TableRequest.set_table_limits`, for example:
 
     # in this path the table name is required, as there is no DDL statement
     request = TableRequest().set_table_name('users')
-    request.set_tableLimits( TableLimits(40, 10, 5))
+    request.set_table_limits(TableLimits(40, 10, 5))
     result = handle.table_request(request)
 
-    # table_request is asynchronous, so wait for the operation to complete
-    # wait for 40 seconds, polling every 3 seconds
+    # table_request is asynchronous, so wait for the operation to complete, wait
+    # for 40 seconds, polling every 3 seconds
     result.wait_for_completion(handle, 40000, 3000)
 
 
@@ -467,17 +475,16 @@ for example::
     statement = 'drop table users'
     request = TableRequest().set_statement(statement)
 
-    # perform the operation
-    # wait for 40 seconds, polling every 3 seconds
+    # perform the operation, wait for 40 seconds, polling every 3 seconds
     result = handle.do_table_request(request, 40000, 3000)
 
 -------------
 Handle Errors
 -------------
 
-Python errors are raised as exceptions defined as part of the API. They are
-all instances of Python's :class:`RuntimeError`. Most exceptions are instances
-of :class:`borneo.NoSQLException` which is a base class for exceptions raised by
+Python errors are raised as exceptions defined as part of the API. They are all
+instances of Python's :class:`RuntimeError`. Most exceptions are instances of
+:class:`borneo.NoSQLException` which is a base class for exceptions raised by
 the Python driver.
 
 Exceptions are split into 2 broad categories:

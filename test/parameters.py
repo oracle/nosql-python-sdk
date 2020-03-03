@@ -51,6 +51,10 @@ index_name = 'idx'
 # on-prem proxy started by the customer. Unit tests can be run against both the
 # Cloud Simulator and on-prem proxy.
 endpoint = 'localhost:8080'
+# SSL CA certificates for on-prem proxy. Configure it to specify CA certificates
+# or set REQUESTS_CA_BUNDLE environment variable when running against a secure
+# store. For non-secure store, use the default None.
+ca_certs = None
 # User name for on-prem proxy, for non-secure store, use the default None.
 user_name = None
 # Password for on-prem proxy, for non-secure store, use the default None.

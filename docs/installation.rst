@@ -237,7 +237,7 @@ the region **Regions.US_ASHBURN_1**. Information on regions can be found in
                 region = Regions.US_ASHBURN_1
 
                 # if using a specified credentials file
-                credentials_file=<path-to-your-credentials-file>
+                credentials_file = <path-to-your-credentials-file>
 
                 #
                 # Create an AuthorizationProvider
@@ -293,11 +293,21 @@ server-downloads.html>`_ for downloads, and see `Information about the proxy
 database/19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
 proxy configuration information.
 
-If running a secure store a user identity must be created in the store
-(separately) that has permission to perform the required operations of the
-application, such as manipulated tables and data. The identity is used in the
-:class:`borneo.kv.StoreAccessTokenProvider`. If the store is not secure an empty
-instance of :class:`borneo.kv.StoreAccessTokenProvider` is used. For example.
+If running a secure store, a certificate path should be specified through the
+REQUESTS_CA_BUNDLE environment variable:
+
+ $ export REQUESTS_CA_BUNDLE=<path-to-certificate>/certificate.pem:\
+ $REQUESTS_CA_BUNDLE
+
+Or :func:`borneo.NoSQLHandleConfig.set_ssl_ca_certs`.
+
+In addition, a user identity must be created in the store (separately) that has
+permission to perform the required operations of the application, such as
+manipulated tables and data. The identity is used in the
+:class:`borneo.kv.StoreAccessTokenProvider`.
+
+If the store is not secure, an empty instance of
+:class:`borneo.kv.StoreAccessTokenProvider` is used. For example:
 
 .. code-block:: pycon
 
@@ -317,7 +327,7 @@ instance of :class:`borneo.kv.StoreAccessTokenProvider` is used. For example.
   #
   # Create the AuthorizationProvider for a secure store:
   #
-  ap = StoreAccessTokenProvider(userName, password)
+  ap = StoreAccessTokenProvider(user_name, password)
 
   #
   # Create the AuthorizationProvider for a not secure store:
@@ -328,6 +338,11 @@ instance of :class:`borneo.kv.StoreAccessTokenProvider` is used. For example.
   # create a configuration object
   #
   config = NoSQLHandleConfig(endpoint).set_authorization_provider(ap)
+
+  #
+  # set the certificate path if running a secure store
+  #
+  config.set_ssl_ca_certs(<ca_certs>)
 
   #
   # create a handle from the configuration object

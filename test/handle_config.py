@@ -16,11 +16,11 @@ from borneo import (
     DefaultRetryHandler, Regions, RetryableException, RetryHandler,
     SecurityInfoNotReadyException, NoSQLHandle, NoSQLHandleConfig, TableRequest)
 from parameters import (
-    consistency, endpoint, pool_connections, pool_maxsize, security, table_name,
-    tenant_id, timeout, table_request_timeout)
+    ca_certs, consistency, endpoint, pool_connections, pool_maxsize, security,
+    table_name, tenant_id, timeout, table_request_timeout)
 from testutils import (
-    get_handle_config, get_simple_handle_config, proxy_host, proxy_port,
-    proxy_username, proxy_password, retry_handler, sec_info_timeout,
+    fake_key_file, get_handle_config, get_simple_handle_config, proxy_host,
+    proxy_port, proxy_username, proxy_password, retry_handler, sec_info_timeout,
     ssl_cipher_suites, ssl_protocol)
 
 
@@ -161,6 +161,16 @@ class TestNoSQLHandleConfig(unittest.TestCase):
     def testNoSQLHandleConfigSetIllegalLogger(self):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_logger, 'IllegalLogger')
+
+    def testNoSQLHandleConfigSetIllegalSSLCACerts(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_ssl_ca_certs,
+                          {'IllegalCACerts': 'IllegalCACerts'})
+        if security():
+            # set illegal CA certs
+            config = get_simple_handle_config(tenant_id).set_ssl_ca_certs(
+                fake_key_file)
+            self.assertRaises(IllegalArgumentException, NoSQLHandle, config)
 
     def testNoSQLHandleConfigSetIllegalSSLCipherSuites(self):
         self.assertRaises(IllegalArgumentException,
@@ -363,6 +373,8 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertEqual(config.get_proxy_password(), proxy_password)
         # check authorization provider
         self.assertIsNotNone(config.get_authorization_provider())
+        # check ssl ca certs
+        self.assertEqual(config.get_ssl_ca_certs(), ca_certs)
         # check ssl cipher suites
         self.assertEqual(config.get_ssl_cipher_suites(), ssl_cipher_suites)
         # check ssl protocol

@@ -14,8 +14,8 @@ from borneo.iam import SignatureProvider
 from borneo.kv import StoreAccessTokenProvider
 
 from parameters import (
-    credentials_file, endpoint, password, principal, user_name, using_cloud_sim,
-    using_on_prem, using_service)
+    ca_certs, credentials_file, endpoint, password, principal, user_name,
+    using_cloud_sim, using_on_prem, using_service)
 
 
 class ExampleAuthorizationProvider(AuthorizationProvider):
@@ -72,4 +72,6 @@ def get_handle(tenant_id):
     config = NoSQLHandleConfig(endpoint).set_authorization_provider(
         create_authorization_provider(tenant_id)).set_default_compartment(
         tenant_id)
+    if ca_certs is not None:
+        config.set_ssl_ca_certs(ca_certs)
     return NoSQLHandle(config)

@@ -7,17 +7,17 @@ About
 
 This is the Python SDK for Oracle NoSQL Database. Python 2.7+ and 3.5+ are
 supported. The SDK provides interfaces, documentation, and examples to help
-develop Python applications that connect to the Oracle NoSQL
-Database Cloud Service, Oracle NoSQL Database and to the Oracle NoSQL
-Cloud Simulator (which runs on a local machine).
+develop Python applications that connect to the Oracle NoSQL Database Cloud
+Service, Oracle NoSQL Database and to the Oracle NoSQL Cloud Simulator (which
+runs on a local machine).
 
 In order to run the Oracle NoSQL Cloud Simulator, a separate download is
-necessary from the Oracle NoSQL OTN download page. Throughout the
-documentation the Oracle NoSQL Database Cloud Service and Cloud Simulator are
-referred to as the "cloud service" while the Oracle NoSQL Database is referred
-to as "on-premise." In the `API reference <https://nosql-python-sdk.readthedocs.
-io/en/latest/api.html>`_ classes and interfaces are noted if they are only
-relevant to a specific environment.
+necessary from the Oracle NoSQL OTN download page. Throughout the documentation,
+the Oracle NoSQL Database Cloud Service and Cloud Simulator are referred to as
+the "cloud service" while the Oracle NoSQL Database is referred to as
+"on-premise." In the `API reference <https://nosql-python-sdk.readthedocs.io/en/
+latest/api.html>`_ classes and interfaces are noted if they are only relevant to
+a specific environment.
 
 The on-premise configuration requires a running instance of the Oracle NoSQL
 database. In addition a running proxy service is required. See `Oracle NoSQL
@@ -27,9 +27,9 @@ server-downloads.html>`_ for downloads, and see `Information about the proxy
 database/19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
 proxy configuration information.
 
-This project is open source and maintained by Oracle Corp. The home page for
-the project is `here <https://nosql-python-sdk.readthedocs.io/en/latest/
-index.html>`_
+This project is open source and maintained by Oracle Corp. The home page for the
+project is `here <https://nosql-python-sdk.readthedocs.io/en/latest/index.
+html>`_.
 
 ============
 Installation
@@ -442,5 +442,5 @@ License
 
 Copyright (C) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
 
-This SDK is licensed under the Universal Permissive License 1.0. See
-`LICENSE <./LICENSE.txt>`_ for details
+This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
+<./LICENSE.txt>`_ for details.

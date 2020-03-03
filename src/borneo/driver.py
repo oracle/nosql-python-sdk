@@ -692,6 +692,8 @@ class NoSQLHandle(object):
                     ctx = SSLContext(config.get_ssl_protocol())
                 if config.get_ssl_cipher_suites() is not None:
                     ctx.set_ciphers(config.get_ssl_cipher_suites())
+                if config.get_ssl_ca_certs() is not None:
+                    ctx.load_verify_locations(config.get_ssl_ca_certs())
                 config.set_ssl_context(ctx)
             except (SSLError, ValueError) as err:
                 raise IllegalArgumentException(str(err))

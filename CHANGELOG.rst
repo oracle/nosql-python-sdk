@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
+ 5.2.3 - 2020-03-03
+====================
+
+Added
+_____
+
+* Added NoSQLHandleConfig.set_ssl_ca_certs() to allow the user to configure SSL
+  CA certificates, and NoSQLHandleConfig.get_ssl_ca_certs() to get the SSL CA
+  certificates setting.
+
+====================
  5.2.2 - 2020-02-27
 ====================
 

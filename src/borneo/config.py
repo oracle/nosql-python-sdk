@@ -512,6 +512,7 @@ class NoSQLHandleConfig(object):
         self._proxy_port = 0
         self._proxy_username = None
         self._proxy_password = None
+        self._ssl_ca_certs = None
         self._ssl_ciphers = None
         self._ssl_ctx = None
         self._ssl_protocol = None
@@ -972,6 +973,35 @@ class NoSQLHandleConfig(object):
         :rtype: str or None
         """
         return self._proxy_password
+
+    def set_ssl_ca_certs(self, ssl_ca_certs):
+        """
+        On-premise only.
+
+        When running against on-premise Oracle NoSQL Database with security
+        enabled, certificates should be specified using this method. Otherwise
+        environment variable REQUESTS_CA_BUNDLE should be configured. See `the
+        installation guide <https://nosql-python-sdk.readthedocs.io/en/latest/
+        installation.html>`_ for the configuration of REQUESTS_CA_BUNDLE.
+
+        :param ssl_ca_certs: ssl ca certificates.
+        :type ssl_ca_certs: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if ssl_ca_certs
+            is not a string.
+        """
+        CheckValue.check_str(ssl_ca_certs, 'ssl_ca_certs')
+        self._ssl_ca_certs = ssl_ca_certs
+        return self
+
+    def get_ssl_ca_certs(self):
+        """
+        Returns the SSL CA certificates.
+
+        :returns: ssl ca certificates.
+        :rtype: str
+        """
+        return self._ssl_ca_certs
 
     def set_ssl_cipher_suites(self, ssl_ciphers):
         """

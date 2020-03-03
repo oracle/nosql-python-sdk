@@ -115,6 +115,11 @@ endpoint = 'localhost:8080'
 
 # On-premise only:
 # Non-secure store: None
+# Secure store: your CA certificate path
+ca_certs = None
+
+# On-premise only:
+# Non-secure store: None
 # Secure store: your store user name
 user_name = None
 

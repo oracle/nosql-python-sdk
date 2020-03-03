@@ -22,9 +22,9 @@ from borneo import (
 from borneo.iam import SignatureProvider
 from borneo.kv import StoreAccessTokenProvider
 from parameters import (
-    consistency, endpoint, iam_principal, is_cloudsim, is_dev_pod, is_minicloud,
-    is_onprem, is_prod_pod, logger_level, password, pool_connections,
-    pool_maxsize, table_request_timeout, timeout, user_name)
+    ca_certs, consistency, endpoint, iam_principal, is_cloudsim, is_dev_pod,
+    is_minicloud, is_onprem, is_prod_pod, logger_level, password,
+    pool_connections, pool_maxsize, table_request_timeout, timeout, user_name)
 
 # The sc endpoint port for setting the tier.
 sc_endpoint = 'localhost:13600'
@@ -80,6 +80,12 @@ def get_handle_config(tenant_id):
         config.set_proxy_username(proxy_username)
     if proxy_password is not None:
         config.set_proxy_password(proxy_password)
+    if ssl_cipher_suites is not None:
+        config.set_ssl_cipher_suites(ssl_cipher_suites)
+    if ssl_protocol is not None:
+        config.set_ssl_protocol(ssl_protocol)
+    if ca_certs is not None:
+        config.set_ssl_ca_certs(ca_certs)
     set_authorization_provider(config, tenant_id)
     return config
 
