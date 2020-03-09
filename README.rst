@@ -80,10 +80,11 @@ information on how to contribute to the project.
 Help
 ====
 
- * Open an issue in the
-   `Issues <https://github.com/oracle/nosql-node-sdk/issues>`_ page.
- * Email to nosql_sdk_help_grp@oracle.com
- * `Oracle NoSQL Developer Forum <https://community.oracle.com/community/groundbreakers/database/nosql_database>`_
+ * Open an issue in the `Issues <https://github.com/oracle/nosql-node-sdk/
+   issues>`_ page.
+ * Email to nosql_sdk_help_grp@oracle.com.
+ * `Oracle NoSQL Developer Forum <https://community.oracle.com/community/
+   groundbreakers/database/nosql_database>`_.
 
 When requesting help please be sure to include as much detail as possible,
 including version of the SDK and **simple**, standalone example code as needed.

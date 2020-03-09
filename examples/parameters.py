@@ -76,8 +76,8 @@
 # real service. Modify as necessary for your environment. By default the
 # variables are set to use the Cloud Simulator.
 #
-# Cloud Simulator: a tenant id -- simple string
-# Service/on-premise: not used
+# Cloud Simulator/Service: a tenant id -- simple string
+# On-premise: not used
 tenant_id = 'pythontenant'
 
 # The table name created. It must not contain '.' or '_'
