@@ -17,6 +17,7 @@ from .common import (
 from .config import DefaultRetryHandler
 from .exception import IllegalArgumentException
 from .http import RequestUtils
+from .kv import StoreAccessTokenProvider
 from .operations import QueryResult
 from .query import QueryDriver
 from .serde import BinaryProtocol
@@ -132,7 +133,10 @@ class Client(object):
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
         content = self._write_content(request)
-        BinaryProtocol.check_request_size_limit(request, len(content))
+        # If on-premise the auth_provider will always be a
+        # StoreAccessTokenProvider. If so, don't check size limits.
+        if not isinstance(self._auth_provider, StoreAccessTokenProvider):
+            BinaryProtocol.check_request_size_limit(request, len(content))
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
