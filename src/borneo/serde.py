@@ -166,6 +166,8 @@ class BinaryProtocol(object):
     @staticmethod
     def check_request_size_limit(request, request_size):
         # Checks if the request size exceeds the limit.
+        if not request.get_check_request_size():
+            return
         request_size_limit = (
             BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT if
             isinstance(request, operations.WriteMultipleRequest) else
@@ -1333,6 +1335,7 @@ class WriteMultipleRequestSerializer(RequestSerializer):
             start = bos.get_offset()
             bos.write_boolean(op.is_abort_if_unsuccessful())
             req = op.get_request()
+            req.set_check_request_size(request.get_check_request_size())
             if str(req) == 'PutRequest':
                 put_serializer.serialize(req, bos, serial_version)
             else:

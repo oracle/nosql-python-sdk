@@ -7,6 +7,8 @@
 # appropriate download for a copy of the license and additional information.
 #
 
+from random import choice
+from string import ascii_letters, digits
 from sys import version_info
 from time import sleep
 from unittest import TestCase
@@ -162,6 +164,12 @@ class TestBase(object):
 
     def tear_down(self):
         self.handle.close()
+
+    @staticmethod
+    def get_random_str(mb):
+        length = int(mb * 1024 * 1024)
+        str_list = [choice(ascii_letters + digits) for _ in range(length)]
+        return ''.join(str_list)
 
     @classmethod
     def set_up_class(cls):

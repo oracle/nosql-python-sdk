@@ -15,9 +15,9 @@ from time import time
 
 from borneo import (
     DeleteRequest, GetRequest, IllegalArgumentException, IllegalStateException,
-    PutOption, PutRequest, TableLimits, TableNotFoundException, TableRequest,
-    TimeToLive, TimeUnit)
-from parameters import table_name, tenant_id, timeout
+    PutOption, PutRequest, RequestSizeLimitException, TableLimits,
+    TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
+from parameters import is_onprem, table_name, tenant_id, timeout
 from test_base import TestBase
 from testutils import get_row
 
@@ -123,6 +123,16 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def testPutSetIllegalReturnRow(self):
         self.assertRaises(IllegalArgumentException,
                           self.put_request.set_return_row, 'IllegalReturnRow')
+
+    def testPutSetLargeSizeValue(self):
+        self.row['fld_str'] = self.get_random_str(2)
+        self.put_request.set_value(self.row)
+        if is_onprem():
+            version = self.handle.put(self.put_request).get_version()
+            self.assertIsNotNone(version)
+        else:
+            self.assertRaises(RequestSizeLimitException, self.handle.put,
+                              self.put_request)
 
     def testPutIfVersionWithoutMatchVersion(self):
         self.put_request.set_option(PutOption.IF_VERSION)

@@ -21,10 +21,10 @@ _____
   CA certificates, and NoSQLHandleConfig.get_ssl_ca_certs() to get the SSL CA
   certificates setting.
 
-Changed
-_______
+Fixed
+_____
 
-* Don't validate request size. On-premise only.
+* Don't validate request sizes. On-premise only.
 
 Removed
 _______

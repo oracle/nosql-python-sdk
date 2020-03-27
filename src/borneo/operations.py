@@ -38,9 +38,14 @@ class Request(object):
     """
 
     def __init__(self):
+        self._check_request_size = True
         # Cloud service only.
         self._compartment = None
         self._timeout_ms = 0
+
+    def get_check_request_size(self):
+        # Internal use only.
+        return self._check_request_size
 
     def get_compartment(self):
         """
@@ -56,6 +61,11 @@ class Request(object):
 
     def is_query_request(self):
         return False
+
+    def set_check_request_size(self, check_request_size):
+        # Internal use only.
+        self._check_request_size = check_request_size
+        return self
 
     def set_compartment_internal(self, compartment):
         """

@@ -16,7 +16,8 @@ from time import time
 from borneo import (
     BatchOperationNumberLimitException, DeleteRequest, GetRequest,
     IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest,
-    TableLimits, TableRequest, TimeToLive, TimeUnit, WriteMultipleRequest)
+    RequestSizeLimitException, TableLimits, TableRequest, TimeToLive, TimeUnit,
+    WriteMultipleRequest)
 from parameters import is_onprem, table_name, timeout
 from test_base import TestBase
 from testutils import get_row
@@ -138,16 +139,24 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.requests[0], True).add(self.illegal_requests[1], False)
         self.assertRaises(IllegalArgumentException, self.handle.write_multiple,
                           self.write_multiple_request)
-        self.write_multiple_request.clear()
-        # add operations when sub requests reached the max number
         if not is_onprem():
-            count = 0
-            while count <= 50:
+            # add operations when the request size exceeded the limit
+            self.write_multiple_request.clear()
+            for op in range(64):
                 row = get_row()
-                row['fld_id'] = count
+                row['fld_str'] = self.get_random_str(0.4)
                 self.write_multiple_request.add(PutRequest().set_value(
                     row).set_table_name(table_name), True)
-                count += 1
+            self.assertRaises(RequestSizeLimitException,
+                              self.handle.write_multiple,
+                              self.write_multiple_request)
+            # add operations when sub requests reached the max number
+            self.write_multiple_request.clear()
+            for op in range(51):
+                row = get_row()
+                row['fld_id'] = op
+                self.write_multiple_request.add(PutRequest().set_value(
+                    row).set_table_name(table_name), True)
             self.assertRaises(BatchOperationNumberLimitException,
                               self.handle.write_multiple,
                               self.write_multiple_request)

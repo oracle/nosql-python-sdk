@@ -132,11 +132,12 @@ class Client(object):
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
-        content = self._write_content(request)
         # If on-premise the auth_provider will always be a
         # StoreAccessTokenProvider. If so, don't check size limits.
-        if not isinstance(self._auth_provider, StoreAccessTokenProvider):
-            BinaryProtocol.check_request_size_limit(request, len(content))
+        if isinstance(self._auth_provider, StoreAccessTokenProvider):
+            request.set_check_request_size(False)
+        content = self._write_content(request)
+        BinaryProtocol.check_request_size_limit(request, len(content))
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
