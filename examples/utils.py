@@ -9,7 +9,7 @@
 
 from borneo import (
     AuthorizationProvider, IllegalArgumentException, NoSQLHandle,
-    NoSQLHandleConfig)
+    NoSQLHandleConfig, Regions)
 from borneo.iam import SignatureProvider
 from borneo.kv import StoreAccessTokenProvider
 
@@ -36,7 +36,7 @@ class ExampleAuthorizationProvider(AuthorizationProvider):
         return 'Bearer ' + self._tenant_id
 
 
-def create_authorization_provider(tenant_id):
+def generate_authorization_provider(tenant_id):
     # Creates an AuthorizationProvider instance based on the environment.
     if using_cloud_sim:
         provider = ExampleAuthorizationProvider(tenant_id)
@@ -46,8 +46,19 @@ def create_authorization_provider(tenant_id):
                 raise IllegalArgumentException(
                     'Must specify the credentials file path.')
             provider = SignatureProvider(config_file=credentials_file)
-        elif principal == 'instance principal':
-            provider = SignatureProvider.create_with_instance_principal()
+        elif (principal == 'instance principal' or
+              principal == 'resource principals'):
+            if isinstance(endpoint, str):
+                region = Regions.from_region_id(endpoint)
+            else:
+                region = endpoint
+            if region is None:
+                provider = SignatureProvider.create_with_instance_principal()
+            else:
+                provider = SignatureProvider.create_with_instance_principal(
+                    region=region)
+        elif principal == 'resource principals':
+            provider = SignatureProvider.create_with_resource_principal()
         else:
             raise IllegalArgumentException('Must specify the principal.')
     elif using_on_prem:
@@ -69,9 +80,9 @@ def get_handle(tenant_id):
     here. Use the tenant_id as the default compartment for all operations. This
     puts tables in the root compartment of the tenancy.
     """
-    config = NoSQLHandleConfig(endpoint).set_authorization_provider(
-        create_authorization_provider(tenant_id)).set_default_compartment(
-        tenant_id)
+    config = NoSQLHandleConfig(
+        endpoint, generate_authorization_provider(
+            tenant_id)).set_default_compartment(tenant_id)
     if ca_certs is not None:
         config.set_ssl_ca_certs(ca_certs)
     return NoSQLHandle(config)

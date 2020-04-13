@@ -16,8 +16,12 @@ from .common import ByteInputStream, HttpConstants, synchronized
 from .exception import (
     IllegalStateException, NoSQLException, RequestTimeoutException,
     RetryableException, SecurityInfoNotReadyException)
-from .kv import AuthenticationException, StoreAccessTokenProvider
-from .serde import BinaryProtocol
+try:
+    from . import kv
+    from . import serde
+except ImportError:
+    import kv
+    import serde
 
 
 class HttpResponse(object):
@@ -219,9 +223,9 @@ class RequestUtils(object):
                         num_retried += 1
                         continue
                     return res
-            except AuthenticationException as ae:
+            except kv.AuthenticationException as ae:
                 if (self._auth_provider is not None and isinstance(
-                        self._auth_provider, StoreAccessTokenProvider)):
+                        self._auth_provider, kv.StoreAccessTokenProvider)):
                     self._auth_provider.bootstrap_login()
                     exception = ae
                     num_retried += 1
@@ -347,7 +351,7 @@ class RequestUtils(object):
         code = bis.read_byte()
         if code == 0:
             res = request.create_serializer().deserialize(
-                request, bis, BinaryProtocol.SERIAL_VERSION)
+                request, bis, serde.BinaryProtocol.SERIAL_VERSION)
             if request.is_query_request():
                 if not request.is_simple_query():
                     request.get_driver().set_client(self._client)
@@ -357,8 +361,8 @@ class RequestUtils(object):
         Operation failed. Handle the failure and throw an appropriate
         exception.
         """
-        err = BinaryProtocol.read_string(bis)
-        raise BinaryProtocol.map_exception(code, err)
+        err = serde.BinaryProtocol.read_string(bis)
+        raise serde.BinaryProtocol.map_exception(code, err)
 
     @staticmethod
     def _process_not_ok_response(content, status):

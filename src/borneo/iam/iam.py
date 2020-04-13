@@ -17,6 +17,7 @@ except ImportError:
 
 from borneo.auth import AuthorizationProvider
 from borneo.common import CheckValue, HttpConstants, LogUtils, Memoize
+from borneo.config import Region, Regions
 from borneo.exception import IllegalArgumentException
 from borneo.http import RequestUtils
 
@@ -43,7 +44,7 @@ class SignatureProvider(AuthorizationProvider):
     the service. See :ref:`creds-label` for information on how to acquire this
     information.
 
-    There are two different ways to authorize an application:
+    There are three different ways to authorize an application:
 
     1. Using a specific user's identity.
     2. Using an Instance Principal, which can be done when running on a compute
@@ -51,9 +52,14 @@ class SignatureProvider(AuthorizationProvider):
        :py:meth:`create_with_instance_principal` and `Calling Services from
        Instances <https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/
        callingservicesfrominstances.htm>`_.
+    3. Using a Resource Principal, which can be done when running within a
+       Function within the Oracle Cloud Infrastructure (OCI). See
+       :py:meth:`create_with_resource_principal` and `Accessing Other Oracle
+       Cloud Infrastructure Resources from Running Functions <https://docs.
+       cloud.oracle.com/en-us/iaas/Content/Functions/Tasks/
+       functionsaccessingociresources.htm>`_.
 
-    The latter can be simpler to use when running on an OCI compute instance,
-    but limits the ability to use a compartment name vs OCID when naming
+    The latter 2 limit the ability to use a compartment name vs OCID when naming
     compartments and tables in :py:class:`Request` classes and when naming
     tables in queries. A specific user identity is best for naming flexibility,
     allowing both compartment names and OCIDs.
@@ -62,20 +68,20 @@ class SignatureProvider(AuthorizationProvider):
     required information:
 
     1. Using a instance of oci.signer.Signer or
-       oci.auth.signers.InstancePrincipalsSecurityTokenSigner
+       oci.auth.signers.SecurityTokenSigner
     2. Directly providing the credentials via parameters
     3. Using a configuration file
 
     Only one method of providing credentials can be used, and if they are mixed
     the priority from high to low is:
 
-    * Signer or InstancePrincipalsSecurityTokenSigner(provider is used)
+    * Signer or SecurityTokenSigner(provider is used)
     * Credentials as arguments (tenant_id, etc used)
     * Configuration file (config_file is used)
 
     :param provider: an instance of oci.signer.Signer or
-        oci.auth.signers.InstancePrincipalsSecurityTokenSigner.
-    :type provider: Signer or InstancePrincipalsSecurityTokenSigner
+        oci.auth.signers.SecurityTokenSigner.
+    :type provider: Signer or SecurityTokenSigner
     :param config_file: path of configuration file.
     :type config_file: str
     :param profile_name: user profile name. Only valid with config_file.
@@ -90,6 +96,8 @@ class SignatureProvider(AuthorizationProvider):
     :type fingerprint: str
     :param pass_phrase: pass_phrase for the private key if created
     :type pass_phrase: str
+    :param region: identifies the region will be accessed by the NoSQLHandle
+    :type region: Region
     :param duration_seconds: the signature cache duration in seconds.
     :type duration_seconds: int
     :param refresh_ahead: the refresh time before signature cache expiry
@@ -108,7 +116,7 @@ class SignatureProvider(AuthorizationProvider):
 
     def __init__(self, provider=None, config_file=None, profile_name=None,
                  tenant_id=None, user_id=None, fingerprint=None,
-                 private_key=None, pass_phrase=None,
+                 private_key=None, pass_phrase=None, region=None,
                  duration_seconds=MAX_ENTRY_LIFE_TIME,
                  refresh_ahead=DEFAULT_REFRESH_AHEAD):
         """
@@ -127,15 +135,22 @@ class SignatureProvider(AuthorizationProvider):
                 'Access token cannot be cached longer than ' +
                 str(SignatureProvider.MAX_ENTRY_LIFE_TIME) + ' seconds.')
 
+        self._region = None
         if provider is not None:
             if not isinstance(
                 provider,
                 (oci.signer.Signer,
-                 oci.auth.signers.InstancePrincipalsSecurityTokenSigner)):
+                 oci.auth.signers.SecurityTokenSigner)):
                 raise IllegalArgumentException(
                     'provider should be an instance of oci.signer.Signer or ' +
-                    'oci.auth.signers.InstancePrincipalsSecurityTokenSigner.')
+                    'oci.auth.signers.SecurityTokenSigner.')
             self._provider = provider
+            try:
+                region_id = provider.region
+            except AttributeError:
+                region_id = None
+            if region_id is not None:
+                self._region = Regions.from_region_id(region_id)
         elif (tenant_id is None or user_id is None or fingerprint is None or
               private_key is None):
             CheckValue.check_str(config_file, 'config_file', True)
@@ -161,6 +176,10 @@ class SignatureProvider(AuthorizationProvider):
                 config['tenancy'], config['user'], config['fingerprint'],
                 config['key_file'], config.get('pass_phrase'),
                 config.get('key_content'))
+            region_id = config.get('region')
+            if region_id is not None:
+                self._provider.region = region_id
+                self._region = Regions.from_region_id(region_id)
         else:
             CheckValue.check_str(tenant_id, 'tenant_id')
             CheckValue.check_str(user_id, 'user_id')
@@ -176,6 +195,12 @@ class SignatureProvider(AuthorizationProvider):
             self._provider = oci.signer.Signer(
                 tenant_id, user_id, fingerprint, key_file, pass_phrase,
                 key_content)
+            if region is not None:
+                if not isinstance(region, Region):
+                    raise IllegalArgumentException(
+                        'region must be an instance of an instance of Region.')
+                self._provider.region = region.get_region_id()
+                self._region = region
 
         self._signature_cache = Memoize(duration_seconds)
         self._refresh_interval_s = (duration_seconds - refresh_ahead if
@@ -208,6 +233,10 @@ class SignatureProvider(AuthorizationProvider):
 
     def get_logger(self):
         return self._logger
+
+    def get_region(self):
+        # Internal use only.
+        return self._region
 
     def set_logger(self, logger):
         CheckValue.check_logger(logger, 'logger')
@@ -246,7 +275,8 @@ class SignatureProvider(AuthorizationProvider):
         return self
 
     @staticmethod
-    def create_with_instance_principal(iam_auth_uri=None):
+    def create_with_instance_principal(iam_auth_uri=None, region=None,
+                                       logger=None):
         """
         Creates a SignatureProvider using an instance principal. This method may
         be used when calling the Oracle NoSQL Database Cloud Service from an
@@ -254,7 +284,7 @@ class SignatureProvider(AuthorizationProvider):
         principal and uses a security token issued by IAM to do the actual
         request signing.
 
-        When using an instance principal the compartment (OCID) must be
+        When using an instance principal the compartment id (OCID) must be
         specified on each request or defaulted by using
         :py:meth:`borneo.NoSQLHandleConfig.set_default_compartment`. If the
         compartment is not specified for an operation an exception will be
@@ -267,16 +297,48 @@ class SignatureProvider(AuthorizationProvider):
             the URI if you need to overwrite the default, or encounter the
             *Invalid IAM URI* error, it is optional.
         :type iam_auth_uri: str
+        :param region: identifies the region will be accessed by the
+            NoSQLHandle.
+        :type region: Region
+        :param logger: the logger used by the SignatureProvider.
+        :type logger: Logger
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
         """
         if iam_auth_uri is None:
-            return SignatureProvider(
-                oci.auth.signers.InstancePrincipalsSecurityTokenSigner())
+            provider = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()
         else:
-            return SignatureProvider(
-                oci.auth.signers.InstancePrincipalsSecurityTokenSigner(
-                    federation_endpoint=iam_auth_uri))
+            provider = oci.auth.signers.InstancePrincipalsSecurityTokenSigner(
+                federation_endpoint=iam_auth_uri)
+        if region is not None:
+            provider.region = region.get_region_id()
+        signature_provider = SignatureProvider(provider)
+        return (signature_provider if logger is None else
+                signature_provider.set_logger(logger))
+
+    @staticmethod
+    def create_with_resource_principal():
+        """
+        Creates a SignatureProvider using a resource principal. This method may
+        be used when calling the Oracle NoSQL Database Cloud Service within an
+        Oracle Cloud Function. It authenticates with the resource principal and
+        uses a security token issued by IAM to do the actual request signing.
+
+        When using a resource principal the compartment (OCID) must be specified
+        on each request or defaulted by using
+        :py:meth:`borneo.NoSQLHandleConfig.set_default_compartment`. If the
+        compartment is not specified for an operation an exception will be
+        thrown.
+
+        See `Accessing Other Oracle Cloud Infrastructure Resources from Running
+        Functions <https://docs.cloud.oracle.com/en-us/iaas/Content/Functions/
+        Tasks/functionsaccessingociresources.htm>`_.
+
+        :returns: a SignatureProvider.
+        :rtype: SignatureProvider
+        """
+        return SignatureProvider(
+            oci.auth.signers.get_resource_principals_signer())
 
     def _get_signature_details(self):
         sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)

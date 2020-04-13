@@ -20,6 +20,24 @@ _____
 * Added NoSQLHandleConfig.set_ssl_ca_certs() to allow the user to configure SSL
   CA certificates, and NoSQLHandleConfig.get_ssl_ca_certs() to get the SSL CA
   certificates setting.
+* Cloud only. Added new regions: AP_MELBOURNE_1, AP_OSAKA_1, ME_JEDDAH_1,
+  EU_AMSTERDAM_1, CA_MONTREAL_1.
+* Cloud only. Added SignatureProvider.create_with_resource_principal to allow
+  authentication using an OCI resource principal.
+
+Changed
+_______
+
+* Cloud only. Added the support in SignatureProvider to configure and pass
+  region to NoSQLHandleConfig:
+
+  * SignatureProvider built with OCI standard config file is now able to read
+    'region' parameter from config file and pass to NoSQLHandleConfig
+    implicitly.
+  * Change constructor of SignatureProvider to allow passing Region
+    programmatically with user profile.
+  * Change the method SignatureProvider.create_with_instance_principal to allow
+    setting Region with instance principal.
 
 Fixed
 _____

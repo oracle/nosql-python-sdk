@@ -19,13 +19,13 @@ except ImportError:
     from urllib.parse import urlparse
 
 import borneo.http
+import borneo.config
+import borneo.operations
 from borneo.auth import AuthorizationProvider
 from borneo.common import (
     CheckValue, HttpConstants, LogUtils, SSLAdapter, synchronized)
-from borneo.config import NoSQLHandleConfig
 from borneo.exception import (
     IllegalArgumentException, InvalidAuthorizationException, NoSQLException)
-from borneo.operations import Request
 
 
 class StoreAccessTokenProvider(AuthorizationProvider):
@@ -176,7 +176,8 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             self._sess.close()
 
     def get_authorization_string(self, request=None):
-        if request is not None and not isinstance(request, Request):
+        if (request is not None and
+                not isinstance(request, borneo.operations.Request)):
             raise IllegalArgumentException(
                 'get_authorization_string requires an instance of Request or ' +
                 'None as parameter.')
@@ -233,7 +234,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         """
         CheckValue.check_str(endpoint, 'endpoint')
         self._endpoint = endpoint
-        self._url = NoSQLHandleConfig.create_url(endpoint, '')
+        self._url = borneo.config.NoSQLHandleConfig.create_url(endpoint, '')
         if self._is_secure and self._url.scheme.lower() != 'https':
             raise IllegalArgumentException(
                 'StoreAccessTokenProvider requires use of https.')

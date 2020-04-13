@@ -10,14 +10,19 @@ Regions
 
    .. autosummary::
 
+      ~Regions.AP_MELBOURNE_1
       ~Regions.AP_MUMBAI_1
+      ~Regions.AP_OSAKA_1
       ~Regions.AP_SEOUL_1
       ~Regions.AP_SYDNEY_1
       ~Regions.AP_TOKYO_1
+      ~Regions.CA_MONTREAL_1
       ~Regions.CA_TORONTO_1
+      ~Regions.EU_AMSTERDAM_1
       ~Regions.EU_FRANKFURT_1
       ~Regions.EU_ZURICH_1
       ~Regions.GOV_REGIONS
+      ~Regions.ME_JEDDAH_1
       ~Regions.OC1_REGIONS
       ~Regions.OC4_REGIONS
       ~Regions.SA_SAOPAULO_1
@@ -39,14 +44,19 @@ Regions
 
    .. rubric:: Attributes Documentation
 
+   .. autoattribute:: AP_MELBOURNE_1
    .. autoattribute:: AP_MUMBAI_1
+   .. autoattribute:: AP_OSAKA_1
    .. autoattribute:: AP_SEOUL_1
    .. autoattribute:: AP_SYDNEY_1
    .. autoattribute:: AP_TOKYO_1
+   .. autoattribute:: CA_MONTREAL_1
    .. autoattribute:: CA_TORONTO_1
+   .. autoattribute:: EU_AMSTERDAM_1
    .. autoattribute:: EU_FRANKFURT_1
    .. autoattribute:: EU_ZURICH_1
    .. autoattribute:: GOV_REGIONS
+   .. autoattribute:: ME_JEDDAH_1
    .. autoattribute:: OC1_REGIONS
    .. autoattribute:: OC4_REGIONS
    .. autoattribute:: SA_SAOPAULO_1

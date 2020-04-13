@@ -19,6 +19,7 @@ SignatureProvider
 
       ~SignatureProvider.close
       ~SignatureProvider.create_with_instance_principal
+      ~SignatureProvider.create_with_resource_principal
       ~SignatureProvider.get_authorization_string
       ~SignatureProvider.get_logger
       ~SignatureProvider.set_logger
@@ -32,6 +33,7 @@ SignatureProvider
 
    .. automethod:: close
    .. automethod:: create_with_instance_principal
+   .. automethod:: create_with_resource_principal
    .. automethod:: get_authorization_string
    .. automethod:: get_logger
    .. automethod:: set_logger

@@ -23,6 +23,10 @@ from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException,
     SecurityInfoNotReadyException)
 from .operations import Request
+try:
+    from . import iam
+except ImportError:
+    import iam
 
 
 class RetryHandler(object):
@@ -298,6 +302,10 @@ class Regions(object):
     """Region Location: Mumbai, India"""
     AP_SYDNEY_1 = Region('ap-sydney-1')
     """Region Location: Sydney, Australia"""
+    AP_MELBOURNE_1 = Region("ap-melbourne-1")
+    """Region Location: Melbourne, Australia"""
+    AP_OSAKA_1 = Region("ap-osaka-1")
+    """Region Location: Osaka, Japan"""
 
     UK_LONDON_1 = Region('uk-london-1')
     """Region Location: London, United Kingdom"""
@@ -305,6 +313,10 @@ class Regions(object):
     """Region Location: Frankfurt, Germany"""
     EU_ZURICH_1 = Region('eu-zurich-1')
     """Region Location: Zurich, Switzerland"""
+    EU_AMSTERDAM_1 = Region("eu-amsterdam-1")
+    """Region Location: Amsterdam, Netherlands"""
+    ME_JEDDAH_1 = Region("me-jeddah-1")
+    """Region Location: Jeddah, Saudi Arabia"""
 
     US_ASHBURN_1 = Region('us-ashburn-1')
     """Region Location: Ashburn, VA"""
@@ -312,6 +324,8 @@ class Regions(object):
     """Region Location: Phoenix, AZ"""
     CA_TORONTO_1 = Region('ca-toronto-1')
     """Region Location: Toronto, Canada"""
+    CA_MONTREAL_1 = Region("ca-montreal-1")
+    """Region Location: Montreal, Canada"""
 
     SA_SAOPAULO_1 = Region('sa-saopaulo-1')
     """Region Location: Sao Paulo, Brazil"""
@@ -342,11 +356,15 @@ class Regions(object):
     OC1_REGIONS[AP_TOKYO_1.get_region_id()] = AP_TOKYO_1
     OC1_REGIONS[AP_MUMBAI_1.get_region_id()] = AP_MUMBAI_1
     OC1_REGIONS[AP_SYDNEY_1.get_region_id()] = AP_SYDNEY_1
+    OC1_REGIONS[AP_MELBOURNE_1.get_region_id()] = AP_MELBOURNE_1
+    OC1_REGIONS[AP_OSAKA_1.get_region_id()] = AP_OSAKA_1
 
     # EMEA
     OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
     OC1_REGIONS[EU_FRANKFURT_1.get_region_id()] = EU_FRANKFURT_1
     OC1_REGIONS[EU_ZURICH_1.get_region_id()] = EU_ZURICH_1
+    OC1_REGIONS[EU_AMSTERDAM_1.get_region_id()] = EU_AMSTERDAM_1
+    OC1_REGIONS[ME_JEDDAH_1.get_region_id()] = ME_JEDDAH_1
 
     # LAD
     OC1_REGIONS[SA_SAOPAULO_1.get_region_id()] = SA_SAOPAULO_1
@@ -355,6 +373,7 @@ class Regions(object):
     OC1_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
     OC1_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
     OC1_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
+    OC1_REGIONS[CA_MONTREAL_1.get_region_id()] = CA_MONTREAL_1
 
     GOV_REGIONS = dict()
     """A dict that save all the government regions."""
@@ -422,12 +441,9 @@ class NoSQLHandleConfig(object):
     handles which are immutable. NoSQLHandle state with default values can be
     overridden in individual operations.
 
-    Some of the configuration parameters are optional and have default values if
-    not specified.
-
-    The service endpoint is required by constructor used to connect to the
-    Oracle NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
-    Database proxy server. It should be a string or a :py:class:`Region`.
+    The service endpoint is used to connect to the Oracle NoSQL Database Cloud
+    Service or, if on-premise, the Oracle NoSQL Database proxy server. It should
+    be a string or a :py:class:`Region`.
 
     If a string is provided to endpoint argument, there is flexibility in how
     endpoints are specified. A fully specified endpoint is of the format:
@@ -465,8 +481,11 @@ class NoSQLHandleConfig(object):
 
      * Regions.US_ASHBURN_1
 
+    For cloud service, one or both of endpoint and provider must be set. For
+    other scenarios, endpoint is required while provider is optional.
+
     :param endpoint: identifies a server, region id or :py:class:`Region` for
-        use by the NoSQLHandle. This is a required parameter.
+        use by the NoSQLHandle.
     :type endpoint: str or Region
     :param provider: :py:class:`AuthorizationProvider` to use for the handle.
     :type provider: AuthorizationProvider
@@ -485,19 +504,43 @@ class NoSQLHandleConfig(object):
 
     def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
-        if not isinstance(endpoint, (str, Region)):
-            raise IllegalArgumentException(
-                'endpoint should be a string or instance of Region.')
-        if (provider is not None and
-                not isinstance(provider, AuthorizationProvider)):
-            raise IllegalArgumentException(
-                'provider must be an instance of AuthorizationProvider.')
-        if isinstance(endpoint, str):
-            self._region = Regions.from_region_id(endpoint)
+        if endpoint is not None:
+            if not isinstance(endpoint, (str, Region)):
+                raise IllegalArgumentException(
+                    'endpoint should be a string or instance of Region.')
+            if (provider is not None and
+                    not isinstance(provider, AuthorizationProvider)):
+                raise IllegalArgumentException(
+                    'provider must be an instance of AuthorizationProvider.')
+            if isinstance(endpoint, str):
+                self._region = Regions.from_region_id(endpoint)
+            else:
+                self._region = endpoint
+            if self._region is None:
+                ep = endpoint
+            else:
+                if isinstance(provider, iam.SignatureProvider):
+                    region_in_provider = provider.get_region()
+                    if (region_in_provider is not None and
+                            region_in_provider != self._region):
+                        raise IllegalArgumentException(
+                            'Specified region ' + endpoint + ' doesn\'t ' +
+                            'match the region in SignatureProvider.')
+                ep = self._region.endpoint()
+        elif provider is not None:
+            if not isinstance(provider, iam.SignatureProvider):
+                raise IllegalArgumentException(
+                    'provider must be an instance of SignatureProvider.')
+            self._region = provider.get_region()
+            if self._region is None:
+                raise IllegalArgumentException(
+                    'Unable to find region from given SignatureProvider.')
+            else:
+                ep = self._region.endpoint()
         else:
-            self._region = endpoint
-        self._service_url = NoSQLHandleConfig.create_url(
-            endpoint if self._region is None else self._region.endpoint(), '/')
+            raise IllegalArgumentException(
+                'One or both of endpoint and provider must be set.')
+        self._service_url = NoSQLHandleConfig.create_url(ep, '/')
         self._auth_provider = provider
         self._compartment = None
         self._timeout = 0

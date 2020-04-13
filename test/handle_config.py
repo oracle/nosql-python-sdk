@@ -15,6 +15,8 @@ from borneo import (
     GetRequest, IllegalArgumentException, OperationThrottlingException,
     DefaultRetryHandler, Regions, RetryableException, RetryHandler,
     SecurityInfoNotReadyException, NoSQLHandle, NoSQLHandleConfig, TableRequest)
+from borneo.iam import SignatureProvider
+from borneo.kv import StoreAccessTokenProvider
 from parameters import (
     ca_certs, consistency, endpoint, pool_connections, pool_maxsize, security,
     table_name, tenant_id, timeout, table_request_timeout)
@@ -38,8 +40,27 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         # illegal provider
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
                           endpoint, provider='IllegalProvider')
-        # no endpoint
+        # no endpoint and provider
         self.assertRaises(IllegalArgumentException, NoSQLHandleConfig)
+        # only StoreAccessTokenProvider
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, None,
+                          StoreAccessTokenProvider())
+        # only SignatureProvider without region
+        provider = SignatureProvider(
+            tenant_id='ocid1.tenancy.oc1..tenancy',
+            user_id='ocid1.user.oc1..user', fingerprint='fingerprint',
+            private_key=fake_key_file)
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig, None,
+                          provider)
+        provider.close()
+        # both endpoint and provider, region not match
+        provider = SignatureProvider(
+            tenant_id='ocid1.tenancy.oc1..tenancy',
+            user_id='ocid1.user.oc1..user', fingerprint='fingerprint',
+            private_key=fake_key_file, region=Regions.US_ASHBURN_1)
+        self.assertRaises(IllegalArgumentException, NoSQLHandleConfig,
+                          'us-phoenix-1', provider)
+        provider.close()
 
     def testNoSQLHandleConfigSetIllegalEndpoint(self):
         # illegal endpoint
@@ -257,6 +278,21 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         config = get_simple_handle_config(tenant_id, Regions.UK_GOV_LONDON_1)
         self._check_service_url(
             config, 'https', 'nosql.uk-gov-london-1.oci.oraclegovcloud.uk', 443)
+        # set a provider with region
+        provider = SignatureProvider(
+            tenant_id='ocid1.tenancy.oc1..tenancy',
+            user_id='ocid1.user.oc1..user', fingerprint='fingerprint',
+            private_key=fake_key_file, region=Regions.US_ASHBURN_1)
+        config = NoSQLHandleConfig(provider=provider)
+        self._check_service_url(
+            config, 'https', 'nosql.us-ashburn-1.oci.oraclecloud.com', 443)
+        self.assertEqual(config.get_region(), Regions.US_ASHBURN_1)
+        # set a endpoint and provider with region
+        config = NoSQLHandleConfig('us-ashburn-1', provider)
+        self._check_service_url(
+            config, 'https', 'nosql.us-ashburn-1.oci.oraclecloud.com', 443)
+        self.assertEqual(config.get_region(), Regions.US_ASHBURN_1)
+        provider.close()
 
     def testNoSQLHandleConfigRegions(self):
         for r in Regions.get_oc1_regions():
@@ -334,8 +370,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         url = config.get_service_url()
         (self.assertIsNotNone(url) if service_url is None
          else self.assertEqual(url, service_url))
-        # check the region
-        self.assertIsNone(config.get_region())
         # check default timeout
         self.assertEqual(config.get_default_timeout(), timeout)
         # check default table request timeout

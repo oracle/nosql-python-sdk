@@ -18,7 +18,7 @@ from sys import argv
 
 from borneo import (
     AuthorizationProvider, DefaultRetryHandler, IllegalArgumentException,
-    IllegalStateException, NoSQLHandle, NoSQLHandleConfig)
+    IllegalStateException, NoSQLHandle, NoSQLHandleConfig, Regions)
 from borneo.iam import SignatureProvider
 from borneo.kv import StoreAccessTokenProvider
 from parameters import (
@@ -67,11 +67,12 @@ ssl_protocol = None
 def get_handle_config(tenant_id):
     # Creates a NoSQLHandleConfig
     get_logger()
-    config = NoSQLHandleConfig(endpoint).set_timeout(timeout).set_consistency(
-        consistency).set_pool_connections(pool_connections).set_pool_maxsize(
-        pool_maxsize).set_retry_handler(retry_handler).set_default_compartment(
-        tenant_id).set_table_request_timeout(table_request_timeout).set_logger(
-        logger).set_sec_info_timeout(sec_info_timeout)
+    provider = generate_authorization_provider(tenant_id)
+    config = NoSQLHandleConfig(endpoint, provider).set_table_request_timeout(
+        table_request_timeout).set_timeout(timeout).set_default_compartment(
+        tenant_id).set_pool_connections(pool_connections).set_sec_info_timeout(
+        sec_info_timeout).set_pool_maxsize(pool_maxsize).set_retry_handler(
+        retry_handler).set_consistency(consistency).set_logger(logger)
     if proxy_host is not None:
         config.set_proxy_host(proxy_host)
     if proxy_port != 0:
@@ -86,16 +87,15 @@ def get_handle_config(tenant_id):
         config.set_ssl_protocol(ssl_protocol)
     if ca_certs is not None:
         config.set_ssl_ca_certs(ca_certs)
-    set_authorization_provider(config, tenant_id)
     return config
 
 
 def get_simple_handle_config(tenant_id, ep=endpoint):
     # Creates a simple NoSQLHandleConfig
     get_logger()
-    config = NoSQLHandleConfig(ep).set_logger(
-        logger)
-    set_authorization_provider(config, tenant_id)
+    config = NoSQLHandleConfig(ep).set_authorization_provider(
+        generate_authorization_provider(tenant_id)).set_default_compartment(
+        tenant_id).set_logger(logger)
     return config
 
 
@@ -140,7 +140,7 @@ def get_row(with_sid=True):
     return row
 
 
-def set_authorization_provider(config, tenant_id):
+def generate_authorization_provider(tenant_id):
     if is_cloudsim():
         authorization_provider = InsecureAuthorizationProvider(tenant_id)
     elif is_dev_pod() or is_minicloud():
@@ -153,8 +153,20 @@ def set_authorization_provider(config, tenant_id):
             authorization_provider = SignatureProvider(
                 config_file=credentials_file)
         elif iam_principal() == 'instance principal':
+            if isinstance(endpoint, str):
+                region = Regions.from_region_id(endpoint)
+            else:
+                region = endpoint
+            if region is None:
+                authorization_provider = (
+                    SignatureProvider.create_with_instance_principal())
+            else:
+                authorization_provider = (
+                    SignatureProvider.create_with_instance_principal(
+                        region=region))
+        elif iam_principal() == 'resource principals':
             authorization_provider = (
-                SignatureProvider.create_with_instance_principal())
+                SignatureProvider.create_with_resource_principal())
         else:
             raise IllegalArgumentException('Must specify the principal.')
     elif is_onprem():
@@ -168,7 +180,7 @@ def set_authorization_provider(config, tenant_id):
                 user_name, password)
     else:
         raise IllegalArgumentException('Please set the test server.')
-    config.set_authorization_provider(authorization_provider)
+    return authorization_provider
 
 
 def add_test_tier_tenant(tenant_id):

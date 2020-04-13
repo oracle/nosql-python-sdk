@@ -17,7 +17,8 @@ except ImportError:
     oci = None
     found = False
 
-from borneo import IllegalArgumentException, NoSQLHandleConfig, TableRequest
+from borneo import (
+    IllegalArgumentException, NoSQLHandleConfig, Regions, TableRequest)
 from borneo.iam import SignatureProvider
 from parameters import iam_principal
 from testutils import fake_credentials_file, fake_key_file
@@ -87,6 +88,11 @@ class TestSignatureProvider(unittest.TestCase):
                 IllegalArgumentException, SignatureProvider, tenant_id='tenant',
                 user_id='user', fingerprint='fingerprint', private_key='key',
                 pass_phrase='')
+            # illegal region
+            self.assertRaises(
+                IllegalArgumentException, SignatureProvider, tenant_id='tenant',
+                user_id='user', fingerprint='fingerprint', private_key='key',
+                pass_phrase={}, region='IllegalRegion')
 
             # illegal cache duration seconds
             self.assertRaises(IllegalArgumentException, SignatureProvider,
@@ -170,6 +176,37 @@ class TestSignatureProvider(unittest.TestCase):
                 auth_string,
                 self.token_provider.get_authorization_string(self.request))
 
+        def testAccessTokenProviderGetRegion(self):
+            # no region
+            config = oci.config.from_file(file_location=fake_credentials_file)
+            provider = oci.signer.Signer(
+                config['tenancy'], config['user'], config['fingerprint'],
+                config['key_file'], config.get('pass_phrase'),
+                config.get('key_content'))
+            self.token_provider = SignatureProvider(provider)
+            self.assertIsNone(self.token_provider.get_region())
+            self.token_provider.close()
+            # region get from provider parameter of constructor
+            provider.region = config['region']
+            self.token_provider = SignatureProvider(provider)
+            self.assertEqual(self.token_provider.get_region(),
+                             Regions.US_ASHBURN_1)
+            self.token_provider.close()
+            # region get from config_file parameter of constructor
+            self.token_provider = SignatureProvider(
+                config_file=fake_credentials_file)
+            self.assertEqual(self.token_provider.get_region(),
+                             Regions.US_ASHBURN_1)
+            self.token_provider.close()
+            # region from region parameter of constructor
+            self.token_provider = SignatureProvider(
+                tenant_id='ocid1.tenancy.oc1..tenancy',
+                user_id='ocid1.user.oc1..user', fingerprint='fingerprint',
+                private_key=fake_key_file, region=Regions.US_ASHBURN_1,
+                duration_seconds=5, refresh_ahead=1)
+            self.assertEqual(self.token_provider.get_region(),
+                             Regions.US_ASHBURN_1)
+
         if iam_principal() == 'instance principal':
             def testInstancePrincipalGetAuthString(self):
                 signer = (
@@ -193,6 +230,13 @@ class TestSignatureProvider(unittest.TestCase):
                     auth_string,
                     self.token_provider.get_authorization_string(self.request))
 
+            def testInstancePrincipalGetRegion(self):
+                self.token_provider = (
+                    SignatureProvider.create_with_instance_principal(
+                        region=Regions.US_ASHBURN_1))
+                self.assertEqual(self.token_provider.get_region(),
+                                 Regions.US_ASHBURN_1)
+
         @staticmethod
         def _generate_credentials_file():
             # Generate credentials file
@@ -205,6 +249,7 @@ class TestSignatureProvider(unittest.TestCase):
                 cred_file.write('user=ocid1.user.oc1..user\n')
                 cred_file.write('fingerprint=fingerprint\n')
                 cred_file.write('key_file=' + fake_key_file + '\n')
+                cred_file.write('region=us-ashburn-1\n')
 
 
 if __name__ == '__main__':

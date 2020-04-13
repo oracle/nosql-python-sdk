@@ -129,7 +129,7 @@ user_name = None
 password = None
 
 # Cloud Simulator/on-premise: not used
-# Service: 'user principal' or 'instance principal'
+# Service: 'user principal', 'instance principal' or 'resource principals'
 principal = None
 
 # Cloud Simulator/on-premise: not used
