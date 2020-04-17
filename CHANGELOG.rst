@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
-====================
- 5.2.1 - 2020-03-23
-====================
+==========
+Unreleased
+==========
 
 Added
 _____
@@ -38,13 +38,13 @@ _______
     programmatically with user profile.
   * Change the method SignatureProvider.create_with_instance_principal to allow
     setting Region with instance principal.
-  * Deprecate QueryRequest.set_continuation_key and
-    QueryRequest.get_continuation_key, use QueryRequest.is_done instead.
+* Deprecated QueryRequest.set_continuation_key and
+  QueryRequest.get_continuation_key, use QueryRequest.is_done instead.
 
 Fixed
 _____
 
-* Don't validate request sizes. On-premise only.
+* On-premise only. Don't validate request sizes.
 
 Removed
 _______
