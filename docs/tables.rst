@@ -306,7 +306,12 @@ ctx=en/cloud/paas/nosql-cloud&id=sql_nosql>`_ for a full description of the
 query language.
 
 To execute a query use the :func:`borneo.NoSQLHandle.query` method. For example,
-to execute a *SELECT* query to read data from your table:
+to execute a *SELECT* query to read data from your table, a
+:class:`borneo.QueryResult` contains a list of results. And if the
+:func:`borneo.QueryRequest.is_done` returns False, there may be more results, so
+queries should generally be run in a loop. It is possible for single request to
+return no results but the query still not done, indicating that the query loop
+should continue. For example:
 
 .. code-block:: pycon
 
@@ -317,33 +322,13 @@ to execute a *SELECT* query to read data from your table:
     # statement
     statement = 'select * from users where name = "Taylor"'
     request = QueryRequest().set_statement(statement)
-    result = handle.query(request)
-
-    # look at results for this single request
-    for res in result.get_results():
-       print(str(res))
-
-A :class:`borneo.QueryResult` contains a list of results as well as an optional
-*continuation key*. If the continuation key is not empty there may be more
-results, so queries should generally be run in a loop. It is possible for single
-request to return no results but still have a continuation key, indicating that
-the query loop should continue. For example:
-
-.. code-block:: pycon
-
-    from borneo import QueryRequest
-
-    statement = 'select * from users where name = "Taylor"'
-    request = QueryRequest().set_statement(statement)
-    result = handle.query(request)
-
-    # handle results so far
-    handle_results(result) # do something with results
-
     # loop until request is done, handling results as they arrive
-    while not request.is_done():
+    while True:
         result = handle.query(request)
+        # handle results
         handle_results(result) # do something with results
+        if request.is_done():
+            break
 
 When using queries it is important to be aware of the following considerations:
 
@@ -374,13 +359,26 @@ Here is an example of using a prepared query with a single variable:
     pstatement = presult.get_prepared_statement()
     pstatement.set_variable('$name', 'Taylor')
     qrequest = QueryRequest().set_prepared_statement(pstatement)
-
-    # use the prepared query in the query request
-    qresult = handle.query(qrequest)
+    # loop until qrequest is done, handling results as they arrive
+    while True:
+        # use the prepared query in the query request
+        qresult = handle.query(qrequest)
+        # handle results
+        handle_results(qresult) # do something with results
+        if qrequest.is_done():
+            break
 
     # use a different variable value with the same prepared query
     pstatement.set_variable('$name', 'another_name')
-    qresult = handle.query(qrequest)
+    qrequest = QueryRequest().set_prepared_statement(pstatement)
+    # loop until qrequest is done, handling results as they arrive
+    while True:
+        # use the prepared query in the query request
+        qresult = handle.query(qrequest)
+        # handle results
+        handle_results(qresult) # do something with results
+        if qrequest.is_done():
+            break
 
 -----------
 Delete Data

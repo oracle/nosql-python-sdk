@@ -108,10 +108,13 @@ sid integer, name string, primary key(shard(sid), id))'
         # Query, using the prepared statement
         #
         request = QueryRequest().set_prepared_statement(prepared_result)
-        result = handle.query(request)
         print('Query results for the prepared statement: ')
-        for r in result.get_results():
-            print('\t' + str(r))
+        while True:
+            result = handle.query(request)
+            for r in result.get_results():
+                print('\t' + str(r))
+            if request.is_done():
+                break
 
         #
         # Multiple delete the rows
@@ -126,10 +129,13 @@ sid integer, name string, primary key(shard(sid), id))'
         #
         request = QueryRequest().set_prepared_statement(
             prepared_result)
-        result = handle.query(request)
         print('Query results for the prepared statement (should be no rows): ')
-        for r in result.get_results():
-            print('\t' + str(r))
+        while True:
+            result = handle.query(request)
+            for r in result.get_results():
+                print('\t' + str(r))
+            if request.is_done():
+                break
 
         #
         # Drop the table

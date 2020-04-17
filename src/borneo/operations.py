@@ -14,7 +14,7 @@ from time import mktime, sleep, time
 
 from .common import (
     CheckValue, Consistency, FieldRange, PreparedStatement, PutOption, State,
-    SystemState, TableLimits, TimeToLive, Version)
+    SystemState, TableLimits, TimeToLive, Version, deprecated)
 from .exception import (
     IllegalArgumentException, RequestTimeoutException, TableNotFoundException)
 from .serde import (
@@ -1825,7 +1825,7 @@ class QueryRequest(Request):
         query at the driver. An application should use this method if it wishes
         to terminate query execution before retrieving all of the query results.
         """
-        self.set_continuation_key(None)
+        self.set_cont_key(None)
 
     def is_done(self):
         """
@@ -2046,6 +2046,7 @@ class QueryRequest(Request):
         """
         return self._consistency
 
+    @deprecated
     def set_continuation_key(self, continuation_key):
         """
         Sets the continuation key. This is used to continue an operation that
@@ -2057,6 +2058,8 @@ class QueryRequest(Request):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if
             continuation_key is not a bytearray.
+        :deprecated: There is no reason to use this method anymore, because
+            setting the continuation key is now done internally.
         """
         if (continuation_key is not None and
                 not isinstance(continuation_key, bytearray)):
@@ -2064,12 +2067,15 @@ class QueryRequest(Request):
                 'set_continuation_key requires bytearray as parameter.')
         return self.set_cont_key(continuation_key)
 
+    @deprecated
     def get_continuation_key(self):
         """
         Returns the continuation key if set.
 
         :returns: the key.
         :rtype: bytearray
+        :deprecated: There is no reason to use this method anymore, because
+            getting the continuation key is now done internally.
         """
         return self._continuation_key
 
@@ -3696,14 +3702,23 @@ class QueryResult(Result):
     queries either return values based on a RETURNING clause or, by default, the
     number of rows affected by the statement.
 
-    If the value returned by :py:meth:`get_continuation_key` is not None there
-    are additional results available. That value can be supplied to the query
-    request using :py:meth:`QueryRequest.set_continuation_key` to continue the
-    query. It is possible for a query to return no results in an empty list but
-    still have a non-none continuation key. This happens if the query reads the
-    maximum amount of data allowed in a single request without matching a query
-    predicate. In this case, the continuation key must be used to get results,
-    if any exist.
+    A single QueryResult does not imply that all results for the query have been
+    returned. If the value returned by :py:meth:`QueryRequest.is_done` is False
+    there are additional results available. This can happen even if there are no
+    values in the returned QueryResult. The best way to use
+    :py:class:`QueryRequest` and :py:class:`QueryResult` is to perform
+    operations in a loop, for example:
+
+    .. code-block:: pycon
+
+        handle = ...
+        request = QueryRequest().set_statement('SELECT * FROM foo')
+        while True:
+            result = handle.query(request)
+            results = result.get_results()
+            # do something with the results
+            if request.is_done():
+                break
     """
 
     def __init__(self, request, computed=True):

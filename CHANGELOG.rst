@@ -38,6 +38,8 @@ _______
     programmatically with user profile.
   * Change the method SignatureProvider.create_with_instance_principal to allow
     setting Region with instance principal.
+  * Deprecate QueryRequest.set_continuation_key and
+    QueryRequest.get_continuation_key, use QueryRequest.is_done instead.
 
 Fixed
 _____

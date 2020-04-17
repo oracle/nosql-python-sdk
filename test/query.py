@@ -158,11 +158,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                           self.query_request.set_consistency,
                           'IllegalConsistency')
 
-    def testQuerySetIllegalContinuationKey(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.query_request.set_continuation_key,
-                          'IllegalContinuationKey')
-
     def testQuerySetIllegalStatement(self):
         self.assertRaises(IllegalArgumentException,
                           self.query_request.set_statement, {})
@@ -207,15 +202,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                           self.query_request)
 
     def testQueryGets(self):
-        continuation_key = bytearray(5)
         context = Context(prec=10, rounding=ROUND_HALF_EVEN)
         self.query_request.set_consistency(Consistency.EVENTUAL).set_statement(
             query_statement).set_prepared_statement(
             self.prepare_result_select).set_limit(3).set_max_read_kb(
             2).set_max_write_kb(3).set_max_memory_consumption(
-            5).set_math_context(context).set_continuation_key(continuation_key)
+            5).set_math_context(context)
         self.assertIsNone(self.query_request.get_compartment())
-        self.assertFalse(self.query_request.is_done())
+        self.assertTrue(self.query_request.is_done())
         self.assertEqual(self.query_request.get_limit(), 3)
         self.assertEqual(self.query_request.get_max_read_kb(), 2)
         self.assertEqual(self.query_request.get_max_write_kb(), 3)
@@ -223,8 +217,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(self.query_request.get_math_context(), context)
         self.assertEqual(self.query_request.get_consistency(),
                          Consistency.EVENTUAL)
-        self.assertEqual(self.query_request.get_continuation_key(),
-                         continuation_key)
         self.assertEqual(self.query_request.get_statement(), query_statement)
         self.assertEqual(self.query_request.get_prepared_statement(),
                          self.prepare_result_select.get_prepared_statement())
@@ -305,10 +297,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result, read_kb + (prepare_cost if count == 0 else 0),
                 read_kb * 2 + (prepare_cost if count == 0 else 0), 0, 0)
             count += 1
-            if result.get_continuation_key() is None:
+            if self.query_request.is_done():
                 break
-            self.query_request.set_continuation_key(
-                result.get_continuation_key())
         self.assertEqual(count, num_records // limit + 1)
 
     def testQueryStatementSelectWithDefault(self):
@@ -455,10 +445,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 write_kb = (0 if num_update == 0 else num_update * 4)
             self.check_cost(result, read_kb, read_kb * 2, write_kb, write_kb)
             count += 1
-            if result.get_continuation_key() is None:
+            if self.query_request.is_done():
                 break
-            self.query_request.set_continuation_key(
-                result.get_continuation_key())
         self.assertEqual(count, 1)
         # check the updated row
         prepared_statement = self.prepare_result_select.get_prepared_statement()

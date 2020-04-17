@@ -304,10 +304,20 @@ that the *borneo* package has been installed.
             statement = (
                 'select * from ' + table_name + ' where id > 2 and id < 8')
             request = QueryRequest().set_statement(statement)
-            result = handle.query(request)
             print('Query results for: ' + statement)
-            for r in result.get_results():
-                print('\t' + str(r))
+            #
+            # If the :py:meth:`borneo.QueryRequest.is_done` returns False, there
+            # may be more results, so queries should generally be run in a loop.
+            # It is possible for single request to return no results but the
+            # query still not done, indicating that the query loop should
+            # continue.
+            #
+            while True:
+                result = handle.query(request)
+                for r in result.get_results():
+                    print('\t' + str(r))
+                if request.is_done():
+                    break
 
             #
             # Delete the row

@@ -16,12 +16,23 @@ from struct import pack, unpack
 from sys import version_info
 from threading import Lock
 from time import ctime, time
+from warnings import simplefilter, warn
 
 from .exception import IllegalArgumentException
 
 
 def enum(**enums):
     return type('Enum', (object,), enums)
+
+
+def deprecated(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        simplefilter('default', DeprecationWarning)
+        warn("Call to deprecated function {}.".format(func.__name__),
+             DeprecationWarning)
+        return func(*args, **kwargs)
+    return wrapper
 
 
 def synchronized(func):

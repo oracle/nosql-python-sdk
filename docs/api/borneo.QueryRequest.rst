@@ -13,7 +13,6 @@ QueryRequest
       ~QueryRequest.close
       ~QueryRequest.get_compartment
       ~QueryRequest.get_consistency
-      ~QueryRequest.get_continuation_key
       ~QueryRequest.get_limit
       ~QueryRequest.get_math_context
       ~QueryRequest.get_max_memory_consumption
@@ -25,7 +24,6 @@ QueryRequest
       ~QueryRequest.is_done
       ~QueryRequest.set_compartment
       ~QueryRequest.set_consistency
-      ~QueryRequest.set_continuation_key
       ~QueryRequest.set_limit
       ~QueryRequest.set_math_context
       ~QueryRequest.set_max_memory_consumption
@@ -40,7 +38,6 @@ QueryRequest
    .. automethod:: close
    .. automethod:: get_compartment
    .. automethod:: get_consistency
-   .. automethod:: get_continuation_key
    .. automethod:: get_limit
    .. automethod:: get_math_context
    .. automethod:: get_max_memory_consumption
@@ -52,7 +49,6 @@ QueryRequest
    .. automethod:: is_done
    .. automethod:: set_compartment
    .. automethod:: set_consistency
-   .. automethod:: set_continuation_key
    .. automethod:: set_limit
    .. automethod:: set_math_context
    .. automethod:: set_max_memory_consumption

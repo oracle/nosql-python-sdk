@@ -371,13 +371,11 @@ class NoSQLHandle(object):
         :py:meth:`QueryRequest.set_max_read_kb`. This limits the amount of data
         *read* and not the amount of data *returned*, which means that a query
         can return zero results but still have more data to read. This situation
-        is detected by checking if the :py:class:`QueryRequest` has a
-        continuation key, using :py:meth:`QueryRequest.get_continuation_key`.
-        For this reason queries should always operate in a loop, acquiring more
-        results, until the continuation key is None, indicating that the query
-        is done. Inside the loop the continuation key is applied to the
-        :py:class:`QueryRequest` using
-        :py:meth:`QueryRequest.set_continuation_key`.
+        is detected by checking if the :py:class:`QueryRequest` is done using
+        :py:meth:`QueryRequest.is_done`. For this reason queries should always
+        operate in a loop, acquiring more results, until
+        :py:meth:`QueryRequest.is_done` returns True, indicating that the query
+        is done.
 
         :param request: the input parameters for the operation.
         :type request: QueryRequest

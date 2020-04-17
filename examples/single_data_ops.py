@@ -98,10 +98,13 @@ sid integer, name string, primary key(shard(sid), id))'
         #
         statement = 'select * from ' + table_name + ' where id > 2 and id < 8'
         request = QueryRequest().set_statement(statement)
-        result = handle.query(request)
         print('Query results for: ' + statement)
-        for r in result.get_results():
-            print('\t' + str(r))
+        while True:
+            result = handle.query(request)
+            for r in result.get_results():
+                print('\t' + str(r))
+            if request.is_done():
+                break
 
         #
         # Delete the row
