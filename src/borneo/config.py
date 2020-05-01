@@ -1024,7 +1024,7 @@ class NoSQLHandleConfig(object):
         When running against on-premise Oracle NoSQL Database with security
         enabled, certificates should be specified using this method. Otherwise
         environment variable REQUESTS_CA_BUNDLE should be configured. See `the
-        installation guide <https://nosql-python-sdk.readthedocs.io/en/latest/
+        installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
         installation.html>`_ for the configuration of REQUESTS_CA_BUNDLE.
 
         :param ssl_ca_certs: ssl ca certificates.

@@ -16,7 +16,7 @@ necessary from the Oracle NoSQL OTN download page. Throughout the documentation,
 the Oracle NoSQL Database Cloud Service and Cloud Simulator are referred to as
 the "cloud service" while the Oracle NoSQL Database is referred to as
 "on-premise." In the `API reference <https://nosql-python-sdk.readthedocs.io/en/
-latest/api.html>`_ classes and interfaces are noted if they are only relevant to
+stable/api.html>`_ classes and interfaces are noted if they are only relevant to
 a specific environment.
 
 The on-premise configuration requires a running instance of the Oracle NoSQL
@@ -28,7 +28,7 @@ database/19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
 proxy configuration information.
 
 This project is open source and maintained by Oracle Corp. The home page for the
-project is `here <https://nosql-python-sdk.readthedocs.io/en/latest/index.
+project is `here <https://nosql-python-sdk.readthedocs.io/en/stable/index.
 html>`_.
 
 ============
@@ -39,7 +39,7 @@ The SDK can be installed using pip::
 
     pip install borneo
 
-See `the installation guide <https://nosql-python-sdk.readthedocs.io/en/latest/
+See `the installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
 installation.html>`_ for additional requirements and and alternative install
 methods.
 
@@ -57,9 +57,9 @@ they can be configured and run in the different supported environments.
 Documentation
 =============
 
-The `documentation <https://nosql-python-sdk.readthedocs.io/en/latest>`_ has
+The `documentation <https://nosql-python-sdk.readthedocs.io/en/stable>`_ has
 information on using the SDK as well as an `API reference <https://nosql-python-
-sdk.readthedocs.io/en/latest/api.html>`_ describing the classes.
+sdk.readthedocs.io/en/stable/api.html>`_ describing the classes.
 
 =======
 Changes
@@ -212,7 +212,7 @@ that the *borneo* package has been installed.
             #
             # Get credentials using SignatureProvider. SignatureProvider has
             # several ways to accept credentials. See the documentation:
-            #  https://nosql-python-sdk.readthedocs.io/en/latest/api/borneo.iam.SignatureProvider.html
+            #  https://nosql-python-sdk.readthedocs.io/en/stable/api/borneo.iam.SignatureProvider.html
             #
             if tenancy is not None:
                 print('Using directly provided credentials')
@@ -371,7 +371,7 @@ Run Against the Oracle NoSQL Database Cloud Service
 
 Running against the Cloud Service requires an Oracle Cloud account. See
 `Configure for the Cloud Service <https://nosql-python-sdk.readthedocs.io/en/
-latest/installation.html#configure-for-the-cloud-service>`_ for information on
+stable/installation.html#configure-for-the-cloud-service>`_ for information on
 getting an account and acquiring required credentials.
 
 1. Collect the following information:
@@ -391,7 +391,7 @@ getting an account and acquiring required credentials.
      corresponding information you've collected.
    * Using a configuration file. In this case the information you've collected
      goes into a file, ~/.oci/config. `Configure for the Cloud Service <https://
-     nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-
+     nosql-python-sdk.readthedocs.io/en/stable/installation.html#configure-for-
      the-cloud-service>`_ describes the contents of the file. It will look like
      this::
 
@@ -404,7 +404,7 @@ getting an account and acquiring required credentials.
 
 3. Decide which region you want to use and modify the *cloud_region* variable to
    the desired region. See `Regions documentation <https://nosql-python-sdk.
-   readthedocs.io/en/latest/api/borneo.Regions.html>`_ for possible regions. Not
+   readthedocs.io/en/stable/api/borneo.Regions.html>`_ for possible regions. Not
    all support the Oracle NoSQL Database Cloud Service.
 
 4. Run the program:

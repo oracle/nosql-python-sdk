@@ -35,7 +35,7 @@ requires = [
 
 setup(
     name='borneo',
-    url='https://nosql-python-sdk.readthedocs.io/en/latest/index.html',
+    url='https://nosql-python-sdk.readthedocs.io/en/stable/index.html',
 
     # Version should match the system release, but may vary as patches
     # are created.
