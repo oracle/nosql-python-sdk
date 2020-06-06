@@ -155,13 +155,8 @@ def generate_authorization_provider(tenant_id):
                 region = Regions.from_region_id(endpoint)
             else:
                 region = endpoint
-            if region is None:
-                authorization_provider = (
-                    SignatureProvider.create_with_instance_principal())
-            else:
-                authorization_provider = (
-                    SignatureProvider.create_with_instance_principal(
-                        region=region))
+            authorization_provider = (
+                SignatureProvider.create_with_instance_principal(region=region))
         elif iam_principal() == 'resource principals':
             authorization_provider = (
                 SignatureProvider.create_with_resource_principal())
@@ -245,6 +240,7 @@ def get_logger():
 
 
 class InsecureAuthorizationProvider(AuthorizationProvider):
+
     def __init__(self, tenant_id):
         super(InsecureAuthorizationProvider, self).__init__()
         self._tenant_id = tenant_id
@@ -257,7 +253,8 @@ class InsecureAuthorizationProvider(AuthorizationProvider):
 
 
 class TestSignatureProvider(AuthorizationProvider):
-    def __init__(self, tenant_id='TestTenant', user_id='TestUser', ):
+
+    def __init__(self, tenant_id='TestTenant', user_id='TestUser'):
         super(TestSignatureProvider, self).__init__()
         self._tenant_id = tenant_id
         self._user_id = user_id

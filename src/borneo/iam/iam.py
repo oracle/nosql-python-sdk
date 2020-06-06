@@ -236,6 +236,23 @@ class SignatureProvider(AuthorizationProvider):
         # Internal use only.
         return self._region
 
+    def get_resource_principal_claim(self, key):
+        """
+        Resource principal session tokens carry JWT claims. Permit the retrieval
+        of the value from the token by given key.
+        See :py:class:`borneo.ResourcePrincipalClaimKeys`.
+
+        :param key: the name of a claim in the session token.
+        :type key: str
+        :returns: the claim value.
+        :rtype: str
+        """
+        if not isinstance(self._provider,
+                          oci.auth.signers.EphemeralResourcePrincipalSigner):
+            raise IllegalArgumentException(
+                'Only ephemeral resource principal support.')
+        return self._provider.get_claim(key)
+
     def set_logger(self, logger):
         CheckValue.check_logger(logger, 'logger')
         self._logger = logger
@@ -296,9 +313,9 @@ class SignatureProvider(AuthorizationProvider):
             *Invalid IAM URI* error, it is optional.
         :type iam_auth_uri: str
         :param region: identifies the region will be accessed by the
-            NoSQLHandle.
+            NoSQLHandle, it is optional.
         :type region: Region
-        :param logger: the logger used by the SignatureProvider.
+        :param logger: the logger used by the SignatureProvider, it is optional.
         :type logger: Logger
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
@@ -315,28 +332,33 @@ class SignatureProvider(AuthorizationProvider):
                 signature_provider.set_logger(logger))
 
     @staticmethod
-    def create_with_resource_principal():
+    def create_with_resource_principal(logger=None):
         """
         Creates a SignatureProvider using a resource principal. This method may
-        be used when calling the Oracle NoSQL Database Cloud Service within an
-        Oracle Cloud Function. It authenticates with the resource principal and
-        uses a security token issued by IAM to do the actual request signing.
+        be used when calling the Oracle NoSQL Database Cloud Service from other
+        Oracle Cloud service resource such as Functions. It uses a resource
+        provider session token (RPST) that enables the resource such as function
+        to authenticate itself.
 
-        When using a resource principal the compartment (OCID) must be specified
-        on each request or defaulted by using
+        When using an resource principal the compartment id (OCID) must be
+        specified on each request or defaulted by using
         :py:meth:`borneo.NoSQLHandleConfig.set_default_compartment`. If the
-        compartment is not specified for an operation an exception will be
+        compartment id is not specified for an operation an exception will be
         thrown.
 
         See `Accessing Other Oracle Cloud Infrastructure Resources from Running
         Functions <https://docs.cloud.oracle.com/en-us/iaas/Content/Functions/
         Tasks/functionsaccessingociresources.htm>`_.
 
+        :param logger: the logger used by the SignatureProvider, it is optional.
+        :type logger: Logger
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
         """
-        return SignatureProvider(
+        signature_provider = SignatureProvider(
             oci.auth.signers.get_resource_principals_signer())
+        return (signature_provider if logger is None else
+                signature_provider.set_logger(logger))
 
     def _get_signature_details(self):
         sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)

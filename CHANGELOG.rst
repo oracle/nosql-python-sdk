@@ -11,19 +11,23 @@ Unreleased
 Added
 _____
 
-* Added NoSQLHandleConfig.set_ssl_cipher_suites() to allow the user to configure
-  preferred SSL ciphers, and NoSQLHandleConfig.get_ssl_cipher_suites() to get
-  the ssl cipher setting.
-* Added NoSQLHandleConfig.set_ssl_protocol() to allow the user to configure
-  preferred SSL protocol, and NoSQLHandleConfig.get_ssl_protocol() to get the
-  ssl protocol setting.
-* Added NoSQLHandleConfig.set_ssl_ca_certs() to allow the user to configure SSL
-  CA certificates, and NoSQLHandleConfig.get_ssl_ca_certs() to get the SSL CA
+* Added NoSQLHandleConfig.set_ssl_cipher_suites to allow the user to configure
+  preferred SSL ciphers, and NoSQLHandleConfig.get_ssl_cipher_suites to get the
+  ssl cipher setting.
+* Added NoSQLHandleConfig.set_ssl_protocol to allow the user to configure
+  preferred SSL protocol, and NoSQLHandleConfig.get_ssl_protocol to get the ssl
+  protocol setting.
+* Added NoSQLHandleConfig.set_ssl_ca_certs to allow the user to configure SSL CA
+  certificates, and NoSQLHandleConfig.get_ssl_ca_certs to get the SSL CA
   certificates setting.
-* Cloud only. Added new regions: AP_MELBOURNE_1, AP_OSAKA_1, ME_JEDDAH_1,
-  EU_AMSTERDAM_1, CA_MONTREAL_1.
-* Cloud only. Added SignatureProvider.create_with_resource_principal to allow
-  authentication using an OCI resource principal.
+* Cloud only. Added new regions: AP_HYDERABAD_1, AP_MELBOURNE_1, AP_OSAKA_1,
+  CA_MONTREAL_1, EU_AMSTERDAM_1, ME_JEDDAH_1.
+* Cloud only. Added support for authenticating via Resource Principal. This can
+  be used in Oracle Cloud Functions to access NoSQL cloud service:
+  * Added a new method SignatureProvider.create_with_resource_principal.
+  * Added a new method SignatureProvider.get_resource_principal_claim to
+    retrieve resource principal metadata with ResourcePrincipalClaimKeys such as
+    compartment and tenancy OCID.
 * Added generic group by and SELECT DISTINCT. These features will only work with
   servers that also support generic group by.
 

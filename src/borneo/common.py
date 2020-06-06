@@ -1191,6 +1191,30 @@ class PutOption(object):
     """Set PutOption.IF_VERSION to perform put if version operation."""
 
 
+class ResourcePrincipalClaimKeys(object):
+    """
+    Claim keys in the resource principal session token(RPST).
+
+    They can be used to retrieve resource principal metadata such as its
+    compartment and tenancy OCID.
+
+    """
+    COMPARTMENT_ID_CLAIM_KEY = 'res_compartment'
+    """
+    The claim name that the RPST holds for the resource compartment. This can be
+    passed to
+    :py:method:`borneo.iam.SignatureProvider.get_resource_principal_claim` to
+    retrieve the resource's compartment OCID.
+    """
+    TENANT_ID_CLAIM_KEY = 'res_tenant'
+    """
+    The claim name that the RPST holds for the resource tenancy. This can be
+    passed to
+    :py:method:`borneo.iam.SignatureProvider.get_resource_principal_claim` to
+    retrieve the resource's tenancy OCID.
+    """
+
+
 class SSLAdapter(adapters.HTTPAdapter):
     """
     Internal use only.

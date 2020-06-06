@@ -300,10 +300,12 @@ class Regions(object):
     """Region Location: Mumbai, India"""
     AP_SYDNEY_1 = Region('ap-sydney-1')
     """Region Location: Sydney, Australia"""
-    AP_MELBOURNE_1 = Region("ap-melbourne-1")
+    AP_MELBOURNE_1 = Region('ap-melbourne-1')
     """Region Location: Melbourne, Australia"""
-    AP_OSAKA_1 = Region("ap-osaka-1")
+    AP_OSAKA_1 = Region('ap-osaka-1')
     """Region Location: Osaka, Japan"""
+    AP_HYDERABAD_1 = Region('ap-hyderabad-1')
+    """Region Location: Hyderabad, India"""
 
     UK_LONDON_1 = Region('uk-london-1')
     """Region Location: London, United Kingdom"""
@@ -311,9 +313,9 @@ class Regions(object):
     """Region Location: Frankfurt, Germany"""
     EU_ZURICH_1 = Region('eu-zurich-1')
     """Region Location: Zurich, Switzerland"""
-    EU_AMSTERDAM_1 = Region("eu-amsterdam-1")
+    EU_AMSTERDAM_1 = Region('eu-amsterdam-1')
     """Region Location: Amsterdam, Netherlands"""
-    ME_JEDDAH_1 = Region("me-jeddah-1")
+    ME_JEDDAH_1 = Region('me-jeddah-1')
     """Region Location: Jeddah, Saudi Arabia"""
 
     US_ASHBURN_1 = Region('us-ashburn-1')
@@ -322,7 +324,7 @@ class Regions(object):
     """Region Location: Phoenix, AZ"""
     CA_TORONTO_1 = Region('ca-toronto-1')
     """Region Location: Toronto, Canada"""
-    CA_MONTREAL_1 = Region("ca-montreal-1")
+    CA_MONTREAL_1 = Region('ca-montreal-1')
     """Region Location: Montreal, Canada"""
 
     SA_SAOPAULO_1 = Region('sa-saopaulo-1')
@@ -356,6 +358,7 @@ class Regions(object):
     OC1_REGIONS[AP_SYDNEY_1.get_region_id()] = AP_SYDNEY_1
     OC1_REGIONS[AP_MELBOURNE_1.get_region_id()] = AP_MELBOURNE_1
     OC1_REGIONS[AP_OSAKA_1.get_region_id()] = AP_OSAKA_1
+    OC1_REGIONS[AP_HYDERABAD_1.get_region_id()] = AP_HYDERABAD_1
 
     # EMEA
     OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1

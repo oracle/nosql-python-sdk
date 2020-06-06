@@ -9,8 +9,9 @@ from . import iam
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
-    Consistency, FieldRange, PutOption, State, SystemState, TableLimits,
-    TimeToLive, TimeUnit, UserInfo, Version, IndexInfo, PreparedStatement)
+    Consistency, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
+    SystemState, TableLimits, TimeToLive, TimeUnit, UserInfo, Version,
+    IndexInfo, PreparedStatement)
 from .config import (
     DefaultRetryHandler, NoSQLHandleConfig, Region, Regions, RetryHandler)
 from .driver import NoSQLHandle
@@ -76,6 +77,7 @@ __all__ = ['AuthorizationProvider',
            'RequestSizeLimitException',
            'RequestTimeoutException',
            'ResourceExistsException',
+           'ResourcePrincipalClaimKeys',
            'ResourceNotFoundException',
            'Result',
            'RetryHandler',

@@ -44,17 +44,13 @@ def generate_authorization_provider(tenant_id):
                 raise IllegalArgumentException(
                     'Must specify the credentials file path.')
             provider = SignatureProvider(config_file=credentials_file)
-        elif (principal == 'instance principal' or
-              principal == 'resource principals'):
+        elif principal == 'instance principal':
             if isinstance(endpoint, str):
                 region = Regions.from_region_id(endpoint)
             else:
                 region = endpoint
-            if region is None:
-                provider = SignatureProvider.create_with_instance_principal()
-            else:
-                provider = SignatureProvider.create_with_instance_principal(
-                    region=region)
+            provider = SignatureProvider.create_with_instance_principal(
+                region=region)
         elif principal == 'resource principals':
             provider = SignatureProvider.create_with_resource_principal()
         else:

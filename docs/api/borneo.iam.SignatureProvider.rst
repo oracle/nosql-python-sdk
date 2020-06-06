@@ -22,6 +22,7 @@ SignatureProvider
       ~SignatureProvider.create_with_resource_principal
       ~SignatureProvider.get_authorization_string
       ~SignatureProvider.get_logger
+      ~SignatureProvider.get_resource_principal_claim
       ~SignatureProvider.set_logger
 
    .. rubric:: Attributes Documentation
@@ -36,4 +37,5 @@ SignatureProvider
    .. automethod:: create_with_resource_principal
    .. automethod:: get_authorization_string
    .. automethod:: get_logger
+   .. automethod:: get_resource_principal_claim
    .. automethod:: set_logger

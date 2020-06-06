@@ -48,7 +48,7 @@ index_name = 'idx'
 # Simulator running on its default port (8080) on the local machine, or a
 # on-prem proxy started by the customer. Unit tests can be run against both the
 # Cloud Simulator and on-prem proxy.
-endpoint = 'localhost:5000'
+endpoint = 'localhost:8080'
 # SSL CA certificates for on-prem proxy. Configure it to specify CA certificates
 # or set REQUESTS_CA_BUNDLE environment variable when running against a secure
 # store. For non-secure store, use the default None.
@@ -84,7 +84,7 @@ def iam_principal():
 
 
 def is_cloudsim():
-    return False
+    return True
 
 
 def is_dev_pod():
@@ -96,7 +96,7 @@ def is_minicloud():
 
 
 def is_onprem():
-    return True
+    return False
 
 
 def is_prod_pod():
