@@ -176,19 +176,17 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
 
     def testTableUsageWithEndTime(self):
         # set a start time to avoid unexpected table usage information, and set
-        # the end time
+        # the end time (end time is smaller than start time)
         current = int(round(time() * 1000))
         start_time = current - 120000
         end_time = current - 180000
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start_time).set_end_time(end_time)
+        self.assertRaises(IllegalArgumentException,
+                          self.handle.get_table_usage,
+                          self.table_usage_request)
         if is_onprem():
-            self.assertRaises(OperationNotSupportedException,
-                              self.handle.get_table_usage,
-                              self.table_usage_request)
             return
-        result = self.handle.get_table_usage(self.table_usage_request)
-        self._check_table_usage_result(result, 0 if not_cloudsim() else 1)
         # set current time as end time
         self.table_usage_request.set_end_time(current)
         result = self.handle.get_table_usage(self.table_usage_request)

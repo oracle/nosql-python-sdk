@@ -24,6 +24,8 @@ _____
   EU_AMSTERDAM_1, CA_MONTREAL_1.
 * Cloud only. Added SignatureProvider.create_with_resource_principal to allow
   authentication using an OCI resource principal.
+* Added generic group by and SELECT DISTINCT. These features will only work with
+  servers that also support generic group by.
 
 Changed
 _______
@@ -45,6 +47,10 @@ Fixed
 _____
 
 * On-premise only. Don't validate request sizes.
+* TableUsageRequest: added validation check that end time must be greater than
+  start time if both of them are specified, throw IAE if end time is smaller
+  than start time.
+* Changed min/max implementation to make them deterministic.
 
 Removed
 _______

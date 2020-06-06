@@ -24,20 +24,24 @@ def enum(**enums):
 
 
 def deprecated(func):
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         simplefilter('default', DeprecationWarning)
         warn("Call to deprecated function {}.".format(func.__name__),
              DeprecationWarning)
         return func(*args, **kwargs)
+
     return wrapper
 
 
 def synchronized(func):
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         with self.lock:
             return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -142,6 +146,7 @@ class ByteOutputStream(object):
 
 
 class CheckValue(object):
+
     @staticmethod
     def check_boolean(data, name):
         if data is not True and data is not False:
@@ -250,19 +255,13 @@ class Consistency(object):
     """
 
 
-class SystemState(object):
+class Empty(object):
     """
-    On-premise only.
+    Represents an EMPTY field value.
+    """
 
-    The current state of the system request.
-    """
-    COMPLETE = 'COMPLETE'
-    """
-    The operation is complete and was successful. Failures are thrown as
-    exceptions.
-    """
-    WORKING = 'WORKING'
-    """The operation is in progress."""
+    def __str__(self):
+        return 'Empty'
 
 
 class FieldRange(object):
@@ -495,7 +494,17 @@ class IndexInfo(object):
         return self._field_names
 
 
+class JsonNone(object):
+    """
+    Represents an JSON NONE field value.
+    """
+
+    def __str__(self):
+        return 'JsonNone'
+
+
 class LogUtils(object):
+
     # Utility methods to facilitate Logging.
     def __init__(self, logger=None):
         self._logger = logger
@@ -525,6 +534,7 @@ class LogUtils(object):
 
 
 class Memoize(object):
+
     # A cache that used for saving the access token.
     def __init__(self, duration=60):
         self._cache = {}
@@ -1215,6 +1225,21 @@ class State(object):
     """Represents the table is dropping."""
     UPDATING = 'UPDATING'
     """Represents the table is updating."""
+
+
+class SystemState(object):
+    """
+    On-premise only.
+
+    The current state of the system request.
+    """
+    COMPLETE = 'COMPLETE'
+    """
+    The operation is complete and was successful. Failures are thrown as
+    exceptions.
+    """
+    WORKING = 'WORKING'
+    """The operation is in progress."""
 
 
 class TableLimits(object):

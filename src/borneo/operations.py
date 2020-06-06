@@ -2471,8 +2471,9 @@ class TableRequest(Request):
         self._table_name = None
 
     def __str__(self):
-        return ('TableRequest: [name=' + str(self._table_name) + ', statement='
-                + str(self._statement) + ', limits=' + str(self._limits))
+        return ('TableRequest: [name=' + str(self._table_name) +
+                ', statement=' + str(self._statement) + ', limits=' +
+                str(self._limits))
 
     def set_statement(self, statement):
         """
@@ -2864,6 +2865,9 @@ class TableUsageRequest(Request):
         if self._table_name is None:
             raise IllegalArgumentException(
                 'TableUsageRequest requires a table name.')
+        if self._start_time > self._end_time > 0:
+            raise IllegalArgumentException(
+                'TableUsageRequest: end time must be greater than start time.')
 
     @staticmethod
     def create_serializer():
@@ -3055,6 +3059,7 @@ class WriteMultipleRequest(Request):
         return WriteMultipleRequestSerializer()
 
     class OperationRequest(object):
+
         # A wrapper of WriteRequest that contains an additional flag
         # abort_if_unsuccessful. Internal for now
         def __init__(self, request, abort_if_unsuccessful):
