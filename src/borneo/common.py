@@ -539,10 +539,13 @@ class Memoize(object):
     def __init__(self, duration=60):
         self._cache = {}
         self._duration = duration
+        self.lock = Lock()
 
+    @synchronized
     def set(self, key, value):
         self._cache[key] = {'value': value, 'time': time()}
 
+    @synchronized
     def get(self, key):
         if key in self._cache and not self._is_obsolete(self._cache[key]):
             return self._cache[key]['value']
@@ -1203,14 +1206,14 @@ class ResourcePrincipalClaimKeys(object):
     """
     The claim name that the RPST holds for the resource compartment. This can be
     passed to
-    :py:method:`borneo.iam.SignatureProvider.get_resource_principal_claim` to
+    :py:meth:`borneo.iam.SignatureProvider.get_resource_principal_claim` to
     retrieve the resource's compartment OCID.
     """
     TENANT_ID_CLAIM_KEY = 'res_tenant'
     """
     The claim name that the RPST holds for the resource tenancy. This can be
     passed to
-    :py:method:`borneo.iam.SignatureProvider.get_resource_principal_claim` to
+    :py:meth:`borneo.iam.SignatureProvider.get_resource_principal_claim` to
     retrieve the resource's tenancy OCID.
     """
 

@@ -55,6 +55,9 @@ _____
   start time if both of them are specified, throw IAE if end time is smaller
   than start time.
 * Changed min/max implementation to make them deterministic.
+* On-premise only. Fixed a problem where the HTTP Host header was not being
+  adding in all request cases. This prevented use of an intermediate proxy such
+  as Nginx, which validates headers.
 
 Removed
 _______

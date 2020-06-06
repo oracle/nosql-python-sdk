@@ -157,7 +157,7 @@ def generate_authorization_provider(tenant_id):
                 region = endpoint
             authorization_provider = (
                 SignatureProvider.create_with_instance_principal(region=region))
-        elif iam_principal() == 'resource principals':
+        elif iam_principal() == 'resource principal':
             authorization_provider = (
                 SignatureProvider.create_with_resource_principal())
         else:

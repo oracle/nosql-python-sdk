@@ -51,7 +51,7 @@ def generate_authorization_provider(tenant_id):
                 region = endpoint
             provider = SignatureProvider.create_with_instance_principal(
                 region=region)
-        elif principal == 'resource principals':
+        elif principal == 'resource principal':
             provider = SignatureProvider.create_with_resource_principal()
         else:
             raise IllegalArgumentException('Must specify the principal.')

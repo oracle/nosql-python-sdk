@@ -6,7 +6,7 @@
 #
 
 from os import path
-from requests import Request, Session
+from requests import Request
 from threading import Timer
 try:
     import oci
@@ -17,7 +17,6 @@ from borneo.auth import AuthorizationProvider
 from borneo.common import CheckValue, HttpConstants, LogUtils, Memoize
 from borneo.config import Region, Regions
 from borneo.exception import IllegalArgumentException
-from borneo.http import RequestUtils
 
 
 class SignatureProvider(AuthorizationProvider):
@@ -209,8 +208,6 @@ class SignatureProvider(AuthorizationProvider):
         self._service_url = None
         self._logger = None
         self._logutils = LogUtils()
-        self._sess = Session()
-        self._request_utils = RequestUtils(self._sess, self._logutils)
 
     def close(self):
         """
@@ -257,7 +254,6 @@ class SignatureProvider(AuthorizationProvider):
         CheckValue.check_logger(logger, 'logger')
         self._logger = logger
         self._logutils = LogUtils(logger)
-        self._request_utils = RequestUtils(self._sess, self._logutils)
         return self
 
     def set_required_headers(self, request, auth_string, headers):

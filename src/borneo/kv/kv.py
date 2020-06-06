@@ -330,7 +330,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
     def _send_request(self, auth_header, service_name):
         # Send HTTPS request to login/renew/logout service location with proper
         # authentication information.
-        headers = {'Authorization': auth_header}
+        headers = {'Host': self._url.hostname, 'Authorization': auth_header}
         return self._request_utils.do_get_request(
             self._url.geturl() + self._base_path + service_name, headers,
             StoreAccessTokenProvider._HTTP_TIMEOUT_MS)
