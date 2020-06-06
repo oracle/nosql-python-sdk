@@ -56,6 +56,7 @@ Removed
 _______
 
 * The requirement of third party package "cryptography" has been removed.
+* The TableBusyException has been removed.
 
 ====================
  5.2.0 - 2020-02-20

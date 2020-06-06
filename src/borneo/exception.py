@@ -445,17 +445,6 @@ class SystemException(RetryableException):
         super(SystemException, self).__init__(message)
 
 
-class TableBusyException(RetryableException):
-    """
-    An exception that is thrown when a table operation fails because the table
-    is in use or busy. Only one modification operation at a time is allowed on
-    a table.
-    """
-
-    def __init__(self, message):
-        super(TableBusyException, self).__init__(message)
-
-
 class ThrottlingException(RetryableException):
     """
     Cloud service only.

@@ -25,9 +25,9 @@ from .exception import (
     OperationNotSupportedException, OperationThrottlingException,
     ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
     ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
-    SecurityInfoNotReadyException, SystemException, TableBusyException,
-    TableExistsException, TableLimitException, TableNotFoundException,
-    TableSizeException, UnauthorizedException, WriteThrottlingException)
+    SecurityInfoNotReadyException, SystemException, TableExistsException,
+    TableLimitException, TableNotFoundException, TableSizeException,
+    UnauthorizedException, WriteThrottlingException)
 from .kv import AuthenticationException
 from .query import PlanIter, QueryDriver, TopologyInfo
 try:
@@ -149,7 +149,6 @@ class BinaryProtocol(object):
     SERVER_RETRY_ERROR = enum(REQUEST_TIMEOUT=100,
                               SERVER_ERROR=101,
                               SERVICE_UNAVAILABLE=102,
-                              TABLE_BUSY=103,
                               SECURITY_INFO_UNAVAILABLE=104,
                               # added in V2.
                               RETRY_AUTHENTICATION=105)
@@ -267,8 +266,6 @@ class BinaryProtocol(object):
         elif (code == BinaryProtocol.SERVER_RETRY_ERROR.SERVICE_UNAVAILABLE or
               code == BinaryProtocol.SERVER_RETRY_ERROR.SERVER_ERROR):
             return SystemException(msg)
-        elif code == BinaryProtocol.SERVER_RETRY_ERROR.TABLE_BUSY:
-            return TableBusyException(msg)
         elif code == BinaryProtocol.THROTTLING_ERROR.OPERATION_LIMIT_EXCEEDED:
             return OperationThrottlingException(msg)
         elif code == BinaryProtocol.THROTTLING_ERROR.READ_LIMIT_EXCEEDED:

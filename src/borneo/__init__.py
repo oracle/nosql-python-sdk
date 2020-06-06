@@ -21,9 +21,8 @@ from .exception import (
     OperationNotSupportedException, OperationThrottlingException,
     ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
     ResourceExistsException, ResourceNotFoundException, RetryableException,
-    SecurityInfoNotReadyException, SystemException, TableBusyException,
-    TableExistsException, TableNotFoundException, ThrottlingException,
-    WriteThrottlingException)
+    SecurityInfoNotReadyException, SystemException, TableExistsException,
+    TableNotFoundException, ThrottlingException, WriteThrottlingException)
 from .operations import (
     DeleteRequest, DeleteResult, GetIndexesRequest, GetIndexesResult,
     GetRequest, GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
@@ -88,7 +87,6 @@ __all__ = ['AuthorizationProvider',
            'SystemResult',
            'SystemState',
            'SystemStatusRequest',
-           'TableBusyException',
            'TableExistsException',
            'TableLimits',
            'TableNotFoundException',
