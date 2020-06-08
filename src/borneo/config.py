@@ -561,6 +561,7 @@ class NoSQLHandleConfig(object):
         self._ssl_ctx = None
         self._ssl_protocol = None
         self._logger = None
+        self._is_default_logger = True
 
     def get_service_url(self):
         """
@@ -1114,7 +1115,7 @@ class NoSQLHandleConfig(object):
         """
         Sets the logger used for the driver.
 
-        :param logger: the logger.
+        :param logger: the logger or None, None means disable logging.
         :type logger: Logger
         :returns: self.
         :raises IllegalArgumentException: raises the exception if logger is not
@@ -1122,6 +1123,7 @@ class NoSQLHandleConfig(object):
         """
         CheckValue.check_logger(logger, 'logger')
         self._logger = logger
+        self._is_default_logger = False
         return self
 
     def get_logger(self):
@@ -1150,6 +1152,10 @@ class NoSQLHandleConfig(object):
         self._logger = logger
         self._auth_provider = auth_provider
         return clone_config
+
+    def is_default_logger(self):
+        # Internal use only
+        return self._is_default_logger
 
     #
     # Return a url from an endpoint string that has the format

@@ -185,7 +185,7 @@ class CheckValue(object):
 
     @staticmethod
     def check_logger(data, name):
-        if not isinstance(data, Logger):
+        if data is not None and not isinstance(data, Logger):
             raise IllegalArgumentException(name + ' must be a Logger.')
 
     @staticmethod

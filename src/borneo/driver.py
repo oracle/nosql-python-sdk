@@ -649,15 +649,15 @@ class NoSQLHandle(object):
         Returns the logger used for the driver. If no logger is specified,
         create one based on this class name.
         """
-        if config.get_logger() is not None:
-            logger = config.get_logger()
-        else:
+        if config.get_logger() is None and config.is_default_logger():
             logger = getLogger(self.__class__.__name__)
             logger.setLevel(WARNING)
             log_dir = path.join(path.abspath(path.dirname(argv[0])), 'logs')
             if not path.exists(log_dir):
                 mkdir(log_dir)
             logger.addHandler(FileHandler(path.join(log_dir, 'driver.log')))
+        else:
+            logger = config.get_logger()
         return logger
 
     @staticmethod
