@@ -78,7 +78,7 @@ wait_timeout = 120000
 
 
 def iam_principal():
-    # Use 'user principal', 'instance principal' or 'resource principals' for
+    # Use 'user principal', 'instance principal' or 'resource principal' for
     # production pod, and use None for minicloud testing.
     return None
 
