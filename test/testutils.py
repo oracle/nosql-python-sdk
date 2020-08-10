@@ -9,8 +9,10 @@ from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal
 from logging import FileHandler, Logger
-from os import mkdir, path
+from os import mkdir, path, remove
+from re import match
 from requests import codes, delete, post
+from rsa import newkeys
 from struct import pack
 from sys import argv
 
@@ -22,7 +24,8 @@ from borneo.kv import StoreAccessTokenProvider
 from parameters import (
     ca_certs, consistency, endpoint, iam_principal, is_cloudsim, is_dev_pod,
     is_minicloud, is_onprem, is_prod_pod, logger_level, password,
-    pool_connections, pool_maxsize, table_request_timeout, timeout, user_name)
+    pool_connections, pool_maxsize, table_request_timeout, timeout, user_name,
+    version)
 
 # The sc endpoint port for setting the tier.
 sc_endpoint = 'localhost:13600'
@@ -36,11 +39,6 @@ namespace = 'pyNamespace'
 retry_handler = DefaultRetryHandler(delay_s=5)
 # The timeout for waiting security information is available.
 sec_info_timeout = 20000
-
-testdir = path.abspath(path.dirname(argv[0]))
-credentials_file = path.join(testdir, 'creds')
-fake_credentials_file = path.join(testdir, 'testcreds')
-fake_key_file = path.join(testdir, 'testkey.pem')
 
 #
 # HTTP proxy settings are generally not required. If the server used for
@@ -60,6 +58,52 @@ proxy_password = None
 ssl_cipher_suites = None
 # ssl protocol
 ssl_protocol = None
+
+testdir = path.abspath(path.dirname(argv[0]))
+credentials_file = path.join(testdir, 'creds')
+fake_credentials_file = path.join(testdir, 'testcreds')
+fake_key_file = path.join(testdir, 'testkey.pem')
+# Generate fake key file
+if path.exists(fake_key_file):
+    remove(fake_key_file)
+(pubkey, prikey) = newkeys(2048)
+pri = prikey.save_pkcs1()
+with open(fake_key_file, 'wb+') as f:
+    f.write(pri)
+
+
+def compare_version(specified, internal):
+    """
+    If the user specified version is newer than internal check version return 1,
+    older return -1, same return 0.
+    """
+    specified_check = match('\d+(\.\d+){0,2}', specified)
+    internal_check = match('\d+(\.\d+){0,2}', internal)
+    if (specified_check is None or internal_check is None or
+        specified_check.group() != specified or
+            internal_check.group() != internal):
+        raise IllegalArgumentException('Unexpected version number.')
+    specified_list = specified.split(".")
+    internal_list = internal.split(".")
+    specified_len = len(specified_list)
+    internal_len = len(internal_list)
+    if specified_len < internal_len:
+        for i in range(internal_len - specified_len):
+            specified_list.append("0")
+    for i in range(internal_len):
+        if int(specified_list[i]) > int(internal_list[i]):
+            return 1
+        if int(specified_list[i]) < int(internal_list[i]):
+            return -1
+    return 0
+
+
+if version is not None:
+    if (is_cloudsim() and compare_version(version, '1.2.0') == -1 or
+            is_onprem() and compare_version(version, '20.1.0') == -1):
+        raise IllegalArgumentException(
+            'The version number for CloudSim should be newer than 1.2.0, for ' +
+            'on-prem should be newer than 20.1.0.')
 
 
 def get_handle_config(tenant_id):

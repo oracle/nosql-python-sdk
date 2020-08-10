@@ -24,6 +24,7 @@ from testutils import fake_credentials_file, fake_key_file
 
 class TestSignatureProvider(unittest.TestCase):
     if found:
+
         def setUp(self):
             self.base = 'http://localhost:' + str(8000)
             self._generate_credentials_file()
@@ -206,6 +207,7 @@ class TestSignatureProvider(unittest.TestCase):
                              Regions.US_ASHBURN_1)
 
         if iam_principal() == 'instance principal':
+
             def testInstancePrincipalGetAuthString(self):
                 signer = (
                     oci.auth.signers.InstancePrincipalsSecurityTokenSigner())

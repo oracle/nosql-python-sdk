@@ -13,9 +13,10 @@ from unittest import TestCase
 
 from borneo import ListTablesRequest, QueryResult, TableRequest, TimeUnit
 from parameters import (
-    is_onprem, is_pod, not_cloudsim, table_prefix, table_name, tenant_id,
-    wait_timeout)
-from testutils import add_test_tier_tenant, delete_test_tier_tenant, get_handle
+    is_cloudsim, is_onprem, is_pod, not_cloudsim, table_prefix, table_name,
+    tenant_id, version, wait_timeout)
+from testutils import (
+    add_test_tier_tenant, compare_version, delete_test_tier_tenant, get_handle)
 
 
 class TestBase(object):
@@ -52,19 +53,19 @@ class TestBase(object):
             self.assertEqual(result.get_write_kb(), write_kb)
             self.assertEqual(result.get_write_units(), write_units)
 
-    def check_get_result(self, result, value=None, version=None,
+    def check_get_result(self, result, value=None, exp_version=None,
                          expect_expiration=0, timeunit=None, ver_eq=True):
         assert isinstance(self, TestCase)
         # check value
         self.assertEqual(result.get_value(), value)
         # check version
         ver = result.get_version()
-        if version is None:
+        if exp_version is None:
             self.assertIsNone(ver) if ver_eq else self.assertIsNotNone(ver)
         elif ver_eq:
-            self.assertEqual(ver.get_bytes(), version.get_bytes())
+            self.assertEqual(ver.get_bytes(), exp_version.get_bytes())
         else:
-            self.assertNotEqual(ver.get_bytes(), version.get_bytes())
+            self.assertNotEqual(ver.get_bytes(), exp_version.get_bytes())
         # check expiration time
         if expect_expiration == 0:
             self.assertEqual(result.get_expiration_time(), 0)
@@ -118,7 +119,9 @@ class TestBase(object):
                            check_operation_id=True):
         assert isinstance(self, TestCase)
         # check compartment id
-        if is_onprem():
+        if (version is None or is_onprem() or
+            version is not None and is_cloudsim() and
+                compare_version(version, '1.4.0') >= 0):
             self.assertIsNone(result.get_compartment_id())
         else:
             self.assertEqual(result.get_compartment_id(), tenant_id)

@@ -254,8 +254,8 @@ the region **Regions.US_ASHBURN_1**. Information on regions can be found in
                 #
                 handle = NoSQLHandle(config)
 
-See examples and test code for specific details. Both of these use
-*parameters.py* files for configuration of required information.
+See examples and test code for specific details. Both of these use config*.py
+files for configuration of required information.
 
 =================================
 Configure for the Cloud Simulator
@@ -270,9 +270,9 @@ topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-3E11C056-B144-4EEA-8224
 -37F4C3CB83F6>`_ to download and start the Cloud Simulator.
 
  1. Download and start the Cloud Simulator
- 2. Follow instructions in the examples/parameters.py file for connecting
-    examples to the Cloud Simulator. By default that file is configured to
-    communicate with the Cloud Simulator, using default configuration.
+ 2. Follow instructions in the examples/config.py file for connecting examples
+    to the Cloud Simulator. By default that file is configured to communicate
+    with the Cloud Simulator, using default configuration.
 
 The Cloud Simulator does not require the credentials and authentication
 information required by the Oracle NoSQL Database Cloud Service. The Cloud

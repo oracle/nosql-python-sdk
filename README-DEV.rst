@@ -33,9 +33,12 @@ NoSQL Downloads <https://www.oracle.com/database/technologies/nosql-database-
 server-downloads.html>`_ to download the on-premise product and proxy server.
 
 Tests and examples have settings that can be changed based on environment. Test
-settings are in test/parameters.py. Refer to the comments in the tests and
-examples for details. The default values will use a Cloud Simulator instance
-that is running on its default settings of localhost:8080.
+settings are in test/config*.py. Refer to the comments in the tests and examples
+for details. The default test/config.py and test/config_cloudsim.py will use a
+Cloud Simulator instance that is running on its default settings of
+localhost:8080, config_cloudsim.py is a backup of config.py, when config.py is
+overwritten by other config*.py, the default config.py of Cloud Simulator is
+back up in config_cloudsim.py.
 
 All tests require that your PYTHONPATH be set to the development tree:
 
@@ -53,9 +56,19 @@ Or use the API :func:`borneo.NoSQLHandleConfig.set_ssl_ca_certs` to specify it.
 Run Unit Tests
 --------------
 
-    1. Modify <path-to-repo>/test/parameters.py to suit your environment. The
-       comments in that file tells you how to modify the settings.
-    2. With the desired server running, start testing.
+    1. The <path-to-repo>/test/config.py is used to run the unit test against
+       Cloud Simulator, modify it to suit your environment. When config.py is
+       overwritten by other config*.py, config_cloudsim.py is used to run the
+       unit test against Cloud Simulator, modify it to suit your environment.
+       Then copy the content of config_onprem.py to config.py.
+    2. The <path-to-repo>/test/config_onprem.py is used to run the unit test
+       against on-premise proxy, modify it to suit your environment. Then copy
+       the content of config_onprem.py to config.py.
+
+    Notice that the comments in these config files tells you how to modify the
+    settings.
+
+    3. With the desired server running, start testing.
 
        .. code-block:: pycon
 
@@ -79,9 +92,22 @@ Run Examples
        $ export PYTHONPATH=<path-to-nosql-python-sdk>/nosql-python-sdk/src:\
        $PYTHONPATH
 
-    2. Modify <path-to-repo>/examples/parameters.py to suit your environment.
-       The comments in that file tells you how to modify the settings.
-    3. With the Cloud Simulator running, run a test
+    2. The <path-to-repo>/examples/config.py is used to run the example against
+       Cloud Simulator, modify it to suit your environment. When config.py is
+       overwritten by other config*.py, config_cloudsim.py is used to run the
+       unit test against Cloud Simulator, modify it to suit your environment.
+       Then copy the content of config_onprem.py to config.py.
+    3. The <path-to-repo>/examples/config_onprem.py is used to run the example
+       against on-premise proxy, modify it to suit your environment. Then copy
+       the content of config_onprem.py to config.py.
+    4. The <path-to-repo>/examples/config_cloud.py is used to run the example
+       against Cloud Service, modify it to suit your environment. Then copy the
+       content of config_onprem.py to config.py.
+
+    Notice that the comments in these config files tells you how to modify the
+    settings.
+
+    5. With the desired server running, run an example.
 
        .. code-block:: pycon
 

@@ -11,8 +11,8 @@ from time import sleep
 from borneo import (
     IllegalArgumentException, ListTablesRequest, TableLimits, TableRequest)
 from parameters import (
-    is_minicloud, is_onprem, is_pod, is_prod_pod, table_name, table_prefix,
-    tenant_id, timeout)
+    is_onprem, is_pod, is_prod_pod, table_name, table_prefix, tenant_id,
+    timeout)
 from test_base import TestBase
 from testutils import (
     add_tenant, add_tier, delete_tenant, delete_tier, get_handle, namespace)
@@ -144,13 +144,6 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def testListTablesWithStartIndex(self):
         last_returned_index = [3, 4]
-        # set a start index larger than the number of tables
-        for handle in range(self.num_handles):
-            self.list_tables_requests[handle].set_start_index(5)
-        if is_minicloud():
-            self._check_list_tables_result([[], []], [5, 5])
-        else:
-            self._check_list_tables_result([[], []], last_returned_index)
         # set start_index = 1
         part_table_names = [[self._make_table_name('Users1'),
                              self._make_table_name('Users2')],
@@ -163,36 +156,44 @@ PRIMARY KEY(fld_id)) USING TTL 16 HOURS')
 
     def testListTablesWithLimit(self):
         # set limit = 2
-        last_returned_index = [2, 2]
-        part_table_names = [[self._make_table_name('Users0'),
-                             self._make_table_name('Users1')],
-                            [self._make_table_name('Users0'),
-                             self._make_table_name('Users1')]]
+        tables = [[], []]
+        start_index = [0, 0]
+        while True:
+            more = False
+            for handle in range(self.num_handles):
+                self.list_tables_requests[handle].set_start_index(
+                    start_index[handle]).set_limit(2)
+                result = self.handles[handle].list_tables(
+                    self.list_tables_requests[handle])
+                tbs = result.get_tables()
+                start_index[handle] = result.get_last_returned_index()
+                self.assertLessEqual(len(tbs), 2)
+                tables[handle].extend(tbs)
+                more = more or len(tbs) != 0
+            if not more:
+                break
         for handle in range(self.num_handles):
-            self.list_tables_requests[handle].set_limit(2)
-        self._check_list_tables_result(
-            part_table_names, last_returned_index, True)
+            self.assertTrue(
+                set(tables[handle]).issuperset(set(table_names[handle])))
 
     def testListTablesWithNamespace(self):
         if is_onprem():
             # set a namespace that not exist
             for handle in range(self.num_handles):
                 self.list_tables_requests[handle].set_namespace(namespace)
-            self._check_list_tables_result([[]], [0], True)
+                result = self.handles[handle].list_tables(
+                    self.list_tables_requests[handle])
+                self.assertEqual(result.get_tables(), [])
+                self.assertEqual(result.get_last_returned_index(), 0)
 
-    def _check_list_tables_result(self, names, last_returned_index, eq=False):
+    def _check_list_tables_result(self, names, last_returned_index):
         for handle in range(self.num_handles):
             result = self.handles[handle].list_tables(
                 self.list_tables_requests[handle])
-            if is_onprem() and not eq or is_prod_pod():
-                self.assertTrue(
-                    set(result.get_tables()).issuperset(set(names[handle])))
-                self.assertGreater(result.get_last_returned_index(),
-                                   last_returned_index[handle])
-            else:
-                self.assertEqual(sorted(result.get_tables()), names[handle])
-                self.assertEqual(result.get_last_returned_index(),
-                                 last_returned_index[handle])
+            self.assertTrue(
+                set(result.get_tables()).issuperset(set(names[handle])))
+            self.assertGreaterEqual(result.get_last_returned_index(),
+                                    last_returned_index[handle])
 
     @staticmethod
     def _make_table_name(name):

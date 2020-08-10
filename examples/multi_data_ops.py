@@ -11,7 +11,7 @@
 # cloud service, against the Cloud Simulator, or against an on-premise Oracle
 # NoSQL database.
 #
-# See the comments in parameters.py about running in different environments. By
+# See the comments in config*.py about running in different environments. By
 # default the example is ready to run against the Cloud Simulator.
 #
 # The example demonstrates:
@@ -33,12 +33,12 @@
 #  It requires Java
 #  4. If running against the Oracle NoSQL Database Cloud Service an account must
 #  be used along with additional authentication information. See instructions in
-#  the comments in parameters.py
+#  the comments in config_cloud.py.
 #
 # To run:
 #  1. set PYTHONPATH to include the parent directory of ../src/borneo
-#  2. modify variables in parameters.py for the runtime environment after
-#  reading instructions in the comments.
+#  2. modify variables in config*.py for the runtime environment after reading
+#  instructions in the comments.
 #  3. run
 #    $ python multi_data.py
 #
@@ -46,7 +46,7 @@
 import traceback
 
 from borneo import (
-    MultiDeleteRequest, PrepareRequest, PutRequest, QueryRequest,  TableLimits,
+    MultiDeleteRequest, PrepareRequest, PutRequest, QueryRequest, TableLimits,
     TableRequest, WriteMultipleRequest)
 
 from parameters import drop_table, table_name, tenant_id

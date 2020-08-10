@@ -14,8 +14,9 @@ from borneo import (
     Consistency, GetRequest, IllegalArgumentException, PrepareRequest,
     PutRequest, QueryRequest, TableLimits, TableNotFoundException, TableRequest,
     TimeToLive, WriteMultipleRequest)
-from parameters import is_onprem, table_name, tenant_id, timeout
-from testutils import get_handle_config, get_row
+from parameters import (
+    is_cloudsim, is_onprem, table_name, tenant_id, timeout, version)
+from testutils import compare_version, get_handle_config, get_row
 from test_base import TestBase
 
 
@@ -37,24 +38,30 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             create_statement).set_table_limits(limits)
         cls.table_request(create_request)
 
-        create_idx_request = TableRequest()
-        create_idx_statement = (
-            'CREATE INDEX ' + index_name + '1 ON ' + table_name + '(fld_long)')
-        create_idx_request.set_statement(create_idx_statement)
-        cls.table_request(create_idx_request)
-        create_idx_statement = (
-            'CREATE INDEX ' + index_name + '2 ON ' + table_name + '(fld_str)')
-        create_idx_request.set_statement(create_idx_statement)
-        cls.table_request(create_idx_request)
-        create_idx_statement = (
-            'CREATE INDEX ' + index_name + '3 ON ' + table_name + '(fld_bool)')
-        create_idx_request.set_statement(create_idx_statement)
-        cls.table_request(create_idx_request)
-        create_idx_statement = (
-            'CREATE INDEX ' + index_name + '4 ON ' + table_name +
-            '(fld_json.location as point)')
-        create_idx_request.set_statement(create_idx_statement)
-        cls.table_request(create_idx_request)
+        if (version is not None and
+            (is_cloudsim() and compare_version(version, '1.4.0') == -1 or
+             is_onprem() and compare_version(version, '20.2.0') == -1)):
+            create_idx_request = TableRequest()
+            create_idx_statement = (
+                'CREATE INDEX ' + index_name + '1 ON ' + table_name +
+                '(fld_long)')
+            create_idx_request.set_statement(create_idx_statement)
+            cls.table_request(create_idx_request)
+            create_idx_statement = (
+                'CREATE INDEX ' + index_name + '2 ON ' + table_name +
+                '(fld_str)')
+            create_idx_request.set_statement(create_idx_statement)
+            cls.table_request(create_idx_request)
+            create_idx_statement = (
+                'CREATE INDEX ' + index_name + '3 ON ' + table_name +
+                '(fld_bool)')
+            create_idx_request.set_statement(create_idx_statement)
+            cls.table_request(create_idx_request)
+            create_idx_statement = (
+                'CREATE INDEX ' + index_name + '4 ON ' + table_name +
+                '(fld_json.location as point)')
+            create_idx_request.set_statement(create_idx_statement)
+            cls.table_request(create_idx_request)
 
         global query_statement
         query_statement = ('SELECT fld_sid, fld_id FROM ' + table_name +
@@ -246,9 +253,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_statement(query_statement).set_max_read_kb(
             max_read_kb)
         result = self.handle.query(self.query_request)
-        # TODO: [#27744] KV doesn't honor max read kb for on-prem proxy because
-        # it has no table limits.
-        if is_onprem():
+        if (is_onprem() and version is not None and
+                compare_version(version, '20.2.0') == -1):
             records = self.check_query_result(result, num_records)
         else:
             records = self.check_query_result(result, max_read_kb + 1, True)

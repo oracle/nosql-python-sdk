@@ -8,33 +8,19 @@
 from logging import INFO
 
 from borneo import Consistency
-
-#
-# Parameters used by test code -- Cloud Simulator Configuration
-#
-# This file is configured for the unit tests to be run against a Cloud
-# Simulator instance. The simulator is used so that limits that exist in
-# the cloud service are not involved and there is no cost involved in running
-# the unit tests.
-#
-# The default settings below are sufficient if the Cloud Simulator has been
-# started on the endpoint, localhost:8080, which is its default. If not, the
-# parameters in this file should be changed as needed.
-#
-# To run against the on-prem proxy, you need to start the kvstore and proxy
-# first. Then change the following parameters if you use non-security store.
-#
-#              endpoint = 'your_on_prem_proxy_endpoint'
-#              is_cloudsim = False
-#              is_onprem = True
-#
-# Change additional parameters below if your on-prem proxy is running against a
-# security store.
-#
-#              user_name = 'your_store_user_name'
-#              password = 'your_store_user_password'
-#              security = True
-#
+from config import endpoint, server_type, version
+try:
+    from config import ca_certs
+except ImportError:
+    ca_certs = None
+try:
+    from config import user_name
+except ImportError:
+    user_name = None
+try:
+    from config import user_password
+except ImportError:
+    user_password = None
 
 # A test tenant_id, only used for the Cloud Simulator.
 tenant_id = 'test_tenant'
@@ -48,15 +34,17 @@ index_name = 'idx'
 # Simulator running on its default port (8080) on the local machine, or a
 # on-prem proxy started by the customer. Unit tests can be run against both the
 # Cloud Simulator and on-prem proxy.
-endpoint = 'localhost:8080'
+endpoint = endpoint
+# Server version.
+version = version
 # SSL CA certificates for on-prem proxy. Configure it to specify CA certificates
 # or set REQUESTS_CA_BUNDLE environment variable when running against a secure
 # store. For non-secure store, use the default None.
-ca_certs = None
+ca_certs = ca_certs
 # User name for on-prem proxy, for non-secure store, use the default None.
-user_name = None
+user_name = user_name
 # Password for on-prem proxy, for non-secure store, use the default None.
-password = None
+password = user_password
 # The timeout of the http request and the operations.
 timeout = 30000
 # The table request timeout, used when a table operation doesn't set its own.
@@ -72,11 +60,8 @@ logger_level = INFO
 # The wait timeout for table request.
 wait_timeout = 120000
 
-#
-# Internal testing use
-#
 
-
+# Internal use only.
 def iam_principal():
     # Use 'user principal', 'instance principal' or 'resource principal' for
     # production pod, and use None for minicloud testing.
@@ -84,25 +69,29 @@ def iam_principal():
 
 
 def is_cloudsim():
-    return True
+    return server_type == 'cloudsim'
 
 
+# Internal use only.
 def is_dev_pod():
     return False
 
 
+# Internal use only.
 def is_minicloud():
     return False
 
 
 def is_onprem():
-    return False
+    return server_type == 'onprem'
 
 
+# Internal use only.
 def is_prod_pod():
     return iam_principal() is not None
 
 
+# Internal use only.
 def is_pod():
     return is_dev_pod() or is_prod_pod()
 
@@ -113,4 +102,4 @@ def not_cloudsim():
 
 def security():
     # Set to enable security is using on-prem security mode.
-    return False
+    return user_name is not None and password is not None

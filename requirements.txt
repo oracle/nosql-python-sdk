@@ -1,5 +1,6 @@
 oci
 requests
+rsa
 wheel
 #doc
 sphinx

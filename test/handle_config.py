@@ -25,6 +25,7 @@ from testutils import (
 
 
 class TestNoSQLHandleConfig(unittest.TestCase):
+
     def setUp(self):
         self.config = get_simple_handle_config(tenant_id)
         self.table_request = TableRequest().set_statement(
@@ -195,11 +196,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_ssl_cipher_suites,
                           {'IllegalCipherSuites': 'IllegalCipherSuites'})
-        if security():
-            # set illegal cipher suites
-            config = get_simple_handle_config(tenant_id).set_ssl_cipher_suites(
-                'IllegalCipherSuites')
-            self.assertRaises(IllegalArgumentException, NoSQLHandle, config)
 
     def testNoSQLHandleConfigSetIllegalSSLProtocol(self):
         self.assertRaises(IllegalArgumentException,
