@@ -253,8 +253,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.query_request.set_statement(query_statement).set_max_read_kb(
             max_read_kb)
         result = self.handle.query(self.query_request)
-        if (is_onprem() and version is not None and
-                compare_version(version, '20.2.0') == -1):
+        if is_onprem():
             records = self.check_query_result(result, num_records)
         else:
             records = self.check_query_result(result, max_read_kb + 1, True)

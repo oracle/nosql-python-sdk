@@ -1212,7 +1212,7 @@ class NoSQLHandleConfig(object):
 
         # Strip out any slashes if the format was protocol://host[:port]
         if host.startswith('//'):
-            host = host[2:]
+            host = host.lstrip('/')
 
         if protocol != 'http' and protocol != 'https':
             raise IllegalArgumentException(
@@ -1223,6 +1223,8 @@ class NoSQLHandleConfig(object):
     def validate_port(endpoint, portstring):
         # Check that a port is a valid, non negative integer.
         try:
+            # Strip out any slashes after the port string.
+            portstring = portstring.rstrip('/')
             port = int(portstring)
             CheckValue.check_int_ge_zero(port, 'port')
             return port
