@@ -465,3 +465,15 @@ Copyright (C) 2018, 2020 Oracle and/or its affiliates. All rights reserved.
 
 This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
 <./LICENSE.txt>`_ for details.
+
+============
+Contributing
+============
+
+See `CONTRIBUTING` <./CONTRIBUTING.rst>`_
+
+========
+Security
+========
+
+See `SECURITY` <./SECURITY.rst>`_
