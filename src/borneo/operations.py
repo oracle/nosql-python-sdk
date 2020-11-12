@@ -3618,10 +3618,10 @@ class PutResult(WriteResult):
 
     def get_generated_value(self):
         """
-        Returns the value generated if the operation created a new value for an
-        identity column. If the table has no identity columns this value is
-        None. If it has an identity column and a value was generated for that
-        column, it is not None.
+        Returns the value generated if the operation created a new value. This
+        can occur if the table has an identity column or string as uuid column
+        that is marked as generated. If a value was generated it is returned,
+        otherwise None is returned.
 
         :returns: the generated value.
         """
@@ -4464,13 +4464,13 @@ class OperationResult(WriteResult):
 
     def get_generated_value(self):
         """
-        Returns the value generated if the operation created a new value for
-        an identity column. If the table has no identity columns this value
-        is None. If it has an identity column and a value was generated for
-        that column, it is not None.
+        Returns the value generated if the operation created a new value. This
+        can occur if the table has an identity column or string as uuid column
+        that is marked as generated. If a value was generated it is returned,
+        otherwise None is returned.
 
         This value is only valid for a put operation on a table with an
-        identity column.
+        identity column or string as uuid column.
 
         :returns: the generated value.
         """
