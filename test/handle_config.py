@@ -131,6 +131,13 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_pool_maxsize, -1)
 
+    def testNoSQLHandleConfigSetIllegalMaxContentLength(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_max_content_length,
+                          'IllegalMaxContentLength')
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_max_content_length, -1)
+
     def testNoSQLHandleConfigSetIllegalRetryHandler(self):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_retry_handler, 'IllegalRetryHandler')
@@ -359,7 +366,7 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self._check_config(config, None, retry_handler)
 
     def _check_config(self, config, service_url, handler):
-        max_content_length = 1024 * 1024
+        max_content_length = 0
         # check service url
         url = config.get_service_url()
         (self.assertIsNotNone(url) if service_url is None

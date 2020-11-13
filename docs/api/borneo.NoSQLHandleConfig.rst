@@ -35,6 +35,7 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.set_consistency
       ~NoSQLHandleConfig.set_default_compartment
       ~NoSQLHandleConfig.set_logger
+      ~NoSQLHandleConfig.set_max_content_length
       ~NoSQLHandleConfig.set_pool_connections
       ~NoSQLHandleConfig.set_pool_maxsize
       ~NoSQLHandleConfig.set_retry_handler
@@ -72,6 +73,7 @@ NoSQLHandleConfig
    .. automethod:: set_consistency
    .. automethod:: set_default_compartment
    .. automethod:: set_logger
+   .. automethod:: set_max_content_length
    .. automethod:: set_pool_connections
    .. automethod:: set_pool_maxsize
    .. automethod:: set_retry_handler

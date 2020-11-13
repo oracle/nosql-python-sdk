@@ -555,7 +555,7 @@ class NoSQLHandleConfig(object):
         self._consistency = None
         self._pool_connections = 2
         self._pool_maxsize = 10
-        self._max_content_length = 1024 * 1024
+        self._max_content_length = 0
         self._retry_handler = None
         self._proxy_host = None
         self._proxy_port = 0
@@ -858,10 +858,27 @@ class NoSQLHandleConfig(object):
         """
         return self._pool_maxsize
 
+    def set_max_content_length(self, max_content_length):
+        """
+        Sets the maximum size in bytes of request payloads. On-premise only.
+        This setting is ignored for cloud operations. If not set, or set to
+        zero, the default value of 32MB is used.
+
+        :param max_content_length: the maximum bytes allowed in requests. Pass
+            zero to use the default.
+        :type max_content_length: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if
+            max_content_length is a negative number.
+        """
+        CheckValue.check_int_ge_zero(max_content_length, 'max_content_length')
+        self._max_content_length = max_content_length
+        return self
+
     def get_max_content_length(self):
         """
-        Returns the maximum size, in bytes, of a request operation payload. Not
-        currently user-configurable.
+        Returns the maximum size, in bytes, of a request operation payload.
+        On-premise only. This value is ignored for cloud operations.
 
         :returns: the size.
         :rtype: int

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
+ Unpublished
+====================
+
+Added
+_____
+
+* Added NoSQLHandleConfig.set_max_content_length to allow on-premise
+  configuration of a maximum request content size. It defaults to 32MB.
+
+====================
  5.2.1 - 2020-08-14
 ====================
 

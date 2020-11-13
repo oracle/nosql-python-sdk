@@ -13,7 +13,7 @@ from sys import version_info
 from .common import (
     ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter)
 from .config import DefaultRetryHandler
-from .exception import IllegalArgumentException
+from .exception import IllegalArgumentException, RequestSizeLimitException
 from .http import RequestUtils
 from .kv import StoreAccessTokenProvider
 from .operations import QueryResult
@@ -23,6 +23,7 @@ from .version import __version__
 
 
 class Client(object):
+    DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024
     TRACE_LEVEL = 0
 
     # The HTTP driver client.
@@ -33,6 +34,10 @@ class Client(object):
         self._request_uri = self._url.geturl() + HttpConstants.NOSQL_DATA_PATH
         self._pool_connections = config.get_pool_connections()
         self._pool_maxsize = config.get_pool_maxsize()
+        max_content_length = config.get_max_content_length()
+        self._max_content_length = (
+            Client.DEFAULT_MAX_CONTENT_LENGTH if max_content_length == 0
+            else max_content_length)
         self._max_request_id = 1
         self._proxy_host = config.get_proxy_host()
         self._proxy_port = config.get_proxy_port()
@@ -130,17 +135,27 @@ class Client(object):
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
-        # If on-premise the auth_provider will always be a
-        # StoreAccessTokenProvider. If so, don't check size limits.
-        if isinstance(self._auth_provider, StoreAccessTokenProvider):
-            request.set_check_request_size(False)
+        # We expressly check size limit below based on onprem versus cloud. Set
+        # the request to not check size limit inside self._write_content().
+        request.set_check_request_size(False)
         content = self._write_content(request)
-        BinaryProtocol.check_request_size_limit(request, len(content))
+        content_len = len(content)
+        # If on-premise the auth_provider will always be a
+        # StoreAccessTokenProvider. If so, check against configurable limit.
+        # Otherwise check against internal hardcoded cloud limit.
+        if isinstance(self._auth_provider, StoreAccessTokenProvider):
+            if content_len > self._max_content_length:
+                raise RequestSizeLimitException(
+                    'The request size of ' + str(content_len) + ' exceeded ' +
+                    'the limit of ' + str(self._max_content_length))
+        else:
+            request.set_check_request_size(True)
+            BinaryProtocol.check_request_size_limit(request, content_len)
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
                    'Accept': 'application/octet-stream',
-                   'Content-Length': str(len(content)),
+                   'Content-Length': str(content_len),
                    'User-Agent': self._user_agent}
         if request.get_compartment() is None:
             request.set_compartment_internal(
