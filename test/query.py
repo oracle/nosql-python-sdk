@@ -249,7 +249,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
     def testQueryStatementSelectWithMaxReadKb(self):
         num_records = 6
-        max_read_kb = 4
+        max_read_kb = 6
         self.query_request.set_statement(query_statement).set_max_read_kb(
             max_read_kb)
         result = self.handle.query(self.query_request)
