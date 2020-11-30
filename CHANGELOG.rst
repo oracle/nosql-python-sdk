@@ -13,6 +13,8 @@ _____
 
 * Added NoSQLHandleConfig.set_max_content_length to allow on-premise
   configuration of a maximum request content size. It defaults to 32MB.
+* If a delegation token is being used for authorization the HTTP header,
+  'opc-obo-token' will be sent with the contents of the token.
 
 ====================
  5.2.1 - 2020-08-14
