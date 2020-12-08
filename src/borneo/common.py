@@ -53,13 +53,18 @@ class ByteInputStream(object):
 
     def __init__(self, content):
         self._content = content
+        self._offset = 0
+
+    def get_offset(self):
+        return self._offset
 
     def read_boolean(self):
         res = bool(self.read_byte())
         return res
 
     def read_byte(self):
-        res = self._content.pop(0)
+        res = self._content[self._offset]
+        self._offset += 1
         if res > 127:
             return res - 256
         else:
@@ -75,7 +80,8 @@ class ByteInputStream(object):
         if end is None:
             end = len(buf)
         for index in range(start, end):
-            buf[index] = self._content.pop(0)
+            buf[index] = self._content[self._offset]
+            self._offset += 1
 
     def read_int(self):
         buf = bytearray(4)
@@ -94,6 +100,9 @@ class ByteInputStream(object):
         self.read_fully(buf)
         res, = unpack('>h', buf)
         return res
+
+    def set_offset(self, offset):
+        self._offset = offset
 
 
 class ByteOutputStream(object):
@@ -156,6 +165,12 @@ class CheckValue(object):
     def check_dict(data, name):
         if data is not None and not isinstance(data, dict):
             raise IllegalArgumentException(name + ' must be a dict.')
+
+    @staticmethod
+    def check_float_gt_zero(data, name):
+        if not CheckValue.is_digit(data) or data <= 0.0:
+            raise IllegalArgumentException(
+                name + ' must be a positive digital number. Got:' + str(data))
 
     @staticmethod
     def check_int(data, name):
@@ -1018,9 +1033,11 @@ class PreparedStatement(object):
     threads additional instances of PreparedStatement can be constructed using
     :py:meth:`copy_statement`.
     """
+    OPCODE_SELECT = 5
 
     def __init__(self, sql_text, query_plan, topology_info, proxy_statement,
-                 driver_plan, num_iterators, num_registers, external_vars):
+                 driver_plan, num_iterators, num_registers, external_vars,
+                 namespace, table_name, operation):
         """
         Constructs a PreparedStatement. Construction is hidden to eliminate
         application access to the underlying statement, reducing the chance of
@@ -1060,6 +1077,9 @@ class PreparedStatement(object):
         # the RuntimeControlBlock field value array, just before the query
         # starts its execution at the driver.
         self._bound_variables = None
+        self._namespace = namespace
+        self._table_name = table_name
+        self._operation = operation
         self.lock = Lock()
 
     def clear_variables(self):
@@ -1081,10 +1101,19 @@ class PreparedStatement(object):
         return PreparedStatement(
             self._sql_text, self._query_plan, self._topology_info,
             self._proxy_statement, self._driver_query_plan, self._num_iterators,
-            self._num_registers, self._variables)
+            self._num_registers, self._variables, self._namespace,
+            self._table_name, self._operation)
+
+    def does_writes(self):
+        # if it's not SELECT, it does writes.
+        return self._operation != PreparedStatement.OPCODE_SELECT
 
     def driver_plan(self):
         return self._driver_query_plan
+
+    def get_namespace(self):
+        # Return namespace from prepared statement, if any.
+        return self._namespace
 
     def get_query_plan(self):
         """
@@ -1108,6 +1137,10 @@ class PreparedStatement(object):
     def get_statement(self):
         # internal use to return the serialized, prepared query, opaque
         return self._proxy_statement
+
+    def get_table_name(self):
+        # Return table name from prepared statement, if any.
+        return self._table_name
 
     def get_variables(self):
         """

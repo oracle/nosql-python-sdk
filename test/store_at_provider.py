@@ -22,6 +22,7 @@ from borneo.kv import StoreAccessTokenProvider
 
 
 class TestStoreAccessTokenProvider(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         global LOGIN_PATH, LOGOUT_PATH, RENEW_PATH
@@ -175,6 +176,7 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
 
 
 class TokenHandler(SimpleHTTPRequestHandler, object):
+
     def do_GET(self):
         rawpath = self.path.split('?')[0]
         auth_string = self.headers['Authorization']

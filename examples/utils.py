@@ -74,9 +74,13 @@ def get_handle(tenant_id):
     here. Use the tenant_id as the default compartment for all operations. This
     puts tables in the root compartment of the tenancy.
     """
+    return NoSQLHandle(get_handle_config(tenant_id))
+
+
+def get_handle_config(tenant_id):
     config = NoSQLHandleConfig(
         endpoint, generate_authorization_provider(
             tenant_id)).set_default_compartment(tenant_id)
     if ca_certs is not None:
         config.set_ssl_ca_certs(ca_certs)
-    return NoSQLHandle(config)
+    return config

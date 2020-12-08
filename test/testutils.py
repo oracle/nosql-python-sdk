@@ -37,8 +37,6 @@ tier_name = 'test_tier'
 logger = None
 namespace = 'pyNamespace'
 retry_handler = DefaultRetryHandler(delay_s=5)
-# The timeout for waiting security information is available.
-sec_info_timeout = 20000
 
 #
 # HTTP proxy settings are generally not required. If the server used for
@@ -112,9 +110,9 @@ def get_handle_config(tenant_id):
     provider = generate_authorization_provider(tenant_id)
     config = NoSQLHandleConfig(endpoint, provider).set_table_request_timeout(
         table_request_timeout).set_timeout(timeout).set_default_compartment(
-        tenant_id).set_pool_connections(pool_connections).set_sec_info_timeout(
-        sec_info_timeout).set_pool_maxsize(pool_maxsize).set_retry_handler(
-        retry_handler).set_consistency(consistency).set_logger(logger)
+        tenant_id).set_pool_connections(pool_connections).set_pool_maxsize(
+        pool_maxsize).set_retry_handler(retry_handler).set_consistency(
+        consistency).set_logger(logger)
     if proxy_host is not None:
         config.set_proxy_host(proxy_host)
     if proxy_port != 0:

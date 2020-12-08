@@ -134,13 +134,8 @@ class TestBase(object):
             self.assertTrue(result.get_state() in state)
         # check table limits
         if check_limit:
-            if table_limits is None:
+            if table_limits is None or is_onprem():
                 self.assertIsNone(result.get_table_limits())
-            elif is_onprem():
-                self.assertEqual(result.get_table_limits().get_read_units(), 0)
-                self.assertEqual(result.get_table_limits().get_write_units(),
-                                 0)
-                self.assertEqual(result.get_table_limits().get_storage_gb(), 0)
             else:
                 self.assertEqual(result.get_table_limits().get_read_units(),
                                  table_limits.get_read_units())

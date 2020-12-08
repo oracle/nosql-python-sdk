@@ -24,7 +24,6 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.get_pool_maxsize
       ~NoSQLHandleConfig.get_region
       ~NoSQLHandleConfig.get_retry_handler
-      ~NoSQLHandleConfig.get_sec_info_timeout
       ~NoSQLHandleConfig.get_service_url
       ~NoSQLHandleConfig.get_ssl_ca_certs
       ~NoSQLHandleConfig.get_ssl_cipher_suites
@@ -34,12 +33,13 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.set_authorization_provider
       ~NoSQLHandleConfig.set_consistency
       ~NoSQLHandleConfig.set_default_compartment
+      ~NoSQLHandleConfig.set_default_rate_limiting_percentage
       ~NoSQLHandleConfig.set_logger
       ~NoSQLHandleConfig.set_max_content_length
       ~NoSQLHandleConfig.set_pool_connections
       ~NoSQLHandleConfig.set_pool_maxsize
+      ~NoSQLHandleConfig.set_rate_limiting_enabled
       ~NoSQLHandleConfig.set_retry_handler
-      ~NoSQLHandleConfig.set_sec_info_timeout
       ~NoSQLHandleConfig.set_ssl_ca_certs
       ~NoSQLHandleConfig.set_ssl_cipher_suites
       ~NoSQLHandleConfig.set_ssl_protocol
@@ -62,7 +62,6 @@ NoSQLHandleConfig
    .. automethod:: get_pool_maxsize
    .. automethod:: get_region
    .. automethod:: get_retry_handler
-   .. automethod:: get_sec_info_timeout
    .. automethod:: get_service_url
    .. automethod:: get_ssl_ca_certs
    .. automethod:: get_ssl_cipher_suites
@@ -72,12 +71,13 @@ NoSQLHandleConfig
    .. automethod:: set_authorization_provider
    .. automethod:: set_consistency
    .. automethod:: set_default_compartment
+   .. automethod:: set_default_rate_limiting_percentage
    .. automethod:: set_logger
    .. automethod:: set_max_content_length
    .. automethod:: set_pool_connections
    .. automethod:: set_pool_maxsize
+   .. automethod:: set_rate_limiting_enabled
    .. automethod:: set_retry_handler
-   .. automethod:: set_sec_info_timeout
    .. automethod:: set_ssl_ca_certs
    .. automethod:: set_ssl_cipher_suites
    .. automethod:: set_ssl_protocol

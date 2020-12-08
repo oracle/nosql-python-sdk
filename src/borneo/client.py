@@ -6,17 +6,21 @@
 #
 
 from logging import DEBUG
+from multiprocessing import pool
 from platform import python_version
 from requests import Session
 from sys import version_info
+from threading import Lock
+from time import time
 
 from .common import (
-    ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter)
+    ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter,
+    synchronized)
 from .config import DefaultRetryHandler
 from .exception import IllegalArgumentException, RequestSizeLimitException
-from .http import RequestUtils
+from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
-from .operations import QueryResult
+from .operations import GetTableRequest, QueryResult
 from .query import QueryDriver
 from .serde import BinaryProtocol
 from .version import __version__
@@ -24,6 +28,7 @@ from .version import __version__
 
 class Client(object):
     DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024
+    LIMITER_REFRESH_NANOS = 600000000000
     TRACE_LEVEL = 0
 
     # The HTTP driver client.
@@ -46,7 +51,6 @@ class Client(object):
         self._retry_handler = config.get_retry_handler()
         if self._retry_handler is None:
             self._retry_handler = DefaultRetryHandler()
-        self._sec_info_timeout = config.get_sec_info_timeout()
         self._shut_down = False
         self._user_agent = self._make_user_agent()
         self._auth_provider = config.get_authorization_provider()
@@ -68,6 +72,55 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
+        # StoreAccessTokenProvider means onprem
+        if (config.get_rate_limiting_enabled() and
+                not isinstance(self._auth_provider, StoreAccessTokenProvider)):
+            self._logutils.log_info(
+                'Starting client with rate limiting enabled.')
+            self._rate_limiter_map = RateLimiterMap()
+            self._table_limit_update_map = dict()
+            self._threadpool = pool.ThreadPool(1)
+        else:
+            self._logutils.log_info('Starting client with no rate limiting.')
+            self._rate_limiter_map = None
+            self._table_limit_update_map = None
+            self._threadpool = None
+        self.lock = Lock()
+        self._ratelimiter_duration_seconds = 30
+
+    @synchronized
+    def background_update_limiters(self, table_name):
+        # Query table limits and create rate limiters for a table in a
+        # short-lived background thread.
+        if not self._table_needs_refresh(table_name):
+            return
+        self._set_table_needs_refresh(table_name, False)
+        try:
+            self._threadpool.map(self._update_table_limiters, ['table_name'])
+        except RuntimeError:
+            self._set_table_needs_refresh(table_name, True)
+
+    def enable_rate_limiting(self, enable, use_percent):
+        """
+        Internal use only.
+
+        Allow tests to enable/disable rate limiting. This method is not thread
+        safe, and should only be executed by one thread when no other operations
+        are in progress.
+        """
+        self._config.set_default_rate_limiting_percentage(use_percent)
+        if enable and self._rate_limiter_map is None:
+            self._rate_limiter_map = RateLimiterMap()
+            self._table_limit_update_map = dict()
+            self._threadpool = pool.ThreadPool(1)
+        elif not enable and self._rate_limiter_map is not None:
+            self._rate_limiter_map.clear()
+            self._rate_limiter_map = None
+            self._table_limit_update_map.clear()
+            self._table_limit_update_map = None
+            if self._threadpool is not None:
+                self._threadpool.close()
+                self._threadpool = None
 
     def execute(self, request):
         """
@@ -163,13 +216,29 @@ class Client(object):
         if self._logutils.is_enabled_for(DEBUG):
             self._logutils.log_debug('Request: ' + request.__class__.__name__)
         request_utils = RequestUtils(
-            self._sess, self._logutils, request, self._retry_handler, self)
+            self._sess, self._logutils, request, self._retry_handler, self,
+            self._rate_limiter_map)
         return request_utils.do_post_request(
-            self._request_uri, headers, content, timeout_ms,
-            self._sec_info_timeout)
+            self._request_uri, headers, content, timeout_ms)
 
     def get_auth_provider(self):
         return self._auth_provider
+
+    def reset_rate_limiters(self, table_name):
+        """
+        Internal use only.
+
+        Allow tests to reset limiters in map.
+
+        :param table_name: name or OCID of the table.
+        :type table_name: str
+        """
+        if self._rate_limiter_map is not None:
+            self._rate_limiter_map.reset(table_name)
+
+    def set_ratelimiter_duration_seconds(self, duration_seconds):
+        # Allow tests to override this hardcoded setting
+        self._ratelimiter_duration_seconds = duration_seconds
 
     def shut_down(self):
         # Shutdown the client.
@@ -181,6 +250,53 @@ class Client(object):
             self._auth_provider.close()
         if self._sess is not None:
             self._sess.close()
+        if self._threadpool is not None:
+            self._threadpool.close()
+
+    def update_rate_limiters(self, table_name, limits):
+        """
+        Add or update rate limiters for a table.
+        Cloud only.
+
+        :param table_name: the table name or OCID of table.
+        :type table_name: str
+        :param limits: read/write limits for table.
+        :type limits: TableLimits
+        :returns: whether the update is succeed.
+        """
+        if self._rate_limiter_map is None:
+            return False
+        self._set_table_needs_refresh(table_name, False)
+        if (limits is None or limits.get_read_units() <= 0 and
+                limits.get_write_units() <= 0):
+            self._rate_limiter_map.remove(table_name)
+            self._logutils.log_info(
+                'Removing rate limiting from table: ' + table_name)
+            return False
+        """
+        Create or update rate limiters in map
+        Note: NoSQL cloud service has a "burst" availability of 300 seconds. But
+        we don't know if or how many other clients may have been using this
+        table, and a duration of 30 seconds allows for more predictable usage.
+        Also, it's better to use a reasonable hardcoded value here than to try
+        to explain the subtleties of it in docs for configuration. In the end
+        this setting is probably fine for all uses.
+        """
+        read_units = limits.get_read_units()
+        write_units = limits.get_write_units()
+        # If there's a specified rate limiter percentage, use that.
+        rl_percent = self._config.get_default_rate_limiting_percentage()
+        if rl_percent > 0.0:
+            read_units = read_units * rl_percent / 100.0
+            write_units = write_units * rl_percent / 100.0
+        self._rate_limiter_map.update(
+            table_name, float(read_units), float(write_units),
+            self._ratelimiter_duration_seconds)
+        msg = str.format('Updated table "{0}" to have RUs={1} and WUs={2} ' +
+                         'per second.', table_name, str(read_units),
+                         str(write_units))
+        self._logutils.log_info(msg)
+        return True
 
     def _check_and_set_proxy(self, sess):
         if (self._proxy_host is not None and self._proxy_port == 0 or
@@ -214,10 +330,69 @@ class Client(object):
                                       version_info.micro)
         return '%s/%s (Python %s)' % ('NoSQL-PythonSDK', __version__, pyversion)
 
+    def _set_table_needs_refresh(self, table_name, needs_refresh):
+        # set the status of a table needing limits refresh now.
+        if self._table_limit_update_map is None:
+            return
+        then = self._table_limit_update_map.get(table_name)
+        now_nanos = int(round(time() * 1000000000))
+        if then is not None:
+            if needs_refresh:
+                self._table_limit_update_map[table_name] = now_nanos - 1
+            else:
+                self._table_limit_update_map[table_name] = (
+                    now_nanos + Client.LIMITER_REFRESH_NANOS)
+            return
+        if needs_refresh:
+            self._table_limit_update_map[table_name] = now_nanos - 1
+        else:
+            self._table_limit_update_map[table_name] = (
+                now_nanos + Client.LIMITER_REFRESH_NANOS)
+
+    def _table_needs_refresh(self, table_name):
+        # Return True if table needs limits refresh.
+        if self._table_limit_update_map is None:
+            return False
+        then = self._table_limit_update_map.get(table_name)
+        now_nanos = int(round(time() * 1000000000))
+        if then is not None and then > now_nanos:
+            return False
+        return True
+
     @staticmethod
     def _trace(msg, level):
         if level <= Client.TRACE_LEVEL:
             print('DRIVER: ' + msg)
+
+    def _update_table_limiters(self, table_name):
+        # This is meant to be run in a background thread.
+        req = GetTableRequest().set_table_name(table_name).set_timeout(1000)
+        res = None
+        try:
+            self._logutils.log_info(
+                'Starting GetTableRequest for table "' + table_name + '"')
+            res = self.execute(req)
+        except Exception as e:
+            self._logutils.log_info(
+                'GetTableRequest for table "' + table_name +
+                '" returned exception: ' + str(e))
+        if res is None:
+            # table doesn't exist? other error?
+            self._logutils.log_info(
+                'GetTableRequest for table "' + table_name + '" returned None')
+            then = self._table_limit_update_map.get(table_name)
+            if then is not None:
+                # Allow retry after 100ms.
+                self._table_limit_update_map[table_name] = (
+                    int(round(time() * 1000000000)) + 100000000)
+            return
+        self._logutils.log_info(
+            'GetTableRequest completed for table "' + table_name + '"')
+        # Update/add rate limiters for table.
+        if self.update_rate_limiters(table_name, res.get_table_limits()):
+            self._logutils.log_info(
+                'Background thread added limiters for table "' + table_name +
+                '"')
 
     @staticmethod
     def _write_content(request):

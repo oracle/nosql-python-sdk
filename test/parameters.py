@@ -100,6 +100,11 @@ def not_cloudsim():
     return not is_cloudsim()
 
 
+def rate_limiter_extended():
+    # Set to enable rate limiter extended tests.
+    return False
+
+
 def security():
-    # Set to enable security is using on-prem security mode.
+    # Enable security test cases in on-prem security mode.
     return user_name is not None and password is not None

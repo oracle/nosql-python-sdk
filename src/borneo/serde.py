@@ -50,6 +50,9 @@ class BinaryProtocol(object):
     # The max size of WriteMultiple request.
     BATCH_REQUEST_SIZE_LIMIT = 25 * 1024 * 1024
 
+    # The limit on the max read KB during a operation
+    READ_KB_LIMIT = 2 * 1024
+
     # The max size of request.
     REQUEST_SIZE_LIMIT = 2 * 1024 * 1024
 
@@ -223,8 +226,12 @@ class BinaryProtocol(object):
                 read_kb = BinaryProtocol.read_packed_int(bis)
                 write_kb = BinaryProtocol.read_packed_int(bis)
                 storage_gb = BinaryProtocol.read_packed_int(bis)
-                limits = TableLimits(read_kb, write_kb, storage_gb)
-                result.set_table_limits(limits)
+                # on-prem tables may return all 0 because of protocol
+                # limitations that lump the schema with limits. Return None to
+                # user for those cases.
+                if not(read_kb == 0 and write_kb == 0 and storage_gb == 0):
+                    result.set_table_limits(
+                        TableLimits(read_kb, write_kb, storage_gb))
                 result.set_schema(BinaryProtocol.read_string(bis))
             result.set_operation_id(BinaryProtocol.read_string(bis))
 
@@ -593,14 +600,14 @@ class BinaryProtocol(object):
     @staticmethod
     def serialize_read_request(request, bos):
         BinaryProtocol.serialize_request(request, bos)
-        BinaryProtocol.write_string(bos, request.get_table_name_internal())
+        BinaryProtocol.write_string(bos, request.get_table_name())
         bos.write_byte(request.get_consistency())
 
     # Writes fields from WriteRequest
     @staticmethod
     def serialize_write_request(request, bos):
         BinaryProtocol.serialize_request(request, bos)
-        BinaryProtocol.write_string(bos, request.get_table_name_internal())
+        BinaryProtocol.write_string(bos, request.get_table_name())
         bos.write_boolean(request.get_return_row())
 
     @staticmethod
@@ -1082,6 +1089,24 @@ class PrepareRequestSerializer(RequestSerializer):
 
     @staticmethod
     def deserialize_internal(sql_text, get_query_plan, bis):
+        """
+        Extract the table name and namespace from the prepared query. This dips
+        into the portion of the prepared query that is normally opaque.
+
+        int (4 byte)
+        byte[] (32 bytes -- hash)
+        byte (number of tables)
+        namespace (string)
+        tablename (string)
+        operation (1 byte)
+        """
+        saved_offset = bis.get_offset()
+        bis.set_offset(saved_offset + 37)
+        namespace = BinaryProtocol.read_string(bis)
+        table_name = BinaryProtocol.read_string(bis)
+        operation = bis.read_byte()
+        bis.set_offset(saved_offset)
+
         proxy_statement = BinaryProtocol.read_bytearray_with_int(bis)
         num_iterators = 0
         num_registers = 0
@@ -1106,7 +1131,8 @@ class PrepareRequestSerializer(RequestSerializer):
             topology_info = BinaryProtocol.read_topology_info(bis)
         return PreparedStatement(
             sql_text, query_plan, topology_info, proxy_statement, driver_plan,
-            num_iterators, num_registers, external_vars)
+            num_iterators, num_registers, external_vars,
+            namespace, table_name, operation)
 
 
 class PutRequestSerializer(RequestSerializer):

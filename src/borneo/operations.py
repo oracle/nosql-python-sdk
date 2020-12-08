@@ -15,6 +15,7 @@ from .common import (
     SystemState, TableLimits, TimeToLive, Version, deprecated)
 from .exception import (
     IllegalArgumentException, RequestTimeoutException, TableNotFoundException)
+from .http import RateLimiter
 from .serde import (
     BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
     GetRequestSerializer, GetTableRequestSerializer,
@@ -39,7 +40,58 @@ class Request(object):
         self._check_request_size = True
         # Cloud service only.
         self._compartment = None
+        self._read_rate_limiter = None
+        self._retry_stats = None
+        self._start_time_ms = 0
+        self._table_name = None
         self._timeout_ms = 0
+        self._write_rate_limiter = None
+
+    def add_retry_delay_ms(self, millis):
+        """
+        Internal use only.
+
+        This adds time to the total time spent processing retries during a
+        single request processing operation.
+
+        :param millis: millis time to add to retry delay value
+        :type millis: int
+        """
+        if self._retry_stats is None:
+            self._retry_stats = RetryStats()
+        self._retry_stats.add_delay_ms(millis)
+
+    def add_retry_exception(self, re):
+        """
+        Internal use only.
+
+        This adds (or increments) a class type to the list of exceptions that
+        were processed during retries of a single request operation.
+
+        :param re: class of exception to add to retry stats.
+        :type re: Exception
+        """
+        if self._retry_stats is None:
+            self._retry_stats = RetryStats()
+        self._retry_stats.add_exception(re)
+
+    def does_reads(self):
+        """
+        Internal use only.
+
+        :returns: True if the request expects to do reads (incur read units).
+        :rtype: boolean
+        """
+        return False
+
+    def does_writes(self):
+        """
+        Internal use only.
+
+        :returns: True if the request expects to do writes (incur write units).
+        :rtype: boolean
+        """
+        return False
 
     def get_check_request_size(self):
         # Internal use only.
@@ -57,8 +109,111 @@ class Request(object):
         """
         return self._compartment
 
+    def get_num_retries(self):
+        """
+        Internal use only.
+
+        :returns: number of retries.
+        :rtype: int
+        """
+        if self._retry_stats is None:
+            return 0
+        return self._retry_stats.get_retries()
+
+    def get_read_rate_limiter(self):
+        """
+        Cloud service only.
+
+        Returns the read rate limiter instance used during this request.
+
+        This will be the value supplied via :py:meth:`set_read_rate_limiter`, or
+        if that was not called, it may be an instance of an internal rate
+        limiter that was configured internally during request processing.
+
+        This is supplied for stats and tracing/debugging only. The returned
+        limiter should be treated as read-only.
+
+        :returns: the rate limiter instance used for read operations, or None if
+            no limiter was used.
+        :rtype: RateLimiter
+        """
+        return self._read_rate_limiter
+
+    def get_retry_delay_ms(self):
+        """
+        Internal use only.
+
+        :returns: the time spent in retries, in milliseconds.
+        :rtype: int
+        """
+        if self._retry_stats is None:
+            return 0
+        return self._retry_stats.get_delay_ms()
+
+    def get_retry_stats(self):
+        """
+        Returns a stats object with information about retries. This may be used
+        during a retry handler or after a request has completed or thrown an
+        exception.
+
+        :returns: stats object with retry information, or None if no retries
+        were performed.
+        :rtype: RetryStats
+        """
+        return self._retry_stats
+
+    def get_start_time_ms(self):
+        """
+        Internal use only.
+
+        :returns: the start time of request processing.
+        :returns: int
+        """
+        return self._start_time_ms
+
+    def get_table_name(self):
+        """
+        Returns the table name to use for the operation.
+
+        :returns: the table name, or None if not set.
+        :returns: str
+        """
+        return self._table_name
+
+    def get_timeout(self):
+        return self._timeout_ms
+
+    def get_write_rate_limiter(self):
+        """
+        Cloud service only.
+
+        Returns the write rate limiter instance used during this request.
+
+        This will be the value supplied via :py:meth:`set_write_rate_limiter`,
+        or if that was not called, it may be an instance of an internal rate
+        limiter that was configured internally during request processing.
+
+        This is supplied for stats and tracing/debugging only. The returned
+        limiter should be treated as read-only.
+
+        :returns: the rate limiter instance used for write operations, or None
+            if no limiter was used.
+        :rtype: RateLimiter
+        """
+        return self._write_rate_limiter
+
     def is_query_request(self):
         return False
+
+    def increment_retries(self):
+        """
+        Internal use only.
+
+        Increments the number of retries during the request operation.
+        """
+        if self._retry_stats is None:
+            self._retry_stats = RetryStats()
+        self._retry_stats.increment_retries()
 
     def set_check_request_size(self, check_request_size):
         # Internal use only.
@@ -97,16 +252,99 @@ class Request(object):
             self._timeout_ms = cfg.get_default_timeout()
         return self
 
+    def set_read_rate_limiter(self, rate_limiter):
+        """
+        Cloud service only.
+
+        Sets a read rate limiter to use for this request.
+
+        This will override any internal rate limiter that may have otherwise
+        been used during request processing, and it will be used regardless of
+        any rate limiter config.
+
+        :param rate_limiter: the rate limiter instance to use for read
+            operations.
+        :type rate_limiter: RateLimiter
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if rate_limiter
+            is not an instance of RateLimiter.
+        """
+        self._check_rate_limiter(rate_limiter, 'set_read_rate_limiter')
+        self._read_rate_limiter = rate_limiter
+        return self
+
+    def set_retry_stats(self, retry_stats):
+        """
+        Internal use only.
+
+        This is typically set by internal request processing when the first
+        retry is attempted. It is used/updated thereafter on subsequent retry
+        attempts.
+
+        :param retry_stats: the stats object to use.
+        :type retry_stats: RetryStats
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if retry_stats is
+            not an instance of RetryStats.
+        """
+        if retry_stats is not None and not isinstance(retry_stats, RetryStats):
+            raise IllegalArgumentException(
+                'set_retry_stats requires an instance of RetryStats as ' +
+                'parameter.')
+        self._retry_stats = retry_stats
+        return self
+
+    def set_start_time_ms(self, start_time_ms):
+        """
+        Internal use only.
+
+        :param start_time_ms: the start time of request processing.
+        :type start_time_ms: int
+        """
+        self._start_time_ms = start_time_ms
+
+    def set_write_rate_limiter(self, rate_limiter):
+        """
+        Cloud service only.
+
+        Sets a write rate limiter to use for this request.
+
+        This will override any internal rate limiter that may have otherwise
+        been used during request processing, and it will be used regardless of
+        any rate limiter config.
+
+        :param rate_limiter: the rate limiter instance to use for write
+            operations.
+        :type rate_limiter: RateLimiter
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if rate_limiter
+            is not an instance of RateLimiter.
+        """
+        self._check_rate_limiter(rate_limiter, 'set_write_rate_limiter')
+        self._write_rate_limiter = rate_limiter
+        return self
+
     def should_retry(self):
         # Returns True if this request should be retried.
         return True
 
+    def set_table_name(self, table_name):
+        """
+        Internal use only.
+
+        Sets the table name to use for the operation.
+
+        :param table_name: the table name.
+        :type table_name: str or None
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        CheckValue.check_str(table_name, 'table_name', True)
+        self._table_name = table_name
+
     def _set_timeout(self, timeout_ms):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
         self._timeout_ms = timeout_ms
-
-    def _get_timeout(self):
-        return self._timeout_ms
 
     @staticmethod
     def _check_config(cfg):
@@ -114,6 +352,13 @@ class Request(object):
             raise IllegalArgumentException(
                 'set_defaults requires an instance of NoSQLHandleConfig as ' +
                 'parameter.')
+
+    @staticmethod
+    def _check_rate_limiter(rate_limiter, name):
+        if (rate_limiter is not None and
+                not isinstance(rate_limiter, RateLimiter)):
+            raise IllegalArgumentException(
+                name + ' requires an instance of RateLimiter as parameter.')
 
 
 class WriteRequest(Request):
@@ -129,15 +374,10 @@ class WriteRequest(Request):
 
     def __init__(self):
         super(WriteRequest, self).__init__()
-        self._table_name = None
         self._return_row = False
 
-    def get_table_name_internal(self):
-        return self._table_name
-
-    def _set_table_name(self, table_name):
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
+    def does_writes(self):
+        return True
 
     def _set_return_row(self, return_row):
         CheckValue.check_boolean(return_row, 'return_row')
@@ -166,21 +406,16 @@ class ReadRequest(Request):
 
     def __init__(self):
         super(ReadRequest, self).__init__()
-        self._table_name = None
         self._consistency = None
 
-    def get_table_name_internal(self):
-        return self._table_name
+    def does_reads(self):
+        return True
 
     def set_defaults(self, cfg):
         super(ReadRequest, self).set_defaults(cfg)
         if self._consistency is None:
             self._set_consistency(cfg.get_default_consistency())
         return self
-
-    def _set_table_name(self, table_name):
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
 
     def _set_consistency(self, consistency):
         if (consistency != Consistency.ABSOLUTE and
@@ -194,7 +429,7 @@ class ReadRequest(Request):
         return self._consistency
 
     def _validate_read_request(self, request_name):
-        if self._table_name is None:
+        if self.get_table_name() is None:
             raise IllegalArgumentException(
                 request_name + ' requires table name.')
 
@@ -346,7 +581,7 @@ class DeleteRequest(WriteRequest):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(DeleteRequest, self).get_timeout()
 
     def set_table_name(self, table_name):
         """
@@ -359,17 +594,8 @@ class DeleteRequest(WriteRequest):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        self._set_table_name(table_name)
+        super(DeleteRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Returns the table name for the operation.
-
-        :returns: the table name, or None if not set.
-        :rtype: str
-        """
-        return self.get_table_name_internal()
 
     def set_return_row(self, return_row):
         """
@@ -398,6 +624,9 @@ class DeleteRequest(WriteRequest):
         """
         return self._get_return_row()
 
+    def does_reads(self):
+        return self._match_version is not None or self.get_return_row()
+
     def validate(self):
         # Validates the state of the object when complete.
         self._validate_write_request('DeleteRequest')
@@ -420,7 +649,6 @@ class GetIndexesRequest(Request):
 
     def __init__(self):
         super(GetIndexesRequest, self).__init__()
-        self._table_name = None
         self._index_name = None
 
     def set_table_name(self, table_name):
@@ -433,18 +661,8 @@ class GetIndexesRequest(Request):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
+        super(GetIndexesRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Gets the table name to use for the request.
-
-        :returns: the table name.
-        :rtype: str
-        """
-        return self._table_name
 
     def set_compartment(self, compartment):
         """
@@ -519,14 +737,14 @@ class GetIndexesRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(GetIndexesRequest, self).get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
         return False
 
     def validate(self):
-        if self._table_name is None:
+        if self.get_table_name() is None:
             raise IllegalArgumentException(
                 'GetIndexesRequest requires a table name.')
 
@@ -597,7 +815,7 @@ class GetRequest(ReadRequest):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        self._set_table_name(table_name)
+        super(GetRequest, self).set_table_name(table_name)
         return self
 
     def set_compartment(self, compartment):
@@ -673,7 +891,7 @@ class GetRequest(ReadRequest):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(GetRequest, self).get_timeout()
 
     def validate(self):
         # Validates the state of the members of this class for use.
@@ -699,7 +917,6 @@ class GetTableRequest(Request):
 
     def __init__(self):
         super(GetTableRequest, self).__init__()
-        self._table_name = None
         self._operation_id = None
 
     def set_table_name(self, table_name):
@@ -712,18 +929,8 @@ class GetTableRequest(Request):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
+        super(GetTableRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Gets the table name to use for the request.
-
-        :returns: the table name.
-        :rtype: str
-        """
-        return self._table_name
 
     def set_compartment(self, compartment):
         """
@@ -806,14 +1013,14 @@ class GetTableRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(GetTableRequest, self).get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
         return False
 
     def validate(self):
-        if self._table_name is None:
+        if self.get_table_name() is None:
             raise IllegalArgumentException(
                 'GetTableRequest requires a table name.')
 
@@ -970,7 +1177,7 @@ class ListTablesRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(ListTablesRequest, self).get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
@@ -1012,7 +1219,6 @@ class MultiDeleteRequest(Request):
 
     def __init__(self):
         super(MultiDeleteRequest, self).__init__()
-        self._table_name = None
         self._key = None
         self._continuation_key = None
         self._range = None
@@ -1029,18 +1235,8 @@ class MultiDeleteRequest(Request):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
+        super(MultiDeleteRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Returns the tableName used for the operation.
-
-        :returns: the table name.
-        :rtype: str
-        """
-        return self._table_name
 
     def set_key(self, key):
         """
@@ -1197,10 +1393,16 @@ class MultiDeleteRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(MultiDeleteRequest, self).get_timeout()
+
+    def does_reads(self):
+        return True
+
+    def does_writes(self):
+        return True
 
     def validate(self):
-        if self._table_name is None:
+        if self.get_table_name() is None:
             raise IllegalArgumentException(
                 'MultiDeleteRequest requires table name.')
         if self._key is None:
@@ -1232,6 +1434,20 @@ class PrepareRequest(Request):
         super(PrepareRequest, self).__init__()
         self._statement = None
         self._get_query_plan = False
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name for a query operation. This is used by rate limiting
+        logic to manage internal rate limiters.
+
+        :param table_name: the name (or OCID) of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(PrepareRequest, self).set_table_name(table_name)
+        return self
 
     def set_statement(self, statement):
         """
@@ -1284,11 +1500,12 @@ class PrepareRequest(Request):
 
     def set_get_query_plan(self, get_query_plan):
         """
-        Sets whether a printout of the query execution plan should be include in
-        the :py:class:`PrepareResult`.
+        Sets whether a printout of the query execution plan should be included
+        in the :py:class:`PrepareResult`.
 
         :param get_query_plan: True if a printout of the query execution plan
-            should be include in the :py:class:`PrepareResult`. False otherwise.
+            should be included in the :py:class:`PrepareResult`. False
+            otherwise.
         :type get_query_plan: bool
         :returns: self.
         :raises IllegalArgumentException: raises the exception if get_query_plan
@@ -1332,7 +1549,7 @@ class PrepareRequest(Request):
         :returns: the value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(PrepareRequest, self).get_timeout()
 
     def validate(self):
         if self._statement is None:
@@ -1649,7 +1866,7 @@ class PutRequest(WriteRequest):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(PutRequest, self).get_timeout()
 
     def set_table_name(self, table_name):
         """
@@ -1661,17 +1878,9 @@ class PutRequest(WriteRequest):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        self._set_table_name(table_name)
+
+        super(PutRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Returns the table name for the operation.
-
-        :returns: the table name, or None if not set.
-        :rtype: str
-        """
-        return self.get_table_name_internal()
 
     def set_return_row(self, return_row):
         """
@@ -1700,6 +1909,9 @@ class PutRequest(WriteRequest):
         :rtype: bool
         """
         return self._get_return_row()
+
+    def does_reads(self):
+        return self._option is not None or self.get_return_row()
 
     def validate(self):
         # Validates the state of the object when complete.
@@ -1804,6 +2016,7 @@ class QueryRequest(Request):
         # request.
         internal_req = QueryRequest()
         internal_req.set_compartment(self.get_compartment())
+        internal_req.set_table_name(self.get_table_name())
         internal_req.set_timeout(self.get_timeout())
         internal_req.set_trace_level(self._trace_level)
         internal_req.set_limit(self._limit)
@@ -1834,6 +2047,11 @@ class QueryRequest(Request):
         :rtype: bool
         """
         return self._continuation_key is None
+
+    def get_table_name(self):
+        if self._prepared_statement is None:
+            return None
+        return self._prepared_statement.get_table_name()
 
     def set_compartment(self, compartment):
         """
@@ -2187,13 +2405,24 @@ class QueryRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(QueryRequest, self).get_timeout()
 
     def set_defaults(self, cfg):
         super(QueryRequest, self).set_defaults(cfg)
         if self._consistency is None:
             self._consistency = cfg.get_default_consistency()
         return self
+
+    def does_reads(self):
+        """
+        Just about every permutation of query does reads.
+        """
+        return True
+
+    def does_writes(self):
+        if self._prepared_statement is None:
+            return False
+        return self._prepared_statement.does_writes()
 
     def has_driver(self):
         return self.driver is not None
@@ -2300,12 +2529,12 @@ class SystemRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(SystemRequest, self).get_timeout()
 
     def set_defaults(self, cfg):
         # Use the default request timeout if not set.
         self._check_config(cfg)
-        if self._get_timeout() == 0:
+        if self.get_timeout() == 0:
             self._set_timeout(cfg.get_default_table_request_timeout())
         return self
 
@@ -2418,12 +2647,12 @@ class SystemStatusRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(SystemStatusRequest, self).get_timeout()
 
     def set_defaults(self, cfg):
         # Use the default request timeout if not set.
         self._check_config(cfg)
-        if self._get_timeout() == 0:
+        if self.get_timeout() == 0:
             self._set_timeout(cfg.get_default_table_request_timeout())
         return self
 
@@ -2468,12 +2697,11 @@ class TableRequest(Request):
         super(TableRequest, self).__init__()
         self._statement = None
         self._limits = None
-        self._table_name = None
 
     def __str__(self):
-        return ('TableRequest: [name=' + str(self._table_name) +
+        return ('TableRequest: [name=' + str(self.get_table_name()) +
                 ', statement=' + str(self._statement) + ', limits=' +
-                str(self._limits))
+                str(self._limits) + ']')
 
     def set_statement(self, statement):
         """
@@ -2570,18 +2798,8 @@ class TableRequest(Request):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
+        super(TableRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Returns the table name, or None if not set.
-
-        :returns: the table name.
-        :rtype: str
-        """
-        return self._table_name
 
     def set_timeout(self, timeout_ms):
         """
@@ -2606,7 +2824,7 @@ class TableRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(TableRequest, self).get_timeout()
 
     def set_defaults(self, cfg):
         """
@@ -2614,7 +2832,7 @@ class TableRequest(Request):
         """
         # Use the default request timeout if not set.
         self._check_config(cfg)
-        if self._get_timeout() == 0:
+        if self.get_timeout() == 0:
             self._set_timeout(cfg.get_default_table_request_timeout())
 
         # Use the default compartment if not set
@@ -2627,10 +2845,11 @@ class TableRequest(Request):
         return False
 
     def validate(self):
-        if self._statement is None and self._table_name is None:
+        table_name = self.get_table_name()
+        if self._statement is None and table_name is None:
             raise IllegalArgumentException(
                 'TableRequest requires statement or TableLimits and name.')
-        if self._statement is not None and self._table_name is not None:
+        if self._statement is not None and table_name is not None:
             raise IllegalArgumentException(
                 'TableRequest cannot have both table name and statement.')
 
@@ -2664,7 +2883,6 @@ class TableUsageRequest(Request):
 
     def __init__(self):
         super(TableUsageRequest, self).__init__()
-        self._table_name = None
         self._start_time = 0
         self._end_time = 0
         self._limit = 0
@@ -2680,18 +2898,8 @@ class TableUsageRequest(Request):
         :raises IllegalArgumentException: raises the exception if table_name is
             not a string.
         """
-        CheckValue.check_str(table_name, 'table_name')
-        self._table_name = table_name
+        super(TableUsageRequest, self).set_table_name(table_name)
         return self
-
-    def get_table_name(self):
-        """
-        Gets the table name to use for the request.
-
-        :returns: the table name.
-        :rtype: str
-        """
-        return self._table_name
 
     def set_compartment(self, compartment):
         """
@@ -2855,14 +3063,14 @@ class TableUsageRequest(Request):
         :returns: the value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(TableUsageRequest, self).get_timeout()
 
     def should_retry(self):
         # Returns True if this request should be retried.
         return False
 
     def validate(self):
-        if self._table_name is None:
+        if self.get_table_name() is None:
             raise IllegalArgumentException(
                 'TableUsageRequest requires a table name.')
         if self._start_time > self._end_time > 0:
@@ -2914,17 +3122,7 @@ class WriteMultipleRequest(Request):
     def __init__(self):
         # Constructs an empty request.
         super(WriteMultipleRequest, self).__init__()
-        self._table_name = None
         self._ops = list()
-
-    def get_table_name(self):
-        """
-        Returns the tableName used for the operations.
-
-        :returns: the table name, or None if no operation.
-        :rtype: str
-        """
-        return self._table_name
 
     def add(self, request, abort_if_unsuccessful):
         """
@@ -2951,13 +3149,14 @@ class WriteMultipleRequest(Request):
                 'DeleteRequest as parameter. Got: ' + str(request))
         CheckValue.check_boolean(abort_if_unsuccessful,
                                  'abort_if_unsuccessful')
-        if self._table_name is None:
-            self._table_name = request.get_table_name()
+        table_name = self.get_table_name()
+        if table_name is None:
+            self.set_table_name(request.get_table_name())
         else:
-            if request.get_table_name().lower() != self._table_name.lower():
+            if request.get_table_name().lower() != table_name.lower():
                 raise IllegalArgumentException(
                     'The table_name used for the operation is different from ' +
-                    'that of others: ' + self._table_name)
+                    'that of others: ' + table_name)
         request.validate()
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
@@ -3041,14 +3240,24 @@ class WriteMultipleRequest(Request):
         :returns: the timeout value.
         :rtype: int
         """
-        return self._get_timeout()
+        return super(WriteMultipleRequest, self).get_timeout()
 
     def clear(self):
         """
         Removes all of the operations from the WriteMultiple request.
         """
-        self._table_name = None
+        self.set_table_name(None)
         self._ops = list()
+
+    def does_reads(self):
+        for op in self._ops:
+            req = op.get_request()
+            if req.does_reads():
+                return True
+        return False
+
+    def does_writes(self):
+        return True
 
     def validate(self):
         if not self._ops:
@@ -3084,9 +3293,49 @@ class Result(object):
         read_kb and read_units will be different in the case of Absolute
         Consistency. write_kb and write_units will always be equal.
         """
+        self._rate_limit_delayed_ms = 0
         self._read_kb = 0
         self._read_units = 0
+        self._retry_stats = None
         self._write_kb = 0
+
+    def get_rate_limit_delayed_ms(self):
+        """
+        Get the time the operation was delayed due to rate limiting. Cloud only.
+        If rate limiting is in place, this value will represent the number of
+        milliseconds that the operation was delayed due to rate limiting. If the
+        value is zero, rate limiting did not apply or the operation did not need
+        to wait for rate limiting.
+
+        :returns: delay time in milliseconds.
+        """
+        return self._rate_limit_delayed_ms
+
+    def get_read_units(self):
+        # Internal use only.
+        return self._read_units
+
+    def get_retry_stats(self):
+        """
+        Returns a stats object with information about retries.
+
+        :returns: stats object with retry information, or None if no retries
+            were performed.
+        """
+        return self._retry_stats
+
+    def get_write_units(self):
+        # Internal use only.
+        return self._write_kb
+
+    def set_rate_limit_delayed_ms(self, delay_ms):
+        """
+        :param delay_ms: the delay in milliseconds.
+        :type delay_ms: int
+        :returns: self.
+        """
+        self._rate_limit_delayed_ms = delay_ms
+        return self
 
     def set_read_kb(self, read_kb):
         self._read_kb = read_kb
@@ -3096,6 +3345,15 @@ class Result(object):
         self._read_units = read_units
         return self
 
+    def set_retry_stats(self, retry_stats):
+        """
+        Internal use only.
+
+        :param retry_stats: the stats object to use.
+        :type retry_stats: RetryStats
+        """
+        self._retry_stats = retry_stats
+
     def set_write_kb(self, write_kb):
         self._write_kb = write_kb
         return self
@@ -3103,13 +3361,7 @@ class Result(object):
     def _get_read_kb(self):
         return self._read_kb
 
-    def _get_read_units(self):
-        return self._read_units
-
     def _get_write_kb(self):
-        return self._write_kb
-
-    def _get_write_units(self):
         return self._write_kb
 
 
@@ -3214,7 +3466,7 @@ class DeleteResult(WriteResult):
         :returns: the read units consumed.
         :rtype: int
         """
-        return self._get_read_units()
+        return super(DeleteResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -3232,7 +3484,7 @@ class DeleteResult(WriteResult):
         :returns: the write units consumed.
         :rtype: int
         """
-        return self._get_write_units()
+        return super(DeleteResult, self).get_write_units()
 
 
 class GetResult(Result):
@@ -3322,7 +3574,7 @@ class GetResult(Result):
         :returns: the read units consumed.
         :rtype: int
         """
-        return self._get_read_units()
+        return super(GetResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -3340,7 +3592,7 @@ class GetResult(Result):
         :returns: the write units consumed.
         :rtype: int
         """
-        return self._get_write_units()
+        return super(GetResult, self).get_write_units()
 
 
 class GetIndexesResult(Result):
@@ -3490,7 +3742,7 @@ class MultiDeleteResult(Result):
         :returns: the read units consumed.
         :rtype: int
         """
-        return self._get_read_units()
+        return super(MultiDeleteResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -3508,7 +3760,7 @@ class MultiDeleteResult(Result):
         :returns: the write units consumed.
         :rtype: int
         """
-        return self._get_write_units()
+        return super(MultiDeleteResult, self).get_write_units()
 
 
 class PrepareResult(Result):
@@ -3557,7 +3809,7 @@ class PrepareResult(Result):
         :returns: the read units consumed.
         :rtype: int
         """
-        return self._get_read_units()
+        return super(PrepareResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -3575,7 +3827,7 @@ class PrepareResult(Result):
         :returns: the write units consumed.
         :rtype: int
         """
-        return self._get_write_units()
+        return super(PrepareResult, self).get_write_units()
 
 
 class PutResult(WriteResult):
@@ -3619,9 +3871,10 @@ class PutResult(WriteResult):
     def get_generated_value(self):
         """
         Returns the value generated if the operation created a new value. This
-        can occur if the table has an identity column or string as uuid column
-        that is marked as generated. If a value was generated it is returned,
-        otherwise None is returned.
+        can happen if the table contains an identity column or string column
+        declared as a generated UUID. If the table has no such columns this
+        value is None. If a value was generated for the operation, it is
+        non-None.
 
         :returns: the generated value.
         """
@@ -3672,7 +3925,7 @@ class PutResult(WriteResult):
         :returns: the read units consumed.
         :rtype: int
         """
-        return self._get_read_units()
+        return super(PutResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -3690,7 +3943,7 @@ class PutResult(WriteResult):
         :returns: the write units consumed.
         :rtype: int
         """
-        return self._get_write_units()
+        return super(PutResult, self).get_write_units()
 
 
 class QueryResult(Result):
@@ -3853,7 +4106,7 @@ class QueryResult(Result):
         :rtype: int
         """
         self._compute()
-        return self._get_read_units()
+        return super(QueryResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -3873,7 +4126,7 @@ class QueryResult(Result):
         :rtype: int
         """
         self._compute()
-        return self._get_write_units()
+        return super(QueryResult, self).get_write_units()
 
     def _compute(self):
         if self._is_computed:
@@ -3881,6 +4134,18 @@ class QueryResult(Result):
         driver = self._request.get_driver()
         driver.compute(self)
         self._is_computed = True
+        # If the original request specified rate limiting, apply the used
+        # read/write units to the limiter(s) here.
+        if self._request is not None:
+            read_limiter = self._request.get_read_rate_limiter()
+            if read_limiter is not None:
+                print(self.get_read_units())
+                read_limiter.consume_units_unconditionally(
+                    self.get_read_units())
+            write_limiter = self._request.get_write_rate_limiter()
+            if write_limiter is not None:
+                write_limiter.consume_units_unconditionally(
+                    self.get_write_units())
 
 
 class SystemResult(Result):
@@ -4387,7 +4652,7 @@ class WriteMultipleResult(Result):
         :returns: the read units consumed.
         :rtype: int
         """
-        return self._get_read_units()
+        return super(WriteMultipleResult, self).get_read_units()
 
     def get_write_kb(self):
         """
@@ -4405,7 +4670,7 @@ class WriteMultipleResult(Result):
         :returns: the write units consumed.
         :rtype: int
         """
-        return self._get_write_units()
+        return super(WriteMultipleResult, self).get_write_units()
 
 
 class OperationResult(WriteResult):
@@ -4465,12 +4730,13 @@ class OperationResult(WriteResult):
     def get_generated_value(self):
         """
         Returns the value generated if the operation created a new value. This
-        can occur if the table has an identity column or string as uuid column
-        that is marked as generated. If a value was generated it is returned,
-        otherwise None is returned.
+        can happen if the table contains an identity column or string column
+        declared as a generated UUID. If the table has no such columns this
+        value is None. If a value was generated for the operation, it is
+        non-None.
 
-        This value is only valid for a put operation on a table with an
-        identity column or string as uuid column.
+        This value is only valid for a put operation on a table with an identity
+        column or string as uuid column.
 
         :returns: the generated value.
         """
@@ -4494,3 +4760,101 @@ class OperationResult(WriteResult):
         :rtype: dict
         """
         return self._get_existing_value()
+
+
+class RetryStats(object):
+    """
+    A class that maintains stats on retries during a request.
+
+    This object tracks statistics about retries performed during requests. It
+    can be accessed from within retry handlers (see :py:class:`RetryHandler`) or
+    after a request is finished by calling :py:meth:`Request.get_retry_stats`.
+    """
+
+    def __init__(self):
+        self._delay_ms = 0
+        self._exception_map = dict()
+        self._retries = 0
+
+    def __str__(self):
+        return ('retries=' + str(self._retries) + ', delay_ms=' +
+                str(self._delay_ms) + ', exception_map=' +
+                str(self._exception_map))
+
+    def add_delay_ms(self, delay_ms):
+        """
+        Internal use only.
+
+        Adds time to the overall delay time spent.
+
+        :param delay_ms: the number of milliseconds to add to the delay total.
+        :type delay_ms: int
+        """
+        self._delay_ms += delay_ms
+
+    def add_exception(self, e):
+        """
+        Internal use only.
+
+        Adds an exception class to the stats object.
+
+        This increments the exception count and adds to the count of this type
+        of exception class.
+
+        :param e: the exception class.
+        :type e: Exception
+        """
+        num = self.get_num_exceptions(e) + 1
+        self._exception_map[e] = num
+
+    def clear(self):
+        """
+        Internal use only.
+
+        Clears the stats object.
+        """
+        self._delay_ms = 0
+        self._exception_map.clear()
+        self._retries = 0
+
+    def get_delay_ms(self):
+        """
+        Returns the total time delayed (slept) between retry events.
+
+        :returns: the time delayed during retries, in milliseconds. This is only
+            the time spent locally in sleep() between retry events.
+        :rtype: int
+        """
+        return self._delay_ms
+
+    def get_num_exceptions(self, e):
+        """
+        Returns the number of exceptions of a particular class. If no exceptions
+        of this class were added to this stats object, the return value is zero.
+
+        :param e: the class of exception to query.
+        :type e: Exception
+        :returns: the number of exceptions of this class
+        :rtype: int
+        """
+        num = self._exception_map.get(e)
+        if num is None:
+            return 0
+        return num
+
+    def get_retries(self):
+        """
+        Returns the number of retry events.
+
+        :returns: number of retry events.
+        :rtype: int
+        """
+        return self._retries
+
+    def increment_retries(self):
+        """
+        Internal use only.
+
+        Increments the number of retries.
+        """
+        self._retries += 1

@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from random import random
 from ssl import SSLContext
-from time import sleep
+from time import sleep, time
 try:
     from urlparse import urlparse
 except ImportError:
@@ -18,8 +18,7 @@ except ImportError:
 from .auth import AuthorizationProvider
 from .common import CheckValue, Consistency
 from .exception import (
-    IllegalArgumentException, OperationThrottlingException, RetryableException,
-    SecurityInfoNotReadyException)
+    IllegalArgumentException, OperationThrottlingException, RetryableException)
 from .operations import Request
 try:
     from . import iam
@@ -38,9 +37,10 @@ class RetryHandler(object):
     :py:meth:`NoSQLHandleConfig.configure_default_retry_handler`.
 
     It is not recommended that applications rely on a RetryHandler for
-    regulating provisioned throughput. It is best to add rate-limiting to the
+    regulating provisioned throughput. It is best to add rate limiting to the
     application based on a table's capacity and access patterns to avoid
-    throttling exceptions.
+    throttling exceptions:
+    see :py:meth:`NoSQLHandleConfig.set_rate_limiting_enabled`.
 
     Instances of this class must be immutable so they can be shared among
     threads.
@@ -53,7 +53,7 @@ class RetryHandler(object):
         Returns the number of retries that this handler instance will allow
         before the exception is thrown to the application.
 
-        :returns: the number of retries.
+        :returns: the max number of retries.
         :rtype: int
         """
         pass
@@ -62,8 +62,8 @@ class RetryHandler(object):
     def do_retry(self, request, num_retried, re):
         """
         This method is called when a :py:class:`RetryableException` is thrown
-        and the handler determines whether to perform a retry or not based on
-        the parameters.
+        and determines whether to perform a retry or not based on the
+        parameters.
 
         Default behavior is to *not* retry OperationThrottlingException because
         the retry time is likely much longer than normal because they are DDL
@@ -92,11 +92,11 @@ class RetryHandler(object):
         pass
 
     @abstractmethod
-    def delay(self, num_retried, re):
+    def delay(self, request, num_retried, re):
         """
         This method is called when a :py:class:`RetryableException` is thrown
         and it is determined that the request will be retried based on the
-        return value if :py:meth:`do_retry`. It provides a delay between
+        return value of :py:meth:`do_retry`. It provides a delay between
         retries. Most implementations will sleep for some period of time. The
         method should not return until the desired delay period has passed.
         Implementations should not busy-wait in a tight loop.
@@ -108,6 +108,8 @@ class RetryHandler(object):
         SEC_RETRY_DELAY_MS when number of retries is smaller than 10. Otherwise,
         use the exponential backoff algorithm to compute the time of delay.
 
+        :param request: request to execute.
+        :type request: Request
         :param num_retried: the number of retries that have occurred for the
             operation.
         :type num_retried: int
@@ -121,42 +123,88 @@ class RetryHandler(object):
 
 class DefaultRetryHandler(RetryHandler):
     """
-    A default instance of :py:class:`RetryHandler`
-    """
-    # Base time of delay between retries for security info unavailable.
-    _SEC_ERROR_DELAY_MS = 100
+    Default retry handler. It's a default instance of :py:class:`RetryHandler`
+    This may be extended by clients for specific use cases.
 
-    def __init__(self, num_retries=10, delay_s=1):
-        CheckValue.check_int_ge_zero(num_retries, 'num_retries')
+    The default retry handler decides when and for how long retries will be
+    attempted. See :py:class:`RetryHandler` for more information on retry
+    handlers.
+    """
+
+    def __init__(self, retries=10, delay_s=0):
+        CheckValue.check_int_ge_zero(retries, 'retries')
         CheckValue.check_int_ge_zero(delay_s, 'delay_s')
-        self._num_retries = num_retries
-        self._delay_ms = delay_s * 1000
+        self._max_retries = retries
+        self._fixed_delay_ms = delay_s * 1000
 
     def get_num_retries(self):
-        return self._num_retries
+        return self._max_retries
 
     def do_retry(self, request, num_retried, re):
+        """
+        Decide whether to retry or not. Default behavior is to *not* retry
+        OperationThrottlingException because the retry time is likely much
+        longer than normal because they are DDL operations. In addition, *not*
+        retry any requests that should not be retried: TableRequest,
+        ListTablesRequest, GetTableRequest, TableUsageRequest,
+        GetIndexesRequest.
+        """
         self._check_request(request)
-        CheckValue.check_int_gt_zero(num_retried, 'num_retried')
+        CheckValue.check_int_ge_zero(num_retried, 'num_retried')
         self._check_retryable_exception(re)
         if isinstance(re, OperationThrottlingException):
             return False
-        elif isinstance(re, SecurityInfoNotReadyException):
-            # always retry if security info is not read.
-            return True
         elif not request.should_retry():
             return False
-        return num_retried < self._num_retries
+        return num_retried < self._max_retries
 
-    def delay(self, num_retried, re):
-        CheckValue.check_int_gt_zero(num_retried, 'num_retried')
+    def delay(self, request, num_retried, re):
+        """
+        Delay (sleep) during retry cycle. If delay_ms is non-zero, use it.
+        Otherwise, use an incremental backoff algorithm to compute the time of
+        delay.
+        """
+        self._check_request(request)
+        CheckValue.check_int_ge_zero(num_retried, 'num_retried')
         self._check_retryable_exception(re)
-        msec = self._delay_ms
-        if msec == 0:
-            msec = self._compute_backoff_delay(num_retried, 1000)
-        if isinstance(re, SecurityInfoNotReadyException):
-            msec = self._sec_info_not_ready_delay(num_retried)
-        sleep(float(msec) / 1000)
+        delay_ms = self.compute_backoff_delay(request, self._fixed_delay_ms)
+        if delay_ms <= 0:
+            return
+        sleep(float(delay_ms) / 1000)
+        request.add_retry_delay_ms(delay_ms)
+
+    @staticmethod
+    def compute_backoff_delay(request, fixed_delay_ms):
+        """
+        Compute an incremental backoff delay in milliseconds.
+        This method also checks the request's timeout and ensures the delay will
+        not exceed the specified timeout.
+
+        :param request: the request object being executed.
+        :type request: Request
+        :param fixed_delay_ms: a specific delay to use and check for timeout.
+            Pass zero to use the default backoff logic.
+        :type fixed_delay_ms: int
+        :returns: The number of milliseconds to delay. If zero, do not delay at
+            all.
+        """
+        timeout_ms = request.get_timeout()
+        start_time_ms = request.get_start_time_ms()
+        delay_ms = fixed_delay_ms
+        if delay_ms == 0:
+            # Add 200ms plus a small random amount.
+            m_sec_to_add = 200 + int(random() * 50)
+            delay_ms = request.get_retry_delay_ms()
+            delay_ms += m_sec_to_add
+        # If the delay would put us over the timeout, reduce it to just before
+        # the timeout would occur.
+        now_ms = int(round(time() * 1000))
+        ms_left = start_time_ms + timeout_ms - now_ms
+        if ms_left < delay_ms:
+            delay_ms = ms_left
+            if delay_ms < 1:
+                return 0
+        return delay_ms
 
     @staticmethod
     def _check_request(request):
@@ -169,31 +217,6 @@ class DefaultRetryHandler(RetryHandler):
         if not isinstance(re, RetryableException):
             raise IllegalArgumentException(
                 're must be an instance of RetryableException.')
-
-    @staticmethod
-    def _compute_backoff_delay(num_retried, base_delay):
-        """
-        Use an exponential backoff algorithm to compute time of delay.
-
-        Assumption: numRetries starts with 1
-        sec = (2^(num_retried-1) + random MS (0-1000))
-        """
-        msec = (1 << (num_retried - 1)) * base_delay
-        msec += random() * base_delay
-        return msec
-
-    @staticmethod
-    def _sec_info_not_ready_delay(num_retried):
-        """
-        Handle security information not ready retries. If number of retries is
-        smaller than 10, delay for DefaultRetryHandler._SEC_ERROR_DELAY_MS.
-        Otherwise, use the backoff algorithm to compute the time of delay.
-        """
-        msec = DefaultRetryHandler._SEC_ERROR_DELAY_MS
-        if num_retried > 10:
-            msec = DefaultRetryHandler._compute_backoff_delay(
-                num_retried - 10, DefaultRetryHandler._SEC_ERROR_DELAY_MS)
-        return msec
 
 
 class Region(object):
@@ -503,9 +526,6 @@ class NoSQLHandleConfig(object):
     # if not configured.
     _DEFAULT_TIMEOUT = 5000
     _DEFAULT_TABLE_REQ_TIMEOUT = 10000
-    # The default value for timeouts in milliseconds while waiting for security
-    # information is available if it is not configure.
-    _DEFAULT_SEC_INFO_TIMEOUT = 10000
     _DEFAULT_CONSISTENCY = Consistency.EVENTUAL
 
     def __init__(self, endpoint=None, provider=None):
@@ -551,12 +571,13 @@ class NoSQLHandleConfig(object):
         self._compartment = None
         self._timeout = 0
         self._table_request_timeout = 0
-        self._sec_info_timeout = NoSQLHandleConfig._DEFAULT_SEC_INFO_TIMEOUT
         self._consistency = None
         self._pool_connections = 2
         self._pool_maxsize = 10
         self._max_content_length = 0
         self._retry_handler = None
+        self._rate_limiting_enabled = False
+        self._default_rate_limiter_percentage = 0.0
         self._proxy_host = None
         self._proxy_port = 0
         self._proxy_username = None
@@ -749,31 +770,6 @@ class NoSQLHandleConfig(object):
         """
         return self._table_request_timeout
 
-    def set_sec_info_timeout(self, sec_info_timeout):
-        """
-        Sets the timeout of waiting security information to be available. The
-        default timeout is 10 seconds.
-
-        :param sec_info_timeout: the timeout value, in milliseconds.
-        :type sec_info_timeout: int
-        :returns: self.
-        :raises IllegalArgumentException: raises the exception if
-            sec_info_timeout is a negative number.
-        """
-        CheckValue.check_int_gt_zero(sec_info_timeout, 'sec_info_timeout')
-        self._sec_info_timeout = sec_info_timeout
-        return self
-
-    def get_sec_info_timeout(self):
-        """
-        Returns the configured timeout value for waiting security information
-        to be available, in milliseconds.
-
-        :returns: the timeout, in milliseconds, or 0 if it has not been set.
-        :rtype: int
-        """
-        return self._sec_info_timeout
-
     def set_consistency(self, consistency):
         """
         Sets the default request :py:class:`Consistency`. If not set in this
@@ -906,22 +902,21 @@ class NoSQLHandleConfig(object):
     def configure_default_retry_handler(self, num_retries, delay_s):
         """
         Sets the :py:class:`RetryHandler` using a default retry handler
-        configured with the specified number of retries and a static delay, in
-        seconds. 0 retries means no retries. A delay of 0 means "use the
-        default delay algorithm" which is an random delay time. A non-zero delay
-        will work but is not recommended for production systems as it is not
-        flexible.
+        configured with the specified number of retries and a static delay. A
+        delay of 0 means "use the default delay algorithm" which is an
+        incremental backoff algorithm. A non-zero delay will work but is not
+        recommended for production systems as it is not flexible.
 
         The default retry handler will not retry exceptions of type
         :py:class:`OperationThrottlingException`. The reason is that these
-        operations are long-running operations, and while technically they can
-        be retried, an immediate retry is unlikely to succeed because of the low
-        rates allowed for these operations.
+        operations are long-running, and while technically they can be retried,
+        an immediate retry is unlikely to succeed because of the low rates
+        allowed for these operations.
 
         :param num_retries: the number of retries to perform automatically.
             This parameter may be 0 for no retries.
         :type num_retries: int
-        :param delay_s: the delay, in seconds. Use 0 to use the default delay
+        :param delay_s: the delay, in seconds. Pass 0 to use the default delay
             algorithm.
         :type delay_s: int
         :returns: self.
@@ -940,6 +935,69 @@ class NoSQLHandleConfig(object):
         :rtype: RetryHandler
         """
         return self._retry_handler
+
+    def set_rate_limiting_enabled(self, enable):
+        """
+        Cloud service only.
+
+        Enables internal rate limiting.
+
+        :param enable: If True, enable internal rate limiting, otherwise disable
+            internal rate limiting.
+        :type enable: bool
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if enable is
+            not a boolean.
+        """
+        CheckValue.check_boolean(enable, 'enable')
+        self._rate_limiting_enabled = enable
+        return self
+
+    def get_rate_limiting_enabled(self):
+        """
+        Internal use only.
+
+        Returns whether the rate limiting is enabled.
+
+        :returns: True if rate limiting is enabled, otherwise False.
+        :rtype: bool
+        """
+        return self._rate_limiting_enabled
+
+    def set_default_rate_limiting_percentage(self, percent):
+        """
+        Cloud service only.
+
+        Sets a default percentage of table limits to use. This may be useful for
+        cases where a client should only use a portion of full table limits.
+        This only applies if rate limiting is enabled using
+        :py:meth:`set_rate_limiting_enabled`.
+
+        The default for this value is 100.0 (full table limits).
+
+        :param percent: the percentage of table limits to use. This value must
+            be positive.
+        :type percent: int or float or Decimal
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if percent is
+            not a positive digital number.
+        """
+        CheckValue.check_float_gt_zero(percent, 'percent')
+        self._default_rate_limiter_percentage = float(percent)
+        return self
+
+    def get_default_rate_limiting_percentage(self):
+        """
+        Internal use only.
+
+        Returns the default percentage.
+
+        :returns: the default percentage.
+        :rtype: float
+        """
+        if self._default_rate_limiter_percentage == 0.0:
+            return 100.0
+        return self._default_rate_limiter_percentage
 
     def set_proxy_host(self, proxy_host):
         """

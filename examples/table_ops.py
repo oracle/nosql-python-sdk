@@ -119,6 +119,14 @@ sid integer, name string, primary key(shard(sid), id))'
                 print('\t' + str(record))
 
         #
+        # Drop the index
+        #
+        request = TableRequest().set_statement(
+            'drop index ' + index_name + ' on ' + table_name)
+        handle.do_table_request(request, 30000, 2000)
+        print('After drop index')
+
+        #
         # Drop the table
         #
         if drop_table:

@@ -15,6 +15,37 @@ _____
   configuration of a maximum request content size. It defaults to 32MB.
 * If a delegation token is being used for authorization the HTTP header,
   'opc-obo-token' will be sent with the contents of the token.
+* Rate Limiting (cloud only):
+  * New method NoSQLHandleConfig.set_rate_limiting_enabled to enable automatic
+    internal rate limiting based on table read and write throughput limits.
+  * If rate limiting is enabled:
+    * NoSQLHandleConfig.set_default_rate_limiting_percentage can control how
+      much of a table's full limits this client handle can consume
+      (default = 100%).
+    * Result classes now have a Result.get_rate_limit_delayed_ms method to
+      return the amount of time an operation was delayed due to internal rate
+      limiting.
+  * Add rate limiting example and test.
+* RetryStats: New object allows the application to see how much time and for
+  what reasons an operation was internally retried.
+  * For successful operations, retry stats can be retrieved using
+    Result.get_retry_stats.
+  * Otherwise, the original Request may have retry stats available via
+    Request.get_retry_stats (for example, after an exception was thrown).
+
+Changed
+_______
+
+* DefaultRetryHandler now uses incremental backoff mechanism (instead of fixed
+  1-second delay) and may be extended.
+* Updated examples to use NoSQLHandle.do_table_request instead of
+  NoSQLHandle.table_request followed by TableResult.wait_for_completion.
+
+Removed
+_______
+
+* NoSQLHandleConfig.set_sec_info_timeout and
+  NoSQLHandleConfig.get_sec_info_timeout has been removed.
 
 ====================
  5.2.1 - 2020-08-14

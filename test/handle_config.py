@@ -12,7 +12,7 @@ from ssl import PROTOCOL_SSLv23, PROTOCOL_TLSv1_2
 from borneo import (
     GetRequest, IllegalArgumentException, OperationThrottlingException,
     DefaultRetryHandler, Regions, RetryableException, RetryHandler,
-    SecurityInfoNotReadyException, NoSQLHandle, NoSQLHandleConfig, TableRequest)
+    NoSQLHandle, NoSQLHandleConfig, TableRequest)
 from borneo.iam import SignatureProvider
 from borneo.kv import StoreAccessTokenProvider
 from parameters import (
@@ -20,7 +20,7 @@ from parameters import (
     table_name, tenant_id, timeout, table_request_timeout)
 from testutils import (
     fake_key_file, get_handle_config, get_simple_handle_config, proxy_host,
-    proxy_port, proxy_username, proxy_password, retry_handler, sec_info_timeout,
+    proxy_port, proxy_username, proxy_password, retry_handler,
     ssl_cipher_suites, ssl_protocol)
 
 
@@ -101,15 +101,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self.assertRaises(IllegalArgumentException,
                           self.config.set_table_request_timeout, -1)
 
-    def testNoSQLHandleConfigSetIllegalSecInfoTimeout(self):
-        self.assertRaises(IllegalArgumentException,
-                          self.config.set_sec_info_timeout,
-                          'IllegalSecInfoTimeout')
-        self.assertRaises(IllegalArgumentException,
-                          self.config.set_sec_info_timeout, 0)
-        self.assertRaises(IllegalArgumentException,
-                          self.config.set_sec_info_timeout, -1)
-
     def testNoSQLHandleConfigSetIllegalConsistency(self):
         self.assertRaises(IllegalArgumentException, self.config.set_consistency,
                           'IllegalConsistency')
@@ -159,6 +150,18 @@ class TestNoSQLHandleConfig(unittest.TestCase):
                           0, 'IllegalDelaySeconds')
         self.assertRaises(IllegalArgumentException,
                           self.config.configure_default_retry_handler, 0, -1)
+
+    def testNoSQLHandleConfigSetIllegalRateLimitingEnabled(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_rate_limiting_enabled,
+                          'IllegalRateLimitingEnabled')
+
+    def testNoSQLHandleConfigSetIllegalRateLimitingPercentage(self):
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_default_rate_limiting_percentage,
+                          'IllegalRateLimitingPercentage')
+        self.assertRaises(IllegalArgumentException,
+                          self.config.set_default_rate_limiting_percentage, -1)
 
     def testNoSQLHandleConfigSetIllegalAuthorizationProvider(self):
         self.assertRaises(IllegalArgumentException,
@@ -327,8 +330,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
                           self.table_request, 'IllegalNumRetried',
                           RetryableException('Test'))
         self.assertRaises(IllegalArgumentException, retry_handler.do_retry,
-                          self.table_request, 0, RetryableException('Test'))
-        self.assertRaises(IllegalArgumentException, retry_handler.do_retry,
                           self.table_request, -1, RetryableException('Test'))
         # set illegal retryable exception to RetryHandler.do_retry
         self.assertRaises(IllegalArgumentException, retry_handler.do_retry,
@@ -338,8 +339,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
                           IllegalArgumentException('Test'))
         # set legal retried number and retryable exception to
         # RetryHandler.do_retry
-        self.assertTrue(retry_handler.do_retry(
-            self.table_request, 5, SecurityInfoNotReadyException('Test')))
         self.assertFalse(retry_handler.do_retry(
             self.table_request, 5, OperationThrottlingException('Test')))
         self.assertFalse(retry_handler.do_retry(
@@ -348,18 +347,21 @@ class TestNoSQLHandleConfig(unittest.TestCase):
             self.get_request, 5, RetryableException('Test')))
         self.assertFalse(retry_handler.do_retry(
             self.get_request, 10, RetryableException('Test')))
+        # set illegal request to RetryHandler.delay
+        self.assertRaises(IllegalArgumentException, retry_handler.delay,
+                          'IllegalRequest', 5000, RetryableException('Test'))
         # set illegal retried number to RetryHandler.delay
         self.assertRaises(IllegalArgumentException, retry_handler.delay,
-                          'IllegalNumRetried', RetryableException('Test'))
-        self.assertRaises(IllegalArgumentException, retry_handler.delay, 0,
+                          self.table_request, 'IllegalNumRetried',
                           RetryableException('Test'))
-        self.assertRaises(IllegalArgumentException, retry_handler.delay, -1,
-                          RetryableException('Test'))
+        self.assertRaises(IllegalArgumentException, retry_handler.delay,
+                          self.table_request, -1, RetryableException('Test'))
         # set illegal retryable exception to RetryHandler.delay
         self.assertRaises(IllegalArgumentException, retry_handler.delay,
-                          5000, 'IllegalException')
+                          self.table_request, 5000, 'IllegalException')
         self.assertRaises(IllegalArgumentException, retry_handler.delay,
-                          5000, IllegalArgumentException('Test'))
+                          self.table_request, 5000,
+                          IllegalArgumentException('Test'))
 
     def testNoSQLHandleConfigGets(self):
         config = get_handle_config(tenant_id)
@@ -383,8 +385,6 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         # check table request timeout
         self.assertEqual(config.get_table_request_timeout(),
                          table_request_timeout)
-        # check security info timeout
-        self.assertEqual(config.get_sec_info_timeout(), sec_info_timeout)
         # check consistency
         self.assertEqual(config.get_consistency(), consistency)
         # check pool connections
@@ -398,6 +398,10 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         (self.assertEqual(get_handler, handler) if
          isinstance(handler, RetryHandler) else
          self.assertEqual(get_handler.get_num_retries(), handler))
+        # check rate limiting enabled
+        self.assertEqual(config.get_rate_limiting_enabled(), False)
+        # check rate limiting percentage
+        self.assertEqual(config.get_default_rate_limiting_percentage(), 100.0)
         # check proxy host
         self.assertEqual(config.get_proxy_host(), proxy_host)
         # check proxy port

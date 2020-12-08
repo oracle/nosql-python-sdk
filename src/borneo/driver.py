@@ -205,7 +205,11 @@ class NoSQLHandle(object):
         if not isinstance(request, GetTableRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of GetTableRequest.')
-        return self._execute(request)
+        res = self._execute(request)
+        # Update rate limiters, if table has limits.
+        self._client.update_rate_limiters(
+            res.get_table_name(), res.get_table_limits())
+        return res
 
     def get_table_usage(self, request):
         """
@@ -464,7 +468,11 @@ class NoSQLHandle(object):
         if not isinstance(request, TableRequest):
             raise IllegalArgumentException(
                 'The parameter should be an instance of TableRequest.')
-        return self._execute(request)
+        res = self._execute(request)
+        # Update rate limiters, if table has limits.
+        self._client.update_rate_limiters(
+            res.get_table_name(), res.get_table_limits())
+        return res
 
     def write_multiple(self, request):
         """
@@ -637,6 +645,10 @@ class NoSQLHandle(object):
         for user in users:
             results.append(UserInfo(user['id'], user['name']))
         return results
+
+    def get_client(self):
+        # For testing use
+        return self._client
 
     def _execute(self, request):
         # Ensure that the client exists and hasn't been closed.

@@ -141,13 +141,7 @@ sid integer, name string, primary key(shard(sid), id))'
         if drop_table:
             request = TableRequest().set_statement(
                 'drop table if exists ' + table_name)
-            result = handle.table_request(request)
-
-            #
-            # Table drop can take time, depending on the state of the system.
-            # If this wait fails the table will still probably been dropped
-            #
-            result.wait_for_completion(handle, 40000, 2000)
+            handle.do_table_request(request, 40000, 2000)
             print('After drop table')
         else:
             print('Not dropping table')

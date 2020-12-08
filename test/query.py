@@ -248,15 +248,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.assertEqual(records[idx], self._expected_row(1, idx))
 
     def testQueryStatementSelectWithMaxReadKb(self):
-        num_records = 6
-        max_read_kb = 6
+        max_read_kb = 4
         self.query_request.set_statement(query_statement).set_max_read_kb(
             max_read_kb)
         result = self.handle.query(self.query_request)
-        if is_onprem():
-            records = self.check_query_result(result, num_records)
-        else:
-            records = self.check_query_result(result, max_read_kb + 1, True)
+        records = self.check_query_result(result, max_read_kb + 1, True)
         for idx in range(len(records)):
             self.assertEqual(records[idx], self._expected_row(1, idx))
 
