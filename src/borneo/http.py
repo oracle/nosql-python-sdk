@@ -82,7 +82,6 @@ class RequestUtils(object):
 
         It retries upon seeing following exceptions and response codes:
 
-            IOException\n
             HTTP response with status code larger than 500\n
             Other throwable excluding RuntimeException, InterruptedException,
             ExecutionException and TimeoutException.
@@ -104,7 +103,6 @@ class RequestUtils(object):
 
         It retries upon seeing following exceptions and response codes:
 
-            IOException\n
             HTTP response with status code larger than 500\n
             Other throwable excluding RuntimeException, InterruptedException,
             ExecutionException and TimeoutException.
@@ -126,7 +124,6 @@ class RequestUtils(object):
 
         It retries upon seeing following exceptions and response codes:
 
-            IOException\n
             HTTP response with status code larger than 500\n
             Other throwable excluding RuntimeException, InterruptedException,
             ExecutionException and TimeoutException
@@ -150,7 +147,6 @@ class RequestUtils(object):
 
         It retries upon seeing following exceptions and response codes:
 
-            IOException\n
             HTTP response with status code larger than 500\n
             Other throwable excluding RuntimeException, InterruptedException,
             ExecutionException and TimeoutException
@@ -393,10 +389,11 @@ class RequestUtils(object):
         retry_stats = ''
         if self._request is not None:
             retry_stats = self._request.get_retry_stats()
+            num_retried = self._request.get_num_retries()
         raise RequestTimeoutException(
             'Request timed out after ' + str(num_retried) +
             (' retry.' if num_retried == 0 or num_retried == 1
-             else ' retries.') + str(retry_stats), timeout_ms, exception)
+             else ' retries. ') + str(retry_stats), timeout_ms, exception)
 
     @staticmethod
     def _consume_limiter_units(rl, units, timeout_ms):
@@ -940,11 +937,15 @@ class RateLimiterMap(object):
             wrl = SimpleRateLimiter(write_units, duration_seconds)
             self._limiter_map[lower_table] = RateLimiterMap.Entry(rrl, wrl)
         else:
-            if rle.read_limiter.get_limit_per_second() != read_units:
-                rle.read_limiter.set_limit_per_second(read_units)
+            # Set existing limiters to new values. If the new values result in a
+            # different rate than previous, reset the limiters.
+            prev_rus = rle.read_limiter.get_limit_per_second()
+            prev_wus = rle.write_limiter.get_limit_per_second()
+            rle.read_limiter.set_limit_per_second(read_units)
+            rle.write_limiter.set_limit_per_second(write_units)
+            if rle.read_limiter.get_limit_per_second() != prev_rus:
                 rle.read_limiter.reset()
-            if rle.write_limiter.get_limit_per_second() != write_units:
-                rle.write_limiter.set_limit_per_second(write_units)
+            if rle.write_limiter.get_limit_per_second() != prev_wus:
                 rle.write_limiter.reset()
 
     class Entry(object):
@@ -1088,6 +1089,8 @@ class SimpleRateLimiter(RateLimiter):
         return self._duration_nanos / SimpleRateLimiter.NANOS
 
     def get_limit_per_second(self):
+        if self._nanos_per_unit == 0:
+            return 0.0
         return SimpleRateLimiter.NANOS / self._nanos_per_unit
 
     def reset(self):
