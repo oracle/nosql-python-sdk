@@ -47,6 +47,7 @@ Fixed
 _____
 
 * Ensure that TableLimits is always None in TableResult on-premise.
+* Fix synchronization problem of SignatureProvider.
 
 Removed
 _______

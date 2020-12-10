@@ -7,14 +7,15 @@
 
 from os import path
 from requests import Request
-from threading import Timer
+from threading import Lock, Timer
 try:
     import oci
 except ImportError:
     oci = None
 
 from borneo.auth import AuthorizationProvider
-from borneo.common import CheckValue, HttpConstants, LogUtils, Memoize
+from borneo.common import (
+    CheckValue, HttpConstants, LogUtils, Memoize, synchronized)
 from borneo.config import Region, Regions
 from borneo.exception import IllegalArgumentException
 
@@ -208,6 +209,7 @@ class SignatureProvider(AuthorizationProvider):
         self._service_url = None
         self._logger = None
         self._logutils = LogUtils()
+        self.lock = Lock()
 
     def close(self):
         """
@@ -358,19 +360,21 @@ class SignatureProvider(AuthorizationProvider):
         return (signature_provider if logger is None else
                 signature_provider.set_logger(logger))
 
-    def _get_signature_details(self):
-        sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
-        if sig_details is not None:
-            return sig_details
-        sig_details = self._get_signature_details_internal()
+    @synchronized
+    def get_signature_details_internal(self):
+        # Visible for testing.
+        request = Request(method='post', url=self._service_url)
+        request = self._provider.without_content_headers(request.prepare())
+        sig_details = request.headers
         self._signature_cache.set(SignatureProvider.CACHE_KEY, sig_details)
         self._schedule_refresh()
         return sig_details
 
-    def _get_signature_details_internal(self):
-        request = Request(method='post', url=self._service_url)
-        request = self._provider.without_content_headers(request.prepare())
-        return request.headers
+    def _get_signature_details(self):
+        sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
+        if sig_details is not None:
+            return sig_details
+        return self.get_signature_details_internal()
 
     def _get_tenant_ocid(self):
         """
@@ -384,11 +388,7 @@ class SignatureProvider(AuthorizationProvider):
 
     def _refresh_task(self):
         try:
-            sig_details = self._get_signature_details_internal()
-            if sig_details is not None:
-                self._signature_cache.set(SignatureProvider.CACHE_KEY,
-                                          sig_details)
-                self._schedule_refresh()
+            self.get_signature_details_internal()
         except Exception as e:
             # Ignore the failure of refresh. The driver would try to generate
             # signature in the next request if signature is not available, the

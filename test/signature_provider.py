@@ -7,6 +7,7 @@
 
 import unittest
 from os import path, remove
+from threading import Condition, Thread
 from time import sleep
 try:
     import oci
@@ -152,6 +153,22 @@ class TestSignatureProvider(unittest.TestCase):
             self.assertNotEqual(
                 auth_string,
                 self.token_provider.get_authorization_string(self.request))
+            #
+            # Exercise concurrent refresh schedule. The refresh might be
+            # scheduled by NoSQLHandle.get_authorization_string or the refresh
+            # task itself. Start two threads to call the common
+            # SignatureProvider.get_signature_details_internal simultaneously
+            # that would schedule a refresh to simulate this case.
+            #
+            latch = TestSignatureProvider.CountDownLatch(1)
+            threads = list()
+            for i in range(2):
+                t = TestSignatureProvider.TestThread(self, latch)
+                t.start()
+                threads.append(t)
+            latch.count_down()
+            for t in threads:
+                t.join()
 
         def testAccessTokenProviderGetAuthStringWithoutConfigFile(self):
             self.token_provider = SignatureProvider(
@@ -250,6 +267,46 @@ class TestSignatureProvider(unittest.TestCase):
                 cred_file.write('fingerprint=fingerprint\n')
                 cred_file.write('key_file=' + fake_key_file + '\n')
                 cred_file.write('region=us-ashburn-1\n')
+
+        class CountDownLatch(object):
+
+            def __init__(self, count):
+                self._count = count
+                self._lock = Condition()
+
+            def count_down(self):
+                self._lock.acquire()
+                self._count -= 1
+                if self._count <= 0:
+                    self._lock.notifyAll()
+                self._lock.release()
+
+            def wait(self, wait_secs=None):
+                self._lock.acquire()
+                if wait_secs is not None:
+                    self._lock.wait(wait_secs)
+                else:
+                    while self._count > 0:
+                        self._lock.wait()
+                self._lock.release()
+
+            def get_count(self):
+                self._lock.acquire()
+                count = self._count
+                self._lock.release()
+                return count
+
+        class TestThread(Thread):
+
+            def __init__(self, outer, latch):
+                super(TestSignatureProvider.TestThread, self).__init__()
+                self._outer = outer
+                self._latch = latch
+
+            def run(self):
+                self._latch.wait()
+                self._outer.assertIsNotNone(
+                    self._outer.token_provider.get_signature_details_internal())
 
 
 if __name__ == '__main__':
