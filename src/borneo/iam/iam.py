@@ -264,8 +264,8 @@ class SignatureProvider(AuthorizationProvider):
             return
         headers[HttpConstants.AUTHORIZATION] = sig_details['authorization']
         headers[HttpConstants.DATE] = sig_details['date']
-        if sig_details['opc-obo-token'] is not None:
-            headers['opc-obo-token'] = sig_details['opc-obo-token']
+        if sig_details.get(HttpConstants.OPC_OBO_TOKEN) is not None:
+            headers[HttpConstants.OPC_OBO_TOKEN] = sig_details['opc-obo-token']
         compartment = request.get_compartment()
         if compartment is None:
             # If request doesn't has compartment, set the tenant id as the

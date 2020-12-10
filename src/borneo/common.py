@@ -443,6 +443,9 @@ class HttpConstants(object):
     # The current version of the protocol
     NOSQL_VERSION = 'V2'
 
+    # The name of the opc obo token header.
+    OPC_OBO_TOKEN = 'opc-obo-token'
+
     # A header for transferring the compartment id on an http request.
     REQUEST_COMPARTMENT_ID = 'x-nosql-compartment-id'
 
