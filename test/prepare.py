@@ -15,6 +15,7 @@ from test_base import TestBase
 
 
 class TestPrepare(unittest.TestCase, TestBase):
+
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
@@ -101,21 +102,73 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.assertRaises(IllegalArgumentException, self.handle.prepare,
                           'IllegalRequest')
 
-    def testPrepareNormal(self):
+    def testPrepareNameVariablesInStatement(self):
+        prepare_statement = (
+            'DECLARE $fld_long LONG; $fld_str STRING; SELECT fld_id FROM ' +
+            table_name + ' WHERE fld_long = $fld_long AND fld_str = $fld_str ' +
+            'ORDER BY fld_id')
+        self.prepare_request.set_statement(
+            prepare_statement).set_get_query_plan(False)
+        result = self.handle.prepare(self.prepare_request)
+        prepared_statement = result.get_prepared_statement()
+        # test set less variables to the prepared statement by name
+        set_var = {'$fld_long': 2147483648}
+        prepared_statement.set_variable('$fld_long', 2147483648)
+        self._check_prepared_result(result, False, variables=set_var)
+        # test set equal variables to the prepared statement by name
+        set_vars = {'$fld_long': 2147483648, '$fld_str': 'string'}
+        prepared_statement.set_variable('$fld_str', 'string')
+        self._check_prepared_result(result, False, variables=set_vars)
+        # test set more variables to the prepared statement by name
+        self.assertRaises(IllegalArgumentException,
+                          prepared_statement.set_variable,
+                          '$fld_float', 3.1414999961853027)
+
+    def testPreparePositionVariablesInStatement(self):
+        prepare_statement = (
+            'SELECT fld_id FROM ' + table_name + ' WHERE fld_long = ? AND ' +
+            'fld_str = ? ORDER BY fld_id')
+        self.prepare_request.set_statement(
+            prepare_statement).set_get_query_plan(True)
+        result = self.handle.prepare(self.prepare_request)
+        prepared_statement = result.get_prepared_statement()
+        # test set less variables to the prepared statement by position
+        set_var = {'$$0': 2147483648}
+        prepared_statement.set_variable(1, 2147483648)
+        self._check_prepared_result(result, True, variables=set_var)
+        # test set equal variables to the prepared statement by position
+        set_vars = {'$$0': 2147483648, '$$1': 'string'}
+        prepared_statement.set_variable(2, 'string')
+        self._check_prepared_result(result, True, variables=set_vars)
+        # test set more variables to the prepared statement by position
+        self.assertRaises(IllegalArgumentException,
+                          prepared_statement.set_variable,
+                          3, 3.1414999961853027)
+
+    def testPrepareNoVariablesInStatement(self):
         self.prepare_request.set_statement(
             self.prepare_statement).set_get_query_plan(True)
         result = self.handle.prepare(self.prepare_request)
         prepared_statement = result.get_prepared_statement()
         # test set illegal variable to the prepared statement
         self.assertRaises(IllegalArgumentException,
+                          prepared_statement.set_variable, {}, 0)
+        self.assertRaises(IllegalArgumentException,
                           prepared_statement.set_variable, 0, 0)
-        # test set variable to the prepared statement
-        set_vars = dict()
-        set_vars['$fld_id'] = 0
-        set_vars['$fld_long'] = 2147483648
+        self.assertRaises(IllegalArgumentException,
+                          prepared_statement.set_variable, -1, 0)
+        # test set variable to the prepared statement by name
+        set_vars = {'$fld_id': 0, '$fld_long': 2147483648}
         for var in set_vars:
             prepared_statement.set_variable(var, set_vars[var])
         self._check_prepared_result(result, True, variables=set_vars)
+        prepared_statement.clear_variables()
+        # test set variable to the prepared statement by position
+        set_vars = {1: 0, 2: 2147483648}
+        for var in set_vars:
+            prepared_statement.set_variable(var, set_vars[var])
+        self._check_prepared_result(
+            result, True, variables={'#1': 0, '#2': 2147483648})
         # test copy the prepared statement
         statement = prepared_statement.get_statement()
         copied_statement = prepared_statement.copy_statement()

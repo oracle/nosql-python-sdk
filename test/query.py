@@ -324,6 +324,20 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         self.assertEqual(records[0],
                          self._expected_row(fld_sid, fld_id, fld_long))
 
+    def testQueryPreparedStatementWithPositionVariables(self):
+        num_records = 6
+        statement = ('SELECT fld_sid, fld_id FROM ' + table_name +
+                     ' WHERE fld_sid = ?')
+        prepare_request = PrepareRequest().set_statement(statement)
+        prepared_statement = self.handle.prepare(
+            prepare_request).get_prepared_statement()
+        prepared_statement.set_variable(1, 1)
+        self.query_request.set_prepared_statement(prepared_statement)
+        result = self.handle.query(self.query_request)
+        records = self.check_query_result(result, num_records)
+        for idx in range(num_records):
+            self.assertEqual(records[idx], self._expected_row(1, idx))
+
     def testQueryPreparedStatementUpdateWithLimit(self):
         fld_sid = 1
         fld_id = 5

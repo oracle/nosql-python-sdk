@@ -40,6 +40,13 @@ _______
   1-second delay) and may be extended.
 * Updated examples to use NoSQLHandle.do_table_request instead of
   NoSQLHandle.table_request followed by TableResult.wait_for_completion.
+* Change PreparedStatement.set_variable method to support both name and position
+  variables.
+  
+Fixed
+_____
+
+* Ensure that TableLimits is always None in TableResult on-premise.
 
 Removed
 _______

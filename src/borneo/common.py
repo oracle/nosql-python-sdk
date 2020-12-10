@@ -1183,28 +1183,44 @@ class PreparedStatement(object):
         if self._topology_info.get_seq_num() < topology_info.get_seq_num():
             self._topology_info = topology_info
 
-    def set_variable(self, name, value):
+    def set_variable(self, variable, value):
         """
-        Sets the named variable in the map of variables to use for the query.
-        Existing variables with the same name are silently overwritten. The
-        names and types are validated when the query is executed.
+        Binds an external variable to a given value. The variable is identified
+        by its name or its position within the query string. The variable that
+        appears first in the query text has position 1, the variable that
+        appears second has position 2 and so on.
 
-        :param name: the variable name used in the query statement.
-        :type name: str
+        :param variable: the name or the position of the variable.
+        :type variable: str or int
         :param value: the value.
         :type value: a value matching the type of the field
         :returns: self.
-        :raises IllegalArgumentException: raises the exception if name is not a
-            string.
+        :raises IllegalArgumentException: raises the exception if variable is
+            not a string or positive integer.
         """
-        CheckValue.check_str(name, 'name')
-        if self._bound_variables is None:
-            self._bound_variables = dict()
-        if self._variables is not None and self._variables.get(name) is None:
+        if (not (CheckValue.is_str(variable) or CheckValue.is_int(variable)) or
+                CheckValue.is_int(variable) and variable <= 0):
             raise IllegalArgumentException(
-                'The query doesn\'t contain the variable: ' + name)
-        self._bound_variables[name] = value
-        return self
+                'variable must be a string or positive integer.')
+        if isinstance(variable, str):
+            if self._bound_variables is None:
+                self._bound_variables = dict()
+            if (self._variables is not None and
+                    self._variables.get(variable) is None):
+                raise IllegalArgumentException(
+                    'The query does not contain the variable: ' + variable)
+            self._bound_variables[variable] = value
+            return self
+        else:
+            if self._variables is None:
+                name = '#' + str(variable)
+                return self.set_variable(name, value)
+            search_id = variable - 1
+            for (k, v) in self._variables.items():
+                if v == search_id:
+                    return self.set_variable(k, value)
+            raise IllegalArgumentException(
+                'There is no external variable at position ' + str(variable))
 
     def topology_info(self):
         return self._topology_info
