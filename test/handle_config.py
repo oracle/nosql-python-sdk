@@ -237,12 +237,12 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         # set only the host as endpoint
         config = get_simple_handle_config(tenant_id, 'ndcs.com')
         self._check_service_url(config, 'https', 'ndcs.com', 443)
-        # set proto://host as endpoint
+        # set protocol://host as endpoint
         config = get_simple_handle_config(tenant_id, 'Http://ndcs.com')
         self._check_service_url(config, 'http', 'ndcs.com', 8080)
         config = get_simple_handle_config(tenant_id, 'https://ndcs.com')
         self._check_service_url(config, 'https', 'ndcs.com', 443)
-        # set proto:host as endpoint
+        # set protocol:host as endpoint
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com')
         self._check_service_url(config, 'http', 'ndcs.com', 8080)
         config = get_simple_handle_config(tenant_id, 'https:ndcs.com')
@@ -252,12 +252,13 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         self._check_service_url(config, 'http', 'localhost', 80)
         config = get_simple_handle_config(tenant_id, 'localhost:443')
         self._check_service_url(config, 'https', 'localhost', 443)
-        # set proto://host:port as endpoint
+        # set protocol://host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'HTTPS://ndcs.com:8080')
         self._check_service_url(config, 'https', 'ndcs.com', 8080)
-        # set proto:host:port as endpoint
+        # set protocol:host:port as endpoint
         config = get_simple_handle_config(tenant_id, 'Http:ndcs.com:443')
         self._check_service_url(config, 'http', 'ndcs.com', 443)
+
         # set a Region's id 'us-AshBURN-1' as endpoint.
         config = get_simple_handle_config(tenant_id, 'us-AshBURN-1')
         self._check_service_url(
@@ -270,6 +271,11 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         config = get_simple_handle_config(tenant_id, 'UK-GOV-LONDON-1')
         self._check_service_url(
             config, 'https', 'nosql.uk-gov-london-1.oci.oraclegovcloud.uk', 443)
+        # set a Region's id 'Ap-CHiyODA-1' as endpoint.
+        config = get_simple_handle_config(tenant_id, 'Ap-CHiyODA-1')
+        self._check_service_url(
+            config, 'https', 'nosql.ap-chiyoda-1.oci.oraclecloud8.com', 443)
+
         # set a Region Regions.US_ASHBURN_1 as endpoint.
         config = get_simple_handle_config(tenant_id, Regions.US_ASHBURN_1)
         self._check_service_url(
@@ -282,6 +288,11 @@ class TestNoSQLHandleConfig(unittest.TestCase):
         config = get_simple_handle_config(tenant_id, Regions.UK_GOV_LONDON_1)
         self._check_service_url(
             config, 'https', 'nosql.uk-gov-london-1.oci.oraclegovcloud.uk', 443)
+        # set a Region Regions.AP_CHIYODA_1 as endpoint.
+        config = get_simple_handle_config(tenant_id, Regions.AP_CHIYODA_1)
+        self._check_service_url(
+            config, 'https', 'nosql.ap-chiyoda-1.oci.oraclecloud8.com', 443)
+
         # set a provider with region
         provider = SignatureProvider(
             tenant_id='ocid1.tenancy.oc1..tenancy',
@@ -312,6 +323,11 @@ class TestNoSQLHandleConfig(unittest.TestCase):
             self.assertEqual(
                 r.endpoint(),
                 'https://nosql.' + r.get_region_id() + '.oci.oraclegovcloud.uk')
+
+        for r in Regions.get_oc8_regions():
+            self.assertEqual(
+                r.endpoint(),
+                'https://nosql.' + r.get_region_id() + '.oci.oraclecloud8.com')
 
     def testNoSQLHandleConfigClone(self):
         config = get_handle_config(tenant_id)

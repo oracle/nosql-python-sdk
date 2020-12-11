@@ -32,6 +32,9 @@ _____
     Result.get_retry_stats.
   * Otherwise, the original Request may have retry stats available via
     Request.get_retry_stats (for example, after an exception was thrown).
+* Cloud only: New regions: ap-chiyoda-1, me-dubai-1, sa-santiago-1 and
+  uk-cardiff-1.
+  
 
 Changed
 _______

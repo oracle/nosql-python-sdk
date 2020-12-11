@@ -229,6 +229,7 @@ class Region(object):
     OC1_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.com'
     GOV_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.com'
     OC4_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.uk'
+    OC8_EP_BASE = 'https://nosql.{0}.oci.oraclecloud8.com'
 
     def __init__(self, region_id):
         self._region_id = region_id
@@ -249,6 +250,8 @@ class Region(object):
             return str.format(Region.GOV_EP_BASE, self._region_id)
         if self._is_oc4_region():
             return str.format(Region.OC4_EP_BASE, self._region_id)
+        if self._is_oc8_region():
+            return str.format(Region.OC8_EP_BASE, self._region_id)
         raise IllegalArgumentException(
             'Unable to find endpoint for unknown region ' + self._region_id)
 
@@ -274,6 +277,10 @@ class Region(object):
     def _is_oc4_region(self):
         # Internal use only
         return Regions.OC4_REGIONS.get(self._region_id) is not None
+
+    def _is_oc8_region(self):
+        # Internal use only
+        return Regions.OC8_REGIONS.get(self._region_id) is not None
 
 
 class Regions(object):
@@ -341,6 +348,10 @@ class Regions(object):
     """Region Location: Amsterdam, Netherlands"""
     ME_JEDDAH_1 = Region('me-jeddah-1')
     """Region Location: Jeddah, Saudi Arabia"""
+    ME_DUBAI_1 = Region('me-dubai-1')
+    """Region Location: Dubai, UAE"""
+    UK_CARDIFF_1 = Region('uk-cardiff-1')
+    """Region Location: Newport, United Kingdom"""
 
     US_ASHBURN_1 = Region('us-ashburn-1')
     """Region Location: Ashburn, VA"""
@@ -355,6 +366,8 @@ class Regions(object):
 
     SA_SAOPAULO_1 = Region('sa-saopaulo-1')
     """Region Location: Sao Paulo, Brazil"""
+    SA_SANTIAGO_1 = Region('sa-santiago-1')
+    """Region Location: Santiago, Chile"""
 
     # OC2
     US_LANGLEY_1 = Region('us-langley-1')
@@ -373,6 +386,10 @@ class Regions(object):
     # OC4
     UK_GOV_LONDON_1 = Region('uk-gov-london-1')
     """Region Location: London, United Kingdom"""
+
+    # OC8
+    AP_CHIYODA_1 = Region('ap-chiyoda-1')
+    """Region Location: Chiyoda, Japan"""
 
     # OC1
     OC1_REGIONS = dict()
@@ -393,9 +410,12 @@ class Regions(object):
     OC1_REGIONS[EU_ZURICH_1.get_region_id()] = EU_ZURICH_1
     OC1_REGIONS[EU_AMSTERDAM_1.get_region_id()] = EU_AMSTERDAM_1
     OC1_REGIONS[ME_JEDDAH_1.get_region_id()] = ME_JEDDAH_1
+    OC1_REGIONS[ME_DUBAI_1.get_region_id()] = ME_DUBAI_1
+    OC1_REGIONS[UK_CARDIFF_1.get_region_id()] = UK_CARDIFF_1
 
     # LAD
     OC1_REGIONS[SA_SAOPAULO_1.get_region_id()] = SA_SAOPAULO_1
+    OC1_REGIONS[SA_SANTIAGO_1.get_region_id()] = SA_SANTIAGO_1
 
     # North America
     OC1_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
@@ -420,6 +440,11 @@ class Regions(object):
     """A dict that save all the OC4 regions."""
     OC4_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
 
+    # OC8
+    OC8_REGIONS = dict()
+    """A dict that save all the OC8 regions."""
+    OC8_REGIONS[AP_CHIYODA_1.get_region_id()] = AP_CHIYODA_1
+
     @staticmethod
     def get_gov_regions():
         # Internal use only
@@ -434,6 +459,11 @@ class Regions(object):
     def get_oc4_regions():
         # Internal use only
         return Regions.OC4_REGIONS.values()
+
+    @staticmethod
+    def get_oc8_regions():
+        # Internal use only
+        return Regions.OC8_REGIONS.values()
 
     @staticmethod
     def from_region_id(region_id):
@@ -455,6 +485,8 @@ class Regions(object):
             region = Regions.OC4_REGIONS.get(region_id)
         if region is None:
             region = Regions.GOV_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC8_REGIONS.get(region_id)
         return region
 
 

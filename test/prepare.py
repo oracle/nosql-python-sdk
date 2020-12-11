@@ -114,11 +114,11 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         # test set less variables to the prepared statement by name
         set_var = {'$fld_long': 2147483648}
         prepared_statement.set_variable('$fld_long', 2147483648)
-        self._check_prepared_result(result, False, variables=set_var)
+        self._check_prepared_result(result, variables=set_var)
         # test set equal variables to the prepared statement by name
         set_vars = {'$fld_long': 2147483648, '$fld_str': 'string'}
         prepared_statement.set_variable('$fld_str', 'string')
-        self._check_prepared_result(result, False, variables=set_vars)
+        self._check_prepared_result(result, variables=set_vars)
         # test set more variables to the prepared statement by name
         self.assertRaises(IllegalArgumentException,
                           prepared_statement.set_variable,
