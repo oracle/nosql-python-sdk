@@ -12,7 +12,7 @@ from ssl import SSLContext, SSLError, create_default_context
 from sys import argv
 
 from .client import Client
-from .common import UserInfo
+from .common import CheckValue, UserInfo
 from .config import NoSQLHandleConfig
 from .exception import IllegalArgumentException, IllegalStateException
 from .iam import SignatureProvider
@@ -547,6 +547,7 @@ class NoSQLHandle(object):
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
         """
+        CheckValue.check_str(statement, 'statement')
         req = SystemRequest().set_statement(statement)
         res = self.system_request(req)
         res.wait_for_completion(self, timeout_ms, poll_interval_ms)
@@ -576,6 +577,9 @@ class NoSQLHandle(object):
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
         """
+        if not isinstance(request, TableRequest):
+            raise IllegalArgumentException(
+                'The parameter should be an instance of TableRequest.')
         res = self.table_request(request)
         res.wait_for_completion(self, timeout_ms, poll_interval_ms)
         return res

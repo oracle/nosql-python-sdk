@@ -7,6 +7,7 @@
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from collections import OrderedDict
 from decimal import Decimal, setcontext
 from sys import getsizeof, version_info
 try:
@@ -1052,12 +1053,14 @@ class GroupIter(PlanIter):
         while True:
             if state.results_copy is not None:
                 try:
-                    (gb_tuple, aggr_tuple) = state.results_copy.popitem()
+                    (gb_tuple, aggr_tuple) = (
+                        state.results_copy.popitem(last=False))
                     res = dict()
                     i = 0
-                    for i in range(self.num_gb_columns):
+                    while i < self.num_gb_columns:
                         res[self._column_names[i]] = gb_tuple.values[i]
-                    for i in range(i + 1, len(self._column_names)):
+                        i += 1
+                    for i in range(i, len(self._column_names)):
                         aggr = self._get_aggr_value(aggr_tuple, i)
                         res[self._column_names[i]] = aggr
                     res = serde.BinaryProtocol.convert_value_to_none(res)
@@ -1078,9 +1081,9 @@ class GroupIter(PlanIter):
                     return False
                 state.results_copy = state.results.copy()
                 continue
-            i = 0
             in_tuple = rcb.get_reg_val(self._input.get_result_reg())
-            for i in range(self.num_gb_columns):
+            i = 0
+            while i < self.num_gb_columns:
                 col_value = in_tuple.get(self._column_names[i])
                 if isinstance(col_value, Empty):
                     if self._is_distinct:
@@ -1103,12 +1106,14 @@ class GroupIter(PlanIter):
                     aggr_tuple.append(val)
                     if self._count_memory:
                         aggr_tuple_size += self.sizeof(val)
-                for i in range(self.num_gb_columns):
+                i = 0
+                while i < self.num_gb_columns:
                     gb_tuple.values[i] = state.gb_tuple.values[i]
+                    i += 1
                 if self._count_memory:
                     sz = self.sizeof(gb_tuple) + aggr_tuple_size
                     rcb.inc_memory_consumption(sz)
-                for i in range(i + 1, len(self._column_names)):
+                for i in range(i, len(self._column_names)):
                     self._aggregate(rcb, aggr_tuple, i,
                                     in_tuple.get(self._column_names[i]))
                 state.results[gb_tuple] = aggr_tuple
@@ -1274,7 +1279,7 @@ class GroupIter(PlanIter):
         def __init__(self, op_iter):
             super(GroupIter.GroupIterState, self).__init__()
             self.gb_tuple = GroupIter.GroupTuple(op_iter.num_gb_columns)
-            self.results = dict()
+            self.results = OrderedDict()
             self.results_copy = None
 
         def close(self):
@@ -2441,7 +2446,7 @@ class Compare(object):
             return -maxvalue - 1
         if isinstance(value, Empty):
             return 0
-        if isinstance(value, list):
+        if isinstance(value, bytearray) or isinstance(value, list):
             code = 1
             for val in value:
                 code = 31 * code + Compare.hashcode(val)

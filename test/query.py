@@ -527,14 +527,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
     def testQueryFuncMinMaxGroupBy(self):
         num_sids = 2
         # test min function
-        statement = ('SELECT min(fld_time) FROM ' + table_name)
+        statement = 'SELECT min(fld_time) FROM ' + table_name
         query_request = QueryRequest().set_statement(statement)
         result = self.handle.query(query_request)
         records = self.check_query_result(result, 1)
         self.assertEqual(records[0], {'Column_1': self.min_time[0]})
 
         # test max function
-        statement = ('SELECT max(fld_time) FROM ' + table_name)
+        statement = 'SELECT max(fld_time) FROM ' + table_name
         query_request = QueryRequest().set_statement(statement)
         result = self.handle.query(query_request)
         records = self.check_query_result(result, 1)
@@ -576,7 +576,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # test min function group by secondary index field
         statement = ('SELECT min(fld_time) FROM ' + table_name +
-                     ' GROUP BY fld_bool')
+                     ' GROUP BY fld_bool ORDER BY fld_bool')
         query_request = QueryRequest().set_statement(statement)
         while True:
             result = self.handle.query(query_request)
@@ -593,7 +593,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # test max function group by secondary index field
         statement = ('SELECT max(fld_time) FROM ' + table_name +
-                     ' GROUP BY fld_bool')
+                     ' GROUP BY fld_bool ORDER BY fld_bool')
         query_request = QueryRequest().set_statement(statement)
         while True:
             result = self.handle.query(query_request)
@@ -612,7 +612,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         num_records = 12
         num_sids = 2
         # test sum function
-        statement = ('SELECT sum(fld_double) FROM ' + table_name)
+        statement = 'SELECT sum(fld_double) FROM ' + table_name
         query_request = QueryRequest().set_statement(statement)
         result = self.handle.query(query_request)
         records = self.check_query_result(result, 1)
@@ -657,7 +657,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
     def testQueryFuncAvgGroupBy(self):
         num_sids = 2
         # test avg function
-        statement = ('SELECT avg(fld_double) FROM ' + table_name)
+        statement = 'SELECT avg(fld_double) FROM ' + table_name
         query_request = QueryRequest().set_statement(statement)
         result = self.handle.query(query_request)
         records = self.check_query_result(result, 1)
@@ -699,7 +699,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         num_records = 12
         num_sids = 2
         # test count function
-        statement = ('SELECT count(*) FROM ' + table_name)
+        statement = 'SELECT count(*) FROM ' + table_name
         query_request = QueryRequest().set_statement(statement)
         result = self.handle.query(query_request)
         records = self.check_query_result(result, 1)
