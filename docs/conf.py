@@ -24,7 +24,7 @@ import borneo
 # -- Project information -----------------------------------------------------
 
 project = u'NoSQL Database Python SDK'
-copyright = u'2018, 2020 Oracle'
+copyright = u'2018, 2021 Oracle'
 author = u'Oracle'
 
 # -- General configuration ---------------------------------------------------
