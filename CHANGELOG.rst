@@ -34,7 +34,8 @@ _____
     Request.get_retry_stats (for example, after an exception was thrown).
 * Cloud only: New regions: ap-chiyoda-1, me-dubai-1, sa-santiago-1 and
   uk-cardiff-1.
-  
+* Added dependency on dateutil package for flexible timestamp handling
+
 
 Changed
 _______
@@ -45,12 +46,8 @@ _______
   NoSQLHandle.table_request followed by TableResult.wait_for_completion.
 * Change PreparedStatement.set_variable method to support both name and position
   variables.
-* For TIMESTAMP fields, a datetime instance with timezone is now supported to be
-  written, the system will convert the datetime of specified timezone to
-  datetime of UTC timezone, then save it into TIMESTAMP field. When customers
-  get the value of the field, a datetime of UTC timezone will be returned, then
-  customers need to convert it to any timezone as required.
-
+* Enhance handling of TIMESTAMP types to consider a datetime instance with
+  and explicit timezone.
 
 Fixed
 _____

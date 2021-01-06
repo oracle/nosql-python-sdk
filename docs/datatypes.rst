@@ -67,9 +67,8 @@ JSON             any valid JSON
 Timestamp in Borneo
 ===================
 
-For Timestamp fields, a datetime instance is supported to be written. If
-timezone is not set to datetime, it will be treated as UTC time, if timezone is
-set to datetime, the system will convert the datetime of specified timezone to
-datetime of UTC timezone, then save it into Timestamp field. When customers get
-the value of the field, a datetime of UTC timezone will be returned, then
-customers need to convert it to any timezone as required.
+As mentioned above *Timestamp* fields are managed internally as UTC time. If a
+timezone is supplied when setting a *Timestamp*, either as a string or as a
+Python datetime object, it will be honored. The value will be converted to UTC
+internally and will be in UTC when returned in a row. If no timezone is
+supplied, python datetime instances and time strings are treated as UTC.
