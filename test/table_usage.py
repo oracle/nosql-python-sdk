@@ -7,6 +7,7 @@
 
 import unittest
 from datetime import datetime, timedelta
+from dateutil import parser, tz
 from time import mktime, sleep, time
 
 from borneo import (
@@ -19,6 +20,7 @@ from testutils import get_row
 
 
 class TestTableUsage(unittest.TestCase, TestBase):
+
     @classmethod
     def setUpClass(cls):
         cls.handle = None
@@ -113,28 +115,66 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self.assertRaises(IllegalArgumentException, self.handle.get_table_usage,
                           self.table_usage_request)
 
+    def testTableUsageIllegalRequest(self):
+        self.assertRaises(IllegalArgumentException, self.handle.get_table_usage,
+                          'IllegalRequest')
+
+    def testTableUsageSetStartEndTime(self):
+        strs = [
+            '2017-12-05',
+            '2017-12-05T01Z',
+            '2017-12-05T1:2:0Z',
+            '2017-12-05T01:02:03Z',
+            '2017-12-05T01:02:03.123456789Z',
+            '2017-12-05-02:01',
+            '2017-12-05T12:39+00:00',
+            '2017-12-05T01:02:03+00:00',
+            '2017-12-05T01:02:03.123+00:00',
+            '2017-12-01T01:02:03+02:01',
+            '2017-12-01T01:02:03.987654321+02:01',
+            '2017-12-01T01:02:03.0-03:00'
+        ]
+        exp_strs = [
+            '2017-12-05T00:00:00+00:00',
+            '2017-12-05T01:00:00+00:00',
+            '2017-12-05T01:02:00+00:00',
+            '2017-12-05T01:02:03+00:00',
+            '2017-12-05T01:02:03.123000+00:00',
+            '2017-12-05T02:01:00+00:00',
+            '2017-12-05T12:39:00+00:00',
+            '2017-12-05T01:02:03+00:00',
+            '2017-12-05T01:02:03.123000+00:00',
+            '2017-11-30T23:01:03+00:00',
+            '2017-11-30T23:01:03.987000+00:00',
+            '2017-12-01T04:02:03+00:00'
+        ]
+
+        for i in range(len(strs)):
+            self.table_usage_request.set_start_time(strs[i])
+            self.assertEqual(
+                self.table_usage_request.get_start_time_string(), exp_strs[i])
+            self.table_usage_request.set_end_time(strs[i])
+            self.assertEqual(
+                self.table_usage_request.get_end_time_string(), exp_strs[i])
+
     def testTableUsageGets(self):
         start = int(round(time() * 1000))
-        start_str = datetime.fromtimestamp(float(start) / 1000).isoformat()
-        end_str = datetime.fromtimestamp(
-            round(time() * 1000) / 1000).isoformat()
-        end = int(mktime(datetime.strptime(
-            end_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
+        start_dt = datetime.fromtimestamp(float(start) / 1000)
+        end_dt = datetime.fromtimestamp(round(time() * 1000) / 1000)
+        end_str = end_dt.isoformat()
+        end = (int(mktime(end_dt.timetuple()) * 1000) +
+               end_dt.microsecond // 1000)
         self.table_usage_request.set_table_name(table_name).set_start_time(
             start).set_end_time(end_str).set_limit(5)
         self.assertEqual(self.table_usage_request.get_table_name(), table_name)
         self.assertIsNone(self.table_usage_request.get_compartment())
         self.assertEqual(self.table_usage_request.get_start_time(), start)
         self.assertEqual(self.table_usage_request.get_start_time_string(),
-                         start_str)
+                         start_dt.replace(tzinfo=tz.UTC).isoformat())
         self.assertEqual(self.table_usage_request.get_end_time(), end)
         self.assertEqual(self.table_usage_request.get_end_time_string(),
-                         end_str[0:end_str.find('.')])
+                         end_dt.replace(tzinfo=tz.UTC).isoformat())
         self.assertEqual(self.table_usage_request.get_limit(), 5)
-
-    def testTableUsageIllegalRequest(self):
-        self.assertRaises(IllegalArgumentException, self.handle.get_table_usage,
-                          'IllegalRequest')
 
     def testTableUsageNormal(self):
         self.table_usage_request.set_table_name(table_name)
@@ -168,8 +208,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self._check_table_usage_result(result, 1, start_time)
         # set the start time in ISO 8601 formatted string
         start_str = (datetime.now() + timedelta(seconds=-120)).isoformat()
-        start_time = int(mktime(datetime.strptime(
-            start_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
+        start_time = int(mktime(parser.parse(start_str).timetuple()) * 1000)
         self.table_usage_request.set_start_time(start_str)
         result = self.handle.get_table_usage(self.table_usage_request)
         self._check_table_usage_result(result, 1, start_time)
@@ -193,8 +232,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         self._check_table_usage_result(result, 1, start_time, current)
         # set current time in ISO 8601 formatted string as end time
         end_str = datetime.now().isoformat()
-        end_time = int(mktime(datetime.strptime(
-            end_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
+        end_time = int(mktime(parser.parse(end_str).timetuple()) * 1000)
         self.table_usage_request.set_end_time(end_str)
         result = self.handle.get_table_usage(self.table_usage_request)
         self._check_table_usage_result(result, 1, start_time, end_time)
@@ -234,8 +272,7 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             result, limit if not_cloudsim() else 1, start_time)
         # set the start time in ISO 8601 formatted string and limit
         start_str = (datetime.now() + timedelta(seconds=-240)).isoformat()
-        start_time = int(mktime(datetime.strptime(
-            start_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
+        start_time = int(mktime(parser.parse(start_str).timetuple()) * 1000)
         self.table_usage_request.set_start_time(start_str)
         result = self.handle.get_table_usage(self.table_usage_request)
         self._check_table_usage_result(
@@ -259,10 +296,8 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
         current = datetime.now()
         start_str = (current + timedelta(seconds=-180)).isoformat()
         end_str = (current + timedelta(seconds=-60)).isoformat()
-        start_time = int(mktime(datetime.strptime(
-            start_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
-        end_time = int(mktime(datetime.strptime(
-            end_str, '%Y-%m-%dT%H:%M:%S.%f').timetuple()) * 1000)
+        start_time = int(mktime(parser.parse(start_str).timetuple()) * 1000)
+        end_time = int(mktime(parser.parse(end_str).timetuple()) * 1000)
         self.table_usage_request.set_start_time(
             start_str).set_end_time(end_str)
         result = self.handle.get_table_usage(self.table_usage_request)
@@ -279,7 +314,8 @@ PRIMARY KEY(fld_id)) USING TTL 1 HOURS')
             self.assertIsNotNone(start_time_res)
             self.assertEqual(records[count].get_start_time_string(),
                              datetime.fromtimestamp(
-                                 float(start_time_res) / 1000).isoformat())
+                                 float(start_time_res) / 1000).replace(
+                                     tzinfo=tz.UTC).isoformat())
             self.assertGreaterEqual(records[count].get_read_units(), 0)
             self.assertGreaterEqual(records[count].get_write_units(), 0)
             self.assertGreaterEqual(records[count].get_storage_gb(), 0)

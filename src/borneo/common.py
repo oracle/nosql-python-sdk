@@ -6,6 +6,7 @@
 #
 
 from datetime import datetime
+from dateutil import tz
 from decimal import Decimal
 from functools import wraps
 from logging import Logger
@@ -1503,7 +1504,8 @@ class TableUsage(object):
         if self._start_time_ms == 0:
             return None
         return datetime.fromtimestamp(
-            float(self._start_time_ms) / 1000).isoformat()
+            float(self._start_time_ms) / 1000).replace(
+                tzinfo=tz.UTC).isoformat()
 
     def get_seconds_in_period(self):
         """

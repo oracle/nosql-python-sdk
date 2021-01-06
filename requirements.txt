@@ -1,8 +1,8 @@
-oci
-requests
-rsa
-wheel
+oci>=2.2.18
+python-dateutil>=2.7.0
+requests>=2.12.0
+rsa>=3.2
 #doc
-sphinx
-sphinx-automodapi
-sphinx-rtd_theme
+sphinx>=1.3.2
+sphinx-automodapi>=0.1
+sphinx-rtd-theme>=0.1.8

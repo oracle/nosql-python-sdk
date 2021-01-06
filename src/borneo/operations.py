@@ -6,6 +6,7 @@
 #
 
 from datetime import datetime
+from dateutil import parser, tz
 from decimal import Context, ROUND_HALF_EVEN
 from json import loads
 from time import mktime, sleep, time
@@ -2930,11 +2931,11 @@ class TableUsageRequest(Request):
     def set_start_time(self, start_time):
         """
         Sets the start time to use for the request in milliseconds since the
-        Epoch in UTC time or an ISO 8601 formatted string. If timezone is not
-        specified it is interpreted as UTC.
+        Epoch in UTC time or an ISO 8601 formatted string accurate to
+        milliseconds. If timezone is not specified it is interpreted as UTC.
 
-        If no time range is set for this request the most
-        recent complete usage record is returned.
+        If no time range is set for this request the most recent complete usage
+        record is returned.
 
         :param start_time: the start time.
         :type start_time: str
@@ -2970,13 +2971,13 @@ class TableUsageRequest(Request):
         if self._start_time == 0:
             return None
         return datetime.fromtimestamp(
-            float(self._start_time) / 1000).isoformat()
+            float(self._start_time) / 1000).replace(tzinfo=tz.UTC).isoformat()
 
     def set_end_time(self, end_time):
         """
         Sets the end time to use for the request in milliseconds since the Epoch
-        in UTC time or an ISO 8601 formatted string. If timezone is not
-        specified it is interpreted as UTC.
+        in UTC time or an ISO 8601 formatted string accurate to milliseconds. If
+        timezone is not specified it is interpreted as UTC.
 
         If no time range is set for this request the most recent complete usage
         record is returned.
@@ -3013,7 +3014,8 @@ class TableUsageRequest(Request):
         """
         if self._end_time == 0:
             return None
-        return datetime.fromtimestamp(float(self._end_time) / 1000).isoformat()
+        return datetime.fromtimestamp(
+            float(self._end_time) / 1000).replace(tzinfo=tz.UTC).isoformat()
 
     def set_limit(self, limit):
         """
@@ -3092,8 +3094,10 @@ class TableUsageRequest(Request):
 
     @staticmethod
     def _iso_time_to_timestamp(dt):
-        dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
-        return int(mktime(dt.timetuple()) * 1000)
+        dt = parser.parse(dt)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(tz.UTC)
+        return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
 
 class WriteMultipleRequest(Request):

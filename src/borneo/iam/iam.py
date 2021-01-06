@@ -123,9 +123,7 @@ class SignatureProvider(AuthorizationProvider):
         #
         # This class depends on the oci package
         #
-        if oci is None:
-            raise ImportError('Package "oci" is required; please install.')
-
+        SignatureProvider._check_oci()
         CheckValue.check_int_gt_zero(duration_seconds, 'duration_seconds')
         CheckValue.check_int_gt_zero(refresh_ahead, 'refresh_ahead')
         if duration_seconds > SignatureProvider.MAX_ENTRY_LIFE_TIME:
@@ -320,6 +318,7 @@ class SignatureProvider(AuthorizationProvider):
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
         """
+        SignatureProvider._check_oci()
         if iam_auth_uri is None:
             provider = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()
         else:
@@ -355,6 +354,7 @@ class SignatureProvider(AuthorizationProvider):
         :returns: a SignatureProvider.
         :rtype: SignatureProvider
         """
+        SignatureProvider._check_oci()
         signature_provider = SignatureProvider(
             oci.auth.signers.get_resource_principals_signer())
         return (signature_provider if logger is None else
@@ -369,6 +369,11 @@ class SignatureProvider(AuthorizationProvider):
         self._signature_cache.set(SignatureProvider.CACHE_KEY, sig_details)
         self._schedule_refresh()
         return sig_details
+
+    @staticmethod
+    def _check_oci():
+        if oci is None:
+            raise ImportError('Package "oci" is required; please install.')
 
     def _get_signature_details(self):
         sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)

@@ -7,6 +7,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
+from dateutil import tz
 from decimal import Decimal
 from logging import FileHandler, Logger
 from os import mkdir, path, remove
@@ -156,7 +157,7 @@ def get_row(with_sid=True):
     row['fld_bool'] = True
     row['fld_str'] = '{"name": u1, "phone": null}'
     row['fld_bin'] = bytearray(pack('>i', 4))
-    row['fld_time'] = datetime.now()
+    row['fld_time'] = datetime.now(tz.UTC)
     row['fld_num'] = Decimal(5)
     location = OrderedDict()
     location['type'] = 'point'

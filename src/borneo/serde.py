@@ -7,7 +7,8 @@
 
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from datetime import datetime, timedelta
+from datetime import datetime
+from dateutil import parser, tz
 from decimal import (
     Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
     ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP)
@@ -362,17 +363,8 @@ class BinaryProtocol(object):
     @staticmethod
     def read_datetime(bis):
         # Deserialize a datetime value.
-        dt = BinaryProtocol.read_string(bis)
-        place = dt.find('.')
-        if place == -1:
-            return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S')
-        elif len(dt[place + 1:]) <= 6:
-            return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
-        else:
-            rounding = int(dt[place + 7])
-            dt = dt[:place + 7]
-            dt = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%f')
-            return dt if rounding < 5 else (dt + timedelta(microseconds=1))
+        return parser.parse(BinaryProtocol.read_string(bis)).replace(
+            tzinfo=tz.UTC)
 
     @staticmethod
     def read_decimal(bis):
@@ -644,6 +636,8 @@ class BinaryProtocol(object):
     @staticmethod
     def write_datetime(bos, value):
         # Serialize a datetime value.
+        if value.tzinfo is not None:
+            value = value.astimezone(tz.UTC)
         BinaryProtocol.write_string(bos, value.isoformat())
 
     @staticmethod

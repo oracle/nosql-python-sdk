@@ -8,6 +8,7 @@
 import unittest
 from collections import OrderedDict
 from copy import deepcopy
+from dateutil import tz
 from parameters import table_prefix
 from time import time
 
@@ -21,6 +22,7 @@ from testutils import get_row
 
 
 class TestPut(unittest.TestCase, TestBase):
+
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
@@ -191,8 +193,10 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                               TimeUnit.DAYS)
         self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row
-        self.row['fld_long'] = 2147483649
+        self.row['fld_time'] = (
+            self.row['fld_time'].replace(tzinfo=tz.gettz('EST')))
         self.put_request.set_value(self.row).set_ttl(self.ttl)
+        self.row['fld_time'] = self.row['fld_time'].astimezone(tz.UTC)
         result = self.handle.put(self.put_request)
         expect_expiration = self.ttl.to_expiration_time(
             int(round(time() * 1000)))

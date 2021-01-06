@@ -45,7 +45,13 @@ _______
   NoSQLHandle.table_request followed by TableResult.wait_for_completion.
 * Change PreparedStatement.set_variable method to support both name and position
   variables.
-  
+* For TIMESTAMP fields, a datetime instance with timezone is now supported to be
+  written, the system will convert the datetime of specified timezone to
+  datetime of UTC timezone, then save it into TIMESTAMP field. When customers
+  get the value of the field, a datetime of UTC timezone will be returned, then
+  customers need to convert it to any timezone as required.
+
+
 Fixed
 _____
 

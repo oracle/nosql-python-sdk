@@ -62,3 +62,14 @@ Map              dict
 Record           dict
 JSON             any valid JSON
 =============    ==============================
+
+===================
+Timestamp in Borneo
+===================
+
+For Timestamp fields, a datetime instance is supported to be written. If
+timezone is not set to datetime, it will be treated as UTC time, if timezone is
+set to datetime, the system will convert the datetime of specified timezone to
+datetime of UTC timezone, then save it into Timestamp field. When customers get
+the value of the field, a datetime of UTC timezone will be returned, then
+customers need to convert it to any timezone as required.
