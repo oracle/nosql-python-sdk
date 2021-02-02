@@ -15,6 +15,7 @@ from test_base import TestBase
 
 
 class TestGetTable(unittest.TestCase, TestBase):
+
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()

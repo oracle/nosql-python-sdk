@@ -3979,6 +3979,15 @@ class QueryResult(Result):
             # do something with the results
             if request.is_done():
                 break
+
+    Modification queries either return values based on a RETURNING clause or, by
+    default, return the number of rows affected by the statement in a
+    dictionary. INSERT queries with no RETURNING clause return a dictionary
+    indicating the number of rows inserted, for example {‘NumRowsInserted’: 5}.
+    UPDATE queries with no RETURNING clause return a dictionary indicating the
+    number of rows updated, for example {‘NumRowsUpdated’: 3}. DELETE queries
+    with no RETURNING clause return a dictionary indicating the number of rows
+    deleted, for example {‘numRowsDeleted’: 2}.
     """
 
     def __init__(self, request, computed=True):
