@@ -47,6 +47,7 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.drop_idx_statement = (
             'DROP INDEX ' + index_name + ' ON ' + table_name)
         self.drop_tb_statement = ('DROP TABLE IF EXISTS ' + table_name)
+        self.drop_tb_statement1 = ('DROP TABLE ' + table_name)
         self.table_request = TableRequest()
         self.table_limits = TableLimits(100, 100, 1)
 
@@ -171,6 +172,20 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             result, State.DROPPING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.DROPPED, has_schema=False)
+
+        # ensure that this succeeds if run again
+        result = self.handle.table_request(self.table_request)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self.check_table_result(result, State.DROPPED, has_schema=False, has_operation_id=False)
+
+        # ensure that dropping without "if exists" results in not found
+        self.table_request.set_statement(self.drop_tb_statement1)
+        try:
+            result = self.handle.table_request(self.table_request)
+            result.wait_for_completion(self.handle, wait_timeout, 1000)
+            self.fail('TNFE should have been raised')
+        except TableNotFoundException:
+            pass
 
     def testTableRequestCreateDropIndex(self):
         # create table before creating index

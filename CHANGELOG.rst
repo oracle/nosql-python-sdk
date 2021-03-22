@@ -53,7 +53,10 @@ Fixed
 _____
 
 * Ensure that TableLimits is always None in TableResult on-premise.
-* Fix synchronization problem of SignatureProvider.
+* Fixed synchronization problem in SignatureProvider.
+* Fixed a problem where the cloud service might succeed when dropping a table
+that does not exist without using "drop table if exists" when it should throw
+TableNotFoundException
 
 Removed
 _______

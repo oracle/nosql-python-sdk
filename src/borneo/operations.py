@@ -15,7 +15,7 @@ from .common import (
     CheckValue, Consistency, FieldRange, PreparedStatement, PutOption, State,
     SystemState, TableLimits, TimeToLive, Version, deprecated)
 from .exception import (
-    IllegalArgumentException, RequestTimeoutException, TableNotFoundException)
+    IllegalArgumentException, RequestTimeoutException)
 from .http import RateLimiter
 from .serde import (
     BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
@@ -4487,21 +4487,15 @@ class TableResult(Result):
             if cur_time - start_time > wait_millis:
                 raise RequestTimeoutException(
                     'Operation not completed in expected time', wait_millis)
-            try:
-                if res is not None:
-                    # only delay after the first get_table.
-                    sleep(delay_s)
-                res = handle.get_table(get_table)
-                # partial "copy" of possibly modified state. Don't modify
-                # operationId as that is what we are waiting to complete.
-                self._state = res.get_state()
-                self._limits = res.get_table_limits()
-                self._schema = res.get_schema()
-            except TableNotFoundException:
-                # The operation was probably a drop. There was an operation_id,
-                # which means that the table existed when the original request
-                # was made. Throwing tnf doesn't add value here.
-                self._state = State.DROPPED
+            if res is not None:
+                # only delay after the first get_table.
+                sleep(delay_s)
+            res = handle.get_table(get_table)
+            # partial "copy" of possibly modified state. Don't modify
+            # operationId as that is what we are waiting to complete.
+            self._state = res.get_state()
+            self._limits = res.get_table_limits()
+            self._schema = res.get_schema()
             if self._state in terminal:
                 break
 
