@@ -46,8 +46,9 @@ _______
   NoSQLHandle.table_request followed by TableResult.wait_for_completion.
 * Change PreparedStatement.set_variable method to support both name and position
   variables.
-* Enhance handling of TIMESTAMP types to consider a datetime instance with
-  and explicit timezone.
+* Enhance handling of TIMESTAMP types to better handle a datetime instance with
+  an explicit timezone. By default fields of type TIMESTAMP returned by the system
+  are represented by a  "naive" (not timezone aware) datetime object in the timezone UTC.
 
 Fixed
 _____

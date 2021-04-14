@@ -70,5 +70,7 @@ Timestamp in Borneo
 As mentioned above *Timestamp* fields are managed internally as UTC time. If a
 timezone is supplied when setting a *Timestamp*, either as a string or as a
 Python datetime object, it will be honored. The value will be converted to UTC
-internally and will be in UTC when returned in a row. If no timezone is
-supplied, python datetime instances and time strings are treated as UTC.
+internally and will be in UTC when returned in a row. Although they are represented
+in UTC returned datetime objects will be "naive" as described by Python documentation.
+On input, if no timezone is supplied, python datetime instances and time strings are
+treated as UTC.

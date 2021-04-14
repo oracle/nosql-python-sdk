@@ -196,7 +196,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.row['fld_time'] = (
             self.row['fld_time'].replace(tzinfo=tz.gettz('EST')))
         self.put_request.set_value(self.row).set_ttl(self.ttl)
-        self.row['fld_time'] = self.row['fld_time'].astimezone(tz.UTC)
+        # the replace(tzinfo=None) at the end makes the object a "naive"
+        # datetime. Without that there is a datetime comparison problem in
+        # check_get_result()
+        self.row['fld_time'] = (
+            self.row['fld_time'].astimezone(tz.UTC).replace(tzinfo=None))
         result = self.handle.put(self.put_request)
         expect_expiration = self.ttl.to_expiration_time(
             int(round(time() * 1000)))

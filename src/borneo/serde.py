@@ -362,9 +362,9 @@ class BinaryProtocol(object):
 
     @staticmethod
     def read_datetime(bis):
-        # Deserialize a datetime value.
-        return parser.parse(BinaryProtocol.read_string(bis)).replace(
-            tzinfo=tz.UTC)
+        # Deserialize a datetime value. Timezone is UTC, object is naive, not
+        # timezone aware
+        return parser.parse(BinaryProtocol.read_string(bis))
 
     @staticmethod
     def read_decimal(bis):
