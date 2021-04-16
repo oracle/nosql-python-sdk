@@ -50,7 +50,7 @@ alternatively through GitHub.
 PyPi
 ====
 
-To install from `PyPI <https://pypi.python.org/pypi/oci>`_ use the following
+To install from `PyPI <https://pypi.python.org/pypi/borneo>`_ use the following
 command::
 
     pip install borneo
