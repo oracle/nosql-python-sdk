@@ -398,7 +398,7 @@ class SignatureProvider(AuthorizationProvider):
             # Ignore the failure of refresh. The driver would try to generate
             # signature in the next request if signature is not available, the
             # failure would be reported at that moment.
-            self._logutils.log_warning(
+            self._logutils.log_debug(
                 'Unable to refresh cached request signature, ' + str(e))
             self._timer.cancel()
             self._timer = None

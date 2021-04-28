@@ -6,7 +6,7 @@
 #
 
 from json import loads
-from logging import FileHandler, WARNING, getLogger
+from logging import FileHandler, Formatter, WARNING, getLogger
 from os import mkdir, path
 from ssl import SSLContext, SSLError, create_default_context
 from sys import argv
@@ -671,7 +671,10 @@ class NoSQLHandle(object):
             log_dir = path.join(path.abspath(path.dirname(argv[0])), 'logs')
             if not path.exists(log_dir):
                 mkdir(log_dir)
-            logger.addHandler(FileHandler(path.join(log_dir, 'driver.log')))
+            handler = FileHandler(path.join(log_dir, 'driver.log'))
+            formatter = Formatter('%(asctime)s [%(levelname)s] %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
         else:
             logger = config.get_logger()
         return logger

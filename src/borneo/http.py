@@ -319,7 +319,7 @@ class RequestUtils(object):
                     self._request.increment_retries()
                     exception = ae
                     continue
-                self._logutils.log_info(
+                self._logutils.log_error(
                     'Unexpected authentication exception: ' + str(ae))
                 raise NoSQLException('Unexpected exception: ' + str(ae), ae)
             except SecurityInfoNotReadyException as se:
@@ -460,7 +460,7 @@ class RequestUtils(object):
     def _log_retried(self, num_retried, exception):
         msg = ('Client, doing retry: ' + str(num_retried) +
                ('' if exception is None else ', exception: ' + str(exception)))
-        self._logutils.log_info(msg)
+        self._logutils.log_debug(msg)
 
     @synchronized
     def _next_request_id(self):

@@ -530,23 +530,23 @@ class LogUtils(object):
 
     def log_critical(self, msg):
         if self._logger is not None:
-            self._logger.critical(ctime() + '[CRITICAL]' + msg)
+            self._logger.critical(msg)
 
     def log_error(self, msg):
         if self._logger is not None:
-            self._logger.error(ctime() + '[ERROR]' + msg)
+            self._logger.error(msg)
 
     def log_warning(self, msg):
         if self._logger is not None:
-            self._logger.warning(ctime() + '[WARNING]' + msg)
+            self._logger.warning(msg)
 
     def log_info(self, msg):
         if self._logger is not None:
-            self._logger.info(ctime() + '[INFO]' + msg)
+            self._logger.info(msg)
 
     def log_debug(self, msg):
         if self._logger is not None:
-            self._logger.debug(ctime() + '[DEBUG]' + msg)
+            self._logger.debug(msg)
 
     def is_enabled_for(self, level):
         return self._logger is not None and self._logger.isEnabledFor(level)
