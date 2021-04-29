@@ -75,13 +75,13 @@ class Client(object):
         # StoreAccessTokenProvider means onprem
         if (config.get_rate_limiting_enabled() and
                 not isinstance(self._auth_provider, StoreAccessTokenProvider)):
-            self._logutils.log_info(
-                'Starting client with rate limiting enabled.')
+            self._logutils.log_debug(
+                'Starting client with rate limiting enabled')
             self._rate_limiter_map = RateLimiterMap()
             self._table_limit_update_map = dict()
             self._threadpool = pool.ThreadPool(1)
         else:
-            self._logutils.log_info('Starting client with no rate limiting.')
+            self._logutils.log_debug('Starting client with no rate limiting')
             self._rate_limiter_map = None
             self._table_limit_update_map = None
             self._threadpool = None
@@ -242,7 +242,7 @@ class Client(object):
 
     def shut_down(self):
         # Shutdown the client.
-        self._logutils.log_info('Shutting down driver http client')
+        self._logutils.log_debug('Shutting down driver http client')
         if self._shut_down:
             return
         self._shut_down = True
@@ -369,16 +369,16 @@ class Client(object):
         req = GetTableRequest().set_table_name(table_name).set_timeout(1000)
         res = None
         try:
-            self._logutils.log_info(
+            self._logutils.log_debug(
                 'Starting GetTableRequest for table "' + table_name + '"')
             res = self.execute(req)
         except Exception as e:
-            self._logutils.log_info(
+            self._logutils.log_error(
                 'GetTableRequest for table "' + table_name +
                 '" returned exception: ' + str(e))
         if res is None:
             # table doesn't exist? other error?
-            self._logutils.log_info(
+            self._logutils.log_error(
                 'GetTableRequest for table "' + table_name + '" returned None')
             then = self._table_limit_update_map.get(table_name)
             if then is not None:
@@ -386,7 +386,7 @@ class Client(object):
                 self._table_limit_update_map[table_name] = (
                     int(round(time() * 1000000000)) + 100000000)
             return
-        self._logutils.log_info(
+        self._logutils.log_debug(
             'GetTableRequest completed for table "' + table_name + '"')
         # Update/add rate limiters for table.
         if self.update_rate_limiters(table_name, res.get_table_limits()):

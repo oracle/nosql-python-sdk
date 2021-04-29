@@ -155,11 +155,11 @@ class StoreAccessTokenProvider(AuthorizationProvider):
             response = self._send_request(
                 self._auth_string, StoreAccessTokenProvider._LOGOUT_SERVICE)
             if response.get_status_code() != codes.ok:
-                self._logutils.log_info(
+                self._logutils.log_error(
                     'Failed to logout user ' + self._user_name + ': ' +
                     response.get_content())
         except Exception as e:
-            self._logutils.log_info(
+            self._logutils.log_error(
                 'Failed to logout user ' + self._user_name + ': ' + str(e))
 
         # Clean up.
@@ -301,7 +301,7 @@ class StoreAccessTokenProvider(AuthorizationProvider):
                         StoreAccessTokenProvider._BEARER_PREFIX + token)
             self._schedule_refresh()
         except Exception as e:
-            self._logutils.log_info('Failed to renew login token: ' + str(e))
+            self._logutils.log_error('Failed to renew login token: ' + str(e))
             if self._timer is not None:
                 self._timer.cancel()
                 self._timer = None

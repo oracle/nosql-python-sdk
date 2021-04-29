@@ -16,22 +16,28 @@ _____
 * If a delegation token is being used for authorization the HTTP header,
   'opc-obo-token' will be sent with the contents of the token.
 * Rate Limiting (cloud only):
+
   * New method NoSQLHandleConfig.set_rate_limiting_enabled to enable automatic
     internal rate limiting based on table read and write throughput limits.
   * If rate limiting is enabled:
+
     * NoSQLHandleConfig.set_default_rate_limiting_percentage can control how
       much of a table's full limits this client handle can consume
       (default = 100%).
     * Result classes now have a Result.get_rate_limit_delayed_ms method to
       return the amount of time an operation was delayed due to internal rate
       limiting.
+
   * Add rate limiting example and test.
+
 * RetryStats: New object allows the application to see how much time and for
   what reasons an operation was internally retried.
+
   * For successful operations, retry stats can be retrieved using
     Result.get_retry_stats.
   * Otherwise, the original Request may have retry stats available via
     Request.get_retry_stats (for example, after an exception was thrown).
+
 * Cloud only: New regions: ap-chiyoda-1, me-dubai-1, sa-santiago-1 and
   uk-cardiff-1.
 * Added dependency on dateutil package for flexible timestamp handling
@@ -49,6 +55,11 @@ _______
 * Enhance handling of TIMESTAMP types to better handle a datetime instance with
   an explicit timezone. By default fields of type TIMESTAMP returned by the system
   are represented by a  "naive" (not timezone aware) datetime object in the timezone UTC.
+* Timestamp and log level are no longer hard-coded in log messages - rather the
+  default logger is configured with a formatter that includes them. An application
+  that provides its own logger may choose its own format.
+* Adjusted several log messages to use more appropriate levels (ERROR for errors,
+  DEBUG for chatter).
 
 Fixed
 _____
@@ -56,8 +67,8 @@ _____
 * Ensure that TableLimits is always None in TableResult on-premise.
 * Fixed synchronization problem in SignatureProvider.
 * Fixed a problem where the cloud service might succeed when dropping a table
-that does not exist without using "drop table if exists" when it should throw
-TableNotFoundException
+  that does not exist without using "drop table if exists" when it should throw
+  TableNotFoundException
 
 Removed
 _______
@@ -85,6 +96,7 @@ _____
   CA_MONTREAL_1, EU_AMSTERDAM_1, ME_JEDDAH_1.
 * Cloud only. Added support for authenticating via Resource Principal. This can
   be used in Oracle Cloud Functions to access NoSQL cloud service:
+
   * Added a new method SignatureProvider.create_with_resource_principal.
   * Added a new method SignatureProvider.get_resource_principal_claim to
     retrieve resource principal metadata with ResourcePrincipalClaimKeys such as
