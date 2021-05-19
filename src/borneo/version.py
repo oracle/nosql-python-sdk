@@ -5,4 +5,4 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
-__version__ = '5.2.1'
+__version__ = '5.2.4'

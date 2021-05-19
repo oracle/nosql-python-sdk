@@ -13,6 +13,7 @@ def open_relative(*path):
     Opens files in read-only with a fixed utf-8 encoding.
 
     All locations are relative to this setup.py file.
+
     """
     here = os.path.abspath(os.path.dirname(__file__))
     filename = os.path.join(here, *path)
@@ -71,6 +72,9 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 
     # What does your project relate to?
