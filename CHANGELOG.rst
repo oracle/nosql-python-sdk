@@ -8,6 +8,13 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
  Unpublished
 ====================
 
+====================
+ 5.2.4 - 2021-05-19
+====================
+
+NOTE: a couple of versions were skipped because of internal versioning issues.
+There are no public releases for 5.2.2 and 5.2.3
+
 Added
 _____
 
@@ -64,6 +71,9 @@ _______
 Fixed
 _____
 
+* Fixed a performance issue that causes results to be returned more slowly as
+  they got larger. The Python List pop() method was mistakenly being used
+  on large arrays.
 * Ensure that TableLimits is always None in TableResult on-premise.
 * Fixed synchronization problem in SignatureProvider.
 * Fixed a problem where the cloud service might succeed when dropping a table
