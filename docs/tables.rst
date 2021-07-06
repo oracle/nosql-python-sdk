@@ -81,7 +81,7 @@ An example of acquiring a NoSQL Handle for the Oracle NoSQL Cloud Service:
     # create handle config using the correct desired region as endpoint, add a
     # default compartment.
     config = NoSQLHandleConfig(Regions.US_ASHBURN_1).set_authorization_provider(
-        provider).set_compartment('mycompartment')
+        provider).set_default_compartment('mycompartment')
 
     # create the handle
     handle = NoSQLHandle(config)
