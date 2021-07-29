@@ -340,18 +340,23 @@ class Regions(object):
     """Region Location: Chuncheon, South Korea"""
     UK_LONDON_1 = Region('uk-london-1')
     """Region Location: London, United Kingdom"""
+    UK_CARDIFF_1 = Region('uk-cardiff-1')
+    """Region Location: Cardiff, United Kingdom"""
     EU_FRANKFURT_1 = Region('eu-frankfurt-1')
     """Region Location: Frankfurt, Germany"""
     EU_ZURICH_1 = Region('eu-zurich-1')
     """Region Location: Zurich, Switzerland"""
     EU_AMSTERDAM_1 = Region('eu-amsterdam-1')
     """Region Location: Amsterdam, Netherlands"""
+    EU_MILAN_1 = Region('eu-milan-1')
+    """Region Location: Milan, Italy"""
     ME_JEDDAH_1 = Region('me-jeddah-1')
     """Region Location: Jeddah, Saudi Arabia"""
     ME_DUBAI_1 = Region('me-dubai-1')
     """Region Location: Dubai, UAE"""
-    UK_CARDIFF_1 = Region('uk-cardiff-1')
-    """Region Location: Newport, United Kingdom"""
+
+    IL_JERUSALEM_1 = Region('il-jerusalem-1')
+    """Region Location: Jerusalem, Israel"""
 
     US_ASHBURN_1 = Region('us-ashburn-1')
     """Region Location: Ashburn, VA"""
@@ -368,6 +373,8 @@ class Regions(object):
     """Region Location: Sao Paulo, Brazil"""
     SA_SANTIAGO_1 = Region('sa-santiago-1')
     """Region Location: Santiago, Chile"""
+    SA_VINHEDO_1 = Region('sa-vinhedo-1')
+    """Region Location: Vinhedo, Brazil"""
 
     # OC2
     US_LANGLEY_1 = Region('us-langley-1')
@@ -386,10 +393,14 @@ class Regions(object):
     # OC4
     UK_GOV_LONDON_1 = Region('uk-gov-london-1')
     """Region Location: London, United Kingdom"""
+    UK_GOV_CARDIFF_1 = Region('uk-gov-cardiff-1')
+    """Region Location: Cardiff, United Kingdom"""
 
     # OC8
     AP_CHIYODA_1 = Region('ap-chiyoda-1')
     """Region Location: Chiyoda, Japan"""
+    AP_IBARAKI_1 = Region('ap-ibaraki-1')
+    """Region Location: Ibaraki, Japan"""
 
     # OC1
     OC1_REGIONS = dict()
@@ -406,16 +417,19 @@ class Regions(object):
 
     # EMEA
     OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
+    OC1_REGIONS[UK_CARDIFF_1.get_region_id()] = UK_CARDIFF_1
     OC1_REGIONS[EU_FRANKFURT_1.get_region_id()] = EU_FRANKFURT_1
     OC1_REGIONS[EU_ZURICH_1.get_region_id()] = EU_ZURICH_1
     OC1_REGIONS[EU_AMSTERDAM_1.get_region_id()] = EU_AMSTERDAM_1
+    OC1_REGIONS[EU_MILAN_1.get_region_id()] = EU_MILAN_1
     OC1_REGIONS[ME_JEDDAH_1.get_region_id()] = ME_JEDDAH_1
     OC1_REGIONS[ME_DUBAI_1.get_region_id()] = ME_DUBAI_1
-    OC1_REGIONS[UK_CARDIFF_1.get_region_id()] = UK_CARDIFF_1
+    OC1_REGIONS[IL_JERUSALEM_1.get_region_id()] = IL_JERUSALEM_1
 
     # LAD
     OC1_REGIONS[SA_SAOPAULO_1.get_region_id()] = SA_SAOPAULO_1
     OC1_REGIONS[SA_SANTIAGO_1.get_region_id()] = SA_SANTIAGO_1
+    OC1_REGIONS[SA_VINHEDO_1.get_region_id()] = SA_VINHEDO_1
 
     # North America
     OC1_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
@@ -439,11 +453,13 @@ class Regions(object):
     OC4_REGIONS = dict()
     """A dict that save all the OC4 regions."""
     OC4_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
+    OC4_REGIONS[UK_GOV_CARDIFF_1.get_region_id()] = UK_GOV_CARDIFF_1
 
     # OC8
     OC8_REGIONS = dict()
     """A dict that save all the OC8 regions."""
     OC8_REGIONS[AP_CHIYODA_1.get_region_id()] = AP_CHIYODA_1
+    OC8_REGIONS[AP_IBARAKI_1.get_region_id()] = AP_IBARAKI_1
 
     @staticmethod
     def get_gov_regions():

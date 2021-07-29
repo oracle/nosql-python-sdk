@@ -8,6 +8,11 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
  Unpublished
 ====================
 
+Changed
+_______
+
+* Cloud only: updated OCI regions
+
 ====================
  5.2.4 - 2021-05-19
 ====================
