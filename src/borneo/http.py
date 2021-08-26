@@ -54,7 +54,12 @@ class RequestUtils(object):
     def __init__(self, sess, logutils, request=None, retry_handler=None,
                  client=None, rate_limiter_map=None):
         """
-        Init the RequestUtils.
+        Init the RequestUtils. There are 2 users of this class:
+        1. Normal requests to the proxy. In this case a new instance of
+        this class is created for every request
+        2. KV-specific HTTP requests for login/logout/etc when using
+        a secure store. In this case there is no request and the same
+        RequestUtils instance is reused for all requests
 
         :param sess: the session.
         :type sess: Session
@@ -249,6 +254,11 @@ class RequestUtils(object):
                 self._log_retried(num_retried, exception)
             response = None
             try:
+                # this logic is accounting for the fact that there may
+                # be kv requests that do not have a request instance, and
+                # only contain a payload
+                if self._request is None and payload is not None:
+                    payload = payload.encode()
                 if payload is None:
                     response = self._sess.request(
                         method, uri, headers=headers,
