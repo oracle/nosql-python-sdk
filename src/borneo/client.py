@@ -43,7 +43,7 @@ class Client(object):
         self._max_content_length = (
             Client.DEFAULT_MAX_CONTENT_LENGTH if max_content_length == 0
             else max_content_length)
-        self._max_request_id = 1
+        self._request_id = 1
         self._proxy_host = config.get_proxy_host()
         self._proxy_port = config.get_proxy_port()
         self._proxy_username = config.get_proxy_username()
@@ -215,11 +215,25 @@ class Client(object):
                 self._config.get_default_compartment())
         if self._logutils.is_enabled_for(DEBUG):
             self._logutils.log_debug('Request: ' + request.__class__.__name__)
+        request_id = self._next_request_id()
+        headers[HttpConstants.REQUEST_ID_HEADER] = request_id
+        # TODO: look at avoiding creating this object on each request
         request_utils = RequestUtils(
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
         return request_utils.do_post_request(
             self._request_uri, headers, content, timeout_ms)
+
+
+    @synchronized
+    def _next_request_id(self):
+        """
+        Get the next client-scoped request id. It really needs to be combined
+        with a client id to obtain a globally unique scope but is sufficient
+        for most purposes
+        """
+        self._request_id += 1
+        return str(self._request_id)
 
     def get_auth_provider(self):
         return self._auth_provider

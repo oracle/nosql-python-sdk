@@ -71,7 +71,6 @@ class RequestUtils(object):
         self._retry_handler = retry_handler
         self._client = client
         self._rate_limiter_map = rate_limiter_map
-        self._max_request_id = 1
         self._auth_provider = (
             None if client is None else client.get_auth_provider())
         self.lock = Lock()
@@ -250,11 +249,6 @@ class RequestUtils(object):
                 self._log_retried(num_retried, exception)
             response = None
             try:
-                if self._request is not None:
-                    request_id = str(self._next_request_id())
-                    headers[HttpConstants.REQUEST_ID_HEADER] = request_id
-                elif payload is not None:
-                    payload = payload.encode()
                 if payload is None:
                     response = self._sess.request(
                         method, uri, headers=headers,
@@ -461,15 +455,6 @@ class RequestUtils(object):
         msg = ('Client, doing retry: ' + str(num_retried) +
                ('' if exception is None else ', exception: ' + str(exception)))
         self._logutils.log_debug(msg)
-
-    @synchronized
-    def _next_request_id(self):
-        """
-        Get the next client-scoped request id. It needs to be combined with the
-        client id to obtain a globally unique scope.
-        """
-        self._max_request_id += 1
-        return self._max_request_id
 
     def _process_response(self, request, content, status):
         """

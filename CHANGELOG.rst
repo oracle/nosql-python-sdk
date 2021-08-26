@@ -13,6 +13,11 @@ _______
 
 * Cloud only: updated OCI regions
 
+Fixed
+_____
+
+* Fixed handling of request id so that each request now gets a new id
+
 ====================
  5.2.4 - 2021-05-19
 ====================
