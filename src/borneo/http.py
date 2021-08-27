@@ -54,7 +54,12 @@ class RequestUtils(object):
     def __init__(self, sess, logutils, request=None, retry_handler=None,
                  client=None, rate_limiter_map=None):
         """
-        Init the RequestUtils.
+        Init the RequestUtils. There are 2 users of this class:
+        1. Normal requests to the proxy. In this case a new instance of
+        this class is created for every request
+        2. KV-specific HTTP requests for login/logout/etc when using
+        a secure store. In this case there is no request and the same
+        RequestUtils instance is reused for all requests
 
         :param sess: the session.
         :type sess: Session
@@ -71,7 +76,6 @@ class RequestUtils(object):
         self._retry_handler = retry_handler
         self._client = client
         self._rate_limiter_map = rate_limiter_map
-        self._max_request_id = 1
         self._auth_provider = (
             None if client is None else client.get_auth_provider())
         self.lock = Lock()
@@ -250,10 +254,10 @@ class RequestUtils(object):
                 self._log_retried(num_retried, exception)
             response = None
             try:
-                if self._request is not None:
-                    request_id = str(self._next_request_id())
-                    headers[HttpConstants.REQUEST_ID_HEADER] = request_id
-                elif payload is not None:
+                # this logic is accounting for the fact that there may
+                # be kv requests that do not have a request instance, and
+                # only contain a payload
+                if self._request is None and payload is not None:
                     payload = payload.encode()
                 if payload is None:
                     response = self._sess.request(
@@ -461,15 +465,6 @@ class RequestUtils(object):
         msg = ('Client, doing retry: ' + str(num_retried) +
                ('' if exception is None else ', exception: ' + str(exception)))
         self._logutils.log_debug(msg)
-
-    @synchronized
-    def _next_request_id(self):
-        """
-        Get the next client-scoped request id. It needs to be combined with the
-        client id to obtain a globally unique scope.
-        """
-        self._max_request_id += 1
-        return self._max_request_id
 
     def _process_response(self, request, content, status):
         """

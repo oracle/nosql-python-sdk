@@ -86,7 +86,6 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             # show the status of the create namespace system request.
             self.sys_status.set_operation_id(result.get_operation_id())
             result = self.handle.system_status(self.sys_status)
-            self.check_system_result(result, SystemState.WORKING, True)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
             self.check_system_result(result, SystemState.COMPLETE, True)
             # execute drop namespace system request.
@@ -96,8 +95,6 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             self.sys_status.set_operation_id(
                 result.get_operation_id()).set_statement(self.create)
             result = self.handle.system_status(self.sys_status)
-            self.check_system_result(result, SystemState.WORKING, True,
-                                     statement=self.create)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
             self.check_system_result(result, SystemState.COMPLETE, True,
                                      statement=self.create)
