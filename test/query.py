@@ -363,15 +363,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         fld_sid = 0
         fld_id = 1
         fld_long = 2147483649
-        # set a small max_read_kb to read a row to update
         prepared_statement = self.prepare_result_update.get_prepared_statement()
         prepared_statement.set_variable('$fld_sid', fld_sid).set_variable(
             '$fld_id', fld_id)
-        self.query_request.set_prepared_statement(
-            self.prepare_result_update).set_max_read_kb(1)
-        if not is_onprem():
-            self.assertRaises(IllegalArgumentException, self.handle.query,
-                              self.query_request)
+        self.query_request.set_prepared_statement(self.prepare_result_update)
         # set a enough max_read_kb to read a row to update
         self.query_request.set_max_read_kb(2)
         result = self.handle.query(self.query_request)
