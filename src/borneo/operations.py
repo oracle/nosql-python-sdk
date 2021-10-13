@@ -47,6 +47,7 @@ class Request(object):
         self._table_name = None
         self._timeout_ms = 0
         self._write_rate_limiter = None
+        self._rate_limit_delayed_ms = 0
 
     def add_retry_delay_ms(self, millis):
         """
@@ -347,6 +348,29 @@ class Request(object):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
         self._timeout_ms = timeout_ms
 
+    def get_rate_limit_delayed_ms(self):
+        """
+        Get the time the operation was delayed due to rate limiting. Cloud only.
+        If rate limiting is in place, this value will represent the number of
+        milliseconds that the operation was delayed due to rate limiting. If the
+        value is zero, rate limiting did not apply or the operation did not need
+        to wait for rate limiting.
+
+        :returns: delay time in milliseconds.
+        """
+        return self._rate_limit_delayed_ms
+
+    def set_rate_limit_delayed_ms(self, delay_ms):
+        """
+        Set the time the operation was delayed due to rate limiting.
+        :param delay_ms: the delay in milliseconds.
+        :type delay_ms: int
+        :returns: self.
+        """
+        self._rate_limit_delayed_ms = delay_ms
+        return self
+
+
     @staticmethod
     def _check_config(cfg):
         if not isinstance(cfg, config.NoSQLHandleConfig):
@@ -376,6 +400,9 @@ class WriteRequest(Request):
     def __init__(self):
         super(WriteRequest, self).__init__()
         self._return_row = False
+
+    def __str__(self):
+        return 'WriteRequest'
 
     def does_writes(self):
         return True
@@ -408,6 +435,9 @@ class ReadRequest(Request):
     def __init__(self):
         super(ReadRequest, self).__init__()
         self._consistency = None
+
+    def __str__(self):
+        return 'ReadRequest'
 
     def does_reads(self):
         return True
@@ -652,6 +682,9 @@ class GetIndexesRequest(Request):
         super(GetIndexesRequest, self).__init__()
         self._index_name = None
 
+    def __str__(self):
+        return 'GetIndexesRequest'
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the request.
@@ -765,6 +798,9 @@ class GetRequest(ReadRequest):
     def __init__(self):
         super(GetRequest, self).__init__()
         self._key = None
+
+    def __str__(self):
+        return 'GetRequest'
 
     def set_key(self, key):
         """
@@ -920,6 +956,9 @@ class GetTableRequest(Request):
         super(GetTableRequest, self).__init__()
         self._operation_id = None
 
+    def __str__(self):
+        return 'GetTableRequest'
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the request.
@@ -1045,6 +1084,9 @@ class ListTablesRequest(Request):
         self._start_index = 0
         self._limit = 0
         self._namespace = None
+
+    def __str__(self):
+        return 'ListTablesRequest'
 
     def set_compartment(self, compartment):
         """
@@ -1224,6 +1266,9 @@ class MultiDeleteRequest(Request):
         self._continuation_key = None
         self._range = None
         self._max_write_kb = 0
+
+    def __str__(self):
+        return 'MultiDeleteRequest'
 
     def set_table_name(self, table_name):
         """
@@ -1435,6 +1480,9 @@ class PrepareRequest(Request):
         super(PrepareRequest, self).__init__()
         self._statement = None
         self._get_query_plan = False
+
+    def __str__(self):
+        return 'PrepareRequest'
 
     def set_table_name(self, table_name):
         """
@@ -2012,6 +2060,9 @@ class QueryRequest(Request):
         # the ReceiveIter.
         self.is_internal = False
 
+    def __str__(self):
+        return 'QueryRequest'
+
     def copy_internal(self):
         # Creates an internal QueryRequest out of the application-provided
         # request.
@@ -2332,6 +2383,8 @@ class QueryRequest(Request):
         :returns: the statement, or None if it has not been set.
         :rtype: str
         """
+        if self._statement is None and self._prepared_statement is not None:
+            return self._prepared_statement.get_sql_text()
         return self._statement
 
     def set_prepared_statement(self, value):

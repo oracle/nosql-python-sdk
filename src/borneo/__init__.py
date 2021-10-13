@@ -32,6 +32,7 @@ from .operations import (
     Result, SystemRequest, SystemResult, SystemStatusRequest, TableRequest,
     TableResult, TableUsageRequest, TableUsageResult, WriteMultipleRequest,
     WriteMultipleResult)
+from .stats import (Profile, StatsConfig)
 from .version import __version__
 
 __all__ = ['AuthorizationProvider',
@@ -65,6 +66,7 @@ __all__ = ['AuthorizationProvider',
            'PreparedStatement',
            'PrepareRequest',
            'PrepareResult',
+           "Profile",
            'PutOption',
            'PutRequest',
            'PutResult',
@@ -84,6 +86,7 @@ __all__ = ['AuthorizationProvider',
            'RetryableException',
            'SecurityInfoNotReadyException',
            'State',
+           "StatsConfig",
            'SystemException',
            'SystemRequest',
            'SystemResult',
