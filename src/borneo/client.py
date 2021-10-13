@@ -12,7 +12,6 @@ from requests import Session
 from sys import version_info
 from threading import Lock
 from time import time
-
 from .common import (
     ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter,
     synchronized)
@@ -24,6 +23,7 @@ from .operations import GetTableRequest, QueryResult
 from .query import QueryDriver
 from .serde import BinaryProtocol
 from .version import __version__
+from .stats import StatsConfig
 
 
 class Client(object):
@@ -87,6 +87,8 @@ class Client(object):
             self._threadpool = None
         self.lock = Lock()
         self._ratelimiter_duration_seconds = 30
+        self._stats_config = StatsConfig(logger,
+                                         config.get_rate_limiting_enabled())
 
     @synchronized
     def background_update_limiters(self, table_name):
@@ -149,6 +151,8 @@ class Client(object):
         request.set_defaults(self._config)
         request.validate()
         if request.is_query_request():
+            self._stats_config.observe_query(request)
+
             """
             The following 'if' may be True for advanced queries only. For such
             queries, the 'if' will be True (i.e., the QueryRequest will be bound
@@ -221,9 +225,8 @@ class Client(object):
         request_utils = RequestUtils(
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
-        return request_utils.do_post_request(
-            self._request_uri, headers, content, timeout_ms)
-
+        return request_utils.do_post_request(self._request_uri, headers,
+            content, timeout_ms, self._stats_config)
 
     @synchronized
     def _next_request_id(self):
@@ -266,6 +269,8 @@ class Client(object):
             self._sess.close()
         if self._threadpool is not None:
             self._threadpool.close()
+        if self._stats_config is not None:
+            self._stats_config.shutdown()
 
     def update_rate_limiters(self, table_name, limits):
         """
@@ -424,3 +429,6 @@ class Client(object):
         request.create_serializer().serialize(
             request, bos, BinaryProtocol.SERIAL_VERSION)
         return content
+
+    def get_stats_config(self):
+        return self._stats_config

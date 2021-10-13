@@ -19,7 +19,23 @@
 
 # The endpoint to use to connect to the service. This endpoint is for a Cloud
 # Simulator running on its default port (8080) on the local machine.
-endpoint = 'localhost:8080'
+#endpoint = 'localhost:8080'
 
 # The server type.
-server_type = 'cloudsim'
+#server_type = 'cloudsim'
+
+endpoint = 'http://localhost:8080'
+
+# The server type, please don't change it.
+server_type = 'onprem'
+
+# Please set the following parameters if running against secure .
+
+# SSL CA certificates. Configure it to specify CA certificates or set
+# REQUESTS_CA_BUNDLE environment variable when running against a secure
+# database. For non-secure database, use the default None.
+ca_certs = None
+# User name for secure database, for non-secure database, use the default None.
+user_name = None
+# Password for secure database, for non-secure database, use the default None.
+user_password = None
