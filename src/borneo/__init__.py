@@ -13,7 +13,8 @@ from .common import (
     SystemState, TableLimits, TimeToLive, TimeUnit, UserInfo, Version,
     IndexInfo, PreparedStatement)
 from .config import (
-    DefaultRetryHandler, NoSQLHandleConfig, Region, Regions, RetryHandler)
+    DefaultRetryHandler, NoSQLHandleConfig, Region, Regions, RetryHandler,
+    StatsProfile)
 from .driver import NoSQLHandle
 from .exception import (
     BatchOperationNumberLimitException, IllegalArgumentException,
@@ -32,7 +33,7 @@ from .operations import (
     Result, SystemRequest, SystemResult, SystemStatusRequest, TableRequest,
     TableResult, TableUsageRequest, TableUsageResult, WriteMultipleRequest,
     WriteMultipleResult)
-from .stats import (Profile, StatsConfig)
+from .stats import (StatsControl)
 from .version import __version__
 
 __all__ = ['AuthorizationProvider',
@@ -66,7 +67,6 @@ __all__ = ['AuthorizationProvider',
            'PreparedStatement',
            'PrepareRequest',
            'PrepareResult',
-           'Profile',
            'PutOption',
            'PutRequest',
            'PutResult',
@@ -86,7 +86,8 @@ __all__ = ['AuthorizationProvider',
            'RetryableException',
            'SecurityInfoNotReadyException',
            'State',
-           "StatsConfig",
+           "StatsControl",
+           'StatsProfile',
            'SystemException',
            'SystemRequest',
            'SystemResult',
