@@ -10,13 +10,12 @@ import sys
 import uuid
 from collections import Callable
 from datetime import datetime
-from enum import Enum
 from logging import INFO
-from os import getenv
 from threading import Timer, Lock
 from time import localtime
 from typing import Any, Dict
 
+from . import StatsProfile
 from .exception import SecurityInfoNotReadyException, ThrottlingException, \
     IllegalArgumentException
 from .common import LogUtils, synchronized, CheckValue
@@ -24,23 +23,9 @@ from .kv.exception import AuthenticationException
 from .version import __version__
 
 
-class Profile(Enum):
+class StatsControl:
     """
-    The following semantics are attached to the Profile values:
-       - NONE: no stats are logged.
-       - REGULAR: per request: counters, errors, latencies, delays, retries
-       - MORE: stats above plus 95th and 99th percentile latencies.
-       - ALL: stats above plus per query information
-    """
-    NONE = 1
-    REGULAR = 2
-    MORE = 3
-    ALL = 4
-
-
-class StatsConfig:
-    """
-    This interface allows user to setup the collection of driver statistics.
+    StatsControl allows user to setup the collection of driver statistics.
 
     The statistics data is collected for an interval of time. At the end of the
     interval, the stats data is logged in a specified JSON format that can be
@@ -57,9 +42,9 @@ class StatsConfig:
          regular - per request: counters, errors, latencies, delays, retries.
             This incurs minimum overhead.
          more - stats above with 95th and 99th percentile latencies.
-            This may add 0.5% overhead compared to none profile.
+            This may add 0.5% overhead compared to none stats profile.
          all - stats above with per query information.
-            This may add 1% overhead compared to none profile.
+            This may add 1% overhead compared to none stats profile.
 
       ONPS_INTERVAL=600 Interval in seconds to log the stats, by default is 10
         minutes.
@@ -68,190 +53,203 @@ class StatsConfig:
         default value is false.
 
     Collection of stats can also be used by using the API:
-        def handler(stats):
-            print("Stats handler: " + str(stats))
+        def stats_handler(stats):
+            print("Stats : " + str(stats))
         ...
         config = NoSQLHandleConfig( endpoint )
+        config.set_stats_profile(StatsProfile.REGULAR)
+        config.set_stats_interval(600)
+        config.set_stats_pretty_print(False)
+        config.register_stats_handler(stats_handler)
+
         handle = NoSQLHandle(config)
 
         handle = get_handle(tenant_id)
 
-        stats_config = handle.get_stats_config()
-        stats_config.set_profile(Profile.ALL)
-        stats_config.set_interval(600)
-        stats_config.set_pretty_print(False)
-        stats_config.register_handler(handler)
-        stats_config.start()
-        ... application code
-        stats_config.stop()
+        stats_control = handle.get_stats_control()
+
+        #... application code without stats
+
+        # enable observations
+        statsControl.start();
+
+        #... application code with REGULAR stats
+
+        # For particular parts of code profile can be changed collect more stats
+        stats_control.set_stats_profile(StatsProfile.ALL)
+        #... more sensitive code with ALL stats
+
+        stats_control.set_stats_profile(StatsProfile.REGULAR)
+        #... application code with REGULAR stats
+
+        # disable observations
+        stats_control.stop()
+
+        #... application code without stats
         handle.close()
 
-    The following is an example of stats log entry using the ALL profile:
-    INFO: ONJS:Monitoring stats|{
-      "clientId" : "b7bc7734",
-      "startTime" : "2021-09-20T20:11:42Z",
-      "endTime" : "2021-09-20T20:11:47Z",
-      "requests" : [{
-        "name" : "Get",
-        "count" : 2,
-        "errors" : 0,
-        "networkLatencyMs" : {
-          "min" : 4,
-          "avg" : 4.5,
-          "max" : 5,
-          "95th" : 5,
-          "99th" : 5
-        },
-        "requestSize" : {
-          "min" : 42,
-          "avg" : 42.5,
-          "max" : 43
-        },
-        "resultSize" : {
-          "min" : 193,
-          "avg" : 206.5,
-          "max" : 220
-        },
-        "rateLimitDelayMs" : 0,
-        "retry" : {
-          "delayMs" : 0,
-          "authCount" : 0,
-          "throttleCount" : 0,
-          "count" : 0
-        }
-      }, {
-        "name" : "Query",
-        "count" : 14,
-        "errors" : 0,
-        "networkLatencyMs" : {
-          "min" : 3,
-          "avg" : 13.0,
-          "max" : 32,
-          "95th" : 32,
-          "99th" : 32
-        },
-        "resultSize" : {
-          "min" : 146,
-          "avg" : 7379.71,
-          "max" : 10989
-        },
-        "requestSize" : {
-          "min" : 65,
-          "avg" : 709.85,
-          "max" : 799
-        },
-        "rateLimitDelayMs" : 0,
-        "retry" : {
-          "delayMs" : 0,
-          "authCount" : 0,
-          "throttleCount" : 0,
-          "count" : 0
-        }
-      }, {
-        "name" : "Put",
-        "count" : 1002,
-        "errors" : 0,
-        "networkLatencyMs" : {
-          "min" : 1,
-          "avg" : 4.41,
-          "max" : 80,
-          "95th" : 8,
-          "99th" : 20
-        },
-        "requestSize" : {
-          "min" : 90,
-          "avg" : 90.16,
-          "max" : 187
-        },
-        "resultSize" : {
-          "min" : 58,
-          "avg" : 58.0,
-          "max" : 58
-        },
-        "rateLimitDelayMs" : 0,
-        "retry" : {
-          "delayMs" : 0,
-          "authCount" : 0,
-          "throttleCount" : 0,
-          "count" : 0
-        }
-      }],
-      "queries" : [{
-        "stmt" : "SELECT * FROM audienceData ORDER BY cookie_id",
-        "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n
-            DistributionKind : ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n
-            ] as $from-0\n\n  SELECT:\n  FIELD_STEP([6])\n  [\n
-            VAR_REF($from-0)([3]),\n    audienceData\n  ]\n]",
-        "doesWrites" : false,
-        "count" : 12,
-        "unprepared" : 1,
-        "simple" : 0,
-        "countAPI" : 20,
-        "errors" : 0,
-        "networkLatencyMs" : {
-          "min" : 8,
-          "avg" : 14.58,
-          "max" : 32,
-          "95th" : 32,
-          "99th" : 32
-        },
-        "requestSize" : {
-          "min" : 65,
-          "avg" : 732.5,
-          "max" : 799
-        },
-        "resultSize" : {
-          "min" : 914,
-          "avg" : 8585.33,
-          "max" : 10989
-        },
-        "rateLimitDelayMs" : 0,
-        "retry" : {
-          "delayMs" : 0,
-          "authCount" : 0,
-          "throttleCount" : 0,
-          "count" : 0
-        }
-      }]
+    The following is an example of stats log entry using the ALL
+    profile:
+
+    - A one time entry containing stats id and options:
+      INFO: ONPS:Monitoring stats|{    // INFO log entry
+      "sdkName" : "Oracle NoSQL SDK for Python",  // SDK name
+      "sdkVersion" : "5.2.4",                 // SDK version
+      "clientId" : "f595b333",                  // NoSQLHandle id
+      "profile" : "ALL",                        // stats profile
+      "intervalSec" : 600,                      // interval length in seconds
+      "prettyPrint" : true,                     // JSON pretty print
+      "rateLimitingEnabled" : false}            // if rate limiting is enabled
+
+    - An entry at the end of each interval containing the stats values:
+     INFO: ONPS:Monitoring stats|{
+     "clientId" : "b7bc7734",              // id of NoSQLHandle object
+     "startTime" : "2021-09-20T20:11:42Z", // UTC start interval time
+     "endTime" : "2021-09-20T20:11:47Z",   // UTC end interval time
+     "requests" : [{                       // array of types of requests
+       "name" : "Get",                       // stats for GET request type
+       "httpRequestCount" : 2,               // count of http requests
+       "errors" : 0,                         // number of errors in interval
+       "httpRequestLatencyMs" : {            // response time of http requests
+         "min" : 4,                            // minimum value in interval
+         "avg" : 4.5,                          // average value in interval
+         "max" : 5,                            // maximum value in interval
+         "95th" : 5,                           // 95th percentile value
+         "99th" : 5                            // 99th percentile value
+       },
+       "requestSize" : {                     // http request size in bytes
+         "min" : 42,                           // minimum value in interval
+         "avg" : 42.5,                         // average value in interval
+         "max" : 43                            // maximum value in interval
+       },
+       "resultSize" : {                      // http result size in bytes
+         "min" : 193,                          // minimum value in interval
+         "avg" : 206.5,                        // average value in interval
+         "max" : 220                           // maximum value in interval
+       },
+       "rateLimitDelayMs" : 0,               // delay in milliseconds introduced by the rate limiter
+       "retry" : {                           // retries
+         "delayMs" : 0,                        // delay in milliseconds introduced by retries
+         "authCount" : 0,                      // no of auth retries
+         "throttleCount" : 0,                  // no of throttle retries
+         "count" : 0                           // total number of retries
+       }
+     }, {
+       "name" : "Query",                   // stats for all QUERY type requests
+       "httpRequestCount" : 14,
+       "errors" : 0,
+       "httpRequestLatencyMs" : {
+         "min" : 3,
+         "avg" : 13.0,
+         "max" : 32,
+         "95th" : 32,
+         "99th" : 32
+       },
+       "resultSize" : {
+         "min" : 146,
+         "avg" : 7379.71,
+         "max" : 10989
+       },
+       "requestSize" : {
+         "min" : 65,
+         "avg" : 709.85,
+         "max" : 799
+       },
+       "rateLimitDelayMs" : 0,
+       "retry" : {
+         "delayMs" : 0,
+         "authCount" : 0,
+         "throttleCount" : 0,
+         "count" : 0
+       }
+     }, {
+       "name" : "Put",                    // stats for PUT type requests
+       "httpRequestCount" : 1002,
+       "errors" : 0,
+       "httpRequestLatencyMs" : {
+         "min" : 1,
+         "avg" : 4.41,
+         "max" : 80,
+         "95th" : 8,
+         "99th" : 20
+       },
+       "requestSize" : {
+         "min" : 90,
+         "avg" : 90.16,
+         "max" : 187
+       },
+       "resultSize" : {
+         "min" : 58,
+         "avg" : 58.0,
+         "max" : 58
+       },
+       "rateLimitDelayMs" : 0,
+       "retry" : {
+         "delayMs" : 0,
+         "authCount" : 0,
+         "throttleCount" : 0,
+         "count" : 0
+       }
+     }],
+     "queries" : [{            // query stats aggregated by query statement
+                                 // query statement
+       "query" : "SELECT * FROM audienceData ORDER BY cookie_id",
+                                 // query plan description
+       "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n    DistributionKind : ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n  ] as $from-0\n\n  SELECT:\n  FIELD_STEP([6])\n  [\n    VAR_REF($from-0)([3]),\n    audienceData\n  ]\n]",
+       "doesWrites" : false,
+       "httpRequestCount" : 12,  // number of http calls to the server
+       "unprepared" : 1,         // number of query requests without prepare
+       "simple" : false,         // type of query
+       "countAPI" : 20,          // number of handle.query() API calls
+       "errors" : 0,             // number of calls trowing exception
+       "httpRequestLatencyMs" : {// response time of http requests in milliseconds
+         "min" : 8,                // minimum value in interval
+         "avg" : 14.58,            // average value in interval
+         "max" : 32,               // maximum value in interval
+         "95th" : 32,              // 95th percentile value in interval
+         "99th" : 32               // 99th percentile value in interval
+       },
+       "requestSize" : {         // http request size in bytes
+         "min" : 65,               // minimum value in interval
+         "avg" : 732.5,            // average value in interval
+         "max" : 799               // maximum value in interval
+       },
+       "resultSize" : {          // http result size in bytes
+         "min" : 914,              // minimum value in interval
+         "avg" : 8585.33,          // average value in interval
+         "max" : 10989             // maximum value in interval
+       },
+       "rateLimitDelayMs" : 0,   // total delay introduced by rate limiter in milliseconds
+       "retry" : {               // automatic retries
+         "delayMs" : 0,            // delay introduced by retries
+         "authCount" : 0,          // count of auth related retries
+         "throttleCount" : 0,      // count of throttle related retries
+         "count" : 0               // total count of retries
+       }
+     }]
     }
 
     Note: connection statistics are not available for NoSQL Python driver.
     """
-    PROFILE_PROPERTY = "ONPS_PROFILE"
-    INTERVAL_PROPERTY = "ONPS_INTERVAL"
-    PRETTY_PRINT_PROPERTY = "ONPS_PRETTY_PRINT"
-    PROFILE_DEFAULT = "none"
-    INTERVAL_DEFAULT = 10 * 60
-    PRETTY_PRINT_DEFAULT = False
     LOG_PREFIX = "ONPS:Monitoring stats|"
 
-    def __init__(self, logger, is_rate_limiting_enabled):
+    def __init__(self, config, logger, is_rate_limiting_enabled):
         self._logutils = LogUtils(logger)
         self._is_rate_limiting_enabled = is_rate_limiting_enabled
 
-        profile_property = getenv(StatsConfig.PROFILE_PROPERTY,
-                                  StatsConfig.PROFILE_DEFAULT)
-        try:
-            self._profile = Profile[profile_property.upper()]
-        except KeyError:
-            self._profile = Profile.NONE
+        self._profile = config.get_stats_profile()
+        self._interval = config.get_stats_interval()
+        self._pretty_print = config.get_stats_pretty_print()
+        self._stats_handler = config.get_stats_handler()
 
-        self._interval = getenv(StatsConfig.INTERVAL_PROPERTY,
-                                StatsConfig.INTERVAL_DEFAULT)
-        self._interval = int(self._interval)
-
-        self._pretty_print = getenv(StatsConfig.PRETTY_PRINT_PROPERTY,
-                                    StatsConfig.PRETTY_PRINT_DEFAULT)
-        self._pretty_print = bool(self._pretty_print)
         self._enable_collection = False
 
         self._stats = None   # type: Stats
-        self._stats_handler = None   # type: Callable
         self._id = str(uuid.uuid4())[:8]
 
-        if self._profile is not Profile.NONE:
+        if self._profile is not StatsProfile.NONE:
             self._logutils.set_level(INFO)
-            self._logutils.log_info(StatsConfig.LOG_PREFIX +
+            self._logutils.log_info(StatsControl.LOG_PREFIX +
                                     "{\"sdkName\": \"Oracle NoSQL SDK for "
                                     "Python" +
                                     "\", \"sdkVersion\": \"" + __version__ +
@@ -268,8 +266,8 @@ class StatsConfig:
 
         self.start()
 
-    def register_handler(self, stats_handler    # type: Callable
-                         ):
+    def register_handler(self, stats_handler):
+        # type: (Callable) -> StatsControl
         """
         Registers a user defined stats handler. The handler is called at the end
         of the interval with a structure containing the logged stat values.
@@ -278,6 +276,7 @@ class StatsConfig:
             raise IllegalArgumentException(
                 'stats_hadler must be of Callable type')
         self._stats_handler = stats_handler
+        return self
 
     def get_handler(self):
         # type: (...) -> Callable
@@ -290,9 +289,9 @@ class StatsConfig:
         """
         Collection of stats is enabled only between start and stop or from the
         beginning if system property
-        -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile= is not "none".
+        -Dcom.oracle.nosql.sdk.nosqldriver.stats.stats_profile= is not "none".
         """
-        if self._profile is Profile.NONE:
+        if self._profile is StatsProfile.NONE:
             if self._stats is not None:
                 self._stats.shutdown()
             self._stats = None
@@ -320,37 +319,22 @@ class StatsConfig:
         if self._stats is not None:
             self._stats.shutdown()
 
-    def get_logger(self):
-        """
-        Returns the current logger.
-        """
-        if self._logutils is not None:
-            return self._logutils.get_logger()
-        else:
-            return None
-
-    def set_logger(self, logger):
-        """
-        Sets the logger to be used.
-        """
-        CheckValue.check_logger(logger, "logger")
-        self._logutils = LogUtils(logger)
-        return self
-
     def get_profile(self):
-        # type: () -> Profile
+        # type: () -> StatsProfile
         """
-        Returns the collection profile. Default profile is NONE.
+        Returns the stats collection profile. Default stats profile is NONE.
         """
         return self._profile
 
-    def set_profile(self, profile   # type: Profile
-                    ):
+    def set_profile(self, profile):
+        # type: (StatsProfile) -> StatsControl
         """
-        Set the collection profile. Default profile is NONE.
+        Set the stats collection stats_profile. Default stats stats_profile is
+        NONE.
         """
-        if profile is not None and not isinstance(profile, Profile):
-            raise IllegalArgumentException('profile must be a Profile.')
+        if profile is not None and not isinstance(profile, StatsProfile):
+            raise IllegalArgumentException(
+                'stats_profile must be a StatsProfile.')
         self._profile = profile
         return self
 
@@ -361,16 +345,6 @@ class StatsConfig:
         Default interval is 600 seconds, i.e. 10 min.
         """
         return self._interval
-
-    def set_interval(self, interval):
-        # type: (int) -> StatsConfig
-        """
-        Sets interval size in seconds.
-        Default interval is 600 seconds, i.e. 10 min.
-        """
-        CheckValue.check_int_gt_zero(interval, "interval")
-        self._interval = interval
-        return self
 
     def get_id(self):
         # type: () -> str
@@ -387,7 +361,7 @@ class StatsConfig:
         return self._pretty_print
 
     def set_pretty_print(self, pretty_print):
-        # type: (bool) -> StatsConfig
+        # type: (bool) -> StatsControl
         """
         Enable JSON pretty print for easier human reading.
         Default is disabled.
@@ -395,6 +369,15 @@ class StatsConfig:
         CheckValue.check_boolean(pretty_print, "pretty_print")
         self._pretty_print = pretty_print
         return self
+
+    def get_logger(self):
+        """
+        Returns the current logger.
+        """
+        if self._logutils is not None:
+            return self._logutils.get_logger()
+        else:
+            return None
 
     def observe(self, request, req_size, res_size, network_latency):
         """
@@ -465,14 +448,14 @@ class QueryEntryStat:
     def __init__(self, profile, query_request):
         self._plan = None
         self._does_writes = False
-        self._countAPI = 0
+        self._count = 0
         self._unprepared = 0
         self._simple = 0
         self._req_stats = ReqStats(profile)
 
     def observe_query(self, query_request):
         # type: (QueryRequest) -> None
-        self._countAPI += 1
+        self._count += 1
         if not query_request.is_prepared():
             self._unprepared += 1
         if query_request.is_prepared() and query_request.is_simple_query():
@@ -486,9 +469,9 @@ class QueryEntryStat:
                                 auth_count, throttle_count, req_size, res_size,
                                 network_latency)
 
-    def to_json(self, queries, stmt):
+    def to_json(self, queries, query):
         # type: ([Any], str) -> None
-        q = {"stmt": stmt, "countAPI": self._countAPI,
+        q = {"query": query, "count": self._count,
              "unprepared": self._unprepared, "simple": self._simple,
              "doesWrites": self._does_writes}
         if self._plan is not None:
@@ -592,9 +575,9 @@ class ReqStats:
     Statistics per type of request.
     """
 
-    def __init__(self, profile  # type: Profile
+    def __init__(self, profile  # type: StatsProfile
                  ):
-        self._count = 0
+        self._httpRequestCount = 0
         self._errors = 0
         self._reqSizeMin = sys.maxsize
         self._reqSizeMax = 0
@@ -607,19 +590,19 @@ class ReqStats:
         self._retryCount = 0
         self._retryDelayMs = 0
         self._rateLimitDelayMs = 0
-        self._networkLatencyMin = sys.maxsize
-        self._networkLatencyMax = 0
-        self._networkLatencySum = 0
-        if profile.value >= Profile.MORE.value:
-            self._networkLatencyPercentile = Percentile()
+        self._requestLatencyMin = sys.maxsize
+        self._requestLatencyMax = 0
+        self._requestLatencySum = 0
+        if profile.value >= StatsProfile.MORE.value:
+            self._requestLatencyPercentile = Percentile()
         else:
-            self._networkLatencyPercentile = None
+            self._requestLatencyPercentile = None
 
     def observe(self, error, retries, retry_delay,
                 rate_limit_delay, auth_count, throttle_count,
                 req_size, res_size, network_latency):
         # type: (bool, int, int, int, int, int, int, int, int) -> None
-        self._count += 1
+        self._httpRequestCount += 1
         self._retryCount += retries
         self._retryDelayMs += retry_delay
         self._retryAuthCount += auth_count
@@ -635,23 +618,23 @@ class ReqStats:
             self._resSizeMin = min(self._resSizeMin, res_size)
             self._resSizeMax = max(self._resSizeMax, res_size)
             self._resSizeSum += res_size
-            self._networkLatencyMin = \
-                min(self._networkLatencyMin, network_latency)
-            self._networkLatencyMax = \
-                max(self._networkLatencyMax, network_latency)
-            self._networkLatencySum += network_latency
-            if self._networkLatencyPercentile is not None:
-                self._networkLatencyPercentile.add_value(network_latency)
+            self._requestLatencyMin = \
+                min(self._requestLatencyMin, network_latency)
+            self._requestLatencyMax = \
+                max(self._requestLatencyMax, network_latency)
+            self._requestLatencySum += network_latency
+            if self._requestLatencyPercentile is not None:
+                self._requestLatencyPercentile.add_value(network_latency)
 
     def to_json(self, request_name, req_array):
         # type: (str, []) -> None
-        if self._count > 0:
+        if self._httpRequestCount > 0:
             req = {"name": request_name}
             self.to_map_value(req)
             req_array.append(req)
 
     def to_map_value(self, map_value):
-        map_value["count"] = self._count
+        map_value["httpRequestCount"] = self._httpRequestCount
         map_value["errors"] = self._errors
 
         retry = {
@@ -663,24 +646,24 @@ class ReqStats:
         map_value["retry"] = retry
         map_value["rateLimitDelayMs"] = self._rateLimitDelayMs
 
-        if self._networkLatencyMax > 0:
+        if self._requestLatencyMax > 0:
             latency = {
-                "min": self._networkLatencyMin,
-                "max": self._networkLatencyMax,
-                "avg": self._networkLatencySum / (self._count - self._errors)
+                "min": self._requestLatencyMin,
+                "max": self._requestLatencyMax,
+                "avg": self._requestLatencySum / (self._httpRequestCount - self._errors)
             }
-            if self._networkLatencyPercentile is not None:
+            if self._requestLatencyPercentile is not None:
                 (p95th, p99th) = \
-                    self._networkLatencyPercentile.get_95th99th_percentile()
+                    self._requestLatencyPercentile.get_95th99th_percentile()
                 latency["95th"] = p95th
                 latency["99th"] = p99th
-            map_value["networkLatencyMs"] = latency
+            map_value["httpRequestLatencyMs"] = latency
 
         if self._reqSizeMax > 0:
             reqSize = {
                 "min": self._reqSizeMin,
                 "max": self._reqSizeMax,
-                "avg": self._reqSizeSum / (self._count - self._errors)
+                "avg": self._reqSizeSum / (self._httpRequestCount - self._errors)
             }
             map_value["requestSize"] = reqSize
 
@@ -688,12 +671,12 @@ class ReqStats:
             resSize = {
                 "min": self._resSizeMin,
                 "max": self._resSizeMax,
-                "avg": self._resSizeSum / (self._count - self._errors)
+                "avg": self._resSizeSum / (self._httpRequestCount - self._errors)
             }
             map_value["resultSize"] = resSize
 
     def clear(self):
-        self._count = 0
+        self._httpRequestCount = 0
         self._errors = 0
         self._reqSizeMin = sys.maxsize
         self._reqSizeMax = 0
@@ -706,29 +689,29 @@ class ReqStats:
         self._retryCount = 0
         self._retryDelayMs = 0
         self._rateLimitDelayMs = 0
-        self._networkLatencyMin = sys.maxsize
-        self._networkLatencyMax = 0
-        self._networkLatencySum = 0
-        if self._networkLatencyPercentile is not None:
-            self._networkLatencyPercentile.clear()
+        self._requestLatencyMin = sys.maxsize
+        self._requestLatencyMax = 0
+        self._requestLatencySum = 0
+        if self._requestLatencyPercentile is not None:
+            self._requestLatencyPercentile.clear()
 
 
 class Stats:
     """
     Implements all the statistics.
     """
-    _stats_config = None  # type: StatsConfig
+    _stats_control = None  # type: StatsControl
     _timer = None         # type: RepeatedTimer
     _requests = None      # type: Dict[str, ReqStats]
 
     _request_names = ["Delete", "Get", "GetIndexes", "GetTable",
                       "ListTables", "MultiDelete", "Prepare", "Put", "Query",
-                      "Read", "System", "SystemStatus", "Table", "TableUsage",
+                      "System", "SystemStatus", "Table", "TableUsage",
                       "WriteMultiple", "Write"]
 
-    def __init__(self, stats_config):
-        # type: (StatsConfig) -> None
-        self._stats_config = stats_config
+    def __init__(self, stats_control):
+        # type: (StatsControl) -> None
+        self._stats_control = stats_control
 
         interval = 10
 
@@ -742,13 +725,13 @@ class Stats:
         self._start_time = datetime.utcnow()
         self._end_time = self._start_time
         self._extra_query_stats = None
-        profile = self._stats_config.get_profile()
-        if profile is not None and profile.value >= Profile.ALL.value:
+        profile = self._stats_control.get_profile()
+        if profile is not None and profile.value >= StatsProfile.ALL.value:
             self._extra_query_stats = ExtraQueryStats(profile)
 
         self._requests = {}
         for i in self._request_names:
-            self._requests[i] = ReqStats(stats_config.get_profile())
+            self._requests[i] = ReqStats(stats_control.get_profile())
         self.lock = Lock()
 
     @synchronized
@@ -756,28 +739,28 @@ class Stats:
         self.__log_client_stats()
 
     def __log_client_stats(self):
-        if self._stats_config.get_logger() is not None and \
-                self._stats_config.get_logger().isEnabledFor(INFO):
+        if self._stats_control.get_logger() is not None and \
+                self._stats_control.get_logger().isEnabledFor(INFO):
             stats = self.__generate_stats()
             self.clear()
 
-            handler = self._stats_config.get_handler()
+            handler = self._stats_control.get_handler()
             if handler is not None:
                 handler(stats)
 
-            if self._stats_config.get_pretty_print():
+            if self._stats_control.get_pretty_print():
                 stats_str = pprint.pformat(stats)
             else:
                 stats_str = str(stats)
-            self._stats_config.get_logger().info(StatsConfig.LOG_PREFIX +
-                                                 stats_str)
+            self._stats_control.get_logger().info(StatsControl.LOG_PREFIX +
+                                                  stats_str)
 
     def __generate_stats(self):
         self._end_time = datetime.utcnow()
         root = {
             "startTime": self._start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "endTime": self._end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "clientId": self._stats_config.get_id()
+            "clientId": self._stats_control.get_id()
         }
 
         if self._extra_query_stats is not None:
@@ -815,12 +798,10 @@ class Stats:
 
     def __observe(self, request, error, req_size, res_size,
                   network_latency):
-        reqStr = type(request).__name__
-        if reqStr.endswith("Request"):
-            reqStr = reqStr[0:len(reqStr) - 7]
+        reqStr = request.get_type_name()
         req_stat = self._requests.get(reqStr)
         if req_stat is None:
-            req_stat = ReqStats(self._stats_config.get_profile())
+            req_stat = ReqStats(self._stats_control.get_profile())
             self._requests[reqStr] = req_stat
 
         auth_count = 0
@@ -839,9 +820,6 @@ class Stats:
                          throttle_count, req_size, res_size, network_latency)
 
         from . import QueryRequest
-
-        print(f"!  DBG   ! :  isinstance(QueryReq):  "
-              f"{isinstance(request, QueryRequest)}")
 
         if self._extra_query_stats is not None and \
                 isinstance(request, QueryRequest):

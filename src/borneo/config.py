@@ -7,9 +7,13 @@
 
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
+from enum import Enum
+from os import getenv
 from random import random
 from ssl import SSLContext
 from time import sleep, time
+from typing import Callable
+
 try:
     from urlparse import urlparse
 except ImportError:
@@ -20,6 +24,7 @@ from .common import CheckValue, Consistency
 from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException)
 from .operations import Request
+
 try:
     from . import iam
 except ImportError:
@@ -506,6 +511,20 @@ class Regions(object):
         return region
 
 
+class StatsProfile(Enum):
+    """
+    The following semantics are attached to the StatsProfile values:
+       - NONE: no stats are logged.
+       - REGULAR: per request: counters, errors, latencies, delays, retries
+       - MORE: stats above plus 95th and 99th percentile latencies.
+       - ALL: stats above plus per query information
+    """
+    NONE = 1
+    REGULAR = 2
+    MORE = 3
+    ALL = 4
+
+
 class NoSQLHandleConfig(object):
     """
     An instance of this class is required by :py:class:`NoSQLHandle`.
@@ -575,6 +594,12 @@ class NoSQLHandleConfig(object):
     _DEFAULT_TIMEOUT = 5000
     _DEFAULT_TABLE_REQ_TIMEOUT = 10000
     _DEFAULT_CONSISTENCY = Consistency.EVENTUAL
+    _STATS_PROFILE_PROPERTY = "ONPS_PROFILE"
+    _STATS_INTERVAL_PROPERTY = "ONPS_INTERVAL"
+    _STATS_PRETTY_PRINT_PROPERTY = "ONPS_PRETTY_PRINT"
+    _STATS_PROFILE_DEFAULT = "none"
+    _STATS_INTERVAL_DEFAULT = 10 * 60
+    _STATS_PRETTY_PRINT_DEFAULT = False
 
     def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
@@ -636,6 +661,22 @@ class NoSQLHandleConfig(object):
         self._ssl_protocol = None
         self._logger = None
         self._is_default_logger = True
+
+        profile_property = getenv(self._STATS_PROFILE_PROPERTY,
+            self._STATS_PROFILE_DEFAULT)
+        try:
+            self._stats_profile = StatsProfile[profile_property.upper()]
+        except KeyError:
+            self._stats_profile = StatsProfile.NONE
+
+        self._stats_interval = getenv(self._STATS_INTERVAL_PROPERTY,
+            self._STATS_INTERVAL_DEFAULT)
+        self._stats_interval = int(self._stats_interval)
+
+        self._stats_pretty_print = getenv(self._STATS_PRETTY_PRINT_PROPERTY,
+            self._STATS_PRETTY_PRINT_DEFAULT)
+        self._stats_pretty_print = bool(self._stats_pretty_print)
+        self._stats_handler = None  # type: Callable
 
     def get_service_url(self):
         """
@@ -1354,3 +1395,77 @@ class NoSQLHandleConfig(object):
         except ValueError:
             raise IllegalArgumentException(
                 'Invalid port value for : ' + endpoint)
+
+    def register_stats_handler(self, stats_handler):
+        # type: (Callable) -> NoSQLHandleConfig
+        """
+        Registers a user defined stats handler. The handler is called at the end
+        of the interval with a structure containing the logged stat values.
+        """
+        if not isinstance(stats_handler, Callable):
+            raise IllegalArgumentException(
+                'stats_hadler must be of Callable type')
+        self._stats_handler = stats_handler
+        return self
+
+    def get_stats_handler(self):
+        # type: (...) -> Callable
+        """
+        Returns the registered stats handler.
+        """
+        return self._stats_handler
+
+    def get_stats_profile(self):
+        # type: () -> StatsProfile
+        """
+        Returns the stats collection stats_profile. Default stats stats_profile
+        is NONE.
+        """
+        return self._stats_profile
+
+    def set_stats_profile(self, stats_profile):
+        # type: (StatsProfile) -> NoSQLHandleConfig
+        """
+        Set the stats collection stats_profile. Default stats stats_profile is
+        NONE.
+        """
+        if stats_profile is not None and not isinstance(stats_profile,
+                                                        StatsProfile):
+            raise IllegalArgumentException('profile must be a StatsProfile.')
+        self._stats_profile = stats_profile
+        return self
+
+    def get_stats_interval(self):
+        # type: () -> int
+        """
+        Returns the current collection interval.
+        Default interval is 600 seconds, i.e. 10 min.
+        """
+        return self._stats_interval
+
+    def set_stats_interval(self, interval):
+        # type: (int) -> NoSQLHandleConfig
+        """
+        Sets interval size in seconds.
+        Default interval is 600 seconds, i.e. 10 min.
+        """
+        CheckValue.check_int_gt_zero(interval, "interval")
+        self._stats_interval = interval
+        return self
+
+    def get_stats_pretty_print(self):
+        """
+        Returns the current JSON pretty print flag.
+        Default is disabled.
+        """
+        return self._stats_pretty_print
+
+    def set_stats_pretty_print(self, pretty_print):
+        # type: (bool) -> NoSQLHandleConfig
+        """
+        Enable JSON pretty print for easier human reading.
+        Default is disabled.
+        """
+        CheckValue.check_boolean(pretty_print, "pretty_print")
+        self._stats_pretty_print = pretty_print
+        return self

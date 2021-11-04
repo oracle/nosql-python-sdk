@@ -713,5 +713,5 @@ class NoSQLHandle(object):
             except (SSLError, ValueError) as err:
                 raise IllegalArgumentException(str(err))
 
-    def get_stats_config(self):
-        return self._client.get_stats_config()
+    def get_stats_control(self):
+        return self._client.get_stats_control()
