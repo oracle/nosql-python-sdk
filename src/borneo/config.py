@@ -1460,11 +1460,13 @@ class NoSQLHandleConfig(object):
             raise IllegalArgumentException(
                 'Invalid port value for : ' + endpoint)
 
-    def register_stats_handler(self, stats_handler):
+    def set_stats_handler(self, stats_handler):
         # type: (Callable) -> NoSQLHandleConfig
         """
         Registers a user defined stats handler. The handler is called at the end
         of the interval with a structure containing the logged stat values.
+
+        Note: setting a stats handler will not affect the stats log entries.
         """
         if not isinstance(stats_handler, Callable):
             raise IllegalArgumentException(

@@ -25,7 +25,8 @@ from .version import __version__
 
 class StatsControl:
     """
-    StatsControl allows user to setup the collection of driver statistics.
+    StatsControl allows user to control the collection of driver statistics at
+    runtime.
 
     The statistics data is collected for an interval of time. At the end of the
     interval, the stats data is logged in a specified JSON format that can be
@@ -53,14 +54,20 @@ class StatsControl:
         default value is false.
 
     Collection of stats can also be used by using the API:
+    :py:meth:`NoSQLHandleConfig.set_stats_profile` or
+    :py:meth:`StatsControl.set_profile`. At runtime stats collection can be
+    enabled selectively by using :py:meth:`StatsControl.start` ond
+    :py:meth:`StatsControl.stop`. The following example shows how to use a stats
+    handler and how to control the stas at runtime:
         def stats_handler(stats):
+            # type: (Dict) -> None
             print("Stats : " + str(stats))
         ...
         config = NoSQLHandleConfig( endpoint )
         config.set_stats_profile(StatsProfile.REGULAR)
         config.set_stats_interval(600)
         config.set_stats_pretty_print(False)
-        config.register_stats_handler(stats_handler)
+        config.set_stats_handler(stats_handler)
 
         handle = NoSQLHandle(config)
 
@@ -71,11 +78,11 @@ class StatsControl:
         #... application code without stats
 
         # enable observations
-        statsControl.start();
+        stats_control.start();
 
         #... application code with REGULAR stats
 
-        # For particular parts of code profile can be changed collect more stats
+        # For particular parts of code profile can be changed to collect more stats.
         stats_control.set_stats_profile(StatsProfile.ALL)
         #... more sensitive code with ALL stats
 
@@ -266,20 +273,20 @@ class StatsControl:
 
         self.start()
 
-    def register_handler(self, stats_handler):
-        # type: (Callable) -> StatsControl
+    def set_stats_handler(self, stats_handler):
+        # type: (Callable[Dict]) -> StatsControl
         """
         Registers a user defined stats handler. The handler is called at the end
         of the interval with a structure containing the logged stat values.
         """
         if not isinstance(stats_handler, Callable):
             raise IllegalArgumentException(
-                'stats_hadler must be of Callable type')
+                'stats_handler must be of Callable[Dict] type')
         self._stats_handler = stats_handler
         return self
 
-    def get_handler(self):
-        # type: (...) -> Callable
+    def get_stats_handler(self):
+        # type: (...) -> Callable[Dict]
         """
         Returns the registered handler.
         """
@@ -739,21 +746,24 @@ class Stats:
         self.__log_client_stats()
 
     def __log_client_stats(self):
-        if self._stats_control.get_logger() is not None and \
-                self._stats_control.get_logger().isEnabledFor(INFO):
+        handler = self._stats_control.get_stats_handler()
+        log = self._stats_control.get_logger() is not None and \
+                 self._stats_control.get_logger().isEnabledFor(INFO)
+
+        if handler is not None or log:
             stats = self.__generate_stats()
             self.clear()
 
-            handler = self._stats_control.get_handler()
             if handler is not None:
                 handler(stats)
 
-            if self._stats_control.get_pretty_print():
-                stats_str = pprint.pformat(stats)
-            else:
-                stats_str = str(stats)
-            self._stats_control.get_logger().info(StatsControl.LOG_PREFIX +
-                                                  stats_str)
+            if log:
+                if self._stats_control.get_pretty_print():
+                    stats_str = pprint.pformat(stats)
+                else:
+                    stats_str = str(stats)
+                self._stats_control.get_logger().info(StatsControl.LOG_PREFIX +
+                                                      stats_str)
 
     def __generate_stats(self):
         self._end_time = datetime.utcnow()

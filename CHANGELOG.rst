@@ -8,6 +8,12 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
  Unpublished
 ====================
 
+Added
+_____
+* Added client statistics. Users can enable internal driver statistics by
+  using ONPS_PROFILE=[none|regular|more|all] or by using the
+  NoSQLHandleConfig.set_stats_profile() api.
+
 Changed
 _______
 
