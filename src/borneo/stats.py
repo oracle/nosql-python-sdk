@@ -99,7 +99,7 @@ class StatsControl:
     profile:
 
     - A one time entry containing stats id and options:
-      INFO: ONPS:Monitoring stats|{    // INFO log entry
+      INFO: Client stats|{    // INFO log entry
       "sdkName" : "Oracle NoSQL SDK for Python",  // SDK name
       "sdkVersion" : "5.2.4",                 // SDK version
       "clientId" : "f595b333",                  // NoSQLHandle id
@@ -109,7 +109,7 @@ class StatsControl:
       "rateLimitingEnabled" : false}            // if rate limiting is enabled
 
     - An entry at the end of each interval containing the stats values:
-     INFO: ONPS:Monitoring stats|{
+     INFO: Client stats|{
      "clientId" : "b7bc7734",              // id of NoSQLHandle object
      "startTime" : "2021-09-20T20:11:42Z", // UTC start interval time
      "endTime" : "2021-09-20T20:11:47Z",   // UTC end interval time
@@ -238,7 +238,7 @@ class StatsControl:
 
     Note: connection statistics are not available for NoSQL Python driver.
     """
-    LOG_PREFIX = "ONPS:Monitoring stats|"
+    LOG_PREFIX = "Client stats|"
 
     def __init__(self, config, logger, is_rate_limiting_enabled):
         self._logutils = LogUtils(logger)
