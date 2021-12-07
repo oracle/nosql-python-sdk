@@ -2427,8 +2427,6 @@ class QueryRequest(Request):
         :returns: the statement, or None if it has not been set.
         :rtype: str
         """
-        if self._statement is None and self._prepared_statement is not None:
-            return self._prepared_statement.get_sql_text()
         return self._statement
 
     def set_prepared_statement(self, value):
