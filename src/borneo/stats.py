@@ -207,7 +207,7 @@ class StatsControl:
        "httpRequestCount" : 12,  // number of http calls to the server
        "unprepared" : 1,         // number of query requests without prepare
        "simple" : false,         // type of query
-       "countAPI" : 20,          // number of handle.query() API calls
+       "count" : 20,             // number of handle.query() API calls
        "errors" : 0,             // number of calls trowing exception
        "httpRequestLatencyMs" : {// response time of http requests in milliseconds
          "min" : 8,                // minimum value in interval
@@ -235,6 +235,24 @@ class StatsControl:
        }
      }]
     }
+
+   The log entries go to the logger configured in NoSQLHandlerConfig. By
+   default, if no logger is configured the statistics entries, if enabled,
+   will be logged to file **logs/driver.log** in the local directory.
+
+   Stats collection is not dependent of logging configuration, even if
+   logging is disabled, collection of stats will still happen if stats
+   profile other than *none* is used. In this case, the stats are available by
+   using the stats handler.
+
+   Depending on the type of query, if client processing is required, for
+   example in the case of ordered or aggregate queries, indicated by the
+   false **simple** field of the **query** entry, the **count** and
+   **httpRequestsCount** numbers will differ. **count** represents
+   the number of ``handle.query()`` API calls and **httpRequestCount**
+   represents the number of internal http requests from server. For these
+   type of queries, the driver executes several simpler queries, per
+   shard or partition, and than combines the results locally.
 
     Note: connection statistics are not available for NoSQL Python driver.
     """
@@ -520,6 +538,8 @@ class ExtraQueryStats:
     def get_extra_query_stat_entry(self, query_request):
         # type: (borneo.QueryRequest) -> QueryEntryStat
         sql = query_request.get_statement()
+        if sql is None and self._prepared_statement is not None:
+            sql = self._prepared_statement.get_sql_text()
         q_stat = self._queries.get(sql)
         if q_stat is None:
             q_stat = QueryEntryStat(self._profile, query_request)
