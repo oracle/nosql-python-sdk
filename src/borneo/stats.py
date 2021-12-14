@@ -602,8 +602,8 @@ class ReqStats:
     Statistics per type of request.
     """
 
-    def __init__(self, profile  # type: StatsProfile
-                 ):
+    def __init__(self, profile):
+        # type: (StatsProfile) -> None
         self._httpRequestCount = 0
         self._errors = 0
         self._reqSizeMin = sys.maxsize
@@ -852,7 +852,9 @@ class Stats:
         from . import QueryRequest
 
         if self._extra_query_stats is not None and \
-                isinstance(request, QueryRequest):
+                isinstance(request, QueryRequest) and \
+                self._stats_control.get_profile().value >= \
+                StatsProfile.ALL.value:
             self._extra_query_stats.observe_q_rec(request, error,
                                                   request.get_num_retries(),
                                                   request.get_retry_delay_ms(),
@@ -864,5 +866,12 @@ class Stats:
 
     @synchronized
     def observe_query(self, query_request):
-        if self._extra_query_stats is not None:
+        if self._extra_query_stats is None and \
+                self._stats_control.get_profile().value >= \
+                StatsProfile.ALL.value:
+            self._extra_query_stats = \
+                ExtraQueryStats(self._stats_control.get_profile())
+        if self._extra_query_stats is not None and \
+                self._stats_control.get_profile().value >= \
+                StatsProfile.ALL.value:
             self._extra_query_stats.observe_query(query_request)
