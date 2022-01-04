@@ -475,7 +475,7 @@ class QueryEntryStat:
         self._does_writes = False
         self._count = 0
         self._unprepared = 0
-        self._simple = 0
+        self._simple = False
         self._req_stats = ReqStats(profile)
 
     def observe_query(self, query_request):
@@ -484,7 +484,7 @@ class QueryEntryStat:
         if not query_request.is_prepared():
             self._unprepared += 1
         if query_request.is_prepared() and query_request.is_simple_query():
-            self._simple += 1
+            self._simple = True
 
     def observe(self, error, retries, retry_delay,
                 rate_limit_delay, auth_count, throttle_count,

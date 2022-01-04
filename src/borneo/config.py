@@ -661,9 +661,9 @@ class NoSQLHandleConfig(object):
     _STATS_PROFILE_PROPERTY = "ONPS_PROFILE"
     _STATS_INTERVAL_PROPERTY = "ONPS_INTERVAL"
     _STATS_PRETTY_PRINT_PROPERTY = "ONPS_PRETTY_PRINT"
-    _STATS_PROFILE_DEFAULT = "none"
-    _STATS_INTERVAL_DEFAULT = 10 * 60
-    _STATS_PRETTY_PRINT_DEFAULT = False
+    _DEFAULT_STATS_PROFILE = StatsProfile.NONE
+    _DEFAULT_STATS_INTERVAL = 10 * 60
+    _DEFAULT_STATS_PRETTY_PRINT = False
 
     def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
@@ -727,18 +727,18 @@ class NoSQLHandleConfig(object):
         self._is_default_logger = True
 
         profile_property = getenv(self._STATS_PROFILE_PROPERTY,
-            self._STATS_PROFILE_DEFAULT)
+            self._DEFAULT_STATS_PROFILE.name.lower())
         try:
             self._stats_profile = StatsProfile[profile_property.upper()]
         except KeyError:
             self._stats_profile = StatsProfile.NONE
 
         self._stats_interval = getenv(self._STATS_INTERVAL_PROPERTY,
-            self._STATS_INTERVAL_DEFAULT)
+            self._DEFAULT_STATS_INTERVAL)
         self._stats_interval = int(self._stats_interval)
 
         self._stats_pretty_print = getenv(self._STATS_PRETTY_PRINT_PROPERTY,
-            self._STATS_PRETTY_PRINT_DEFAULT)
+            self._DEFAULT_STATS_PRETTY_PRINT)
         self._stats_pretty_print = bool(self._stats_pretty_print)
         self._stats_handler = None  # type: Callable
 
