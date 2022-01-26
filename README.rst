@@ -110,7 +110,7 @@ that the *borneo* package has been installed.
 .. code-block:: pycon
 
     #
-    # Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+    # Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
     #
     # Licensed under the Universal Permissive License v 1.0 as shown at
     #  https://oss.oracle.com/licenses/upl/
@@ -461,7 +461,7 @@ complex configuration.
 License
 =======
 
-Copyright (C) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+Copyright (C) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 
 This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
 <./LICENSE.txt>`_ for details.
