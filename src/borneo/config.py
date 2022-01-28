@@ -509,7 +509,7 @@ class Regions(object):
     # OC10
     OC10_REGIONS = dict()
     """A dict containing the OC10 regions."""
-    OC10_REGIONS[ME_DCC_CANBERRA_1.get_region_id()] = ME_DCC_CANBERRA_1
+    OC10_REGIONS[AP_DCC_CANBERRA_1.get_region_id()] = AP_DCC_CANBERRA_1
 
     @staticmethod
     def get_gov_regions():
