@@ -2649,6 +2649,19 @@ class QueryDriver(object):
         self._results = None
         self._rcb.reset_kb_consumption()
 
+    def copy(self, queryRequest):
+        # type: (QueryRequest) -> QueryDriver
+        copy = QueryDriver(queryRequest)
+        copy._client = self._client
+        copy._topology_info = self._topology_info
+        copy._prep_cost = self._prep_cost
+        copy._results = self._results
+        copy._error = self._error
+        # leave _continuation_key and _rcb null to start from the beginning
+        # copy._continuation_key = self._continuation_key
+        # copy._rcb = self._rcb
+        return copy
+
 
 class QueryFormatter(object):
     """

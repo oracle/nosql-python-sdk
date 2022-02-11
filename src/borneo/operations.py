@@ -2031,6 +2031,33 @@ class QueryRequest(Request):
         internal_req.is_internal = True
         return internal_req
 
+    def copy(self):
+        copy = QueryRequest()
+        copy._compartment = self.get_compartment()
+        copy._prepared_statement = self.get_table_name()
+        timeout = self.get_timeout()
+        if timeout > 0:
+            copy.set_timeout(timeout)
+        copy.set_trace_level(self._trace_level)
+        copy.set_limit(self._limit)
+        copy.set_max_read_kb(self._max_read_kb)
+        copy.set_max_write_kb(self._max_write_kb)
+        copy.set_max_memory_consumption(self._max_memory_consumption)
+        copy.set_math_context(self._math_context)
+        if self._consistency is not None:
+            copy.set_consistency(self._consistency)
+        if self._prepared_statement is not None:
+            copy.set_prepared_statement(self._prepared_statement)
+        copy.is_internal = self.is_internal
+        copy._statement = self._statement
+        copy._shard_id = self._shard_id
+        # leave continuationKey null to start from the beginning
+        # copy._continuation_key = self._continuation_key
+        if self.driver is not None:
+            copy.driver = self.driver.copy(copy)
+
+        return copy
+
     def close(self):
         """
         Terminates the query execution and releases any memory consumed by the
@@ -3302,6 +3329,7 @@ class Result(object):
         self._read_units = 0
         self._retry_stats = None
         self._write_kb = 0
+        self._write_units = 0
 
     def get_rate_limit_delayed_ms(self):
         """
@@ -3329,7 +3357,7 @@ class Result(object):
         return self._retry_stats
 
     def get_write_units(self):
-        # Internal use only.
+        # Internal use only. ??? shouldn't be write_units ?
         return self._write_kb
 
     def set_rate_limit_delayed_ms(self, delay_ms):
@@ -3360,6 +3388,11 @@ class Result(object):
 
     def set_write_kb(self, write_kb):
         self._write_kb = write_kb
+        return self
+
+    def set_write_units(self, write_units):
+        # type: (int) -> Result
+        self._write_units = write_units
         return self
 
     def _get_read_kb(self):
@@ -4161,6 +4194,192 @@ class QueryResult(Result):
                     self.get_write_units())
 
 
+class QueryIterableResult(Result):
+    """
+    QueryIterableResult comprises an iterable list of dict instances
+    representing all the query results.
+
+    The shape of the values is based on the schema implied by the query. For
+    example a query such as "SELECT * FROM ..." that returns an intact row will
+    return values that conform to the schema of the table. Projections return
+    instances that conform to the schema implied by the statement. UPDATE
+    queries either return values based on a RETURNING clause or, by default, the
+    number of rows affected by the statement.
+
+    Each iterator from QueryIterableResult will iterator over all results of the
+    query.
+
+    .. code-block:: pycon
+
+        handle = ...
+        request = QueryRequest().set_statement('SELECT * FROM foo')
+        result = handle.queryIterable(request)
+        for row in result:
+            # do something with the result
+
+    Modification queries either return values based on a RETURNING clause or, by
+    default, return the number of rows affected by the statement in a
+    dictionary. INSERT queries with no RETURNING clause return a dictionary
+    indicating the number of rows inserted, for example {'NumRowsInserted': 5}.
+    UPDATE queries with no RETURNING clause return a dictionary indicating the
+    number of rows updated, for example {'NumRowsUpdated': 3}. DELETE queries
+    with no RETURNING clause return a dictionary indicating the number of rows
+    deleted, for example {'numRowsDeleted': 2}.
+    """
+
+    def __init__(self, request: QueryRequest, handle):
+        # type: (QueryRequest, NoSQLHandle) -> None
+        # NoSQLHandle handle
+        super(QueryIterableResult, self).__init__()
+        self.request: QueryRequest = request
+        self.handle = handle
+        self.readKB = 0
+        self.readUnits = 0
+        self.writeKB = 0
+        self.writeUnits = 0
+
+    def __str__(self):
+        # type: () -> str
+        res = 'QueryIterableResult(' + str(self.request) + ')'
+        return res + '\n'
+
+    def get_read_kb(self):
+        # type: () -> int
+        """
+        Returns the read throughput consumed by this operation, in KBytes. This
+        is the actual amount of data read by the operation. The number of read
+        units consumed is returned by :py:meth:`get_read_units` which may be a
+        larger number if the operation used Consistency.ABSOLUTE.
+
+        :returns: the read KBytes consumed.
+        :rtype: int
+        """
+        return self.readKB
+
+    def get_read_units(self):
+        # type: () -> int
+        """
+        Returns the read throughput consumed by this operation, in read units.
+        This number may be larger than that returned by :py:meth:`get_read_kb`
+        if the operation used Consistency.ABSOLUTE.
+
+        :returns: the read units consumed.
+        :rtype: int
+        """
+        return self.readUnits
+
+    def get_write_kb(self):
+        # type: () -> int
+        """
+        Returns the write throughput consumed by this operation, in KBytes.
+
+        :returns: the write KBytes consumed.
+        :rtype: int
+        """
+        return self.writeKB
+
+    def get_write_units(self):
+        # type: () -> int
+        """
+        Returns the write throughput consumed by this operation, in write units.
+
+        :returns: the write units consumed.
+        :rtype: int
+        """
+        return self.writeUnits
+
+    def __iter__(self):
+        # type: () -> QueryIterator
+        return QueryIterator(self)
+
+
+class QueryIterator:
+    """
+    QueryIterator iterates over all results of a query.
+    """
+    def __init__(self, iterable):
+        # type: (QueryIterableResult) -> None
+        self._iterable = iterable
+        self._internalRequest = iterable.request.copy()
+        self._internalResult = None
+        self._partialResultList = None
+        self._partialResultIter = None
+        self._next = None
+        self._closed = False
+
+    def _compute(self):
+        # type: () -> None
+        if self._closed:
+            return
+        if self._partialResultList is None:
+            self._internalResult = \
+                self._iterable.handle.query(self._internalRequest)
+            self._partialResultList = self._internalResult.get_results()
+            self._partialResultIter = self._partialResultList.__iter__()
+            try:
+                self._next = self._partialResultIter.__next__()
+                return
+            except StopIteration:
+                hasNext = False
+            self.set_stats(self._internalResult)
+        else:
+            try:
+                self._next = self._partialResultIter.__next__()
+                return
+            except StopIteration:
+                hasNext = False
+
+        while not hasNext and not self._internalRequest.is_done():
+            self._internalResult = \
+                self._iterable.handle.query(self._internalRequest)
+            self._partialResultList = self._internalResult.get_results()
+            self._partialResultIter = self._partialResultList.__iter__()
+            hasNext = True
+            try:
+                self._next = self._partialResultIter.__next__()
+            except StopIteration:
+                hasNext = False
+            self.set_stats(self._internalResult)
+
+        if self._internalRequest.is_done():
+            self._internalRequest.close()
+            self._closed = True
+
+    def set_stats(self, internalResult):
+        # type: (QueryResult) -> None
+        self._iterable.readKB += internalResult.get_read_kb()
+        self._iterable.readUnits += internalResult.get_read_units()
+        self._iterable.writeKB += internalResult.get_write_kb()
+        self._iterable.writeUnits += internalResult.get_write_units()
+        self._iterable.set_rate_limit_delayed_ms(
+            self._iterable.get_rate_limit_delayed_ms() +
+            internalResult.get_rate_limit_delayed_ms())
+        self._iterable.set_read_kb(self._iterable.get_read_kb() +
+                                   internalResult.get_read_kb())
+        self._iterable.set_read_units(self._iterable.get_read_units() +
+                                      internalResult.get_read_units())
+        self._iterable.set_write_kb(self._iterable.get_write_kb() +
+                                    internalResult.get_write_kb())
+        self._iterable.set_write_units(self._iterable.get_write_units() +
+                                       internalResult.get_write_units())
+        if internalResult.get_retry_stats() is not None:
+            if self._iterable.get_retry_stats() is None:
+                self._iterable.set_retry_stats(RetryStats())
+            self._iterable.get_retry_stats().add_delay_ms(
+                internalResult.get_retry_stats().get_delay_ms())
+            self._iterable.get_retry_stats().increment_retries(
+                internalResult.get_retry_stats().get_retries())
+            self._iterable.get_retry_stats().add_exceptions(
+                internalResult.get_retry_stats().get_exceptions_map())
+
+    def __next__(self):
+        # type: () -> dict[str, Object]
+        self._compute()
+        if self._closed:
+            raise StopIteration
+        return self._next
+
+
 class SystemResult(Result):
     """
     On-premise only.
@@ -4814,6 +5033,32 @@ class RetryStats(object):
         num = self.get_num_exceptions(e) + 1
         self._exception_map[e] = num
 
+    def get_exceptions_map(self):
+        # type: () -> dict[Object, int]
+        """
+        Internal use only.
+
+        Returns the map of exceptions.
+        """
+        return self._exception_map
+
+    def add_exceptions(self, ex_map):
+        # type: (dict[Object, int]) -> None
+        """
+        Internal use only.
+
+        Adds all exceptions to the stats object.
+
+        This increments the exception count and adds to the count of this type
+        of exception class.
+
+        :param ex_map: the exceptions map.
+        :type ex_map: dict[Exception, int]
+        """
+        for k in ex_map.keys():
+            num = self.get_num_exceptions(k) + ex_map[k]
+            self._exception_map[k] = num
+
     def clear(self):
         """
         Internal use only.
@@ -4858,10 +5103,11 @@ class RetryStats(object):
         """
         return self._retries
 
-    def increment_retries(self):
+    def increment_retries(self, n=1):
+        # type: (int) -> None
         """
         Internal use only.
 
-        Increments the number of retries.
+        Increments the number of retries with n amount.
         """
-        self._retries += 1
+        self._retries += n
