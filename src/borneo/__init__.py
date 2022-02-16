@@ -9,7 +9,7 @@ from . import iam
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
-    Consistency, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
+    Consistency, Durability, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
     SystemState, TableLimits, TimeToLive, TimeUnit, UserInfo, Version,
     IndexInfo, PreparedStatement)
 from .config import (
@@ -37,6 +37,7 @@ from .version import __version__
 __all__ = ['AuthorizationProvider',
            'BatchOperationNumberLimitException',
            'Consistency',
+           'Durability',
            'DefaultRetryHandler',
            'DeleteRequest',
            'DeleteResult',

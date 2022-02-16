@@ -117,6 +117,10 @@ Run Examples
 Building Documentation
 ======================
 
+Note: new classes and methods must be added to the appropriate files in docs/api/
+or they will not be found by this build. That process is manual. The same applies
+to methods that have been removed
+
 The documentation build depends on sphinx (http://sphinx-doc.org/install.html),
 sphinx-automodapi, and sphinx_rtd_theme. They should have been installed per the
 instructions above.

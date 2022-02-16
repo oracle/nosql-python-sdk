@@ -19,6 +19,7 @@ StoreAccessTokenProvider
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: __init__
    .. automethod:: close
    .. automethod:: get_logger
    .. automethod:: is_auto_renew

@@ -184,6 +184,16 @@ class OperationNotSupportedException(NoSQLException):
         super(OperationNotSupportedException, self).__init__(message)
 
 
+class UnsupportedProtocolException(NoSQLException):
+    """
+    The protocol serial version is not supported by the connected server. The
+    client should decrement its serial version (if possible) and retry.
+    """
+
+    def __init__(self, message):
+        super(UnsupportedProtocolException, self).__init__(message)
+
+
 class RequestTimeoutException(NoSQLException):
     """
     Thrown when a request cannot be processed because the configured timeout
