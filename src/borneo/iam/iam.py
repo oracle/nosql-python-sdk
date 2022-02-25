@@ -8,6 +8,7 @@
 from os import path
 from requests import Request
 from threading import Lock, Timer
+from time import sleep, time
 try:
     import oci
 except ImportError:
@@ -200,6 +201,7 @@ class SignatureProvider(AuthorizationProvider):
                 self._region = region
 
         self._signature_cache = Memoize(duration_seconds)
+        self._refresh_ahead = refresh_ahead
         self._refresh_interval_s = (duration_seconds - refresh_ahead if
                                     duration_seconds > refresh_ahead else 0)
 
@@ -393,16 +395,46 @@ class SignatureProvider(AuthorizationProvider):
             return self._provider.api_key.split('/')[0]
 
     def _refresh_task(self):
-        try:
-            self.get_signature_details_internal()
-        except Exception as e:
-            # Ignore the failure of refresh. The driver would try to generate
-            # signature in the next request if signature is not available, the
-            # failure would be reported at that moment.
-            self._logutils.log_debug(
-                'Unable to refresh cached request signature, ' + str(e))
-            self._timer.cancel()
-            self._timer = None
+        timeout =  self._refresh_ahead
+        start_ms = int(round(time() * 1000))
+        error_logged = False
+        while True:
+            try:
+                # refresh security token before create new signature
+                if (isinstance(
+                    self._provider,
+                    oci.auth.signers.InstancePrincipalsSecurityTokenSigner) or
+                    isinstance(
+                    self._provider,
+                    oci.auth.signers.EphemeralResourcePrincipalSigner)):
+                    self._provider.refresh_security_token()
+
+                self.get_signature_details_internal()
+                return
+            except Exception as e:
+                # Ignore the refresh failure, then sleep and try again until
+                # the timeout. Log the failure the first time only. If the
+                # refresh failure continues until the task times out the
+                # driver will attempt to generate a signature in the next
+                # request. If that operation fails, it will be reported to
+                # the user as an exception
+                if not error_logged:
+                    self._logutils.log_error(
+                        'Unable to refresh cached request signature, ' + str(e))
+                    error_logged = True
+
+            # check for timeout in the loop
+            if (int(round(time() * 1000)) - start_time >= timeout):
+                self._logutils.log_error(
+                    'Request signature refresh timed out after ' + str(timeout))
+                break
+            sleep(0.1)
+
+        # if we get here the refresh failed and timed out. Cancel the timer.
+        # It will get re-created when the next in-line call to get signature
+        # details is called
+        self._timer.cancel()
+        self._timer = None
 
     def _schedule_refresh(self):
         # If refresh interval is 0, don't schedule a refresh.

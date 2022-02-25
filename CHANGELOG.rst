@@ -3,6 +3,14 @@ Change Log
 All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
+====================
+ Unpublished
+====================
+
+Fixed
+_____
+
+* Cloud only: fixed the internal, automatic refresh of the security token when using Instance Principal authentication so that it is done well before the token expires
 
 ====================
  5.3.0 - 2022-02-17
