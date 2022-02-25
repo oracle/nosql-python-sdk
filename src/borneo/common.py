@@ -1,21 +1,22 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
 
 from datetime import datetime
-from dateutil import tz
 from decimal import Decimal
 from functools import wraps
 from logging import Logger
-from requests import adapters
 from struct import pack, unpack
 from sys import version_info
 from threading import Lock
-from time import ctime, time
+from time import time
 from warnings import simplefilter, warn
+
+from dateutil import tz
+from requests import adapters
 
 from .exception import IllegalArgumentException
 
@@ -25,7 +26,6 @@ def enum(**enums):
 
 
 def deprecated(func):
-
     @wraps(func)
     def wrapper(*args, **kwargs):
         simplefilter('default', DeprecationWarning)
@@ -37,7 +37,6 @@ def deprecated(func):
 
 
 def synchronized(func):
-
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         with self.lock:
@@ -226,7 +225,7 @@ class CheckValue(object):
     @staticmethod
     def is_int(data):
         if ((version_info.major == 2 and isinstance(data, int) or
-                version_info.major == 3 and isinstance(data, int)) and
+             version_info.major == 3 and isinstance(data, int)) and
                 -pow(2, 31) <= data < pow(2, 31)):
             return True
         return False
@@ -1330,6 +1329,124 @@ class SystemState(object):
     """The operation is in progress."""
 
 
+class Durability(object):
+    """
+    Durability defines the durability characteristics associated with a standalone write
+    (put or update) operation.
+
+    This is currently only supported in On-Prem installations. It is ignored
+    in the cloud service.
+
+    The overall durability is a function of the SYNC_POLICY and
+    ACK_POLICY in effect for the Master, and the SYNC_POLICY in
+    effect for each Replica.
+
+    SYNC_POLICY represents policies to be used when committing a
+    transaction. High levels of synchronization offer a greater guarantee
+    that the transaction is persistent to disk, but trade that off for
+    lower performance. The possible SYNC_POLICY values are:
+
+    * SYNC writes and synchronously flushes the log on transaction commit.
+      Transactions exhibit all the ACID (atomicity, consistency,
+      isolation, and durability) properties.
+
+    * NO_SYNC does not write or synchronously flush the log on transaction
+      commit. Transactions exhibit the ACI (atomicity, consistency, and
+      isolation) properties, but not D (durability); that is, database
+      integrity will be maintained, but if the application or system fails,
+      it is possible some number of the most recently committed transactions
+      may be undone during recovery. The number of transactions at risk is
+      governed by how many log updates can fit into the log buffer, how
+      often the operating system flushes dirty buffers to disk, and how
+      often log checkpoints occur.
+
+    * WRITE_NO_SYNC writes but does not synchronously flush the log on
+      transaction commit. Transactions exhibit the ACI (atomicity, consistency,
+      and isolation) properties, but not D (durability); that is, database
+      integrity will be maintained, but if the operating system fails, it is
+      possible some number of the most recently committed transactions may be
+      undone during recovery. The number of transactions at risk is
+      governed by how often the operating system flushes dirty buffers to
+      disk, and how often log checkpoints occur.
+
+    REPLICA_ACK_POLICY defines the policy for how replicated commits are handled.
+    A replicated environment makes it possible to increase an application's
+    transaction commit guarantees by committing changes to its replicas on
+    the network.
+
+    Possible REPLICA_ACK_POLICY values include:
+
+    * ALL defines that all replicas must acknowledge that they
+      have committed the transaction. This policy should be selected only if
+      your replication group has a small number of replicas, and those
+      replicas are on extremely reliable networks and servers.
+
+    * NONE defines that no transaction commit acknowledgments
+      are required and the master will never wait for replica acknowledgments.
+      In this case, transaction durability is determined entirely by the type
+      of commit that is being performed on the master.
+
+    * SIMPLE_MAJORITY defines that a simple majority of replicas
+      must acknowledge that they have committed the transaction. This
+      acknowledgment policy, in conjunction with an election policy which
+      requires at least a simple majority, ensures that the changes made by
+      the transaction remains durable if a new election is held.
+
+    The default Durability is configured in the proxy server with which this
+    SDK communicates. It is an optional startup parameter.
+    """
+
+    SYNC_POLICY = enum(SYNC=1,
+                       NO_SYNC=2,
+                       WRITE_NO_SYNC=3)
+    """
+    SYNC_POLICY
+    """
+
+    REPLICA_ACK_POLICY = enum(ALL=1,
+                              NONE=2,
+                              SIMPLE_MAJORITY=2)
+    """
+    REPLICA_ACK_POLICY
+    """
+
+    def __init__(self, master_sync, replica_sync, replica_ack):
+        """
+        Create a Durability object
+
+        :param master_sync: the master sync policy
+        :type master_sync: SYNC_POLICY
+        :param replica_sync: the replica sync policy
+        :type replica_sync: SYNC_POLICY
+        :param replica_ack: the replica ack policy
+        :type replica_ack: REPLICA_ACK_POLICY
+        """
+        self.master_sync = master_sync
+        self.replica_sync = replica_sync
+        self.replica_ack = replica_ack
+
+    # noinspection PyUnresolvedReferences
+    def validate(self):
+        # an all-zero Durability specifies "use the durability settings on the server."
+        if self.master_sync == 0 and self.replica_sync == 0 and self.replica_ack == 0:
+            return
+        if (self.master_sync != Durability.SYNC_POLICY.SYNC and
+                self.master_sync != Durability.SYNC_POLICY.NO_SYNC and
+                self.master_sync != Durability.SYNC_POLICY.WRITE_NO_SYNC):
+            raise IllegalArgumentException(
+                'Invalid value for Durability master_sync.')
+        if (self.replica_sync != Durability.SYNC_POLICY.SYNC and
+                self.replica_sync != Durability.SYNC_POLICY.NO_SYNC and
+                self.replica_sync != Durability.SYNC_POLICY.WRITE_NO_SYNC):
+            raise IllegalArgumentException(
+                'Invalid value for Durability replica_sync.')
+        if (self.replica_ack != Durability.REPLICA_ACK_POLICY.ALL and
+                self.replica_ack != Durability.REPLICA_ACK_POLICY.NONE and
+                self.replica_ack != Durability.REPLICA_ACK_POLICY.SIMPLE_MAJORITY):
+            raise IllegalArgumentException(
+                'Invalid value for Durability replica_ack.')
+
+
 class TableLimits(object):
     """
     Cloud service only.
@@ -1352,8 +1469,10 @@ class TableLimits(object):
     In addition to throughput table capacity must be specified to indicate the
     maximum amount of storage, in gigabytes, allowed for the table.
 
-    All 3 values must be used whenever using this object. There are no defaults
-    and no mechanism to indicate "no change."
+    In provisioned mode, all 3 values must be used whenever using this object.
+    There are no defaults and no mechanism to indicate "no change."
+
+    In on demand mode, only the storage_gb parameter must be set.
 
     :param read_units: the desired throughput of read operation in terms of read
         units. A read unit represents 1 eventually consistent read per second
@@ -1367,18 +1486,57 @@ class TableLimits(object):
     :param storage_gb: the maximum storage to be consumed by the table, in
         gigabytes.
     :type storage_gb: int
+    :param mode: the mode of the table: provisioned (the default) or on demand.
+    :type mode: CAPACITY_MODE
     :raises IllegalArgumentException: raises the exception if parameters are not
-        validate.
+        valid.
+    :versionchanged: 5.3.0, added optional CAPACITY_MODE
     """
 
-    def __init__(self, read_units, write_units, storage_gb):
+    """
+    TableLimits includes an optional mode
+
+    :versionadded: 5.3.0
+    """
+    CAPACITY_MODE = enum(PROVISIONED=1,
+                         ON_DEMAND=2)
+
+    # noinspection PyUnresolvedReferences
+    def __init__(self, read_units, write_units, storage_gb,
+                 mode=CAPACITY_MODE.PROVISIONED):
+        """
+        Creates a TableLimits object
+
+        :param read_units: the desired throughput of read operation in terms
+         of read units. A read unit represents 1 eventually consistent read
+         per second for data up to 1 KB in size. A read that is absolutely
+         consistent is double that, consuming 2 read units for a read of up to
+         1 KB in size.
+        :type read_units: int
+        :param write_units: the desired throughput of write operation in terms
+         of write units. A write unit represents 1 write per second of data up
+         to 1 KB in size.
+        :type write_units: int
+        :param storage_gb: the maximum storage to be consumed by the table, in
+         gigabytes.
+        :type storage_gb: int
+        :param mode: the mode of the table: provisioned (the default) or on
+         demand.
+        :type mode: CAPACITY_MODE
+        :raises IllegalArgumentException: raises the exception if parameters
+         are not valid.
+        :versionchanged: 5.3.0, added optional CAPACITY_MODE
+       """
+
         # Constructs a TableLimits instance.
+        self._mode = None
         CheckValue.check_int(read_units, 'read_units')
         CheckValue.check_int(write_units, 'write_units')
         CheckValue.check_int(storage_gb, 'storage_gb')
         self._read_units = read_units
         self._write_units = write_units
         self._storage_gb = storage_gb
+        self.set_mode(mode)
 
     def __str__(self):
         return ('[' + str(self._read_units) + ', ' + str(self._write_units) +
@@ -1453,9 +1611,42 @@ class TableLimits(object):
         """
         return self._storage_gb
 
+    # noinspection PyUnresolvedReferences
+    def set_mode(self, mode):
+        """
+        Sets the mode of the table:
+            PROVISIONED: Fixed maximum read/write units. This is the default.
+            ON_DEMAND: Flexible read/write limits.
+
+        :param mode: the capacity to use, in gigabytes.
+        :type mode: TableLimits.CAPACITY_MODE
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if mode is
+            invalid.
+        :versionadded: 5.3.0
+        """
+        if (mode != TableLimits.CAPACITY_MODE.PROVISIONED and
+                mode != TableLimits.CAPACITY_MODE.ON_DEMAND):
+            raise IllegalArgumentException(
+                'TableLimits mode must be one of PROVISIONED or ON_DEMAND')
+        self._mode = mode
+
+    def get_mode(self):
+        """
+        Returns the capacity mode of the table.
+
+        :returns: mode: PROVISIONED or ON_DEMAND
+        :versionadded: 5.3.0
+        """
+        return self._mode
+
+    # noinspection PyUnresolvedReferences
     def validate(self):
-        if (self._read_units <= 0 or self._write_units <= 0 or
-                self._storage_gb <= 0):
+        if self._storage_gb <= 0:
+            raise IllegalArgumentException(
+                'TableLimits values must be non-negative.')
+        if (self._mode != TableLimits.CAPACITY_MODE.ON_DEMAND and
+                (self._read_units <= 0 or self._write_units <= 0)):
             raise IllegalArgumentException(
                 'TableLimits values must be non-negative.')
 
@@ -1513,7 +1704,7 @@ class TableUsage(object):
             return None
         return datetime.fromtimestamp(
             float(self._start_time_ms) / 1000).replace(
-                tzinfo=tz.UTC).isoformat()
+            tzinfo=tz.UTC).isoformat()
 
     def get_seconds_in_period(self):
         """

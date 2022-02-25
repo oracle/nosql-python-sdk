@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -50,6 +50,12 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         self.drop_tb_statement1 = ('DROP TABLE ' + table_name)
         self.table_request = TableRequest()
         self.table_limits = TableLimits(100, 100, 1)
+        # this will be ignored by servers that do not support it
+        # set this to verify one-time messages about unsupported features
+        self.ondemand_limits = TableLimits(0, 0, 1)
+        self.ondemand_limits.set_mode(TableLimits.CAPACITY_MODE.ON_DEMAND)
+        self.ondemand_return_limits = TableLimits(2147483646, 2147483646, 1)
+        self.ondemand_return_limits.set_mode(TableLimits.CAPACITY_MODE.ON_DEMAND)
 
     def tearDown(self):
         try:
@@ -227,6 +233,35 @@ PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
             result, State.UPDATING, check_limit=False, check_schema=False)
         result.wait_for_completion(self.handle, wait_timeout, 1000)
         self.check_table_result(result, State.ACTIVE, self.table_limits)
+        # drop table after altering table
+        request.set_statement(self.drop_tb_statement)
+        self._do_table_request(request)
+
+    def testTableRequestOnDemand(self):
+        ondemand_limits = TableLimits(0, 0, 1)
+        ondemand_limits.set_mode(TableLimits.CAPACITY_MODE.ON_DEMAND)
+        ondemand_return_limits = TableLimits(2147483646, 2147483646, 1)
+        ondemand_return_limits.set_mode(TableLimits.CAPACITY_MODE.ON_DEMAND)
+        request = TableRequest().set_statement(
+            self.create_tb_statement).set_table_limits(ondemand_limits)
+        try:
+            result = self.handle.table_request(request)
+        except OperationNotSupportedException as e:
+            # in V2 we expect an error
+            if (self.handle.get_client().serial_version < 3
+                    or not self.handle.get_client().get_is_cloud()):
+                return
+            else:
+                raise e
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self.check_table_result(result, State.ACTIVE, ondemand_return_limits)
+        # alter table succeed without TableLimits set
+        self.table_request.set_statement(self.alter_fld_statement)
+        result = self.handle.table_request(self.table_request)
+        self.check_table_result(
+            result, State.UPDATING, check_limit=False, check_schema=False)
+        result.wait_for_completion(self.handle, wait_timeout, 1000)
+        self.check_table_result(result, State.ACTIVE, ondemand_return_limits)
         # drop table after altering table
         request.set_statement(self.drop_tb_statement)
         self._do_table_request(request)

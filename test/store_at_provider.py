@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -11,10 +11,14 @@ from socket import error
 from threading import Thread
 from time import sleep, time
 try:
+    # noinspection PyCompatibility
     from SimpleHTTPServer import SimpleHTTPRequestHandler
+    # noinspection PyCompatibility
     from SocketServer import TCPServer
 except ImportError:
+    # noinspection PyCompatibility
     from http.server import SimpleHTTPRequestHandler
+    # noinspection PyCompatibility
     from socketserver import TCPServer
 
 from borneo import IllegalArgumentException

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
- Unpublished
+ Unreleased
 ====================
 
 Added
@@ -14,10 +14,27 @@ _____
   using ONPS_PROFILE=[none|regular|more|all] or by using the
   NoSQLHandleConfig.set_stats_profile() api.
 
+====================
+ 5.3.0 - 2022-02-17
+====================
+
+Added
+_____
+
+* Cloud only: support for on-demand tables
+
+  * Changes to TableLimits to specify on-demand tables
+* Existing row modification is made available in Results when the operation fails
+  and the previous is requested
+* On-premise only: support for setting Durability in write operations
+
+  * Added Durability class and methods to set Durability
+
 Changed
 _______
 
 * Cloud only: updated OCI regions
+* The SDK now detects the version of the server it's connected to  and adjusts its capabilities to match. This allows the SDK to communicate with servers that may only support an earlier protocol version, with the corresponding feature restrictions
 
 Fixed
 _____

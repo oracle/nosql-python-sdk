@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -36,6 +36,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(limits)
         cls.table_request(create_request)
+        global serial_version
+        serial_version = cls.handle.get_client().serial_version
 
     @classmethod
     def tearDownClass(cls):
@@ -234,17 +236,19 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 if sk == 1 or i == 1 or i == 5:
                     self.check_get_result(
                         result, self.rows[sk][i], self.versions[sk][i],
-                        self.old_expect_expiration, TimeUnit.DAYS)
+                        self.old_expect_expiration, TimeUnit.DAYS,
+                        True, (serial_version > 2))
                 elif i == 4:
                     self.check_get_result(result)
                 elif i == 2:
                     self.check_get_result(
                         result, self.new_rows[sk][i], self.versions[sk][i],
-                        ver_eq=False)
+                        ver_eq=False, mod_time_recent=(serial_version > 2))
                 else:
                     self.check_get_result(
                         result, self.new_rows[sk][i], self.versions[sk][i],
-                        expect_expiration, TimeUnit.HOURS, False)
+                        expect_expiration, TimeUnit.HOURS, False,
+                        (serial_version > 2))
                 self.check_cost(result, 1, 2, 0, 0)
 
     def testWriteMultipleAbortIfUnsuccessful(self):
@@ -271,7 +275,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 result = self.handle.get(self.get_request)
                 self.check_get_result(
                     result, self.rows[sk][i], self.versions[sk][i],
-                    self.old_expect_expiration, TimeUnit.DAYS)
+                    self.old_expect_expiration, TimeUnit.DAYS,
+                    True, (serial_version > 2))
                 self.check_cost(result, 1, 2, 0, 0)
 
     def testWriteMultipleWithIdentityColumn(self):
@@ -309,7 +314,8 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
             expected['sid'] = 1
             expected['id'] = curr_id
             expected['name'] = 'myname'
-            self.check_get_result(result, expected, versions[idx])
+            self.check_get_result(result, expected, versions[idx],
+                                  mod_time_recent=(serial_version > 2))
             self.check_cost(result, 1, 2, 0, 0)
 
     def _check_operation_result(

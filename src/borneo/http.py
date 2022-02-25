@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -8,15 +8,18 @@
 from abc import ABCMeta, abstractmethod
 from io import UnsupportedOperation
 from logging import DEBUG
-from requests import ConnectionError, Timeout, codes
 from threading import Lock
 from time import sleep, time
 
-from .common import ByteInputStream, CheckValue, HttpConstants, synchronized
+from requests import ConnectionError, Timeout, codes
+
+from .common import ByteInputStream, CheckValue, synchronized
 from .exception import (
-    IllegalStateException, NoSQLException, ReadThrottlingException,
-    RequestTimeoutException, RetryableException, SecurityInfoNotReadyException,
+    IllegalStateException, NoSQLException,
+    ReadThrottlingException, RequestTimeoutException, RetryableException,
+    SecurityInfoNotReadyException, UnsupportedProtocolException,
     WriteThrottlingException)
+
 try:
     from . import config
     from . import kv
@@ -137,7 +140,7 @@ class RequestUtils(object):
         :param headers: HTTP headers of this request.
         :type headers: dict
         :param payload: payload in string.
-        :type payload: str
+        :type payload: bytearray
         :param timeout_ms: request timeout in milliseconds.
         :type timeout_ms: int
         :returns: HTTP response, a object encapsulate status code and response.
@@ -161,7 +164,7 @@ class RequestUtils(object):
         :param headers: HTTP headers of this request.
         :type headers: dict
         :param payload: payload in string.
-        :type payload: str
+        :type payload: bytearray
         :param timeout_ms: request timeout in milliseconds.
         :type timeout_ms: int
         :returns: HTTP response, a object encapsulate status code and response.
@@ -215,6 +218,7 @@ class RequestUtils(object):
             this_iteration_timeout_ms = timeout_ms - (this_time - start_ms)
             this_iteration_timeout_s = (float(this_iteration_timeout_ms) / 1000)
             if self._request is not None:
+                self._client.check_request(self._request)
                 """
                 Check rate limiters before executing the request. Wait for read
                 and/or write limiters to be below their limits before
@@ -389,6 +393,17 @@ class RequestUtils(object):
                 self._request.increment_retries()
                 exception = re
                 continue
+            except UnsupportedProtocolException as upe:
+                if self._client.decrement_serial_version():
+                    if self._request is not None:
+                        payload = self._client.serialize_request(self._request,
+                                                                 headers)
+                    self._request.increment_retries()
+                    exception = upe
+                    continue
+                self._logutils.log_error(
+                    'Client execution UnsupportedProtocolException: ' + str(upe))
+                raise upe
             except NoSQLException as nse:
                 self._logutils.log_error(
                     'Client execution NoSQLException: ' + str(nse))
@@ -532,7 +547,7 @@ class RequestUtils(object):
         code = bis.read_byte()
         if code == 0:
             res = request.create_serializer().deserialize(
-                request, bis, serde.BinaryProtocol.SERIAL_VERSION)
+                request, bis, self._client.serial_version)
             if request.is_query_request():
                 if not request.is_simple_query():
                     request.get_driver().set_client(self._client)

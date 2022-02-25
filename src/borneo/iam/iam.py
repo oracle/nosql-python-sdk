@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -107,8 +107,9 @@ class SignatureProvider(AuthorizationProvider):
 
     CACHE_KEY = 'signature'
     """Cache key name."""
-    MAX_ENTRY_LIFE_TIME = 300
-    """Maximum lifetime of signature 300 seconds."""
+    # Use 240 so that it expires well before the 300s token lifetime
+    MAX_ENTRY_LIFE_TIME = 240
+    """Maximum lifetime of signature 240 seconds."""
     DEFAULT_REFRESH_AHEAD = 10
     """Default refresh time before signature expiry, 10 seconds."""
 

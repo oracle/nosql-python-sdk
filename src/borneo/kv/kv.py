@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -12,8 +12,10 @@ from threading import Lock, Timer
 from time import time
 from traceback import format_exc
 try:
+    # noinspection PyCompatibility
     from urlparse import urlparse
 except ImportError:
+    # noinspection PyUnresolvedReferences,PyCompatibility
     from urllib.parse import urlparse
 
 import borneo.http
@@ -77,6 +79,19 @@ class StoreAccessTokenProvider(AuthorizationProvider):
     _HTTP_TIMEOUT_MS = 30000
 
     def __init__(self, user_name=None, password=None):
+        """
+        Creates a StoreAccessTokenProvider
+
+        :param user_name: the user name to use for the store. This user must
+         exist in the NoSQL Database and is the identity that is used for
+         authorizing all database operations.
+        :type user_name: str
+        :param password: the password for the user.
+        :type password: str
+        :raises IllegalArgumentException: raises the exception if one or more
+         of the parameters is malformed or a required parameter is missing.
+        """
+
         self._endpoint = None
         self._url = None
         self._auth_string = None

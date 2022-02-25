@@ -24,7 +24,7 @@ database. In addition a running proxy service is required. See `Oracle NoSQL
 Database Downloads <https://www.oracle.com/database/technologies/nosql-database-
 server-downloads.html>`_ for downloads, and see `Information about the proxy
 <https://docs.oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-
-database/19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
+database/21.2/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
 proxy configuration information.
 
 This project is open source and maintained by Oracle Corp. The home page for the
@@ -110,7 +110,7 @@ that the *borneo* package has been installed.
 .. code-block:: pycon
 
     #
-    # Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+    # Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
     #
     # Licensed under the Universal Permissive License v 1.0 as shown at
     #  https://oss.oracle.com/licenses/upl/
@@ -461,7 +461,7 @@ complex configuration.
 License
 =======
 
-Copyright (C) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+Copyright (C) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 
 This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
 <./LICENSE.txt>`_ for details.

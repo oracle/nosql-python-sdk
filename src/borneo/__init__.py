@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -9,7 +9,7 @@ from . import iam
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
-    Consistency, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
+    Consistency, Durability, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
     SystemState, TableLimits, TimeToLive, TimeUnit, UserInfo, Version,
     IndexInfo, PreparedStatement)
 from .config import (
@@ -39,6 +39,7 @@ from .version import __version__
 __all__ = ['AuthorizationProvider',
            'BatchOperationNumberLimitException',
            'Consistency',
+           'Durability',
            'DefaultRetryHandler',
            'DeleteRequest',
            'DeleteResult',

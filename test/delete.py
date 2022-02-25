@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -32,6 +32,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(100, 100, 1))
         cls.table_request(create_request)
+        global serial_version
+        serial_version = cls.handle.get_client().serial_version
 
     @classmethod
     def tearDownClass(cls):
@@ -142,7 +144,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, tb_expect_expiration,
-                              TimeUnit.DAYS)
+                              TimeUnit.DAYS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)
@@ -167,7 +169,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 0, 0)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, tb_expect_expiration,
-                              TimeUnit.DAYS)
+                              TimeUnit.DAYS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # delete succeed when version match
         self.delete_request.set_match_version(version)

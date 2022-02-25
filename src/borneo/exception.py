@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -182,6 +182,16 @@ class OperationNotSupportedException(NoSQLException):
 
     def __init__(self, message):
         super(OperationNotSupportedException, self).__init__(message)
+
+
+class UnsupportedProtocolException(NoSQLException):
+    """
+    The protocol serial version is not supported by the connected server. The
+    client should decrement its serial version (if possible) and retry.
+    """
+
+    def __init__(self, message):
+        super(UnsupportedProtocolException, self).__init__(message)
 
 
 class RequestTimeoutException(NoSQLException):
