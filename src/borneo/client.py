@@ -59,6 +59,8 @@ class Client(object):
             raise IllegalArgumentException(
                 'Must configure AuthorizationProvider.')
         self._sess = Session()
+        self._session_cookie = None
+
         ssl_ctx = None
         url_scheme = self._url.scheme
         if url_scheme == 'https':
@@ -67,6 +69,21 @@ class Client(object):
                 raise IllegalArgumentException(
                     'Unable to configure https: SSLContext is missing from ' +
                     'config.')
+
+        # Session uses a urllib3 PoolManager for pooling connections. This is
+        # configured using requests.adapter.HTPPAdapter (see SSLAdapter in
+        # common.py)
+        #
+        # pool_connections: applies to the number of
+        #   pools to keep, where a pool applies to a single host.
+        # pool_maxsize: how many connections to reuse. More than this can
+        #   be created but will be dropped once used
+        # pool_block: if True once pool_maxsize connections are created new
+        #   calls will be blocked until a connection is released, defaults to
+        #   False in urllib3
+        # max_retries: internal retries in urllib3 because of network/system
+        #   issues, defaults to 0 in urllib3
+        #
         adapter = SSLAdapter(
             ssl_ctx, pool_connections=self._pool_connections,
             pool_maxsize=self._pool_maxsize, max_retries=5, pool_block=True)
@@ -196,6 +213,11 @@ class Client(object):
                    'Connection': 'keep-alive',
                    'Accept': 'application/octet-stream',
                    'User-Agent': self._user_agent}
+
+        # set the session cookie if available
+        if self._session_cookie is not None:
+            headers['Cookie'] = self._session_cookie
+
         # We expressly check size limit below based on onprem versus cloud. Set
         # the request to not check size limit inside self._write_content().
         request.set_check_request_size(False)
@@ -226,6 +248,11 @@ class Client(object):
             self._rate_limiter_map)
         return request_utils.do_post_request(
             self._request_uri, headers, content, timeout_ms)
+
+    # set the session cookie if in return headers (see RequestUtils in http.py)
+    @synchronized
+    def set_session_cookie(self, cookie):
+        self._session_cookie = cookie
 
     def check_request(self, request):
         # warn if using features not implemented at the connected server
