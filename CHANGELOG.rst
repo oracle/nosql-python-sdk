@@ -12,6 +12,11 @@ _____
 
 * Cloud only: fixed the internal, automatic refresh of the security token when using Instance Principal authentication so that it is done well before the token expires
 
+Added
+_____
+
+* Support for session persistence. If a Set-Cookie HTTP header is present  borneo will now set a Cookie header using the requested session value
+
 ====================
  5.3.0 - 2022-02-17
 ====================

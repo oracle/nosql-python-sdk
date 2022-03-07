@@ -303,6 +303,11 @@ class RequestUtils(object):
                     res.set_rate_limit_delayed_ms(rate_delayed_ms)
                     # Copy retry stats to Result on successful operation.
                     res.set_retry_stats(self._request.get_retry_stats())
+
+                    # check for a Set-Cookie header
+                    cookie = response.headers.get('Set-Cookie', None)
+                    if cookie is not None and cookie.startswith('session='):
+                        self._client.set_session_cookie(cookie)
                     return res
                 else:
                     res = HttpResponse(response.content.decode(),
@@ -732,7 +737,7 @@ class RateLimiter(object):
             by the limiter.
         :raises IllegalArgumentException: raises the exception if units is not
             an integer, timeout_ms is a negative number or always_consume is not
-            not True or False.
+            True or False.
         """
         pass
 
