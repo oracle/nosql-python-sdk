@@ -308,10 +308,6 @@ class RequestUtils(object):
                     cookie = response.headers.get('Set-Cookie', None)
                     if cookie is not None and cookie.startswith('session='):
                         self._client.set_session_cookie(cookie)
-                        if self._logutils.is_enabled_for(DEBUG):
-                            self._logutils.log_debug(
-                                'Set cookie value: ' + cookie)
-
                     return res
                 else:
                     res = HttpResponse(response.content.decode(),

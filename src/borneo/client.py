@@ -252,7 +252,13 @@ class Client(object):
     # set the session cookie if in return headers (see RequestUtils in http.py)
     @synchronized
     def set_session_cookie(self, cookie):
-        self._session_cookie = cookie
+        # only grab the "session=value" portion of the header
+        value = cookie.partition(';')[0]
+        if self._logutils.is_enabled_for(DEBUG):
+            self._logutils.log_debug(
+                'Set cookie value: ' + value)
+
+        self._session_cookie = value
 
     def check_request(self, request):
         # warn if using features not implemented at the connected server
