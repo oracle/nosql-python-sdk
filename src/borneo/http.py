@@ -317,6 +317,11 @@ class RequestUtils(object):
                         stats_config.observe(self._request, req_size,
                                              len(response.content),
                                              network_time)
+
+                    # check for a Set-Cookie header
+                    cookie = response.headers.get('Set-Cookie', None)
+                    if cookie is not None and cookie.startswith('session='):
+                        self._client.set_session_cookie(cookie)
                     return res
                 else:
                     res = HttpResponse(response.content.decode(),
@@ -763,7 +768,7 @@ class RateLimiter(object):
             by the limiter.
         :raises IllegalArgumentException: raises the exception if units is not
             an integer, timeout_ms is a negative number or always_consume is not
-            not True or False.
+            True or False.
         """
         pass
 

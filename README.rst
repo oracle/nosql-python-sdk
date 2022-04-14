@@ -35,9 +35,14 @@ html>`_.
 Installation
 ============
 
-The SDK can be installed using pip::
+The SDK can be installed using pip. If using Python 3 the command may be pip3::
 
     pip install borneo
+
+If you are using the Oracle NoSQL Database cloud service you will also need to
+install the oci package::
+
+    pip install oci
 
 See `the installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
 installation.html>`_ for additional requirements and and alternative install
@@ -103,7 +108,7 @@ can use any name you like. The quickstart example supports 3 environments:
 2. Oracle NoSQL Cloud Simulator
 3. Oracle NoSQL Database on-premise, using the proxy server
 
-See `Running Quickstart <#run-quickstart>`_ for instructions on how to edit and
+See `Running Quickstart`_ to
 run the quickstart program in different environments. The instructions assume
 that the *borneo* package has been installed.
 
@@ -359,10 +364,8 @@ that the *borneo* package has been installed.
     if __name__ == '__main__':
         main()
 
-.. _run-quickstart:
-
 Running Quickstart
-------------------
+==================
 
 Run Against the Oracle NoSQL Database Cloud Service
 ===================================================

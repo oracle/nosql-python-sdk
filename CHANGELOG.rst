@@ -10,9 +10,26 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 Added
 _____
+
 * Added client statistics. Users can enable internal driver statistics by
   using ONPS_PROFILE=[none|regular|more|all] or by using the
   NoSQLHandleConfig.set_stats_profile() api.
+
+====================
+ 5.3.1 - 2022-04-14
+====================
+
+Fixed
+_____
+
+* Cloud only: fixed the internal, automatic refresh of the security token when using Instance Principal authentication so that it is done well before the token expires
+* Use selective module import for OCI SDK modules, and set the environment variable, OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=1, to improve import speed by suppressing import of unnecessary modules from the OCI SDK
+* Added dependencies to setup.py so that "pip install" automatically includes them
+
+Added
+_____
+
+* Support for session persistence. If a Set-Cookie HTTP header is present  borneo will now set a Cookie header using the requested session value
 
 ====================
  5.3.0 - 2022-02-17

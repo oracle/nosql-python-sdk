@@ -670,6 +670,7 @@ class NoSQLHandleConfig(object):
 
     def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
+        endpoint_str = None
         if endpoint is not None:
             if not isinstance(endpoint, (str, Region)):
                 raise IllegalArgumentException(
@@ -682,6 +683,7 @@ class NoSQLHandleConfig(object):
                 self._region = Regions.from_region_id(endpoint)
             else:
                 self._region = endpoint
+                endpoint_str = endpoint.get_region_id()
             if self._region is None:
                 ep = endpoint
             else:
@@ -690,7 +692,8 @@ class NoSQLHandleConfig(object):
                     if (region_in_provider is not None and
                             region_in_provider != self._region):
                         raise IllegalArgumentException(
-                            'Specified region ' + endpoint + ' doesn\'t ' +
+                            'Specified region, ' + endpoint_str +
+                            ', doesn\'t ' +
                             'match the region in SignatureProvider.')
                 ep = self._region.endpoint()
         elif provider is not None:
