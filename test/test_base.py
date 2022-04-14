@@ -8,7 +8,7 @@
 from random import choice
 from string import ascii_letters, digits
 from sys import version_info
-from time import sleep
+from time import sleep, time
 from unittest import TestCase
 
 from borneo import ListTablesRequest, QueryResult, TableRequest, TimeUnit
@@ -19,6 +19,7 @@ from testutils import (
     add_test_tier_tenant, compare_version, delete_test_tier_tenant, get_handle)
 
 
+# noinspection PyPep8
 class TestBase(object):
     handle = None
     HOUR_IN_MILLIS = 60 * 60 * 1000
@@ -54,7 +55,8 @@ class TestBase(object):
             self.assertEqual(result.get_write_units(), write_units)
 
     def check_get_result(self, result, value=None, exp_version=None,
-                         expect_expiration=0, timeunit=None, ver_eq=True):
+                         expect_expiration=0, timeunit=None, ver_eq=True,
+                         mod_time_recent=False):
         assert isinstance(self, TestCase)
         # check value
         self.assertEqual(result.get_value(), value)
@@ -77,6 +79,12 @@ class TestBase(object):
                 self.assertLess(actual_expect_diff, TestBase.HOUR_IN_MILLIS)
             else:
                 self.assertLess(actual_expect_diff, TestBase.DAY_IN_MILLIS)
+        modtime = result.get_modification_time()
+        if mod_time_recent:
+            now = round(time() * 1000)
+            self.assertGreater(modtime, now - 10000)
+        else:
+            self.assertLess(modtime, 1)
 
     def check_query_result(self, result, num_records,
                            has_continuation_key=False, rec=None):
@@ -120,7 +128,7 @@ class TestBase(object):
         assert isinstance(self, TestCase)
         # check compartment id
         if (version is None or is_onprem() or
-            version is not None and is_cloudsim() and
+                version is not None and is_cloudsim() and
                 compare_version(version, '1.4.0') >= 0):
             self.assertIsNone(result.get_compartment_id())
         else:
@@ -143,6 +151,8 @@ class TestBase(object):
                                  table_limits.get_write_units())
                 self.assertEqual(result.get_table_limits().get_storage_gb(),
                                  table_limits.get_storage_gb())
+                self.assertEqual(result.get_table_limits().get_mode(),
+                                 table_limits.get_mode())
         # check table schema
         # TODO: For on-prem proxy, TableResult.get_schema() always return None,
         # This is a known bug, when it is fixed, the test should be change.

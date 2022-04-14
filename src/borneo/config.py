@@ -10,9 +10,12 @@ from copy import deepcopy
 from random import random
 from ssl import SSLContext
 from time import sleep, time
+
 try:
+    # noinspection PyCompatibility
     from urlparse import urlparse
 except ImportError:
+    # noinspection PyUnresolvedReferences,PyCompatibility
     from urllib.parse import urlparse
 
 from .auth import AuthorizationProvider
@@ -20,6 +23,7 @@ from .common import CheckValue, Consistency
 from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException)
 from .operations import Request
+
 try:
     from . import iam
 except ImportError:
@@ -570,6 +574,7 @@ class Regions(object):
         return region
 
 
+# noinspection PyPep8
 class NoSQLHandleConfig(object):
     """
     An instance of this class is required by :py:class:`NoSQLHandle`.
@@ -604,10 +609,10 @@ class NoSQLHandleConfig(object):
        endpoint argument)
      * nosql.us-ashburn-1.oci.oraclecloud.com (equivalent to using Region
        Regions.US_ASHBURN_1 as the endpoint argument)
-     * https\://nosql.us-ashburn-1.oci.oraclecloud.com:443
+     * https:\//nosql.us-ashburn-1.oci.oraclecloud.com:443
      * localhost:8080 - used for connecting to a Cloud Simulator instance
        running locally on port 8080
-     * https\://machine-hosting-proxy:443
+     * https:\//machine-hosting-proxy:443
 
     When using the endpoint (vs region id) syntax, if the port is omitted, the
     endpoint uses 8080 if protocol is http, and 443 in all other cases. If the
@@ -642,6 +647,7 @@ class NoSQLHandleConfig(object):
 
     def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
+        endpoint_str = None
         if endpoint is not None:
             if not isinstance(endpoint, (str, Region)):
                 raise IllegalArgumentException(
@@ -654,6 +660,7 @@ class NoSQLHandleConfig(object):
                 self._region = Regions.from_region_id(endpoint)
             else:
                 self._region = endpoint
+                endpoint_str = endpoint.get_region_id()
             if self._region is None:
                 ep = endpoint
             else:
@@ -662,7 +669,8 @@ class NoSQLHandleConfig(object):
                     if (region_in_provider is not None and
                             region_in_provider != self._region):
                         raise IllegalArgumentException(
-                            'Specified region ' + endpoint + ' doesn\'t ' +
+                            'Specified region, ' + endpoint_str +
+                            ', doesn\'t ' +
                             'match the region in SignatureProvider.')
                 ep = self._region.endpoint()
         elif provider is not None:

@@ -13,7 +13,7 @@ from parameters import table_prefix
 from time import time
 
 from borneo import (
-    DeleteRequest, GetRequest, IllegalArgumentException, IllegalStateException,
+    DeleteRequest, Durability, GetRequest, IllegalArgumentException, IllegalStateException,
     PutOption, PutRequest, RequestSizeLimitException, TableLimits,
     TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
 from parameters import is_onprem, table_name, tenant_id, timeout
@@ -29,7 +29,7 @@ class TestPut(unittest.TestCase, TestBase):
         global table_ttl
         table_ttl = TimeToLive.of_days(30)
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
+                'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
 fld_bin BINARY, fld_time TIMESTAMP(9), fld_num NUMBER, fld_json JSON, \
 fld_arr ARRAY(STRING), fld_map MAP(STRING), \
@@ -38,6 +38,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(TableLimits(50, 50, 1))
         cls.table_request(create_request)
+        global serial_version
+        serial_version = cls.handle.get_client().serial_version
 
     @classmethod
     def tearDownClass(cls):
@@ -47,8 +49,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.set_up()
         self.row = get_row(with_sid=False)
         self.key = {'fld_id': 1}
+        dur = Durability(Durability.SYNC_POLICY.SYNC,
+                         Durability.SYNC_POLICY.SYNC,
+                         Durability.REPLICA_ACK_POLICY.SIMPLE_MAJORITY)
         self.put_request = PutRequest().set_value(self.row).set_table_name(
-            table_name).set_timeout(timeout)
+            table_name).set_timeout(timeout).set_durability(dur)
         self.get_request = GetRequest().set_key(self.key).set_table_name(
             table_name)
         self.ttl = TimeToLive.of_hours(24)
@@ -190,7 +195,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 0, 0, 1, 1)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, tb_expect_expiration,
-                              TimeUnit.DAYS)
+                              TimeUnit.DAYS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row
         self.row['fld_time'] = (
@@ -209,7 +214,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 0, 0, 2, 2)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, expect_expiration,
-                              TimeUnit.HOURS)
+                              TimeUnit.HOURS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # update the ttl of the row to never expire
         self.put_request.set_ttl(TimeToLive.of_days(0))
@@ -218,7 +223,8 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self._check_put_result(result)
         self.check_cost(result, 0, 0, 2, 2)
         result = self.handle.get(self.get_request)
-        self.check_get_result(result, self.row, version)
+        self.check_get_result(result, self.row, version,
+                              0, None, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfAbsent(self):
@@ -233,7 +239,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, expect_expiration,
-                              TimeUnit.HOURS)
+                              TimeUnit.HOURS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # put a row with the same primary key to update the row, operation
         # should fail, and return the existing row
@@ -264,7 +270,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, expect_expiration,
-                              TimeUnit.HOURS)
+                              TimeUnit.HOURS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # test PutIfPresent with normal values, update the ttl with table
         # default ttl
@@ -277,7 +283,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, tb_expect_expiration,
-                              TimeUnit.DAYS)
+                              TimeUnit.DAYS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
 
     def testPutIfVersion(self):
@@ -296,7 +302,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, expect_expiration,
-                              TimeUnit.HOURS)
+                              TimeUnit.HOURS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # test PutIfVersion with normal values, operation should fail because
         # version not match, and return the existing row
@@ -323,7 +329,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.get_request.set_key(key)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, tb_expect_expiration,
-                              TimeUnit.DAYS)
+                              TimeUnit.DAYS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # test put a row with an extra field not in the table, this will fail
         # because it's not an exact match when we set exact_match=True
@@ -354,7 +360,8 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         self.check_cost(result, 0, 0, 1, 1)
         self.get_request.set_table_name(id_table).set_key(key)
         result = self.handle.get(self.get_request)
-        self.check_get_result(result, expected, version)
+        self.check_get_result(result, expected, version,
+                              0, None, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
         # test put a row with identity field, this will fail because id is
         # 'generated always' and in that path it is not legal to provide a value

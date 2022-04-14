@@ -28,9 +28,11 @@ from .exception import (
     ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
     SecurityInfoNotReadyException, SystemException, TableExistsException,
     TableLimitException, TableNotFoundException, TableSizeException,
-    UnauthorizedException, WriteThrottlingException)
+    UnauthorizedException, UnsupportedProtocolException,
+    WriteThrottlingException)
 from .kv import AuthenticationException
 from .query import PlanIter, QueryDriver, TopologyInfo
+
 try:
     from . import operations
 except ImportError:
@@ -46,7 +48,7 @@ class BinaryProtocol(object):
     TRACE_LEVEL = 0
 
     # Serial version of the protocol.
-    SERIAL_VERSION = 2
+    DEFAULT_SERIAL_VERSION = 3
 
     # The max size of WriteMultiple request.
     BATCH_REQUEST_SIZE_LIMIT = 25 * 1024 * 1024
@@ -137,7 +139,11 @@ class BinaryProtocol(object):
                       TABLE_DEPLOYMENT_LIMIT_EXCEEDED=19,
                       TENANT_DEPLOYMENT_LIMIT_EXCEEDED=20,
                       # added in V2.
-                      OPERATION_NOT_SUPPORTED=21)
+                      OPERATION_NOT_SUPPORTED=21,
+                      ETAG_MISMATCH=22,
+                      CANNOT_CANCEL_WORK_REQUEST=23,
+                      # added in V3
+                      UNSUPPORTED_PROTOCOL=24)
 
     # Error codes for user throttling, range from 50 to 100(exclusive).
     THROTTLING_ERROR = enum(READ_LIMIT_EXCEEDED=50,
@@ -164,6 +170,12 @@ class BinaryProtocol(object):
     """
     SERVER_OTHER_ERROR = enum(UNKNOWN_ERROR=125,
                               ILLEGAL_STATE=126)
+
+    """
+    in V3 and above, TableLimits includes a mode
+    """
+    CAPACITY_MODE = enum(PROVISIONED=1,
+                         ON_DEMAND=2)
 
     @staticmethod
     def check_request_size_limit(request, request_size):
@@ -215,7 +227,7 @@ class BinaryProtocol(object):
             BinaryProtocol.read_field_value(bis)))
 
     @staticmethod
-    def deserialize_table_result(bis, result):
+    def deserialize_table_result(bis, result, serial_version):
         has_info = bis.read_boolean()
         if has_info:
             result.set_compartment_id(BinaryProtocol.read_string(bis))
@@ -227,17 +239,20 @@ class BinaryProtocol(object):
                 read_kb = BinaryProtocol.read_packed_int(bis)
                 write_kb = BinaryProtocol.read_packed_int(bis)
                 storage_gb = BinaryProtocol.read_packed_int(bis)
+                capacity_mode = BinaryProtocol.CAPACITY_MODE.PROVISIONED
+                if serial_version > 2:
+                    capacity_mode = bis.read_byte()
                 # on-prem tables may return all 0 because of protocol
                 # limitations that lump the schema with limits. Return None to
                 # user for those cases.
-                if not(read_kb == 0 and write_kb == 0 and storage_gb == 0):
+                if not (read_kb == 0 and write_kb == 0 and storage_gb == 0):
                     result.set_table_limits(
-                        TableLimits(read_kb, write_kb, storage_gb))
+                        TableLimits(read_kb, write_kb, storage_gb, capacity_mode))
                 result.set_schema(BinaryProtocol.read_string(bis))
             result.set_operation_id(BinaryProtocol.read_string(bis))
 
     @staticmethod
-    def deserialize_write_response(bis, result):
+    def deserialize_write_response(bis, result, serial_version):
         return_info = bis.read_boolean()
         if not return_info:
             return
@@ -245,6 +260,10 @@ class BinaryProtocol(object):
         result.set_existing_value(BinaryProtocol.convert_value_to_none(
             BinaryProtocol.read_field_value(bis)))
         result.set_existing_version(BinaryProtocol.read_version(bis))
+        if serial_version > 2:
+            result.set_existing_modification_time(BinaryProtocol.read_packed_long(bis))
+        else:
+            result.set_existing_modification_time(0)
 
     @staticmethod
     def get_operation_state(state):
@@ -283,6 +302,9 @@ class BinaryProtocol(object):
         elif code == BinaryProtocol.THROTTLING_ERROR.WRITE_LIMIT_EXCEEDED:
             return WriteThrottlingException(msg)
         elif code == BinaryProtocol.USER_ERROR.BAD_PROTOCOL_MESSAGE:
+            # V2 proxy will return this message if V3 is used in the driver
+            if "Invalid driver serial version" in msg:
+                return UnsupportedProtocolException(msg)
             return IllegalArgumentException('Bad protocol message: ' + msg)
         elif (code ==
               BinaryProtocol.USER_ERROR.BATCH_OP_NUMBER_LIMIT_EXCEEDED):
@@ -322,8 +344,10 @@ class BinaryProtocol(object):
             return TableNotFoundException(msg)
         elif (code == BinaryProtocol.USER_ERROR.TABLE_DEPLOYMENT_LIMIT_EXCEEDED
               or code == (
-                  BinaryProtocol.USER_ERROR.TENANT_DEPLOYMENT_LIMIT_EXCEEDED)):
+                      BinaryProtocol.USER_ERROR.TENANT_DEPLOYMENT_LIMIT_EXCEEDED)):
             return DeploymentException(msg)
+        elif code == BinaryProtocol.USER_ERROR.UNSUPPORTED_PROTOCOL:
+            return UnsupportedProtocolException(msg)
         else:
             return NoSQLException(
                 'Unknown error code ' + str(code) + ': ' + msg)
@@ -597,14 +621,28 @@ class BinaryProtocol(object):
 
     # Writes fields from WriteRequest
     @staticmethod
-    def serialize_write_request(request, bos):
+    def serialize_write_request(request, bos, serial_version):
         BinaryProtocol.serialize_request(request, bos)
         BinaryProtocol.write_string(bos, request.get_table_name())
         bos.write_boolean(request.get_return_row())
+        BinaryProtocol.write_durability(request, bos, serial_version)
 
     @staticmethod
     def serialize_request(request, bos):
         BinaryProtocol.write_packed_int(bos, request.get_timeout())
+
+    @staticmethod
+    def write_durability(request, bos, serial_version):
+        if serial_version < 3:
+            return
+        dur = request.get_durability()
+        if dur is None:
+            bos.write_byte(0)
+            return
+        val = dur.master_sync
+        val |= (dur.replica_sync << 2)
+        val |= (dur.replica_ack << 4)
+        bos.write_byte(val)
 
     @staticmethod
     def trace(msg, level):
@@ -804,9 +842,9 @@ class BinaryProtocol(object):
         BinaryProtocol.write_packed_int(bos, length)
 
     @staticmethod
-    def write_serial_version(bos):
+    def write_serial_version(bos, serial_version):
         # Writes the (short) serial version
-        bos.write_short_int(BinaryProtocol.SERIAL_VERSION)
+        bos.write_short_int(serial_version)
 
     @staticmethod
     def write_string(bos, value):
@@ -940,7 +978,7 @@ class DeleteRequestSerializer(RequestSerializer):
         if self._is_sub_request:
             bos.write_boolean(request.get_return_row())
         else:
-            BinaryProtocol.serialize_write_request(request, bos)
+            BinaryProtocol.serialize_write_request(request, bos, serial_version)
         BinaryProtocol.write_field_value(bos, request.get_key())
         if match_version is not None:
             BinaryProtocol.write_version(bos, match_version)
@@ -949,7 +987,7 @@ class DeleteRequestSerializer(RequestSerializer):
         result = operations.DeleteResult()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         result.set_success(bis.read_boolean())
-        BinaryProtocol.deserialize_write_response(bis, result)
+        BinaryProtocol.deserialize_write_response(bis, result, serial_version)
         return result
 
 
@@ -1004,6 +1042,10 @@ class GetRequestSerializer(RequestSerializer):
                 BinaryProtocol.read_field_value(bis)))
             result.set_expiration_time(BinaryProtocol.read_packed_long(bis))
             result.set_version(BinaryProtocol.read_version(bis))
+            if serial_version > 2:
+                result.set_modification_time(BinaryProtocol.read_packed_long(bis))
+            else:
+                result.set_modification_time(0)
         return result
 
 
@@ -1017,7 +1059,7 @@ class GetTableRequestSerializer(RequestSerializer):
 
     def deserialize(self, request, bis, serial_version):
         result = operations.TableResult()
-        BinaryProtocol.deserialize_table_result(bis, result)
+        BinaryProtocol.deserialize_table_result(bis, result, serial_version)
         return result
 
 
@@ -1050,6 +1092,7 @@ class MultiDeleteRequestSerializer(RequestSerializer):
         BinaryProtocol.write_op_code(bos, BinaryProtocol.OP_CODE.MULTI_DELETE)
         BinaryProtocol.serialize_request(request, bos)
         BinaryProtocol.write_string(bos, request.get_table_name())
+        BinaryProtocol.write_durability(request, bos, serial_version)
         BinaryProtocol.write_field_value(bos, request.get_key())
         BinaryProtocol.write_field_range(bos, request.get_range())
         BinaryProtocol.write_packed_int(bos, request.get_max_write_kb())
@@ -1147,7 +1190,7 @@ class PutRequestSerializer(RequestSerializer):
         if self._is_sub_request:
             bos.write_boolean(request.get_return_row())
         else:
-            BinaryProtocol.serialize_write_request(request, bos)
+            BinaryProtocol.serialize_write_request(request, bos, serial_version)
         bos.write_boolean(request.get_exact_match())
         BinaryProtocol.write_packed_int(bos, request.get_identity_cache_size())
         BinaryProtocol.write_record(bos, request.get_value())
@@ -1163,7 +1206,7 @@ class PutRequestSerializer(RequestSerializer):
         if success:
             result.set_version(BinaryProtocol.read_version(bis))
         # return row info.
-        BinaryProtocol.deserialize_write_response(bis, result)
+        BinaryProtocol.deserialize_write_response(bis, result, serial_version)
         # generated identity column value
         BinaryProtocol.deserialize_generated_value(bis, result)
         return result
@@ -1311,6 +1354,8 @@ class TableRequestSerializer(RequestSerializer):
             bos.write_int(limits.get_read_units())
             bos.write_int(limits.get_write_units())
             bos.write_int(limits.get_storage_gb())
+            if serial_version > 2:
+                bos.write_byte(limits.get_mode())
             if request.get_table_name() is not None:
                 bos.write_boolean(True)
                 BinaryProtocol.write_string(bos, request.get_table_name())
@@ -1321,7 +1366,7 @@ class TableRequestSerializer(RequestSerializer):
 
     def deserialize(self, request, bis, serial_version):
         result = operations.TableResult()
-        BinaryProtocol.deserialize_table_result(bis, result)
+        BinaryProtocol.deserialize_table_result(bis, result, serial_version)
         return result
 
 
@@ -1377,6 +1422,7 @@ class WriteMultipleRequestSerializer(RequestSerializer):
         BinaryProtocol.serialize_request(request, bos)
         BinaryProtocol.write_string(bos, request.get_table_name())
         BinaryProtocol.write_packed_int(bos, num)
+        BinaryProtocol.write_durability(request, bos, serial_version)
         for op in request.get_operations():
             start = bos.get_offset()
             bos.write_boolean(op.is_abort_if_unsuccessful())
@@ -1399,20 +1445,20 @@ class WriteMultipleRequestSerializer(RequestSerializer):
             num = BinaryProtocol.read_packed_int(bis)
             count = 0
             while count < num:
-                result.add_result(self._create_operation_result(bis))
+                result.add_result(self._create_operation_result(bis, serial_version))
                 count += 1
         else:
             result.set_failed_operation_index(bis.read_byte())
-            result.add_result(self._create_operation_result(bis))
+            result.add_result(self._create_operation_result(bis, serial_version))
         return result
 
     @staticmethod
-    def _create_operation_result(bis):
+    def _create_operation_result(bis, serial_version):
         op_result = operations.OperationResult()
         op_result.set_success(bis.read_boolean())
         if bis.read_boolean():
             op_result.set_version(BinaryProtocol.read_version(bis))
-        BinaryProtocol.deserialize_write_response(bis, op_result)
+        BinaryProtocol.deserialize_write_response(bis, op_result, serial_version)
         # generated identity column value
         BinaryProtocol.deserialize_generated_value(bis, op_result)
         return op_result

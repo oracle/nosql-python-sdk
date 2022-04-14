@@ -10,6 +10,7 @@ from datetime import datetime
 from collections import OrderedDict
 from decimal import Decimal, setcontext
 from sys import getsizeof, version_info
+
 try:
     from sys import maxint as maxvalue
 except ImportError:
@@ -19,6 +20,7 @@ from .common import ByteOutputStream, CheckValue, Empty, JsonNone, enum
 from .exception import (
     IllegalArgumentException, IllegalStateException, NoSQLException,
     QueryException, QueryStateException, RetryableException)
+
 try:
     from . import serde
 except ImportError:
@@ -261,7 +263,7 @@ class PlanIter(object):
             return None
         value = PlanIter.PlanIterKind.value_of(kind)
         if PlanIter.TRACEDESER:
-            print ('Deserializing ' + value + ' iter.')
+            print('Deserializing ' + value + ' iter.')
         if kind == PlanIter.PlanIterKind.ARITH_OP:
             op_iter = ArithOpIter(bis)
         elif kind == PlanIter.PlanIterKind.CONST:
@@ -289,7 +291,7 @@ class PlanIter(object):
             raise QueryStateException('Unknown query iterator kind: ' + value)
 
         if PlanIter.TRACEDESER:
-            print ('Done Deserializing ' + value + ' iter')
+            print('Done Deserializing ' + value + ' iter')
         return op_iter
 
     @staticmethod
@@ -579,10 +581,10 @@ class ArithOpIter(PlanIter):
                 if self._ops[i] == '+':
                     if ((res_type ==
                          serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
                         res += arg_val
                     elif (res_type ==
                           serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
@@ -593,10 +595,10 @@ class ArithOpIter(PlanIter):
                 else:
                     if ((res_type ==
                          serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
                         res -= arg_val
                     elif (res_type ==
                           serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
@@ -608,10 +610,10 @@ class ArithOpIter(PlanIter):
                 if self._ops[i] == '*':
                     if ((res_type ==
                          serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
                         res *= arg_val
                     elif (res_type ==
                           serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
@@ -622,10 +624,10 @@ class ArithOpIter(PlanIter):
                 else:
                     if ((res_type ==
                          serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
-                        (res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                            (res_type ==
+                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
                         res /= arg_val
                     elif (res_type ==
                           serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
@@ -1097,7 +1099,7 @@ class GroupIter(PlanIter):
             aggr_tuple = state.results.get(state.gb_tuple)
             if aggr_tuple is None:
                 num_aggr_columns = (
-                    len(self._column_names) - self.num_gb_columns)
+                        len(self._column_names) - self.num_gb_columns)
                 gb_tuple = GroupIter.GroupTuple(self.num_gb_columns)
                 aggr_tuple = list()
                 aggr_tuple_size = 0
@@ -1166,7 +1168,7 @@ class GroupIter(PlanIter):
         elif (aggr_kind == PlanIter.FUNC_CODE.FN_MAX or
               aggr_kind == PlanIter.FUNC_CODE.FN_MIN):
             if (val is None or isinstance(val, bytearray) or
-                isinstance(val, dict) or isinstance(val, list) or
+                    isinstance(val, dict) or isinstance(val, list) or
                     isinstance(val, Empty) or isinstance(val, JsonNone)):
                 return
             if aggr_value.value is None:
@@ -1222,8 +1224,8 @@ class GroupIter(PlanIter):
         def __init__(self, kind):
             self.got_numeric_input = False
             if (kind == PlanIter.FUNC_CODE.FN_COUNT or
-                kind == PlanIter.FUNC_CODE.FN_COUNT_NUMBERS or
-                kind == PlanIter.FUNC_CODE.FN_COUNT_STAR or
+                    kind == PlanIter.FUNC_CODE.FN_COUNT_NUMBERS or
+                    kind == PlanIter.FUNC_CODE.FN_COUNT_STAR or
                     kind == PlanIter.FUNC_CODE.FN_SUM):
                 self.value = 0
             elif (kind == PlanIter.FUNC_CODE.FN_MAX or
@@ -1251,15 +1253,15 @@ class GroupIter(PlanIter):
                     if count_memory:
                         rcb.inc_memory_consumption(
                             PlanIter.sizeof(self.value) - sz)
-                elif(isinstance(self.value, float) or
-                     isinstance(self.value, Decimal)):
+                elif (isinstance(self.value, float) or
+                      isinstance(self.value, Decimal)):
                     self.value += val
                 else:
                     assert False
             elif isinstance(val, Decimal):
                 self.got_numeric_input = True
                 if (CheckValue.is_int(self.value) or
-                    CheckValue.is_long(self.value) or
+                        CheckValue.is_long(self.value) or
                         isinstance(self.value, float)):
                     if count_memory:
                         sz = PlanIter.sizeof(self.value)
@@ -1909,8 +1911,8 @@ class SFWIter(PlanIter):
                 output += 'Grouping by the first expression in the SELECT list'
             else:
                 output += (
-                    'Grouping by the first ' + str(self._num_gb_columns) +
-                    'expressions in the SELECT list')
+                        'Grouping by the first ' + str(self._num_gb_columns) +
+                        'expressions in the SELECT list')
             output += '\n\n'
         output = formatter.indent(output)
         output += 'SELECT:\n'
@@ -2423,16 +2425,16 @@ class Compare(object):
                 if CheckValue.is_digit(v1):
                     return 1
                 if (v1 is None or isinstance(v1, JsonNone) or
-                    isinstance(v1, Empty) or isinstance(v1, bool) or
+                        isinstance(v1, Empty) or isinstance(v1, bool) or
                         isinstance(v1, str)):
                     return -1
         elif CheckValue.is_digit(v0):
             if CheckValue.is_digit(v1):
                 return -1 if v0 < v1 else (0 if v0 == v1 else 1)
             if (for_sort and
-                (v1 is None or isinstance(v1, JsonNone) or isinstance(v1, Empty)
-                 or isinstance(v1, bool) or isinstance(v1, str) or
-                 isinstance(v1, datetime))):
+                    (v1 is None or isinstance(v1, JsonNone) or isinstance(v1, Empty)
+                     or isinstance(v1, bool) or isinstance(v1, str) or
+                     isinstance(v1, datetime))):
                 return -1
         raise QueryStateException(
             'Cannot compare value of type ' + str(type(v0)) +
