@@ -5,12 +5,17 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=True
+
 from os import path
 from requests import Request
 from threading import Lock, Timer
 from time import sleep, time
 try:
-    import oci
+    from oci.signer import Signer
+    from oci.auth.signers import SecurityTokenSigner
+    from oci.config import from_file
+    oci = 'yes'
 except ImportError:
     oci = None
 
@@ -137,8 +142,8 @@ class SignatureProvider(AuthorizationProvider):
         if provider is not None:
             if not isinstance(
                 provider,
-                (oci.signer.Signer,
-                 oci.auth.signers.SecurityTokenSigner)):
+                (signer.Signer,
+                 auth.signers.SecurityTokenSigner)):
                 raise IllegalArgumentException(
                     'provider should be an instance of oci.signer.Signer or ' +
                     'oci.auth.signers.SecurityTokenSigner.')
@@ -156,21 +161,21 @@ class SignatureProvider(AuthorizationProvider):
             if config_file is None and profile_name is None:
                 # Use default user profile and private key from default path of
                 # configuration file ~/.oci/config.
-                config = oci.config.from_file()
+                config = from_file()
             elif config_file is None and profile_name is not None:
                 # Use user profile with given profile name and private key from
                 # default path of configuration file ~/.oci/config.
-                config = oci.config.from_file(profile_name=profile_name)
+                config = from_file(profile_name=profile_name)
             elif config_file is not None and profile_name is None:
                 # Use user profile with default profile name and private key
                 # from specified configuration file.
-                config = oci.config.from_file(file_location=config_file)
+                config = from_file(file_location=config_file)
             else:  # config_file is not None and profile_name is not None
                 # Use user profile with given profile name and private key from
                 # specified configuration file.
-                config = oci.config.from_file(
+                config = from_file(
                     file_location=config_file, profile_name=profile_name)
-            self._provider = oci.signer.Signer(
+            self._provider = signer.Signer(
                 config['tenancy'], config['user'], config['fingerprint'],
                 config['key_file'], config.get('pass_phrase'),
                 config.get('key_content'))
@@ -190,7 +195,7 @@ class SignatureProvider(AuthorizationProvider):
             else:
                 key_file = None
                 key_content = private_key
-            self._provider = oci.signer.Signer(
+            self._provider = signer.Signer(
                 tenant_id, user_id, fingerprint, key_file, pass_phrase,
                 key_content)
             if region is not None:
@@ -248,7 +253,7 @@ class SignatureProvider(AuthorizationProvider):
         :rtype: str
         """
         if not isinstance(self._provider,
-                          oci.auth.signers.EphemeralResourcePrincipalSigner):
+                          auth.signers.EphemeralResourcePrincipalSigner):
             raise IllegalArgumentException(
                 'Only ephemeral resource principal support.')
         return self._provider.get_claim(key)
@@ -323,9 +328,9 @@ class SignatureProvider(AuthorizationProvider):
         """
         SignatureProvider._check_oci()
         if iam_auth_uri is None:
-            provider = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()
+            provider = auth.signers.InstancePrincipalsSecurityTokenSigner()
         else:
-            provider = oci.auth.signers.InstancePrincipalsSecurityTokenSigner(
+            provider = auth.signers.InstancePrincipalsSecurityTokenSigner(
                 federation_endpoint=iam_auth_uri)
         if region is not None:
             provider.region = region.get_region_id()
@@ -359,7 +364,7 @@ class SignatureProvider(AuthorizationProvider):
         """
         SignatureProvider._check_oci()
         signature_provider = SignatureProvider(
-            oci.auth.signers.get_resource_principals_signer())
+            auth.signers.get_resource_principals_signer())
         return (signature_provider if logger is None else
                 signature_provider.set_logger(logger))
 
@@ -391,7 +396,7 @@ class SignatureProvider(AuthorizationProvider):
         :returns: tenant OCID of user.
         :rtype: str
         """
-        if isinstance(self._provider, oci.signer.Signer):
+        if isinstance(self._provider, signer.Signer):
             return self._provider.api_key.split('/')[0]
 
     def _refresh_task(self):
@@ -403,10 +408,10 @@ class SignatureProvider(AuthorizationProvider):
                 # refresh security token before create new signature
                 if (isinstance(
                     self._provider,
-                    oci.auth.signers.InstancePrincipalsSecurityTokenSigner) or
+                    auth.signers.InstancePrincipalsSecurityTokenSigner) or
                     isinstance(
                     self._provider,
-                    oci.auth.signers.EphemeralResourcePrincipalSigner)):
+                    auth.signers.EphemeralResourcePrincipalSigner)):
                     self._provider.refresh_security_token()
 
                 self.get_signature_details_internal()

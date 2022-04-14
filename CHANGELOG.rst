@@ -3,14 +3,17 @@ Change Log
 All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
+
 ====================
- Unpublished
+ 5.3.1 - 2022-04-14
 ====================
 
 Fixed
 _____
 
 * Cloud only: fixed the internal, automatic refresh of the security token when using Instance Principal authentication so that it is done well before the token expires
+* Use selective module import for OCI SDK modules, and set the environment variable, OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=1, to improve import speed by suppressing import of unnecessary modules from the OCI SDK
+* Added dependencies to setup.py so that "pip install" automatically includes them
 
 Added
 _____

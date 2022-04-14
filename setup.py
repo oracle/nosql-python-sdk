@@ -31,7 +31,10 @@ with open_relative('README.rst') as f:
     readme = f.read()
 
 requires = [
-    'requests'
+    'python-dateutil>=2.7.0',
+    'requests>=2.12.0'
+    # don't install oci by default, it's only used for the cloud
+    # 'oci>=2.2.18'
 ]
 
 setup(
@@ -45,7 +48,7 @@ setup(
     long_description=readme,
 
     author='Oracle',
-    author_email='fei.p.peng@oracle.com',
+    author_email='george.feinberg@oracle.com',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     include_package_data=True,
