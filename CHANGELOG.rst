@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
- 5.3.1 - 2022-04-14
+ 5.3.2 - 2022-04-15
 ====================
 
 Fixed
