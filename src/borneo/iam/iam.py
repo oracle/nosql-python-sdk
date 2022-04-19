@@ -142,8 +142,7 @@ class SignatureProvider(AuthorizationProvider):
         if provider is not None:
             if not isinstance(
                 provider,
-                (Signer,
-                 auth.signers.SecurityTokenSigner)):
+                (Signer, SecurityTokenSigner)):
                 raise IllegalArgumentException(
                     'provider should be an instance of oci.signer.Signer or ' +
                     'oci.auth.signers.SecurityTokenSigner.')
@@ -429,7 +428,7 @@ class SignatureProvider(AuthorizationProvider):
                     error_logged = True
 
             # check for timeout in the loop
-            if (int(round(time() * 1000)) - start_time >= timeout):
+            if (int(round(time() * 1000)) - start_ms >= timeout):
                 self._logutils.log_error(
                     'Request signature refresh timed out after ' + str(timeout))
                 break
