@@ -11,10 +11,14 @@ from socket import error
 from threading import Thread
 from time import sleep, time
 try:
+    # noinspection PyCompatibility
     from SimpleHTTPServer import SimpleHTTPRequestHandler
+    # noinspection PyCompatibility
     from SocketServer import TCPServer
 except ImportError:
+    # noinspection PyCompatibility
     from http.server import SimpleHTTPRequestHandler
+    # noinspection PyCompatibility
     from socketserver import TCPServer
 
 from borneo import IllegalArgumentException

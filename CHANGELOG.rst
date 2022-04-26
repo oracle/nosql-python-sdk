@@ -5,19 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
 ====================
- Unpublished
+ Unreleased
 ====================
 
 Added
 _____
+
 * Added client statistics. Users can enable internal driver statistics by
   using ONPS_PROFILE=[none|regular|more|all] or by using the
   NoSQLHandleConfig.set_stats_profile() api.
+
+====================
+ 5.3.1 - 2022-04-14
+====================
+
+Fixed
+_____
+
+* Cloud only: fixed the internal, automatic refresh of the security token when using Instance Principal authentication so that it is done well before the token expires
+* Use selective module import for OCI SDK modules, and set the environment variable, OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=1, to improve import speed by suppressing import of unnecessary modules from the OCI SDK
+* Added dependencies to setup.py so that "pip install" automatically includes them
+
+Added
+_____
+
+* Support for session persistence. If a Set-Cookie HTTP header is present  borneo will now set a Cookie header using the requested session value
+
+====================
+ 5.3.0 - 2022-02-17
+====================
+
+Added
+_____
+
+* Cloud only: support for on-demand tables
+
+  * Changes to TableLimits to specify on-demand tables
+* Existing row modification is made available in Results when the operation fails
+  and the previous is requested
+* On-premise only: support for setting Durability in write operations
+
+  * Added Durability class and methods to set Durability
 
 Changed
 _______
 
 * Cloud only: updated OCI regions
+* The SDK now detects the version of the server it's connected to  and adjusts its capabilities to match. This allows the SDK to communicate with servers that may only support an earlier protocol version, with the corresponding feature restrictions
 
 Fixed
 _____

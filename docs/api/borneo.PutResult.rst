@@ -10,6 +10,7 @@ PutResult
 
    .. autosummary::
 
+      ~PutResult.get_existing_modification_time
       ~PutResult.get_existing_value
       ~PutResult.get_existing_version
       ~PutResult.get_generated_value
@@ -21,6 +22,7 @@ PutResult
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: get_existing_modification_time
    .. automethod:: get_existing_value
    .. automethod:: get_existing_version
    .. automethod:: get_generated_value

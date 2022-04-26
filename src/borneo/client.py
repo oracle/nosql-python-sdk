@@ -12,14 +12,16 @@ from requests import Session
 from sys import version_info
 from threading import Lock
 from time import time
+
 from .common import (
     ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter,
-    synchronized)
+    TableLimits, synchronized)
 from .config import DefaultRetryHandler
-from .exception import IllegalArgumentException, RequestSizeLimitException
+from .exception import (IllegalArgumentException,
+                        OperationNotSupportedException, RequestSizeLimitException)
 from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
-from .operations import GetTableRequest, QueryResult
+from .operations import GetTableRequest, QueryResult, TableRequest, WriteRequest
 from .query import QueryDriver
 from .serde import BinaryProtocol
 from .version import __version__
@@ -58,6 +60,8 @@ class Client(object):
             raise IllegalArgumentException(
                 'Must configure AuthorizationProvider.')
         self._sess = Session()
+        self._session_cookie = None
+
         ssl_ctx = None
         url_scheme = self._url.scheme
         if url_scheme == 'https':
@@ -66,15 +70,31 @@ class Client(object):
                 raise IllegalArgumentException(
                     'Unable to configure https: SSLContext is missing from ' +
                     'config.')
+
+        # Session uses a urllib3 PoolManager for pooling connections. This is
+        # configured using requests.adapter.HTPPAdapter (see SSLAdapter in
+        # common.py)
+        #
+        # pool_connections: applies to the number of
+        #   pools to keep, where a pool applies to a single host.
+        # pool_maxsize: how many connections to reuse. More than this can
+        #   be created but will be dropped once used
+        # pool_block: if True once pool_maxsize connections are created new
+        #   calls will be blocked until a connection is released, defaults to
+        #   False in urllib3
+        # max_retries: internal retries in urllib3 because of network/system
+        #   issues, defaults to 0 in urllib3
+        #
         adapter = SSLAdapter(
             ssl_ctx, pool_connections=self._pool_connections,
             pool_maxsize=self._pool_maxsize, max_retries=5, pool_block=True)
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
+        self.serial_version = BinaryProtocol.DEFAULT_SERIAL_VERSION
         # StoreAccessTokenProvider means onprem
-        if (config.get_rate_limiting_enabled() and
-                not isinstance(self._auth_provider, StoreAccessTokenProvider)):
+        self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
+        if config.get_rate_limiting_enabled() and self._is_cloud:
             self._logutils.log_debug(
                 'Starting client with rate limiting enabled')
             self._rate_limiter_map = RateLimiterMap()
@@ -87,6 +107,7 @@ class Client(object):
             self._threadpool = None
         self.lock = Lock()
         self._ratelimiter_duration_seconds = 30
+        self._one_time_messages = {}
         self._stats_control = StatsControl(config,
                                            logger,
                                            config.get_rate_limiting_enabled())
@@ -193,10 +214,20 @@ class Client(object):
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
         timeout_ms = request.get_timeout()
+        headers = {'Host': self._url.hostname,
+                   'Content-Type': 'application/octet-stream',
+                   'Connection': 'keep-alive',
+                   'Accept': 'application/octet-stream',
+                   'User-Agent': self._user_agent}
+
+        # set the session cookie if available
+        if self._session_cookie is not None:
+            headers['Cookie'] = self._session_cookie
+
         # We expressly check size limit below based on onprem versus cloud. Set
         # the request to not check size limit inside self._write_content().
         request.set_check_request_size(False)
-        content = self._write_content(request)
+        content = self.serialize_request(request, headers)
         content_len = len(content)
         # If on-premise the auth_provider will always be a
         # StoreAccessTokenProvider. If so, check against configurable limit.
@@ -209,12 +240,6 @@ class Client(object):
         else:
             request.set_check_request_size(True)
             BinaryProtocol.check_request_size_limit(request, content_len)
-        headers = {'Host': self._url.hostname,
-                   'Content-Type': 'application/octet-stream',
-                   'Connection': 'keep-alive',
-                   'Accept': 'application/octet-stream',
-                   'Content-Length': str(content_len),
-                   'User-Agent': self._user_agent}
         if request.get_compartment() is None:
             request.set_compartment_internal(
                 self._config.get_default_compartment())
@@ -222,12 +247,41 @@ class Client(object):
             self._logutils.log_debug('Request: ' + request.__class__.__name__)
         request_id = self._next_request_id()
         headers[HttpConstants.REQUEST_ID_HEADER] = request_id
+        self.check_request(request)
         # TODO: look at avoiding creating this object on each request
         request_utils = RequestUtils(
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
         return request_utils.do_post_request(self._request_uri, headers,
             content, timeout_ms, self._stats_control)
+
+    # set the session cookie if in return headers (see RequestUtils in http.py)
+    @synchronized
+    def set_session_cookie(self, cookie):
+        # only grab the "session=value" portion of the header
+        value = cookie.partition(';')[0]
+        if self._logutils.is_enabled_for(DEBUG):
+            self._logutils.log_debug(
+                'Set cookie value: ' + value)
+
+        self._session_cookie = value
+
+    def check_request(self, request):
+        # warn if using features not implemented at the connected server
+        # currently cloud does not support Durability
+        if self.serial_version < 3 or self._is_cloud:
+            if isinstance(request, WriteRequest) and request.get_durability() is not None:
+                self.one_time_message('The requested feature is not supported ' +
+                                      'by the connected server: Durability')
+        # ondemand tables are not available in V2 or onprem
+        if self.serial_version < 3 or not self._is_cloud:
+            if (isinstance(request, TableRequest) and
+                    request.get_table_limits() is not None and
+                    request.get_table_limits().get_mode() ==
+                    TableLimits.CAPACITY_MODE.ON_DEMAND):
+                raise OperationNotSupportedException(
+                    'The requested feature is not supported ' +
+                    'by the connected server: on demand capacity table')
 
     @synchronized
     def _next_request_id(self):
@@ -241,6 +295,17 @@ class Client(object):
 
     def get_auth_provider(self):
         return self._auth_provider
+
+    # for test use
+    def get_is_cloud(self):
+        return self._is_cloud
+
+    @synchronized
+    def one_time_message(self, message):
+        val = self._one_time_messages.get(message)
+        if val is None:
+            self._one_time_messages[message] = "1"
+            self._logutils.log_warning(message)
 
     def reset_rate_limiters(self, table_name):
         """
@@ -332,13 +397,13 @@ class Client(object):
         if self._proxy_host is not None:
             if self._proxy_username is None:
                 proxy_url = (
-                    'http://' + self._proxy_host + ':' + str(self._proxy_port))
+                        'http://' + self._proxy_host + ':' + str(self._proxy_port))
             else:
                 assert self._proxy_password is not None
                 proxy_url = (
-                    'http://' + self._proxy_username + ':' +
-                    self._proxy_password + '@' + self._proxy_host + ':' +
-                    str(self._proxy_port))
+                        'http://' + self._proxy_username + ':' +
+                        self._proxy_password + '@' + self._proxy_host + ':' +
+                        str(self._proxy_port))
             sess.proxies = {'http': proxy_url, 'https': proxy_url}
 
     @staticmethod
@@ -361,13 +426,13 @@ class Client(object):
                 self._table_limit_update_map[table_name] = now_nanos - 1
             else:
                 self._table_limit_update_map[table_name] = (
-                    now_nanos + Client.LIMITER_REFRESH_NANOS)
+                        now_nanos + Client.LIMITER_REFRESH_NANOS)
             return
         if needs_refresh:
             self._table_limit_update_map[table_name] = now_nanos - 1
         else:
             self._table_limit_update_map[table_name] = (
-                now_nanos + Client.LIMITER_REFRESH_NANOS)
+                    now_nanos + Client.LIMITER_REFRESH_NANOS)
 
     def _table_needs_refresh(self, table_name):
         # Return True if table needs limits refresh.
@@ -404,7 +469,7 @@ class Client(object):
             if then is not None:
                 # Allow retry after 100ms.
                 self._table_limit_update_map[table_name] = (
-                    int(round(time() * 1000000000)) + 100000000)
+                        int(round(time() * 1000000000)) + 100000000)
             return
         self._logutils.log_debug(
             'GetTableRequest completed for table "' + table_name + '"')
@@ -414,8 +479,21 @@ class Client(object):
                 'Background thread added limiters for table "' + table_name +
                 '"')
 
-    @staticmethod
-    def _write_content(request):
+    def decrement_serial_version(self):
+        """
+        Decrements the serial version, if it is greater than the minimum.
+        For internal use only.
+
+        The current minimum value is 2.
+        :returns: true if the version was decremented, false otherwise.
+        :rtype: bool
+        """
+        if self.serial_version > 2:
+            self.serial_version -= 1
+            return True
+        return False
+
+    def _write_content(self, request):
         """
         Serializes the request payload, sent as http content.
 
@@ -426,9 +504,25 @@ class Client(object):
         """
         content = bytearray()
         bos = ByteOutputStream(content)
-        BinaryProtocol.write_serial_version(bos)
+        BinaryProtocol.write_serial_version(bos, self.serial_version)
         request.create_serializer().serialize(
-            request, bos, BinaryProtocol.SERIAL_VERSION)
+            request, bos, self.serial_version)
+        return content
+
+    def serialize_request(self, request, headers):
+        """
+        Serializes the request payload and sets the Content-Length
+        header to the correct value.
+
+        :param request: the request to be executed by the server.
+        :type request: Request
+        :param headers: the http headers
+        :type headers: Dictionary
+        :returns: the bytearray that contains the content.
+        :rtype: bytearray
+        """
+        content = self._write_content(request)
+        headers.update({'Content-Length': str(len(content))})
         return content
 
     def get_stats_control(self):

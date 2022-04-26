@@ -12,8 +12,9 @@ from json import loads
 from time import mktime, sleep, time
 
 from .common import (
-    CheckValue, Consistency, FieldRange, PreparedStatement, PutOption, State,
-    SystemState, TableLimits, TimeToLive, Version, deprecated)
+    CheckValue, Consistency, Durability, FieldRange, PreparedStatement,
+    PutOption, State, SystemState, TableLimits, TimeToLive, Version,
+    deprecated)
 from .exception import (
     IllegalArgumentException, RequestTimeoutException)
 from .http import RateLimiter
@@ -404,6 +405,10 @@ class WriteRequest(Request):
     def __init__(self):
         super(WriteRequest, self).__init__()
         self._return_row = False
+        self._durability = None
+
+    def __str__(self):
+        return 'WriteRequest'
 
     def __str__(self):
         return 'WriteRequest'
@@ -418,11 +423,30 @@ class WriteRequest(Request):
     def _get_return_row(self):
         return self._return_row
 
-    @staticmethod
-    def _validate_write_request(request_name):
-        if request_name is None:
+    def _set_durability(self, dur):
+        if dur is None:
+            self._durability = None
+            return
+        if not isinstance(dur, Durability):
+            raise IllegalArgumentException('set_durability requires an ' +
+                                           'instance of Durability as parameter.')
+        dur.validate()
+        self._durability = dur
+
+    def _get_durability(self):
+        return self._durability
+
+    def _validate_write_request(self, request_name):
+        if self.get_table_name() is None:
             raise IllegalArgumentException(
-                request_name + ' requires table name')
+                 "{} requires table name".format(request_name))
+
+    def get_durability(self):
+        pass
+
+    def get_type_name(self):
+        # type: () -> str
+        return "Write"
 
     def get_type_name(self):
         # type: () -> str
@@ -666,6 +690,29 @@ class DeleteRequest(WriteRequest):
         :rtype: bool
         """
         return self._get_return_row()
+
+    def set_durability(self, durability):
+        """
+        On-premise only. Sets the durability to use for the operation.
+
+        :param durability: the Durability to use
+        :type durability: Durability
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if Durability
+            is not valid
+        :versionadded: 5.3.0
+        """
+        self._set_durability(durability)
+        return self
+
+    def get_durability(self):
+        """
+        On-premise only. Gets the durability to use for the operation or
+        None if not set
+        :returns: the Durability
+        :versionadded: 5.3.0
+        """
+        return self._get_durability()
 
     def does_reads(self):
         return self._match_version is not None or self.get_return_row()
@@ -1298,6 +1345,10 @@ class MultiDeleteRequest(Request):
         self._continuation_key = None
         self._range = None
         self._max_write_kb = 0
+        self._durability = None
+
+    def __str__(self):
+        return 'MultiDeleteRequest'
 
     def __str__(self):
         return 'MultiDeleteRequest'
@@ -1472,6 +1523,36 @@ class MultiDeleteRequest(Request):
         :rtype: int
         """
         return super(MultiDeleteRequest, self).get_timeout()
+
+    def set_durability(self, durability):
+        """
+        On-premise only. Sets the durability to use for the operation.
+
+        :param durability: the Durability to use
+        :type durability: Durability
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if Durability
+            is not valid
+        :versionadded: 5.3.0
+        """
+        if durability is None:
+            self._durability = None
+            return
+        if not isinstance(durability, Durability):
+            raise IllegalArgumentException('set_durability requires an ' +
+                                           'instance of Durability as parameter.')
+        durability.validate()
+        self._durability = durability
+        return self
+
+    def get_durability(self):
+        """
+        On-premise only. Gets the durability to use for the operation or
+        None if not set
+        :returns: the Durability
+        :versionadded: 5.3.0
+        """
+        return self._durability
 
     def does_reads(self):
         return True
@@ -1998,6 +2079,29 @@ class PutRequest(WriteRequest):
         :rtype: bool
         """
         return self._get_return_row()
+
+    def set_durability(self, durability):
+        """
+        On-premise only. Sets the durability to use for the operation.
+
+        :param durability: the Durability to use
+        :type durability: Durability
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if Durability
+            is not valid
+        :versionadded: 5.3.0
+        """
+        self._set_durability(durability)
+        return self
+
+    def get_durability(self):
+        """
+        On-premise only. Gets the durability to use for the operation or
+        None if not set
+        :returns: the Durability
+        :versionadded: 5.3.0
+        """
+        return self._get_durability()
 
     def does_reads(self):
         return self._option is not None or self.get_return_row()
@@ -3242,6 +3346,7 @@ class WriteMultipleRequest(Request):
         # Constructs an empty request.
         super(WriteMultipleRequest, self).__init__()
         self._ops = list()
+        self._durability = None
 
     def add(self, request, abort_if_unsuccessful):
         """
@@ -3367,6 +3472,36 @@ class WriteMultipleRequest(Request):
         """
         self.set_table_name(None)
         self._ops = list()
+
+    def set_durability(self, durability):
+        """
+        On-premise only. Sets the durability to use for the operation.
+
+        :param durability: the Durability to use
+        :type durability: Durability
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if Durability
+            is not valid
+        :versionadded: 5.3.0
+        """
+        if durability is None:
+            self._durability = None
+            return
+        if not isinstance(durability, Durability):
+            raise IllegalArgumentException('set_durability requires an ' +
+                                           'instance of Durability as parameter.')
+        durability.validate()
+        self._durability = durability
+        return self
+
+    def get_durability(self):
+        """
+        On-premise only. Gets the durability to use for the operation or
+        None if not set
+        :returns: the Durability
+        :versionadded: 5.3.0
+        """
+        return self._durability
 
     def does_reads(self):
         for op in self._ops:
@@ -3498,6 +3633,7 @@ class WriteResult(Result):
         super(WriteResult, self).__init__()
         self._existing_version = None
         self._existing_value = None
+        self._existing_modification_time = 0
 
     def set_existing_value(self, existing_value):
         self._existing_value = existing_value
@@ -3507,11 +3643,18 @@ class WriteResult(Result):
         self._existing_version = existing_version
         return self
 
+    def set_existing_modification_time(self, existing_modification_time):
+        self._existing_modification_time = existing_modification_time
+        return self
+
     def _get_existing_value(self):
         return self._existing_value
 
     def _get_existing_version(self):
         return self._existing_version
+
+    def _get_existing_modification_time(self):
+        return self._existing_modification_time
 
 
 class DeleteResult(WriteResult):
@@ -3551,6 +3694,7 @@ class DeleteResult(WriteResult):
         :py:class:`Version` mismatch and the corresponding
         :py:class:`DeleteRequest` the method
         :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+
         :returns: the value.
         :rtype: dict
         """
@@ -3563,10 +3707,25 @@ class DeleteResult(WriteResult):
         :py:class:`Version` mismatch and the corresponding
         :py:class:`DeleteRequest` the method
         :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+
         :returns: the version.
-        :rtype Version
+        :rtype: Version
         """
         return self._get_existing_version()
+
+    def get_existing_modification_time(self):
+        """
+        Returns the existing row modification time if available. It will be
+        available if the target row exists and the operation failed because of a
+        :py:class:`Version` mismatch and the corresponding
+        :py:class:`DeleteRequest` the method
+        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+
+        :returns: the modification time in milliseconds since January 1, 1970
+        :rtype: int
+        :versionadded: 5.3.0
+        """
+        return self._get_existing_modification_time()
 
     def get_read_kb(self):
         """
@@ -3625,6 +3784,7 @@ class GetResult(Result):
         self._value = None
         self._version = None
         self._expiration_time = 0
+        self._modification_time = 0
 
     def __str__(self):
         return 'None' if self._value is None else str(self._value)
@@ -3675,6 +3835,21 @@ class GetResult(Result):
         :rtype: int
         """
         return self._expiration_time
+
+    def set_modification_time(self, modification_time):
+        # Sets the modification time, internal
+        self._modification_time = modification_time
+        return self
+
+    def get_modification_time(self):
+        """
+        Returns the modification time of the row. This value is valid only if
+        the operation successfully returned a row (:py:meth:`get_value` returns non-none).
+
+        :returns: the modification time in milliseconds since January 1, 1970
+        :rtype: int
+        """
+        return self._modification_time
 
     def get_read_kb(self):
         """
@@ -4026,6 +4201,20 @@ class PutResult(WriteResult):
         :rtype: dict
         """
         return self._get_existing_value()
+
+    def get_existing_modification_time(self):
+        """
+        Returns the existing row modification time if available. It will be
+        available if the conditional put operation failed and the request
+        specified that return information be returned using
+        :py:meth:`PutRequest.set_return_row`. A value of -1 indicates this
+        feature is not available at the connected server.
+
+        :returns: the modification time in milliseconds since January 1, 1970
+        :rtype: int
+        :versionadded: 5.3.0
+        """
+        return self._get_existing_modification_time()
 
     def get_read_kb(self):
         """
@@ -4886,6 +5075,16 @@ class OperationResult(WriteResult):
         :rtype: dict
         """
         return self._get_existing_value()
+
+    def get_existing_modification_time(self):
+        """
+        Returns the existing row modification time if available.
+
+        :returns: the modification time in milliseconds since January 1, 1970
+        :rtype: int
+        :versionadded: 5.3.0
+        """
+        return self._get_existing_modification_time()
 
 
 class RetryStats(object):

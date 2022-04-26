@@ -19,7 +19,6 @@ from testutils import get_row
 class TestGet(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
-        cls.handle = None
         cls.set_up_class()
         table_ttl = TimeToLive.of_hours(16)
         create_statement = (
@@ -38,6 +37,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         version = cls.handle.put(put_request).get_version()
         tb_expect_expiration = table_ttl.to_expiration_time(
             int(round(time() * 1000)))
+        global serial_version
+        serial_version = cls.handle.get_client().serial_version
 
     @classmethod
     def tearDownClass(cls):
@@ -111,7 +112,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
     def testGetNormal(self):
         result = self.handle.get(self.get_request)
         self.check_get_result(result, row, version, tb_expect_expiration,
-                              TimeUnit.HOURS)
+                              TimeUnit.HOURS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
 
     def testGetEventual(self):
@@ -119,7 +120,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL ' + str(table_ttl))
         result = self.handle.get(self.get_request)
         self.check_get_result(
             result, row, expect_expiration=tb_expect_expiration,
-            timeunit=TimeUnit.HOURS, ver_eq=False)
+            timeunit=TimeUnit.HOURS, ver_eq=False,
+            mod_time_recent=(serial_version > 2))
         self.check_cost(result, 1, 1, 0, 0)
 
     def testGetNonExisting(self):

@@ -10,6 +10,7 @@ OperationResult
 
    .. autosummary::
 
+      ~OperationResult.get_existing_modification_time
       ~OperationResult.get_existing_value
       ~OperationResult.get_existing_version
       ~OperationResult.get_generated_value
@@ -18,6 +19,7 @@ OperationResult
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: get_existing_modification_time
    .. automethod:: get_existing_value
    .. automethod:: get_existing_version
    .. automethod:: get_generated_value

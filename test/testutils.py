@@ -7,15 +7,14 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from dateutil import tz
 from decimal import Decimal
 from logging import FileHandler, Logger
-from os import mkdir, path, remove
+from os import getcwd, getenv, mkdir, path, remove
 from re import match
+from struct import pack
+
 from requests import codes, delete, post
 from rsa import newkeys
-from struct import pack
-from sys import argv
 
 from borneo import (
     AuthorizationProvider, DefaultRetryHandler, IllegalArgumentException,
@@ -58,7 +57,7 @@ ssl_cipher_suites = None
 # ssl protocol
 ssl_protocol = None
 
-testdir = path.abspath(path.dirname(argv[0]))
+testdir = path.abspath(getcwd())
 credentials_file = path.join(testdir, 'creds')
 fake_credentials_file = path.join(testdir, 'testcreds')
 fake_key_file = path.join(testdir, 'testkey.pem')
@@ -79,7 +78,7 @@ def compare_version(specified, internal):
     specified_check = match('\d+(\.\d+){0,2}', specified)
     internal_check = match('\d+(\.\d+){0,2}', internal)
     if (specified_check is None or internal_check is None or
-        specified_check.group() != specified or
+            specified_check.group() != specified or
             internal_check.group() != internal):
         raise IllegalArgumentException('Unexpected version number.')
     specified_list = specified.split(".")
@@ -143,7 +142,9 @@ def get_simple_handle_config(tenant_id, ep=endpoint):
 def get_handle(tenant_id):
     # Returns a connection to the server
     config = get_handle_config(tenant_id)
-    return NoSQLHandle(config)
+    handle = NoSQLHandle(config)
+    config.get_logger().info("Created new NoSQLHandle")
+    return handle
 
 
 def get_row(with_sid=True):
@@ -275,8 +276,9 @@ def get_logger():
     global logger
     if logger is None:
         logger = Logger('unittest')
-        logger.setLevel(logger_level)
-        log_dir = path.join(path.abspath(path.dirname(argv[0])), 'logs')
+        logger.setLevel(getenv('LOGLEVEL', logger_level))
+        test_dir = getenv('TEST_OUTPUTDIR', getcwd())
+        log_dir = path.join(test_dir, 'logs')
         if not path.exists(log_dir):
             mkdir(log_dir)
         logger.addHandler(FileHandler(path.join(log_dir, 'unittest.log')))

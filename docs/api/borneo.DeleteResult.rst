@@ -10,6 +10,7 @@ DeleteResult
 
    .. autosummary::
 
+      ~DeleteResult.get_existing_modification_time
       ~DeleteResult.get_existing_value
       ~DeleteResult.get_existing_version
       ~DeleteResult.get_read_kb
@@ -20,6 +21,7 @@ DeleteResult
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: get_existing_modification_time
    .. automethod:: get_existing_value
    .. automethod:: get_existing_version
    .. automethod:: get_read_kb
