@@ -471,10 +471,10 @@ This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
 Contributing
 ============
 
-See `CONTRIBUTING` <./CONTRIBUTING.rst>`_
+See `CONTRIBUTING <./CONTRIBUTING.rst>`_
 
 ========
 Security
 ========
 
-See `SECURITY` <./SECURITY.rst>`_
+See `SECURITY <./SECURITY.rst>`_
