@@ -670,7 +670,7 @@ class NoSQLHandleConfig(object):
 
     def __init__(self, endpoint=None, provider=None):
         # Inits a NoSQLHandleConfig object.
-        endpoint_str = None
+        endpoint_str = endpoint
         if endpoint is not None:
             if not isinstance(endpoint, (str, Region)):
                 raise IllegalArgumentException(
