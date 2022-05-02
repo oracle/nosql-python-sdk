@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -828,7 +828,7 @@ class Stats:
 
     def __observe(self, request, error, req_size, res_size,
                   network_latency):
-        reqStr = request.get_type_name()
+        reqStr = request.get_request_name()
         req_stat = self._requests.get(reqStr)
         if req_stat is None:
             req_stat = ReqStats(self._stats_control.get_profile())

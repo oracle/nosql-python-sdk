@@ -259,7 +259,9 @@ class RequestUtils(object):
             if num_retried > 0:
                 self._log_retried(num_retried, exception)
             response = None
-            network_time = time()
+            network_time = 0
+            if stats_config is not None:
+                time()
             req_size = 0
             if payload is not None:
                 req_size = len(payload)
@@ -280,8 +282,9 @@ class RequestUtils(object):
                     response = self._sess.request(
                         method, uri, headers=headers, data=memoryview(payload),
                         timeout=this_iteration_timeout_s)
-                network_time = int(round(
-                    (time() - network_time) * 1000000)) / 1000
+                if stats_config is not None:
+                    network_time = int(round(
+                        (time() - network_time) * 1000000)) / 1000
                 if self._logutils.is_enabled_for(DEBUG):
                     self._logutils.log_debug(
                         'Response: ' + self._request.__class__.__name__ +
@@ -326,8 +329,9 @@ class RequestUtils(object):
                 else:
                     res = HttpResponse(response.content.decode(),
                                        response.status_code)
-                    network_time = int(round(
-                        (time() - network_time) * 1000000)) / 1000
+                    if stats_config is not None:
+                        network_time = int(round(
+                            (time() - network_time) * 1000000)) / 1000
                     """
                     Retry upon status code larger than 500, in general, this
                     indicates server internal error.

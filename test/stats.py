@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2021 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -56,8 +56,8 @@ class TestStats(unittest.TestCase, TestBase):
         self.assertTrue(handle_config.get_stats_pretty_print())
 
         handle_config.set_stats_handler(lambda x:
-                                        self.stats_list.append(x) and
-                                        print(x)
+                                        self.stats_list.append(x)
+                                        #and print(x)
                                         )
         self.assertIsNotNone(handle_config.get_stats_handler())
 
@@ -102,7 +102,7 @@ class TestStats(unittest.TestCase, TestBase):
 
     def testStatsHandle(self):
         # Start fresh
-        self.stats_list.clear()
+        self.stats_list = []
         self.assertTrue(len(self.stats_list) == 0)
 
         self.loadRows(10)
@@ -330,7 +330,7 @@ class TestStats(unittest.TestCase, TestBase):
         time.sleep(self.SLEEP_SEC)
 
         # Start fresh
-        self.stats_list.clear()
+        self.stats_list = []
         self.assertTrue(len(self.stats_list) == 0)
 
         self.loadRows(10)
@@ -368,7 +368,7 @@ class TestStats(unittest.TestCase, TestBase):
         self.assertTrue(self.handle.get_stats_control().is_started())
 
         # start fresh
-        self.stats_list.clear()
+        self.stats_list = []
 
         self.loadRows(10)
 

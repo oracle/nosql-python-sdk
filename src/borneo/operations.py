@@ -386,7 +386,7 @@ class Request(object):
                 name + ' requires an instance of RateLimiter as parameter.')
 
     @abstractmethod
-    def get_type_name(self):
+    def get_request_name(self):
         # type () -> str
         pass
 
@@ -444,7 +444,7 @@ class WriteRequest(Request):
     def get_durability(self):
         pass
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Write"
 
@@ -496,7 +496,7 @@ class ReadRequest(Request):
             raise IllegalArgumentException(
                 request_name + ' requires table name.')
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Read"
 
@@ -727,7 +727,7 @@ class DeleteRequest(WriteRequest):
     def create_serializer():
         return DeleteRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Delete"
 
@@ -849,7 +849,7 @@ class GetIndexesRequest(Request):
     def create_serializer():
         return GetIndexesRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "GetIndexes"
 
@@ -1007,7 +1007,7 @@ class GetRequest(ReadRequest):
     def create_serializer():
         return GetRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Get"
 
@@ -1139,7 +1139,7 @@ class GetTableRequest(Request):
     def create_serializer():
         return GetTableRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "GetTable"
 
@@ -1311,7 +1311,7 @@ class ListTablesRequest(Request):
     def create_serializer():
         return ListTablesRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "ListTables"
 
@@ -1574,7 +1574,7 @@ class MultiDeleteRequest(Request):
     def create_serializer():
         return MultiDeleteRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "MultiDelete"
 
@@ -1726,7 +1726,7 @@ class PrepareRequest(Request):
     def create_serializer():
         return PrepareRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Prepare"
 
@@ -2135,7 +2135,7 @@ class PutRequest(WriteRequest):
     def create_serializer():
         return PutRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Put"
 
@@ -2653,7 +2653,7 @@ class QueryRequest(Request):
     def create_serializer():
         return QueryRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Query"
 
@@ -2754,7 +2754,7 @@ class SystemRequest(Request):
     def create_serializer():
         return SystemRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "System"
 
@@ -2876,7 +2876,7 @@ class SystemStatusRequest(Request):
     def create_serializer():
         return SystemStatusRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "SystemStatus"
 
@@ -3072,7 +3072,7 @@ class TableRequest(Request):
     def create_serializer():
         return TableRequestSerializer()
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "Table"
 
@@ -3314,7 +3314,7 @@ class TableUsageRequest(Request):
             dt = dt.astimezone(tz.UTC)
         return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "TableUsage"
 
@@ -3535,7 +3535,7 @@ class WriteMultipleRequest(Request):
         def is_abort_if_unsuccessful(self):
             return self._abort_if_unsuccessful
 
-    def get_type_name(self):
+    def get_request_name(self):
         # type: () -> str
         return "WriteMultiple"
 
