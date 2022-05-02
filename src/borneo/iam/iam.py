@@ -147,10 +147,13 @@ class SignatureProvider(AuthorizationProvider):
                     'provider should be an instance of oci.signer.Signer or ' +
                     'oci.auth.signers.SecurityTokenSigner.')
             self._provider = provider
-            try:
-                region_id = provider.region
-            except AttributeError:
-                region_id = None
+            if region is not None:
+                region_id = region
+            else:
+                try:
+                    region_id = provider.region
+                except AttributeError:
+                    region_id = None
             if region_id is not None:
                 self._region = Regions.from_region_id(region_id)
         elif (tenant_id is None or user_id is None or fingerprint is None or
