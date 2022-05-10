@@ -142,16 +142,18 @@ class SignatureProvider(AuthorizationProvider):
         if provider is not None:
             if not isinstance(
                 provider,
-                (signer.Signer,
-                 auth.signers.SecurityTokenSigner)):
+                (Signer, SecurityTokenSigner)):
                 raise IllegalArgumentException(
                     'provider should be an instance of oci.signer.Signer or ' +
                     'oci.auth.signers.SecurityTokenSigner.')
             self._provider = provider
-            try:
-                region_id = provider.region
-            except AttributeError:
-                region_id = None
+            if region is not None:
+                region_id = region
+            else:
+                try:
+                    region_id = provider.region
+                except AttributeError:
+                    region_id = None
             if region_id is not None:
                 self._region = Regions.from_region_id(region_id)
         elif (tenant_id is None or user_id is None or fingerprint is None or
@@ -175,7 +177,7 @@ class SignatureProvider(AuthorizationProvider):
                 # specified configuration file.
                 config = from_file(
                     file_location=config_file, profile_name=profile_name)
-            self._provider = signer.Signer(
+            self._provider = Signer(
                 config['tenancy'], config['user'], config['fingerprint'],
                 config['key_file'], config.get('pass_phrase'),
                 config.get('key_content'))
@@ -195,7 +197,7 @@ class SignatureProvider(AuthorizationProvider):
             else:
                 key_file = None
                 key_content = private_key
-            self._provider = signer.Signer(
+            self._provider = Signer(
                 tenant_id, user_id, fingerprint, key_file, pass_phrase,
                 key_content)
             if region is not None:
@@ -396,7 +398,7 @@ class SignatureProvider(AuthorizationProvider):
         :returns: tenant OCID of user.
         :rtype: str
         """
-        if isinstance(self._provider, signer.Signer):
+        if isinstance(self._provider, Signer):
             return self._provider.api_key.split('/')[0]
 
     def _refresh_task(self):
@@ -429,7 +431,7 @@ class SignatureProvider(AuthorizationProvider):
                     error_logged = True
 
             # check for timeout in the loop
-            if (int(round(time() * 1000)) - start_time >= timeout):
+            if (int(round(time() * 1000)) - start_ms >= timeout):
                 self._logutils.log_error(
                     'Request signature refresh timed out after ' + str(timeout))
                 break

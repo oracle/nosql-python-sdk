@@ -85,7 +85,7 @@ information on how to contribute to the project.
 Help
 ====
 
- * Open an issue in the `Issues <https://github.com/oracle/nosql-node-sdk/
+ * Open an issue in the `Issues <https://github.com/oracle/nosql-python-sdk/
    issues>`_ page.
  * Email to nosql_sdk_help_grp@oracle.com.
  * `Oracle NoSQL Developer Forum <https://community.oracle.com/community/
@@ -418,8 +418,7 @@ Run Against the Oracle NoSQL Cloud Simulator
 ============================================
 
 Running against the Oracle NoSQL Cloud Simulator requires a running Cloud
-Simulator instance. See `Using the Cloud Simulator <https://oracle.github.io/
-nosql-node-sdk/tutorial-connect-cloud.html#cloudsim>`_ for information on how to
+Simulator instance. See `Configure for the Cloud Simulator <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-cloud-simulator>`_ for information on how to
 download and start the Cloud Simulator.
 
 1. Start the Cloud Simulator based on instructions above. Note the HTTP port
@@ -441,8 +440,7 @@ Running against the Oracle NoSQL Database on-premise requires a running Oracle
 NoSQL Database instance as well as a running NoSQL Proxy server instance. The
 program will connect to the proxy server.
 
-See `Connecting to an On-Premise Oracle NoSQL Database <https://oracle.github.io
-/nosql-node-sdk/tutorial-connect-on-prem.html>`_ for information on how to
+See `Configure for On-Premise Oracle NoSQL Database <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-on-premise-oracle-nosql-database>`_ for information on how to
 download and start the database instance and proxy server. The database and
 proxy should be started without security enabled for this quickstart program to
 operate correctly. A secure configuration requires a secure proxy and more
@@ -473,10 +471,10 @@ This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
 Contributing
 ============
 
-See `CONTRIBUTING` <./CONTRIBUTING.rst>`_
+See `CONTRIBUTING <./CONTRIBUTING.rst>`_
 
 ========
 Security
 ========
 
-See `SECURITY` <./SECURITY.rst>`_
+See `SECURITY <./SECURITY.rst>`_
