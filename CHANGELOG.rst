@@ -12,8 +12,8 @@ Added
 _____
 
 * Added client statistics. Users can enable internal driver statistics by
-  using ONPS_PROFILE=[none|regular|more|all] or by using the
-  NoSQLHandleConfig.set_stats_profile() api.
+  using ``NOSQL_STATS_PROFILE=[none|regular|more|all]`` environment variable or
+  by using the ``NoSQLHandleConfig.set_stats_profile()`` api.
 
 ====================
  5.3.3 - 2022-04-19

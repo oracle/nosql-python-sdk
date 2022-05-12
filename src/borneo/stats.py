@@ -37,7 +37,7 @@ class StatsControl:
     interval logs may contain stats for a shorter interval.
 
     Collection of stats are controlled by the following environment variables:
-      ONPS_PROFILE=[none|regular|more|all]
+      NOSQL_STATS_PROFILE=[none|regular|more|all]
          Specifies the stats profile:
          none - disabled,
          regular - per request: counters, errors, latencies, delays, retries.
@@ -47,11 +47,11 @@ class StatsControl:
          all - stats above with per query information.
             This may add 1% overhead compared to none stats profile.
 
-      ONPS_INTERVAL=600 Interval in seconds to log the stats, by default is 10
-        minutes.
+      NOSQL_STATS_INTERVAL=600 Interval in seconds to log the stats, by default
+        is 10 minutes.
 
-      ONPS_PRETTY_PRINT=true Option to enable pretty printing of the JSON data,
-        default value is false.
+      NOSQL_STATS_PRETTY_PRINT=true Option to enable pretty printing of the JSON
+        data, default value is false.
 
     Collection of stats can also be used by using the API:
     :py:meth:`NoSQLHandleConfig.set_stats_profile` or
@@ -313,8 +313,7 @@ class StatsControl:
     def start(self):
         """
         Collection of stats is enabled only between start and stop or from the
-        beginning if system property
-        -Dcom.oracle.nosql.sdk.nosqldriver.stats.stats_profile= is not "none".
+        beginning if environment property NOSQL_STATS_PROFILE is not "none".
         """
         if self._profile is StatsProfile.NONE:
             if self._stats is not None:

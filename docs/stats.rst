@@ -18,31 +18,33 @@ How to enable and configure from command line
 ---------------------------------------------
 
 Collection of stats are controlled by the following environment variables:
-  ONPS_PROFILE=[none|regular|more|all]
-   Specifies the stats profile:
-     none - disabled.
 
-     regular - per request: counters, errors, latencies, delays, retries.
+- ``NOSQL_STATS_PROFILE=[none|regular|more|all]``
+   Specifies the stats profile:
+
+   - ``none`` - disabled.
+
+   - ``regular`` - per request: counters, errors, latencies, delays, retries.
         This incurs minimum overhead.
-     more - stats above with 95th and 99th percentile latencies.
+   - ``more`` - stats above with 95th and 99th percentile latencies.
         This may add 0.5% overhead compared to none stats profile.
-     all - stats above with per query information.
+   - ``all`` - stats above with per query information.
         This may add 1% overhead compared to none stats profile.
 
-  ONPS_INTERVAL=600 Interval in seconds to log the stats, by default is 10
-    minutes.
+- ``NOSQL_STATS_INTERVAL=600``
+    Interval in seconds to log the stats, by default is 10 minutes.
 
-  ONPS_PRETTY_PRINT=true Option to enable pretty printing of the JSON data,
-    default value is false.
+- ``NOSQL_STATS_PRETTY_PRINT=true``
+    Option to enable pretty printing of the JSON data, default value is false.
 
 How to enable and configure using the API
 -----------------------------------------
 
 Collection of stats can also be used by using the API:
-:meth:`NoSQLHandleConfig.set_stats_profile` or
-:meth:`StatsControl.set_profile`. At runtime stats collection can be
-enabled selectively by using :meth:`StatsControl.start` ond
-:meth:`StatsControl.stop`. The following example shows how to use a stats
+``NoSQLHandleConfig.set_stats_profile()`` or
+``StatsControl.set_profile()``. At runtime stats collection can be
+enabled selectively by using ``StatsControl.start()`` ond
+``StatsControl.stop()``. The following example shows how to use a stats
 handler and how to control the stats at runtime:
 
 .. code-block:: pycon
