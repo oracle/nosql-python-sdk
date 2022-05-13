@@ -2142,13 +2142,12 @@ class QueryRequest(Request):
             copy.set_consistency(self._consistency)
         if self._prepared_statement is not None:
             copy.set_prepared_statement(self._prepared_statement)
-        copy.is_internal = self.is_internal
         copy._statement = self._statement
-        copy._shard_id = self._shard_id
         # leave continuationKey null to start from the beginning
         # copy._continuation_key = self._continuation_key
-        if self.driver is not None:
-            copy.driver = self.driver.copy(copy)
+        self.is_internal = False
+        self._shard_id = -1
+        self.driver = None
 
         return copy
 
@@ -4406,11 +4405,11 @@ class QueryIterableResult(Result):
     deleted, for example {'numRowsDeleted': 2}.
     """
 
-    def __init__(self, request: QueryRequest, handle):
+    def __init__(self, request, handle):
         # type: (QueryRequest, NoSQLHandle) -> None
         # NoSQLHandle handle
         super(QueryIterableResult, self).__init__()
-        self.request: QueryRequest = request
+        self.request = request
         self.handle = handle
         self.readKB = 0
         self.readUnits = 0
@@ -4496,14 +4495,14 @@ class QueryIterator:
             self._partialResultList = self._internalResult.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
             try:
-                self._next = self._partialResultIter.__next__()
+                self._next = next(self._partialResultIter)
                 return
             except StopIteration:
                 hasNext = False
             self.set_stats(self._internalResult)
         else:
             try:
-                self._next = self._partialResultIter.__next__()
+                self._next = next(self._partialResultIter)
                 return
             except StopIteration:
                 hasNext = False
@@ -4515,7 +4514,7 @@ class QueryIterator:
             self._partialResultIter = self._partialResultList.__iter__()
             hasNext = True
             try:
-                self._next = self._partialResultIter.__next__()
+                self._next = next(self._partialResultIter)
             except StopIteration:
                 hasNext = False
             self.set_stats(self._internalResult)
@@ -4557,6 +4556,11 @@ class QueryIterator:
         if self._closed:
             raise StopIteration
         return self._next
+
+    # for python2 compatibility
+    def next(self):
+        # type: () -> dict[str, Object]
+        return self.__next__()
 
 
 class SystemResult(Result):
