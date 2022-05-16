@@ -4414,7 +4414,6 @@ class QueryIterableResult(Result):
         self.readKB = 0
         self.readUnits = 0
         self.writeKB = 0
-        self.writeUnits = 0
 
     def __str__(self):
         # type: () -> str
@@ -4455,16 +4454,6 @@ class QueryIterableResult(Result):
         :rtype: int
         """
         return self.writeKB
-
-    def get_write_units(self):
-        # type: () -> int
-        """
-        Returns the write throughput consumed by this operation, in write units.
-
-        :returns: the write units consumed.
-        :rtype: int
-        """
-        return self.writeUnits
 
     def __iter__(self):
         # type: () -> QueryIterator
@@ -4521,14 +4510,14 @@ class QueryIterator:
 
         if self._internalRequest.is_done():
             self._internalRequest.close()
-            self._closed = True
+            if not hasNext:
+                self._closed = True
 
     def set_stats(self, internalResult):
         # type: (QueryResult) -> None
         self._iterable.readKB += internalResult.get_read_kb()
         self._iterable.readUnits += internalResult.get_read_units()
         self._iterable.writeKB += internalResult.get_write_kb()
-        self._iterable.writeUnits += internalResult.get_write_units()
         self._iterable.set_rate_limit_delayed_ms(
             self._iterable.get_rate_limit_delayed_ms() +
             internalResult.get_rate_limit_delayed_ms())
