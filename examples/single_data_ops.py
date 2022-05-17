@@ -12,7 +12,7 @@
 # NoSQL database.
 #
 # See the comments in config*.py about running in different environments. By
-# default the example is ready to run against the Cloud Simulator.
+# default, the example is ready to run against the Cloud Simulator.
 #
 # The example demonstrates:
 # o configuring and creating a handle to access the service
