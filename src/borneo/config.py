@@ -374,10 +374,14 @@ class Regions(object):
     """Region Location: Amsterdam, Netherlands"""
     EU_FRANKFURT_1 = Region('eu-frankfurt-1')
     """Region Location: Frankfurt, Germany"""
+    EU_MADRID_1 = Region('eu-madrid-1')
+    """Region Location: Madrid, Spain"""
     EU_MARSEILLE_1 = Region('eu-marseille-1')
     """Region Location: Marseille, France"""
     EU_MILAN_1 = Region('eu-milan-1')
     """Region Location: Milan, Italy"""
+    EU_PARIS_1 = Region('eu-paris-1')
+    """Region Location: Paris, France"""
     EU_STOCKHOLM_1 = Region('eu-stockholm-1')
     """Region Location: Stockholm, Sweden"""
     EU_ZURICH_1 = Region('eu-zurich-1')
@@ -389,6 +393,9 @@ class Regions(object):
     """Region Location: Dubai, UAE"""
     ME_JEDDAH_1 = Region('me-jeddah-1')
     """Region Location: Jeddah, Saudi Arabia"""
+
+    MX_QUERETARO_1 = Region('mx-queretaro-1')
+    """Region Location: Queretaro, Mexico"""
 
     IL_JERUSALEM_1 = Region('il-jerusalem-1')
     """Region Location: Jerusalem, Israel"""
@@ -468,8 +475,10 @@ class Regions(object):
     OC1_REGIONS[ME_JEDDAH_1.get_region_id()] = ME_JEDDAH_1
     OC1_REGIONS[IL_JERUSALEM_1.get_region_id()] = IL_JERUSALEM_1
     OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
+    OC1_REGIONS[EU_MADRID_1.get_region_id()] = EU_MADRID_1
     OC1_REGIONS[EU_MARSEILLE_1.get_region_id()] = EU_MARSEILLE_1
     OC1_REGIONS[EU_MILAN_1.get_region_id()] = EU_MILAN_1
+    OC1_REGIONS[EU_PARIS_1.get_region_id()] = EU_PARIS_1
     OC1_REGIONS[EU_STOCKHOLM_1.get_region_id()] = EU_STOCKHOLM_1
     OC1_REGIONS[EU_ZURICH_1.get_region_id()] = EU_ZURICH_1
 
@@ -484,6 +493,7 @@ class Regions(object):
     OC1_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
     OC1_REGIONS[US_SANJOSE_1.get_region_id()] = US_SANJOSE_1
     OC1_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
+    OC1_REGIONS[MX_QUERETARO_1.get_region_id()] = MX_QUERETARO_1
 
     GOV_REGIONS = dict()
     """A dict containing the government regions."""

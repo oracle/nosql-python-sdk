@@ -19,6 +19,7 @@ _____
 * Added client statistics. Users can enable internal driver statistics by
   using ``NOSQL_STATS_PROFILE=[none|regular|more|all]`` environment variable or
   by using the ``NoSQLHandleConfig.set_stats_profile()`` api.
+* Cloud only: New regions: eu-paris-1, eu-madrid-1 and mx-queretaro-1.
 
 ====================
  5.3.3 - 2022-04-19
