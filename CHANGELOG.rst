@@ -4,18 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
-===========
-Unpublished
-===========
+====================
+ Unreleased
+====================
 
 Fixed
 _____
 
 * Cloud only. Recognize the region parameter in the SignatureProvider constructor when an explicit provider is passed
-
-====================
- Unreleased
-====================
 
 Added
 _____
