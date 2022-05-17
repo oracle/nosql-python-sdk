@@ -712,3 +712,6 @@ class NoSQLHandle(object):
                 config.set_ssl_context(ctx)
             except (SSLError, ValueError) as err:
                 raise IllegalArgumentException(str(err))
+
+    def get_stats_control(self):
+        return self._client.get_stats_control()

@@ -4,7 +4,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
-
+from abc import abstractmethod
 from datetime import datetime
 from dateutil import parser, tz
 from decimal import Context, ROUND_HALF_EVEN
@@ -48,6 +48,7 @@ class Request(object):
         self._table_name = None
         self._timeout_ms = 0
         self._write_rate_limiter = None
+        self._rate_limit_delayed_ms = 0
 
     def add_retry_delay_ms(self, millis):
         """
@@ -348,6 +349,28 @@ class Request(object):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
         self._timeout_ms = timeout_ms
 
+    def get_rate_limit_delayed_ms(self):
+        """
+        Get the time the operation was delayed due to rate limiting. Cloud only.
+        If rate limiting is in place, this value will represent the number of
+        milliseconds that the operation was delayed due to rate limiting. If the
+        value is zero, rate limiting did not apply or the operation did not need
+        to wait for rate limiting.
+
+        :returns: delay time in milliseconds.
+        """
+        return self._rate_limit_delayed_ms
+
+    def set_rate_limit_delayed_ms(self, delay_ms):
+        """
+        Set the time the operation was delayed due to rate limiting.
+        :param delay_ms: the delay in milliseconds.
+        :type delay_ms: int
+        :returns: self.
+        """
+        self._rate_limit_delayed_ms = delay_ms
+        return self
+
     @staticmethod
     def _check_config(cfg):
         if not isinstance(cfg, config.NoSQLHandleConfig):
@@ -361,6 +384,11 @@ class Request(object):
                 not isinstance(rate_limiter, RateLimiter)):
             raise IllegalArgumentException(
                 name + ' requires an instance of RateLimiter as parameter.')
+
+    @abstractmethod
+    def get_request_name(self):
+        # type () -> str
+        pass
 
 
 class WriteRequest(Request):
@@ -378,6 +406,12 @@ class WriteRequest(Request):
         super(WriteRequest, self).__init__()
         self._return_row = False
         self._durability = None
+
+    def __str__(self):
+        return 'WriteRequest'
+
+    def __str__(self):
+        return 'WriteRequest'
 
     def does_writes(self):
         return True
@@ -410,6 +444,14 @@ class WriteRequest(Request):
     def get_durability(self):
         pass
 
+    def get_request_name(self):
+        # type: () -> str
+        return "Write"
+
+    def get_type_name(self):
+        # type: () -> str
+        return "Write"
+
 
 class ReadRequest(Request):
     """
@@ -425,6 +467,9 @@ class ReadRequest(Request):
     def __init__(self):
         super(ReadRequest, self).__init__()
         self._consistency = None
+
+    def __str__(self):
+        return 'ReadRequest'
 
     def does_reads(self):
         return True
@@ -450,6 +495,10 @@ class ReadRequest(Request):
         if self.get_table_name() is None:
             raise IllegalArgumentException(
                 request_name + ' requires table name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "Read"
 
 
 class DeleteRequest(WriteRequest):
@@ -678,6 +727,10 @@ class DeleteRequest(WriteRequest):
     def create_serializer():
         return DeleteRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "Delete"
+
 
 class GetIndexesRequest(Request):
     """
@@ -691,6 +744,9 @@ class GetIndexesRequest(Request):
     def __init__(self):
         super(GetIndexesRequest, self).__init__()
         self._index_name = None
+
+    def __str__(self):
+        return 'GetIndexesRequest'
 
     def set_table_name(self, table_name):
         """
@@ -793,6 +849,10 @@ class GetIndexesRequest(Request):
     def create_serializer():
         return GetIndexesRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "GetIndexes"
+
 
 class GetRequest(ReadRequest):
     """
@@ -805,6 +865,9 @@ class GetRequest(ReadRequest):
     def __init__(self):
         super(GetRequest, self).__init__()
         self._key = None
+
+    def __str__(self):
+        return 'GetRequest'
 
     def set_key(self, key):
         """
@@ -944,6 +1007,10 @@ class GetRequest(ReadRequest):
     def create_serializer():
         return GetRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "Get"
+
 
 class GetTableRequest(Request):
     """
@@ -959,6 +1026,9 @@ class GetTableRequest(Request):
     def __init__(self):
         super(GetTableRequest, self).__init__()
         self._operation_id = None
+
+    def __str__(self):
+        return 'GetTableRequest'
 
     def set_table_name(self, table_name):
         """
@@ -1069,6 +1139,10 @@ class GetTableRequest(Request):
     def create_serializer():
         return GetTableRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "GetTable"
+
 
 class ListTablesRequest(Request):
     """
@@ -1085,6 +1159,9 @@ class ListTablesRequest(Request):
         self._start_index = 0
         self._limit = 0
         self._namespace = None
+
+    def __str__(self):
+        return 'ListTablesRequest'
 
     def set_compartment(self, compartment):
         """
@@ -1234,6 +1311,10 @@ class ListTablesRequest(Request):
     def create_serializer():
         return ListTablesRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "ListTables"
+
 
 class MultiDeleteRequest(Request):
     """
@@ -1265,6 +1346,12 @@ class MultiDeleteRequest(Request):
         self._range = None
         self._max_write_kb = 0
         self._durability = None
+
+    def __str__(self):
+        return 'MultiDeleteRequest'
+
+    def __str__(self):
+        return 'MultiDeleteRequest'
 
     def set_table_name(self, table_name):
         """
@@ -1487,6 +1574,10 @@ class MultiDeleteRequest(Request):
     def create_serializer():
         return MultiDeleteRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "MultiDelete"
+
 
 class PrepareRequest(Request):
     """
@@ -1506,6 +1597,9 @@ class PrepareRequest(Request):
         super(PrepareRequest, self).__init__()
         self._statement = None
         self._get_query_plan = False
+
+    def __str__(self):
+        return 'PrepareRequest'
 
     def set_table_name(self, table_name):
         """
@@ -1631,6 +1725,10 @@ class PrepareRequest(Request):
     @staticmethod
     def create_serializer():
         return PrepareRequestSerializer()
+
+    def get_request_name(self):
+        # type: () -> str
+        return "Prepare"
 
 
 class PutRequest(WriteRequest):
@@ -2037,6 +2135,10 @@ class PutRequest(WriteRequest):
     def create_serializer():
         return PutRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "Put"
+
 
 class QueryRequest(Request):
     """
@@ -2105,6 +2207,9 @@ class QueryRequest(Request):
         # An "internal" request is one created and submitted for execution by
         # the ReceiveIter.
         self.is_internal = False
+
+    def __str__(self):
+        return 'QueryRequest'
 
     def copy_internal(self):
         # Creates an internal QueryRequest out of the application-provided
@@ -2548,6 +2653,10 @@ class QueryRequest(Request):
     def create_serializer():
         return QueryRequestSerializer()
 
+    def get_request_name(self):
+        # type: () -> str
+        return "Query"
+
 
 class SystemRequest(Request):
     """
@@ -2644,6 +2753,10 @@ class SystemRequest(Request):
     @staticmethod
     def create_serializer():
         return SystemRequestSerializer()
+
+    def get_request_name(self):
+        # type: () -> str
+        return "System"
 
 
 class SystemStatusRequest(Request):
@@ -2762,6 +2875,10 @@ class SystemStatusRequest(Request):
     @staticmethod
     def create_serializer():
         return SystemStatusRequestSerializer()
+
+    def get_request_name(self):
+        # type: () -> str
+        return "SystemStatus"
 
 
 class TableRequest(Request):
@@ -2954,6 +3071,10 @@ class TableRequest(Request):
     @staticmethod
     def create_serializer():
         return TableRequestSerializer()
+
+    def get_request_name(self):
+        # type: () -> str
+        return "Table"
 
 
 class TableUsageRequest(Request):
@@ -3193,6 +3314,10 @@ class TableUsageRequest(Request):
             dt = dt.astimezone(tz.UTC)
         return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
+    def get_request_name(self):
+        # type: () -> str
+        return "TableUsage"
+
 
 class WriteMultipleRequest(Request):
     """
@@ -3409,6 +3534,10 @@ class WriteMultipleRequest(Request):
 
         def is_abort_if_unsuccessful(self):
             return self._abort_if_unsuccessful
+
+    def get_request_name(self):
+        # type: () -> str
+        return "WriteMultiple"
 
 
 class Result(object):
