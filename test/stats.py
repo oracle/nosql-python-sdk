@@ -11,7 +11,7 @@ import time
 
 from borneo import (
     Consistency, DefaultRetryHandler, NoSQLHandle, PutRequest, QueryRequest,
-    TableRequest, StatsProfile, NoSQLHandleConfig)
+    TableRequest, StatsProfile, NoSQLHandleConfig, TableLimits)
 
 from parameters import table_name, tenant_id
 from test_base import TestBase
@@ -34,7 +34,8 @@ class TestStats(unittest.TestCase, TestBase):
         cls.set_up_class()
         create_statement = ('CREATE TABLE ' + table_name + '(id integer, \
         name string, primary key(id))')
-        create_request = TableRequest().set_statement(create_statement)
+        create_request = TableRequest().set_statement(create_statement)\
+            .set_table_limits(TableLimits(50, 50, 1))
         cls.table_request(create_request)
 
     @classmethod
