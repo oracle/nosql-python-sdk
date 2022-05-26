@@ -202,7 +202,22 @@ profile:
                              // query statement
    "query" : "SELECT * FROM audienceData ORDER BY cookie_id",
                              // query plan description
-   "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n    DistributionKind : ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n  ] as $from-0\n\n  SELECT:\n  FIELD_STEP([6])\n  [\n    VAR_REF($from-0)([3]),\n    audienceData\n  ]\n]",
+
+   "plan" : "SFW([6])
+      [
+        FROM:
+          RECV([3])
+            [
+              DistributionKind : ALL_PARTITIONS,
+              Sort Fields : sort_gen,
+            ] as $from-0
+        SELECT:
+         FIELD_STEP([6])
+           [
+            VAR_REF($from-0)([3]),
+            audienceData
+           ]
+      ]",
    "doesWrites" : false,
    "httpRequestCount" : 12,  // number of http calls to the server
    "unprepared" : 1,         // number of query requests without prepare
@@ -234,7 +249,6 @@ profile:
      "count" : 0               // total count of retries
    }
  }]
-}
 
 The log entries go to the logger configured in NoSQLHandlerConfig. By
 default, if no logger is configured the statistics entries, if enabled,
