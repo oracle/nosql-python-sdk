@@ -7,9 +7,12 @@
 
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
+from enum import Enum
+from os import getenv
 from random import random
 from ssl import SSLContext
 from time import sleep, time
+from typing import Callable
 
 try:
     # noinspection PyCompatibility
@@ -371,10 +374,14 @@ class Regions(object):
     """Region Location: Amsterdam, Netherlands"""
     EU_FRANKFURT_1 = Region('eu-frankfurt-1')
     """Region Location: Frankfurt, Germany"""
+    EU_MADRID_1 = Region('eu-madrid-1')
+    """Region Location: Madrid, Spain"""
     EU_MARSEILLE_1 = Region('eu-marseille-1')
     """Region Location: Marseille, France"""
     EU_MILAN_1 = Region('eu-milan-1')
     """Region Location: Milan, Italy"""
+    EU_PARIS_1 = Region('eu-paris-1')
+    """Region Location: Paris, France"""
     EU_STOCKHOLM_1 = Region('eu-stockholm-1')
     """Region Location: Stockholm, Sweden"""
     EU_ZURICH_1 = Region('eu-zurich-1')
@@ -386,6 +393,9 @@ class Regions(object):
     """Region Location: Dubai, UAE"""
     ME_JEDDAH_1 = Region('me-jeddah-1')
     """Region Location: Jeddah, Saudi Arabia"""
+
+    MX_QUERETARO_1 = Region('mx-queretaro-1')
+    """Region Location: Queretaro, Mexico"""
 
     IL_JERUSALEM_1 = Region('il-jerusalem-1')
     """Region Location: Jerusalem, Israel"""
@@ -465,8 +475,10 @@ class Regions(object):
     OC1_REGIONS[ME_JEDDAH_1.get_region_id()] = ME_JEDDAH_1
     OC1_REGIONS[IL_JERUSALEM_1.get_region_id()] = IL_JERUSALEM_1
     OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
+    OC1_REGIONS[EU_MADRID_1.get_region_id()] = EU_MADRID_1
     OC1_REGIONS[EU_MARSEILLE_1.get_region_id()] = EU_MARSEILLE_1
     OC1_REGIONS[EU_MILAN_1.get_region_id()] = EU_MILAN_1
+    OC1_REGIONS[EU_PARIS_1.get_region_id()] = EU_PARIS_1
     OC1_REGIONS[EU_STOCKHOLM_1.get_region_id()] = EU_STOCKHOLM_1
     OC1_REGIONS[EU_ZURICH_1.get_region_id()] = EU_ZURICH_1
 
@@ -481,6 +493,7 @@ class Regions(object):
     OC1_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
     OC1_REGIONS[US_SANJOSE_1.get_region_id()] = US_SANJOSE_1
     OC1_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
+    OC1_REGIONS[MX_QUERETARO_1.get_region_id()] = MX_QUERETARO_1
 
     GOV_REGIONS = dict()
     """A dict containing the government regions."""
@@ -574,6 +587,21 @@ class Regions(object):
         return region
 
 
+# python 2.7 ??? class StatsProfile(object):
+class StatsProfile(Enum):
+    """
+    The following semantics are attached to the StatsProfile values:
+       - NONE: no stats are logged.
+       - REGULAR: per request: counters, errors, latencies, delays, retries
+       - MORE: stats above plus 95th and 99th percentile latencies.
+       - ALL: stats above plus per query information
+    """
+    NONE = 1
+    REGULAR = 2
+    MORE = 3
+    ALL = 4
+
+
 # noinspection PyPep8
 class NoSQLHandleConfig(object):
     """
@@ -644,9 +672,15 @@ class NoSQLHandleConfig(object):
     _DEFAULT_TIMEOUT = 5000
     _DEFAULT_TABLE_REQ_TIMEOUT = 10000
     _DEFAULT_CONSISTENCY = Consistency.EVENTUAL
+    _STATS_PROFILE_PROPERTY = "NOSQL_STATS_PROFILE"
+    _STATS_INTERVAL_PROPERTY = "NOSQL_STATS_INTERVAL"
+    _STATS_PRETTY_PRINT_PROPERTY = "NOSQL_STATS_PRETTY_PRINT"
+    _DEFAULT_STATS_PROFILE = StatsProfile.NONE
+    _DEFAULT_STATS_INTERVAL = 10 * 60
+    _DEFAULT_STATS_PRETTY_PRINT = False
 
     def __init__(self, endpoint=None, provider=None):
-        # Inits a NoSQLHandleConfig object.
+        # Init a NoSQLHandleConfig object.
         endpoint_str = endpoint
         if endpoint is not None:
             if not isinstance(endpoint, (str, Region)):
@@ -708,6 +742,36 @@ class NoSQLHandleConfig(object):
         self._ssl_protocol = None
         self._logger = None
         self._is_default_logger = True
+
+        profile_property = getenv(self._STATS_PROFILE_PROPERTY,
+            self._DEFAULT_STATS_PROFILE.name.lower())
+        try:
+            self._stats_profile = StatsProfile[profile_property.upper()]
+        except KeyError:
+            self._stats_profile = StatsProfile.NONE
+        # python2.7 ???
+        # "none" is the value of: self._DEFAULT_STATS_PROFILE.name.lower()
+        # profile_property = getenv(self._STATS_PROFILE_PROPERTY, "none").upper()
+        # if "NONE" == profile_property:
+        #     self._stats_profile = StatsProfile.NONE
+        # elif "REGULAR" == profile_property:
+        #     self._stats_profile = StatsProfile.REGULAR
+        # elif "MORE" == profile_property:
+        #     self._stats_profile = StatsProfile.MORE
+        # elif "ALL" == profile_property:
+        #     self._stats_profile = StatsProfile.ALL
+        # else:
+        #     self._stats_profile = StatsProfile.NONE
+
+
+        self._stats_interval = getenv(self._STATS_INTERVAL_PROPERTY,
+            self._DEFAULT_STATS_INTERVAL)
+        self._stats_interval = int(self._stats_interval)
+
+        self._stats_pretty_print = getenv(self._STATS_PRETTY_PRINT_PROPERTY,
+            self._DEFAULT_STATS_PRETTY_PRINT)
+        self._stats_pretty_print = bool(self._stats_pretty_print)
+        self._stats_handler = None  # type: Callable
 
     def get_service_url(self):
         """
@@ -1426,3 +1490,79 @@ class NoSQLHandleConfig(object):
         except ValueError:
             raise IllegalArgumentException(
                 'Invalid port value for : ' + endpoint)
+
+    def set_stats_handler(self, stats_handler):
+        # type: (Callable) -> NoSQLHandleConfig
+        """
+        Registers a user defined stats handler. The handler is called at the end
+        of the interval with a structure containing the logged stat values.
+
+        Note: setting a stats handler will not affect the stats log entries.
+        """
+        if not isinstance(stats_handler, Callable):
+            raise IllegalArgumentException(
+                'stats_hadler must be of Callable type')
+        self._stats_handler = stats_handler
+        return self
+
+    def get_stats_handler(self):
+        # type: (...) -> Callable
+        """
+        Returns the registered stats handler.
+        """
+        return self._stats_handler
+
+    def get_stats_profile(self):
+        # type: () -> StatsProfile
+        """
+        Returns the stats collection stats_profile. Default stats stats_profile
+        is NONE.
+        """
+        return self._stats_profile
+
+    def set_stats_profile(self, stats_profile):
+        # type: (StatsProfile) -> NoSQLHandleConfig
+        """
+        Set the stats collection stats_profile. Default stats stats_profile is
+        NONE.
+        """
+        if stats_profile is not None and not isinstance(stats_profile,
+                                                        StatsProfile):
+            raise IllegalArgumentException('profile must be a StatsProfile.')
+        self._stats_profile = stats_profile
+        return self
+
+    def get_stats_interval(self):
+        # type: () -> int
+        """
+        Returns the current collection interval.
+        Default interval is 600 seconds, i.e. 10 min.
+        """
+        return self._stats_interval
+
+    def set_stats_interval(self, interval):
+        # type: (int) -> NoSQLHandleConfig
+        """
+        Sets interval size in seconds.
+        Default interval is 600 seconds, i.e. 10 min.
+        """
+        CheckValue.check_int_gt_zero(interval, "interval")
+        self._stats_interval = interval
+        return self
+
+    def get_stats_pretty_print(self):
+        """
+        Returns the current JSON pretty print flag.
+        Default is disabled.
+        """
+        return self._stats_pretty_print
+
+    def set_stats_pretty_print(self, pretty_print):
+        # type: (bool) -> NoSQLHandleConfig
+        """
+        Enable JSON pretty print for easier human reading.
+        Default is disabled.
+        """
+        CheckValue.check_boolean(pretty_print, "pretty_print")
+        self._stats_pretty_print = pretty_print
+        return self

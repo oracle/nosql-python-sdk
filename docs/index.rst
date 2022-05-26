@@ -16,3 +16,4 @@ https://www.oracle.com/database/technologies/related/nosql.html
    tables
    datatypes
    api
+   stats

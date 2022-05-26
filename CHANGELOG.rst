@@ -4,14 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 
-===========
-Unpublished
-===========
+====================
+ Unreleased
+====================
 
 Fixed
 _____
 
 * Cloud only. Recognize the region parameter in the SignatureProvider constructor when an explicit provider is passed
+
+Added
+_____
+
+* Added client statistics. Users can enable internal driver statistics by
+  using ``NOSQL_STATS_PROFILE=[none|regular|more|all]`` environment variable or
+  by using the ``NoSQLHandleConfig.set_stats_profile()`` api.
+* Cloud only: New regions: eu-paris-1, eu-madrid-1 and mx-queretaro-1.
 
 ====================
  5.3.3 - 2022-04-19

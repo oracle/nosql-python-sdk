@@ -550,6 +550,12 @@ class LogUtils(object):
     def is_enabled_for(self, level):
         return self._logger is not None and self._logger.isEnabledFor(level)
 
+    def set_level(self, level):
+        return self._logger is not None and self._logger.setLevel(level)
+
+    def get_logger(self):
+        return self._logger
+
 
 class Memoize(object):
 
@@ -1174,7 +1180,9 @@ class PreparedStatement(object):
         return self._num_registers
 
     def print_driver_plan(self):
-        return self._driver_query_plan.display()
+        if self._driver_query_plan is not None:
+            return self._driver_query_plan.display()
+        return None
 
     @synchronized
     def set_topology_info(self, topology_info):

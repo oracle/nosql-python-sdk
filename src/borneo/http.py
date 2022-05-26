@@ -102,7 +102,7 @@ class RequestUtils(object):
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
-        return self._do_request('DELETE', uri, headers, None, timeout_ms)
+        return self._do_request('DELETE', uri, headers, None, timeout_ms, None)
 
     def do_get_request(self, uri, headers, timeout_ms):
         """
@@ -123,9 +123,9 @@ class RequestUtils(object):
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
-        return self._do_request('GET', uri, headers, None, timeout_ms)
+        return self._do_request('GET', uri, headers, None, timeout_ms, None)
 
-    def do_post_request(self, uri, headers, payload, timeout_ms):
+    def do_post_request(self, uri, headers, payload, timeout_ms, stats_config):
         """
         Issue HTTP POST request with retries and general error handling.
 
@@ -146,7 +146,8 @@ class RequestUtils(object):
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
-        return self._do_request('POST', uri, headers, payload, timeout_ms)
+        return self._do_request('POST', uri, headers, payload, timeout_ms,
+            stats_config)
 
     def do_put_request(self, uri, headers, payload, timeout_ms):
         """
@@ -169,9 +170,10 @@ class RequestUtils(object):
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
-        return self._do_request('PUT', uri, headers, payload, timeout_ms)
+        return self._do_request('PUT', uri, headers, payload, timeout_ms, None)
 
-    def _do_request(self, method, uri, headers, payload, timeout_ms):
+    def _do_request(self, method, uri, headers, payload, timeout_ms,
+                    stats_config):
         exception = None
         start_ms = int(round(time() * 1000))
         num_retried = 0
@@ -257,12 +259,19 @@ class RequestUtils(object):
             if num_retried > 0:
                 self._log_retried(num_retried, exception)
             response = None
+            network_time = 0
+            if stats_config is not None:
+                time()
+            req_size = 0
+            if payload is not None:
+                req_size = len(payload)
+
             try:
                 # this logic is accounting for the fact that there may
                 # be kv requests that do not have a request instance, and
                 # only contain a payload
                 if self._request is None and payload is not None:
-                    payload = payload.encode()
+                    payload, req_size = payload.encode()
                 if payload is None:
                     response = self._sess.request(
                         method, uri, headers=headers,
@@ -273,6 +282,9 @@ class RequestUtils(object):
                     response = self._sess.request(
                         method, uri, headers=headers, data=memoryview(payload),
                         timeout=this_iteration_timeout_s)
+                if stats_config is not None:
+                    network_time = int(round(
+                        (time() - network_time) * 1000000)) / 1000
                 if self._logutils.is_enabled_for(DEBUG):
                     self._logutils.log_debug(
                         'Response: ' + self._request.__class__.__name__ +
@@ -301,8 +313,13 @@ class RequestUtils(object):
                         write_limiter, res.get_write_units(),
                         this_iteration_timeout_ms)
                     res.set_rate_limit_delayed_ms(rate_delayed_ms)
+                    self._request.set_rate_limit_delayed_ms(rate_delayed_ms)
                     # Copy retry stats to Result on successful operation.
                     res.set_retry_stats(self._request.get_retry_stats())
+                    if stats_config is not None:
+                        stats_config.observe(self._request, req_size,
+                                             len(response.content),
+                                             network_time)
 
                     # check for a Set-Cookie header
                     cookie = response.headers.get('Set-Cookie', None)
@@ -312,6 +329,9 @@ class RequestUtils(object):
                 else:
                     res = HttpResponse(response.content.decode(),
                                        response.status_code)
+                    if stats_config is not None:
+                        network_time = int(round(
+                            (time() - network_time) * 1000000)) / 1000
                     """
                     Retry upon status code larger than 500, in general, this
                     indicates server internal error.
@@ -323,6 +343,9 @@ class RequestUtils(object):
                             ' , response ' + res.get_content())
                         num_retried += 1
                         continue
+                    if stats_config is not None:
+                        stats_config.observe(None, 0, len(response.content),
+                                             network_time)
                     return res
             except kv.AuthenticationException as ae:
                 if (self._auth_provider is not None and isinstance(
@@ -334,6 +357,8 @@ class RequestUtils(object):
                     continue
                 self._logutils.log_error(
                     'Unexpected authentication exception: ' + str(ae))
+                if stats_config is not None:
+                    stats_config.observe_error(self._request)
                 raise NoSQLException('Unexpected exception: ' + str(ae), ae)
             except SecurityInfoNotReadyException as se:
                 self._request.add_retry_exception(se.__class__.__name__)
@@ -391,19 +416,27 @@ class RequestUtils(object):
             except NoSQLException as nse:
                 self._logutils.log_error(
                     'Client execution NoSQLException: ' + str(nse))
+                if stats_config is not None:
+                    stats_config.observe_error(self._request)
                 raise nse
             except RuntimeError as re:
                 self._logutils.log_error(
                     'Client execution RuntimeError: ' + str(re))
+                if stats_config is not None:
+                    stats_config.observe_error(self._request)
                 raise re
             except ConnectionError as ce:
                 self._logutils.log_error(
                     'HTTP request execution ConnectionError: ' + str(ce))
+                if stats_config is not None:
+                    stats_config.observe_error(self._request)
                 raise ce
             except Timeout as t:
                 if self._request is not None:
                     self._logutils.log_error('Timeout exception: ' + str(t))
                     break  # fall through to exception below
+                if stats_config is not None:
+                    stats_config.observe_error(self._request)
                 raise RuntimeError('Timeout exception: ' + str(t))
             finally:
                 if response is not None:
@@ -414,6 +447,8 @@ class RequestUtils(object):
         if self._request is not None:
             retry_stats = self._request.get_retry_stats()
             num_retried = self._request.get_num_retries()
+        if stats_config is not None:
+            stats_config.observe_error(self._request)
         raise RequestTimeoutException(
             'Request timed out after ' + str(num_retried) +
             (' retry.' if num_retried == 0 or num_retried == 1
