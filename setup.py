@@ -46,6 +46,7 @@ setup(
     version=version,
     description='Oracle NoSQL Database Python SDK',
     long_description=readme,
+    long_description_content_type='text/x-rst',
 
     author='Oracle',
     author_email='george.feinberg@oracle.com',
