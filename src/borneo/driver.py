@@ -426,6 +426,7 @@ class NoSQLHandle(object):
             an instance of :py:class:`QueryRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
+        :versionadded: 5.3.5
         """
         if not isinstance(request, QueryRequest):
             raise IllegalArgumentException(

@@ -2231,6 +2231,11 @@ class QueryRequest(Request):
         return internal_req
 
     def copy(self):
+        """
+        Copies the query request to start query results from the beginning.
+
+        :versionadded: 5.3.5
+        """
         copy = QueryRequest()
         copy._compartment = self.get_compartment()
         copy._prepared_statement = self.get_table_name()
@@ -4532,6 +4537,8 @@ class QueryIterableResult(Result):
     number of rows updated, for example {'NumRowsUpdated': 3}. DELETE queries
     with no RETURNING clause return a dictionary indicating the number of rows
     deleted, for example {'numRowsDeleted': 2}.
+
+    :versionadded: 5.3.5
     """
 
     def __init__(self, request, handle):
@@ -4592,6 +4599,8 @@ class QueryIterableResult(Result):
 class QueryIterator:
     """
     QueryIterator iterates over all results of a query.
+
+    :versionadded: 5.3.5
     """
     def __init__(self, iterable):
         # type: (QueryIterableResult) -> None
@@ -5350,6 +5359,8 @@ class RetryStats(object):
         Internal use only.
 
         Returns the map of exceptions.
+
+        :versionadded: 5.3.5
         """
         return self._exception_map
 
@@ -5365,6 +5376,7 @@ class RetryStats(object):
 
         :param ex_map: the exceptions map.
         :type ex_map: dict[Exception, int]
+        :versionadded: 5.3.5
         """
         for k in ex_map.keys():
             num = self.get_num_exceptions(k) + ex_map[k]
@@ -5420,5 +5432,7 @@ class RetryStats(object):
         Internal use only.
 
         Increments the number of retries with n amount.
+
+        :versionadded: 5.3.5
         """
         self._retries += n
