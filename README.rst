@@ -73,14 +73,6 @@ Changes
 See the `Changelog <https://github.com/oracle/nosql-python-sdk/blob/master/
 CHANGELOG.rst>`_.
 
-============
-Contributing
-============
-
-The nosql-python-sdk is an open source project. See `Contributing <https://
-github.com/oracle/nosql-python-sdk/blob/master/CONTRIBUTING.rst>`_ for
-information on how to contribute to the project.
-
 ====
 Help
 ====
