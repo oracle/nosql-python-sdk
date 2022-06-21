@@ -313,7 +313,7 @@ Iterator
 ========
 
 Use :func:`borneo.NoSQLHandle.query_iterable` to get an iterable
-that contains all the results. Usage example:
+that contains all the results of a query. Usage example:
 
 .. code-block:: pycon
 
@@ -331,13 +331,13 @@ that contains all the results. Usage example:
 Partial results
 ===============
 
-To execute a query use the :func:`borneo.NoSQLHandle.query` method. For example,
-to execute a *SELECT* query to read data from your table, a
-:class:`borneo.QueryResult` contains a list of results. And if the
-:func:`borneo.QueryRequest.is_done` returns False, there may be more results, so
-queries should generally be run in a loop. It is possible for single request to
-return no results but the query still not done, indicating that the query loop
-should continue. For example:
+Another way is to loop through partial results by using the
+:func:`borneo.NoSQLHandle.query` method. For example, to execute a *SELECT*
+query to read data from your table, a :class:`borneo.QueryResult` contains a
+list of results. And if the :func:`borneo.QueryRequest.is_done` returns False,
+there may be more results, so queries should generally be run in a loop. It is
+possible for single request to return no results but the query still not done,
+indicating that the query loop should continue. For example:
 
 .. code-block:: pycon
 
@@ -386,7 +386,7 @@ Here is an example of using a prepared query with a single variable:
     pstatement.set_variable('$name', 'Taylor')
     qrequest = QueryRequest().set_prepared_statement(pstatement)
     qiresult = handle.query_iterable(qrequest)
-    # loop on results as they arrive
+    # loop on all the results
     for row in qiresult:
         # do something with the result row
         print(row)
