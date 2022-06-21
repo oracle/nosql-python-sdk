@@ -364,7 +364,7 @@ class NoSQLHandle(object):
         than more distributed queries that must go to multiple shards.
 
         Table and system-style queries such as "CREATE TABLE ..." or "DROP TABLE
-        ..." are not supported by this interfaces. Those operations must be
+        ..." are not supported by these interfaces. Those operations must be
         performed using :py:meth:`table_request` or :py:meth:`system_request` as
         appropriate.
 
@@ -403,20 +403,14 @@ class NoSQLHandle(object):
         than more distributed queries that must go to multiple shards.
 
         Table and system-style queries such as "CREATE TABLE ..." or "DROP TABLE
-        ..." are not supported by this interfaces. Those operations must be
+        ..." are not supported by these interfaces. Those operations must be
         performed using :py:meth:`table_request` or :py:meth:`system_request` as
         appropriate.
 
         The amount of data read by a single query request is limited by a system
         default and can be further limited using
         :py:meth:`QueryRequest.set_max_read_kb`. This limits the amount of data
-        *read* and not the amount of data *returned*, which means that a query
-        can return zero results but still have more data to read. This situation
-        is detected by checking if the :py:class:`QueryRequest` is done using
-        :py:meth:`QueryRequest.is_done`. For this reason queries should always
-        operate in a loop, acquiring more results, until
-        :py:meth:`QueryRequest.is_done` returns True, indicating that the query
-        is done.
+        *read* and not the amount of data *returned*.
 
         :param request: the input parameters for the operation.
         :type request: QueryRequest

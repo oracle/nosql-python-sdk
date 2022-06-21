@@ -4518,16 +4518,17 @@ class QueryIterableResult(Result):
     queries either return values based on a RETURNING clause or, by default, the
     number of rows affected by the statement.
 
-    Each iterator from QueryIterableResult will iterator over all results of the
+    Each iterator from QueryIterableResult will iterate over all results of the
     query.
 
     .. code-block:: pycon
 
         handle = ...
         request = QueryRequest().set_statement('SELECT * FROM foo')
-        result = handle.queryIterable(request)
-        for row in result:
-            # do something with the result
+        qiresult = handle.query-iterable(request)
+        for row in qiresult:
+            # do something with the result row
+            print(row)
 
     Modification queries either return values based on a RETURNING clause or, by
     default, return the number of rows affected by the statement in a

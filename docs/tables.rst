@@ -298,12 +298,38 @@ can be changed for a single request using
 -----------
 Use Queries
 -----------
-Learn about  using queries in your application.
+Learn about using queries in your application.
 
 Oracle NoSQL Database provides a rich query language to read and update data.
 See the `SQL For NoSQL Specification <http://www.oracle.com/pls/topic/lookup?
 ctx=en/cloud/paas/nosql-cloud&id=sql_nosql>`_ for a full description of the
 query language.
+
+There are two ways to get the results of a query: using an iterator or loop
+through partial results.
+
+========
+Iterator
+========
+
+Use :func:`borneo.NoSQLHandle.query_iterable` to get an iterable
+that contains all the results. Usage example:
+
+.. code-block:: pycon
+
+    from borneo import QueryRequest
+
+    handle = ...
+    statement = 'select * from users where name = "Taylor"'
+    request = QueryRequest().set_statement(statement)
+    qiresult = handle.query_iterable(request)
+    for row in qiresult:
+        # do something with the result row
+        print(row)
+
+===============
+Partial results
+===============
 
 To execute a query use the :func:`borneo.NoSQLHandle.query` method. For example,
 to execute a *SELECT* query to read data from your table, a
@@ -359,14 +385,12 @@ Here is an example of using a prepared query with a single variable:
     pstatement = presult.get_prepared_statement()
     pstatement.set_variable('$name', 'Taylor')
     qrequest = QueryRequest().set_prepared_statement(pstatement)
-    # loop until qrequest is done, handling results as they arrive
-    while True:
-        # use the prepared query in the query request
-        qresult = handle.query(qrequest)
-        # handle results
-        handle_results(qresult) # do something with results
-        if qrequest.is_done():
-            break
+    qiresult = handle.query_iterable(qrequest)
+    # loop on results as they arrive
+    for row in qiresult:
+        # do something with the result row
+        print(row)
+
 
     # use a different variable value with the same prepared query
     pstatement.set_variable('$name', 'another_name')
