@@ -14,6 +14,9 @@ from time import sleep, time
 try:
     from oci.signer import Signer
     from oci.auth.signers import SecurityTokenSigner
+    from oci.auth.signers import EphemeralResourcePrincipalSigner
+    from oci.auth.signers import InstancePrincipalsSecurityTokenSigner
+    from oci.auth.signers import get_resource_principals_signer
     from oci.config import from_file
     oci = 'yes'
 except ImportError:
@@ -255,7 +258,7 @@ class SignatureProvider(AuthorizationProvider):
         :rtype: str
         """
         if not isinstance(self._provider,
-                          auth.signers.EphemeralResourcePrincipalSigner):
+                          EphemeralResourcePrincipalSigner):
             raise IllegalArgumentException(
                 'Only ephemeral resource principal support.')
         return self._provider.get_claim(key)
@@ -330,9 +333,9 @@ class SignatureProvider(AuthorizationProvider):
         """
         SignatureProvider._check_oci()
         if iam_auth_uri is None:
-            provider = auth.signers.InstancePrincipalsSecurityTokenSigner()
+            provider = InstancePrincipalsSecurityTokenSigner()
         else:
-            provider = auth.signers.InstancePrincipalsSecurityTokenSigner(
+            provider = InstancePrincipalsSecurityTokenSigner(
                 federation_endpoint=iam_auth_uri)
         if region is not None:
             provider.region = region.get_region_id()
@@ -366,7 +369,7 @@ class SignatureProvider(AuthorizationProvider):
         """
         SignatureProvider._check_oci()
         signature_provider = SignatureProvider(
-            auth.signers.get_resource_principals_signer())
+            get_resource_principals_signer())
         return (signature_provider if logger is None else
                 signature_provider.set_logger(logger))
 
@@ -410,10 +413,10 @@ class SignatureProvider(AuthorizationProvider):
                 # refresh security token before create new signature
                 if (isinstance(
                     self._provider,
-                    auth.signers.InstancePrincipalsSecurityTokenSigner) or
+                    InstancePrincipalsSecurityTokenSigner) or
                     isinstance(
                     self._provider,
-                    auth.signers.EphemeralResourcePrincipalSigner)):
+                    EphemeralResourcePrincipalSigner)):
                     self._provider.refresh_security_token()
 
                 self.get_signature_details_internal()
