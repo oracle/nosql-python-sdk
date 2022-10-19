@@ -3,6 +3,23 @@ Change Log
 All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
+====================
+ Unreleased
+====================
+
+Added
+_____
+
+* Cloud only: New regions: us-tacoma-1, us-chicago-1, eu-dcc-madrid-1.
+
+====================
+ 5.3.5 - 2022-08-09
+====================
+
+Fixed
+_____
+
+* Cloud only. Fixed references to the OCI "auth" package from iam.py that could lead to the error, "name 'auth' is not defined."
 
 ====================
  5.3.4 - 2022-06-13
