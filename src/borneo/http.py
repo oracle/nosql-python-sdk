@@ -147,7 +147,7 @@ class RequestUtils(object):
         :rtype: HttpResponse or Result
         """
         return self._do_request('POST', uri, headers, payload, timeout_ms,
-            stats_config)
+                                stats_config)
 
     def do_put_request(self, uri, headers, payload, timeout_ms):
         """
@@ -567,7 +567,25 @@ class RequestUtils(object):
         exception.
         """
         err = serde.BinaryProtocol.read_string(bis)
+
+        # special case for TNF errors on WriteMultiple with many tables
+        if code == serde.BinaryProtocol.USER_ERROR.TABLE_NOT_FOUND and \
+                isinstance(request, operations.WriteMultipleRequest):
+            raise self._handle_write_multiple_table_not_found(code, err, request)
+
         raise serde.BinaryProtocol.map_exception(code, err)
+
+    @staticmethod
+    def _handle_write_multiple_table_not_found(code, err, wm_request):
+        if code != serde.BinaryProtocol.USER_ERROR.TABLE_NOT_FOUND or \
+                wm_request.is_single_table() or \
+                err.index(",") < 0 or \
+                err.index("[") >= 0:
+            raise serde.BinaryProtocol.map_exception(code, err)
+        raise UnsupportedProtocolException(
+            "WriteMultiple requests " +
+            "using multiple tables are not supported by the " +
+            "version of the connected server.")
 
     @staticmethod
     def _process_not_ok_response(content, status):

@@ -3408,13 +3408,28 @@ class WriteMultipleRequest(Request):
         if table_name is None:
             self.set_table_name(request.get_table_name())
         else:
-            if request.get_table_name().lower() != table_name.lower():
+            if self.get_top_table_name(request.get_table_name().lower()) != table_name.lower():
                 raise IllegalArgumentException(
-                    'The table_name used for the operation is different from ' +
+                    'The parent table_name used for the operation is different from ' +
                     'that of others: ' + table_name)
         request.validate()
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
+
+    def get_top_table_name(self, table_name: str):
+        pos: int = table_name.find('.')
+        if pos == -1:
+            return table_name
+        return table_name[0:pos]
+
+    def is_single_table(self):
+        if len(self._ops) < 2:
+            return True
+        single_table_name = self.get_table_name()
+        for op in self._ops:
+            if single_table_name.lower() != op.get_request().get_table_name().lower():
+                return False
+        return True
 
     def set_compartment(self, compartment):
         """
