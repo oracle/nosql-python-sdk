@@ -8,7 +8,12 @@
 import pprint
 import sys
 import uuid
-from collections import Callable
+try:
+    # Python 3.10+
+    from collections.abc import Callable
+except ImportError:
+    # fallback for Python 3.10-
+    from collections import Callable
 from datetime import datetime
 from logging import INFO
 from threading import Timer, Lock
