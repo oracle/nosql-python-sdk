@@ -2234,7 +2234,7 @@ class QueryRequest(Request):
         """
         Copies the query request to start query results from the beginning.
 
-        :versionadded: 5.3.5
+        :versionadded: 5.3.6
         """
         copy = QueryRequest()
         copy._compartment = self.get_compartment()
@@ -3408,28 +3408,13 @@ class WriteMultipleRequest(Request):
         if table_name is None:
             self.set_table_name(request.get_table_name())
         else:
-            if self.get_top_table_name(request.get_table_name().lower()) != table_name.lower():
+            if request.get_table_name().lower() != table_name.lower():
                 raise IllegalArgumentException(
-                    'The parent table_name used for the operation is different from ' +
+                    'The table_name used for the operation is different from ' +
                     'that of others: ' + table_name)
         request.validate()
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
-
-    def get_top_table_name(self, table_name: str):
-        pos: int = table_name.find('.')
-        if pos == -1:
-            return table_name
-        return table_name[0:pos]
-
-    def is_single_table(self):
-        if len(self._ops) < 2:
-            return True
-        single_table_name = self.get_table_name()
-        for op in self._ops:
-            if single_table_name.lower() != op.get_request().get_table_name().lower():
-                return False
-        return True
 
     def set_compartment(self, compartment):
         """
@@ -3630,7 +3615,7 @@ class Result(object):
         return self._retry_stats
 
     def get_write_units(self):
-        # Internal use only. ??? shouldn't be write_units ?
+        # Internal use only.
         return self._write_kb
 
     def set_rate_limit_delayed_ms(self, delay_ms):
@@ -4554,7 +4539,7 @@ class QueryIterableResult(Result):
     with no RETURNING clause return a dictionary indicating the number of rows
     deleted, for example {'numRowsDeleted': 2}.
 
-    :versionadded: 5.3.5
+    :versionadded: 5.3.6
     """
 
     def __init__(self, request, handle):
@@ -4576,9 +4561,10 @@ class QueryIterableResult(Result):
         # type: () -> int
         """
         Returns the read throughput consumed by this operation, in KBytes. This
-        is the actual amount of data read by the operation. The number of read
-        units consumed is returned by :py:meth:`get_read_units` which may be a
-        larger number if the operation used Consistency.ABSOLUTE.
+        is the cumulative actual amount of data read by the operation since the
+        beginning of the iterable. The number of read units consumed is
+        returned by :py:meth:`get_read_units` which may be a larger number if
+        the operation used Consistency.ABSOLUTE.
 
         :returns: the read KBytes consumed.
         :rtype: int
@@ -4589,6 +4575,7 @@ class QueryIterableResult(Result):
         # type: () -> int
         """
         Returns the read throughput consumed by this operation, in read units.
+        This is the cumulative amount since the beginning of the iterable.
         This number may be larger than that returned by :py:meth:`get_read_kb`
         if the operation used Consistency.ABSOLUTE.
 
@@ -4616,7 +4603,7 @@ class QueryIterator:
     """
     QueryIterator iterates over all results of a query.
 
-    :versionadded: 5.3.5
+    :versionadded: 5.3.6
     """
     def __init__(self, iterable):
         # type: (QueryIterableResult) -> None
@@ -4791,7 +4778,7 @@ class SystemResult(Result):
         Returns the result string for the operation. This is None if the request
         was asynchronous or did not return an actual result. For example the
         "show" operations return a non-none result string, but "create, drop,
-        grant, etc" operations return a none result string.
+        grant, etc." operations return a none result string.
 
         :returns: the result string.
         :rtype: str
@@ -5376,7 +5363,7 @@ class RetryStats(object):
 
         Returns the map of exceptions.
 
-        :versionadded: 5.3.5
+        :versionadded: 5.3.6
         """
         return self._exception_map
 
@@ -5392,7 +5379,7 @@ class RetryStats(object):
 
         :param ex_map: the exceptions map.
         :type ex_map: dict[Exception, int]
-        :versionadded: 5.3.5
+        :versionadded: 5.3.6
         """
         for k in ex_map.keys():
             num = self.get_num_exceptions(k) + ex_map[k]
@@ -5447,8 +5434,6 @@ class RetryStats(object):
         """
         Internal use only.
 
-        Increments the number of retries with n amount.
-
-        :versionadded: 5.3.5
+        Increments the number of retries.
         """
         self._retries += n
