@@ -3615,7 +3615,7 @@ class Result(object):
         return self._retry_stats
 
     def get_write_units(self):
-        # Internal use only. ??? shouldn't be write_units ?
+        # Internal use only.
         return self._write_kb
 
     def set_rate_limit_delayed_ms(self, delay_ms):
@@ -4561,9 +4561,10 @@ class QueryIterableResult(Result):
         # type: () -> int
         """
         Returns the read throughput consumed by this operation, in KBytes. This
-        is the actual amount of data read by the operation. The number of read
-        units consumed is returned by :py:meth:`get_read_units` which may be a
-        larger number if the operation used Consistency.ABSOLUTE.
+        is the cumulative actual amount of data read by the operation since the
+        beginning of the iterable. The number of read units consumed is
+        returned by :py:meth:`get_read_units` which may be a larger number if
+        the operation used Consistency.ABSOLUTE.
 
         :returns: the read KBytes consumed.
         :rtype: int
@@ -4574,6 +4575,7 @@ class QueryIterableResult(Result):
         # type: () -> int
         """
         Returns the read throughput consumed by this operation, in read units.
+        This is the cumulative amount since the beginning of the iterable.
         This number may be larger than that returned by :py:meth:`get_read_kb`
         if the operation used Consistency.ABSOLUTE.
 
@@ -4776,7 +4778,7 @@ class SystemResult(Result):
         Returns the result string for the operation. This is None if the request
         was asynchronous or did not return an actual result. For example the
         "show" operations return a non-none result string, but "create, drop,
-        grant, etc" operations return a none result string.
+        grant, etc." operations return a none result string.
 
         :returns: the result string.
         :rtype: str
