@@ -7,12 +7,17 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
  Unreleased
 ====================
 
+Fixed
+-----
+
+* Fixed import package collections.abc for Callable.
+
 Added
 _____
 
 * Cloud only: New regions: us-tacoma-1, us-chicago-1, eu-dcc-madrid-1.
-* Added new method borneo.NoSQLHandle.query_iterable(query_request) to get an iterable
-that contains all the results of a query.
+* Added new method borneo.NoSQLHandle.query_iterable(query_request) to get an
+  iterable that contains all the results of a query.
 
 ====================
  5.3.5 - 2022-08-09
@@ -21,7 +26,8 @@ that contains all the results of a query.
 Fixed
 _____
 
-* Cloud only. Fixed references to the OCI "auth" package from iam.py that could lead to the error, "name 'auth' is not defined."
+* Cloud only. Fixed references to the OCI "auth" package from iam.py that could
+  lead to the error, "name 'auth' is not defined."
 
 ====================
  5.3.4 - 2022-06-13
@@ -30,7 +36,8 @@ _____
 Fixed
 _____
 
-* Cloud only. Recognize the region parameter in the SignatureProvider constructor when an explicit provider is passed
+* Cloud only. Recognize the region parameter in the SignatureProvider
+  constructor when an explicit provider is passed
 
 Added
 _____
@@ -47,14 +54,20 @@ _____
 Fixed
 _____
 
-* Cloud only: fixed the internal, automatic refresh of the security token when using Instance Principal authentication so that it is done well before the token expires
-* Use selective module import for OCI SDK modules, and set the environment variable, OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=1, to improve import speed by suppressing import of unnecessary modules from the OCI SDK
-* Added dependencies to setup.py so that "pip install" automatically includes them
+* Cloud only: fixed the internal, automatic refresh of the security token when
+  using Instance Principal authentication so that it is done well before the
+  token expires
+* Use selective module import for OCI SDK modules, and set the environment
+  variable, OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=1, to improve import speed by
+  suppressing import of unnecessary modules from the OCI SDK
+* Added dependencies to setup.py so that "pip install" automatically includes
+  them
 
 Added
 _____
 
-* Support for session persistence. If a Set-Cookie HTTP header is present  borneo will now set a Cookie header using the requested session value
+* Support for session persistence. If a Set-Cookie HTTP header is present
+  borneo will now set a Cookie header using the requested session value
 
 ====================
  5.3.0 - 2022-02-17
@@ -76,7 +89,10 @@ Changed
 _______
 
 * Cloud only: updated OCI regions
-* The SDK now detects the version of the server it's connected to  and adjusts its capabilities to match. This allows the SDK to communicate with servers that may only support an earlier protocol version, with the corresponding feature restrictions
+* The SDK now detects the version of the server it's connected to  and adjusts
+  its capabilities to match. This allows the SDK to communicate with servers
+  that may only support an earlier protocol version, with the corresponding
+  feature restrictions
 
 Fixed
 _____
@@ -135,13 +151,14 @@ _______
 * Change PreparedStatement.set_variable method to support both name and position
   variables.
 * Enhance handling of TIMESTAMP types to better handle a datetime instance with
-  an explicit timezone. By default fields of type TIMESTAMP returned by the system
-  are represented by a  "naive" (not timezone aware) datetime object in the timezone UTC.
+  an explicit timezone. By default fields of type TIMESTAMP returned by the
+  system are represented by a  "naive" (not timezone aware) datetime object in
+  the timezone UTC.
 * Timestamp and log level are no longer hard-coded in log messages - rather the
-  default logger is configured with a formatter that includes them. An application
-  that provides its own logger may choose its own format.
-* Adjusted several log messages to use more appropriate levels (ERROR for errors,
-  DEBUG for chatter).
+  default logger is configured with a formatter that includes them. An
+  application that provides its own logger may choose its own format.
+* Adjusted several log messages to use more appropriate levels (ERROR for
+  errors, DEBUG for chatter).
 
 Fixed
 _____

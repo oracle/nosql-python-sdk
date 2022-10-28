@@ -8,7 +8,7 @@
 import pprint
 import sys
 import uuid
-from collections import Callable
+from collections.abc import Callable
 from datetime import datetime
 from logging import INFO
 from threading import Timer, Lock
