@@ -7,13 +7,19 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
  Unreleased
 ====================
 
+Fixed
+-----
+
+* Fixed import package collections.abc for Callable.
+
 Added
 _____
 
 * Cloud only: New regions: us-tacoma-1, us-chicago-1, eu-dcc-madrid-1.
-* Added new method borneo.NoSQLHandle.query_iterable(query_request) to get an iterable
-that contains all the results of a query.
-* Added support for specifying update operations from parent and child tables when executing write_multiple operations.
+* Added new method borneo.NoSQLHandle.query_iterable(query_request) to get an
+  iterable that contains all the results of a query.
+* Added support for specifying update operations from parent and child tables
+  when executing write_multiple operations.
 
 ====================
  5.3.5 - 2022-08-09
