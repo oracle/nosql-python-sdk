@@ -4,7 +4,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
-
+import sys
 import unittest
 from requests import codes
 from socket import error
@@ -167,7 +167,11 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
             else:
                 break
         thread = Thread(target=cls.httpd.serve_forever)
-        thread.setDaemon(True)
+        if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
+                                       sys.version_info[1] < 10):
+            thread.setDaemon(True)
+        else:
+            thread.daemon = True
         thread.start()
         return port
 

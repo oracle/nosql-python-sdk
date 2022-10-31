@@ -4,7 +4,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
-
+import sys
 import unittest
 from os import path, remove
 from threading import Condition, Thread
@@ -278,7 +278,11 @@ class TestSignatureProvider(unittest.TestCase):
                 self._lock.acquire()
                 self._count -= 1
                 if self._count <= 0:
-                    self._lock.notifyAll()
+                    if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
+                                                   sys.version_info[1] < 10):
+                        self._lock.notifyAll()
+                    else:
+                        self._lock.notify_all()
                 self._lock.release()
 
             def wait(self, wait_secs=None):
