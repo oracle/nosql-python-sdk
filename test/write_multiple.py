@@ -293,7 +293,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             wm_req.add(request, True)
 
         result = self.handle.write_multiple(wm_req)
-        print(result)
 
         op_results = self._check_write_multiple_result(result, num_operations * 2)
         for idx in range(result.size()):
