@@ -46,7 +46,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 PRIMARY KEY(childid)) USING TTL 1 DAYS')
         limits = TableLimits(50, 50, 1)
         create_request = TableRequest().set_statement(
-            create_child_statement).set_table_limits(limits)
+            create_child_statement)
         cls.table_request(create_request)
 
     @classmethod
