@@ -1417,14 +1417,38 @@ class WriteMultipleRequestSerializer(RequestSerializer):
         put_serializer = PutRequestSerializer(True)
         delete_serializer = DeleteRequestSerializer(True)
         num = request.get_num_operations()
+
+        # OpCode
         BinaryProtocol.write_op_code(
             bos, BinaryProtocol.OP_CODE.WRITE_MULTIPLE)
         BinaryProtocol.serialize_request(request, bos)
-        BinaryProtocol.write_string(bos, request.get_table_name())
+
+        # TableName
+        # If all ops use the same table name, write that
+        # single table name to the output stream.
+        # If any of them are different, write all table
+        # names, comma-separated.
+        if request.is_single_table():
+            BinaryProtocol.write_string(bos, request.get_table_name())
+        else:
+            table_names = ""
+            for op in request.get_operations():
+                if len(table_names) > 0:
+                    table_names += ","
+                table_names += op.get_request().get_table_name()
+            BinaryProtocol.write_string(bos, table_names)
+
+        # Number of operations
         BinaryProtocol.write_packed_int(bos, num)
+
+        # Durability settings
         BinaryProtocol.write_durability(request, bos, serial_version)
+
+        # Operations
         for op in request.get_operations():
             start = bos.get_offset()
+
+            # Abort if successful flag
             bos.write_boolean(op.is_abort_if_unsuccessful())
             req = op.get_request()
             req.set_check_request_size(request.get_check_request_size())
@@ -1439,6 +1463,7 @@ class WriteMultipleRequestSerializer(RequestSerializer):
 
     def deserialize(self, request, bis, serial_version):
         result = operations.WriteMultipleResult()
+        # Success flag
         succeed = bis.read_boolean()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         if succeed:
