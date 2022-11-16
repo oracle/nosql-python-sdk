@@ -3418,7 +3418,7 @@ class WriteMultipleRequest(Request):
         return self
 
     def get_top_table_name(self, table_name: str):
-        pos: int = table_name.find('.')
+        pos = table_name.find('.')
         if pos == -1:
             return table_name
         return table_name[0:pos]
