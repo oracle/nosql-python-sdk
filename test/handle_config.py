@@ -314,7 +314,12 @@ class TestNoSQLHandleConfig(unittest.TestCase):
             self.assertEqual(
                 r.endpoint(),
                 'https://nosql.' + r.get_region_id() + '.oci.oraclecloud.com')
-        for r in Regions.get_gov_regions():
+        for r in Regions.get_oc2_regions():
+            self.assertEqual(
+                r.endpoint(),
+                'https://nosql.' + r.get_region_id() +
+                '.oci.oraclegovcloud.com')
+        for r in Regions.get_oc3_regions():
             self.assertEqual(
                 r.endpoint(),
                 'https://nosql.' + r.get_region_id() +

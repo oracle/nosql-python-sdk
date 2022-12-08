@@ -15,7 +15,9 @@ Fixed
 Added
 _____
 
-* Cloud only: New regions: us-tacoma-1, us-chicago-1, eu-dcc-madrid-1.
+* Cloud only: New regions: us-tacoma-1, us-chicago-1, eu-dcc-milan-1,
+  eu-dcc-milan-2, eu-dcc-dublin-1, eu-dcc-dublin-2, eu-dcc-rating-1,
+  eu-dcc-rating-2, us-westjordan-1, us-dcc-phoenix-1, us-dcc-phoenix-2
 * Added new method borneo.NoSQLHandle.query_iterable(query_request) to get an
   iterable that contains all the results of a query.
 * Added support for specifying update operations from parent and child tables
