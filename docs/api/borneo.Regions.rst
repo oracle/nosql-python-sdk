@@ -21,7 +21,6 @@ Regions
       ~Regions.EU_AMSTERDAM_1
       ~Regions.EU_FRANKFURT_1
       ~Regions.EU_ZURICH_1
-      ~Regions.GOV_REGIONS
       ~Regions.ME_JEDDAH_1
       ~Regions.OC1_REGIONS
       ~Regions.OC4_REGIONS
@@ -55,7 +54,6 @@ Regions
    .. autoattribute:: EU_AMSTERDAM_1
    .. autoattribute:: EU_FRANKFURT_1
    .. autoattribute:: EU_ZURICH_1
-   .. autoattribute:: GOV_REGIONS
    .. autoattribute:: ME_JEDDAH_1
    .. autoattribute:: OC1_REGIONS
    .. autoattribute:: OC4_REGIONS
