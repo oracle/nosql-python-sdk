@@ -4,8 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 ====================
- 5.3.6 - 2022-12-12
+ 5.3.7 - 2022-12-12
 ====================
+
+NOTE: version 5.3.6 was skipped
 
 Fixed
 -----
