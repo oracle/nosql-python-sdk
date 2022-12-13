@@ -150,27 +150,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.requests[0], True).add(self.illegal_requests[1], False)
         self.assertRaises(IllegalArgumentException, self.handle.write_multiple,
                           self.write_multiple_request)
-        if not is_onprem():
-            # add operations when the request size exceeded the limit
-            self.write_multiple_request.clear()
-            for op in range(64):
-                row = get_row()
-                row['fld_str'] = self.get_random_str(0.4)
-                self.write_multiple_request.add(PutRequest().set_value(
-                    row).set_table_name(table_name), True)
-            self.assertRaises(RequestSizeLimitException,
-                              self.handle.write_multiple,
-                              self.write_multiple_request)
-            # add operations when sub requests reached the max number
-            self.write_multiple_request.clear()
-            for op in range(51):
-                row = get_row()
-                row['fld_id'] = op
-                self.write_multiple_request.add(PutRequest().set_value(
-                    row).set_table_name(table_name), True)
-            self.assertRaises(BatchOperationNumberLimitException,
-                              self.handle.write_multiple,
-                              self.write_multiple_request)
 
     def testWriteMultipleGetRequestWithIllegalIndex(self):
         self.assertRaises(IllegalArgumentException,

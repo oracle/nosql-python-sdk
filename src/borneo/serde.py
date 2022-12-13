@@ -130,7 +130,7 @@ class BinaryProtocol(object):
         if t == SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
             return BinaryProtocol.read_list(bis)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.BINARY:
-            return SerdeUtil.read_bytearray(bis)
+            return SerdeUtil.read_bytearray(bis, False)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN:
             return bis.read_boolean()
         elif t == SerdeUtil.FIELD_VALUE_TYPE.DOUBLE:
@@ -211,7 +211,7 @@ class BinaryProtocol(object):
 
     @staticmethod
     def read_version(bis):
-        return Version.create_version(SerdeUtil.read_bytearray(bis))
+        return Version.create_version(SerdeUtil.read_bytearray(bis, False))
 
     # Writes fields from ReadRequest.
     @staticmethod
@@ -536,7 +536,7 @@ class MultiDeleteRequestSerializer(RequestSerializer):
         result = operations.MultiDeleteResult()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         result.set_num_deletions(SerdeUtil.read_packed_int(bis))
-        result.set_continuation_key(SerdeUtil.read_bytearray(bis))
+        result.set_continuation_key(SerdeUtil.read_bytearray(bis, False))
         return result
 
 
@@ -672,7 +672,7 @@ class QueryRequestSerializer(RequestSerializer):
                 SerdeUtil.write_packed_int(bos, len(variables))
                 for key in variables:
                     SerdeUtil.write_string(bos, key)
-                    SerdeUtil.write_field_value(bos, variables[key])
+                    BinaryProtocol.write_field_value(bos, variables[key])
             else:
                 SerdeUtil.write_packed_int(bos, 0)
         else:
@@ -698,10 +698,10 @@ class QueryRequestSerializer(RequestSerializer):
                     SerdeUtil.read_packed_int_array(bis))
                 cont_keys = list()
                 for i in range(len(pids)):
-                    cont_keys.append(SerdeUtil.read_bytearray(bis))
+                    cont_keys.append(SerdeUtil.read_bytearray(bis, False))
                 result.set_partition_cont_keys(cont_keys)
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
-        result.set_continuation_key(SerdeUtil.read_bytearray(bis))
+        result.set_continuation_key(SerdeUtil.read_bytearray(bis, False))
         request.set_cont_key(result.get_continuation_key())
         # In V2, if the QueryRequest was not initially prepared, the prepared
         # statement created at the proxy is returned back along with the query

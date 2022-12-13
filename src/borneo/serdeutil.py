@@ -278,13 +278,15 @@ class SerdeUtil(object):
                 'Unknown error code ' + str(code) + ': ' + msg)
 
     @staticmethod
-    def read_bytearray(bis):
+    def read_bytearray(bis, skip):
         """
         Reads a possibly None byte array as a
         :py:meth:`read_sequence_length` followed by the array contents.
 
         :param bis: the byte input stream.
         :type bis: ByteInputStream
+        :param skip: True if skipping vs reading
+        :type bis: boolean
         :returns: the array or None.
         :rtype: bytearray
         """
@@ -293,11 +295,19 @@ class SerdeUtil(object):
             raise IOError('Invalid length of byte array: ' + str(length))
         if length == -1:
             return None
-        if length == 0:
+        if length == 0 and not skip:
             return bytearray()
+        if skip:
+            bis.set_offset(bis.get_offset() + length)
+            return None
         buf = bytearray(length)
         bis.read_fully(buf)
         return buf
+
+    @staticmethod
+    def read_full_int(bis):
+        # Reads a full, 4-byte int
+        return bis.read_int()
 
     @staticmethod
     def read_bytearray_with_int(bis):
@@ -434,6 +444,13 @@ class SerdeUtil(object):
         return array
 
     @staticmethod
+    def read_float(bis):
+        """
+        Reads a float, which is a double-precision floating point
+        """
+        return bis.read_float()
+
+    @staticmethod
     def trace(msg, level):
         if level <= SerdeUtil.TRACE_LEVEL:
             print('DRIVER: ' + msg)
@@ -459,6 +476,11 @@ class SerdeUtil(object):
         # Writes a byte array with a full 4-byte int length.
         bos.write_int(len(value))
         bos.write_bytearray(value)
+
+    @staticmethod
+    def write_int_at_offset(bos, offset, value):
+        # Writes a full 4-byte int at the specified offset
+        bos.write_int_at_offset(offset, value)
 
     @staticmethod
     def write_datetime(bos, value):
@@ -522,6 +544,11 @@ class SerdeUtil(object):
         bos.write_bytearray(buf, 0, offset)
 
     @staticmethod
+    def write_full_int(bos, value):
+        # Writes a full, 4-byte int
+        bos.write_int(value)
+
+    @staticmethod
     def write_sequence_length(bos, length):
         """
         Writes a sequence length. The length is represented as a packed int,
@@ -539,6 +566,17 @@ class SerdeUtil(object):
             raise IllegalArgumentException(
                 'Invalid sequence length: ' + str(length))
         SerdeUtil.write_packed_int(bos, length)
+
+    @staticmethod
+    def write_float(bos, value):
+        """
+        Writes a float, which is a double-precision floating point
+        :param bos: the byte output stream.
+        :type bos: ByteOutputStream
+        :param value: the float to be written.
+        :type value: float
+        """
+        bos.write_float(value)
 
     @staticmethod
     def write_serial_version(bos, serial_version):

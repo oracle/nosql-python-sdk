@@ -23,6 +23,13 @@ from .exception import (
 
 from .serdeutil import SerdeUtil
 
+try:
+    from . import serde
+except ImportError:
+    import serde
+
+
+
 class PlanIterState(object):
     STATE = enum(OPEN=0,
                  RUNNING=1,
@@ -656,7 +663,7 @@ class ConstIter(PlanIter):
 
     def __init__(self, bis):
         super(ConstIter, self).__init__(bis)
-        self._value = SerdeUtil.read_field_value(bis)
+        self._value = serde.BinaryProtocol.read_field_value(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
