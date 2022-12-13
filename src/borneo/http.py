@@ -20,16 +20,16 @@ from .exception import (
     SecurityInfoNotReadyException, UnsupportedProtocolException,
     WriteThrottlingException)
 
+from .serdeutil import SerdeUtil
+
 try:
     from . import config
     from . import kv
     from . import operations
-    from . import serde
 except ImportError:
     import config
     import kv
     import operations
-    import serde
 
 
 class HttpResponse(object):
@@ -566,14 +566,14 @@ class RequestUtils(object):
         Operation failed. Handle the failure and throw an appropriate
         exception.
         """
-        err = serde.BinaryProtocol.read_string(bis)
+        err = SerdeUtil.read_string(bis)
 
         # special case for TNF errors on WriteMultiple with many tables
-        if code == serde.BinaryProtocol.USER_ERROR.TABLE_NOT_FOUND and \
+        if code == SerdeUtil.USER_ERROR.TABLE_NOT_FOUND and \
                 isinstance(request, operations.WriteMultipleRequest):
             raise self._handle_write_multiple_table_not_found(code, err, request)
 
-        raise serde.BinaryProtocol.map_exception(code, err)
+        raise SerdeUtil.map_exception(code, err)
 
     @staticmethod
     def _handle_write_multiple_table_not_found(code, err, wm_request):
@@ -588,11 +588,11 @@ class RequestUtils(object):
         but table names will be inside a bracketed list, like:
           [table1, table2, table3]
         """
-        if code != serde.BinaryProtocol.USER_ERROR.TABLE_NOT_FOUND or \
+        if code != SerdeUtil.USER_ERROR.TABLE_NOT_FOUND or \
                 wm_request.is_single_table() or \
                 err.index(",") < 0 or \
                 err.index("[") >= 0:
-            raise serde.BinaryProtocol.map_exception(code, err)
+            raise SerdeUtil.map_exception(code, err)
         raise UnsupportedProtocolException(
             "WriteMultiple requests " +
             "using multiple tables are not supported by the " +

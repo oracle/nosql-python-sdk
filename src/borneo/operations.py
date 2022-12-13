@@ -39,7 +39,6 @@ class Request(object):
     """
 
     def __init__(self):
-        self._check_request_size = True
         # Cloud service only.
         self._compartment = None
         self._read_rate_limiter = None
@@ -95,10 +94,6 @@ class Request(object):
         :rtype: boolean
         """
         return False
-
-    def get_check_request_size(self):
-        # Internal use only.
-        return self._check_request_size
 
     def get_compartment(self):
         """
@@ -217,11 +212,6 @@ class Request(object):
         if self._retry_stats is None:
             self._retry_stats = RetryStats()
         self._retry_stats.increment_retries()
-
-    def set_check_request_size(self, check_request_size):
-        # Internal use only.
-        self._check_request_size = check_request_size
-        return self
 
     def set_compartment_internal(self, compartment):
         """

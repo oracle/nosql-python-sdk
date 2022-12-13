@@ -21,11 +21,7 @@ from .exception import (
     IllegalArgumentException, IllegalStateException, NoSQLException,
     QueryException, QueryStateException, RetryableException)
 
-try:
-    from . import serde
-except ImportError:
-    import serde
-
+from .serdeutil import SerdeUtil
 
 class PlanIterState(object):
     STATE = enum(OPEN=0,
@@ -297,7 +293,7 @@ class PlanIter(object):
     @staticmethod
     def deserialize_iters(bis):
         iters = list()
-        num_args = serde.BinaryProtocol.read_sequence_length(bis)
+        num_args = SerdeUtil.read_sequence_length(bis)
         count = 0
         while count < num_args:
             iters.append(PlanIter.deserialize_iter(bis))
@@ -330,7 +326,7 @@ class PlanIter(object):
 
     @staticmethod
     def read_sort_specs(bis):
-        length = serde.BinaryProtocol.read_sequence_length(bis)
+        length = SerdeUtil.read_sequence_length(bis)
         if length == -1:
             return None
         specs = list()
@@ -468,7 +464,7 @@ class ArithOpIter(PlanIter):
         multiplication/division.
         """
         self._args = self.deserialize_iters(bis)
-        self._ops = serde.BinaryProtocol.read_string(bis)
+        self._ops = SerdeUtil.read_string(bis)
         """
         If self._code == PlanIter.FUNC_CODE.OP_ADD_SUB, self._ops is a string of
         '+' and/or '-' chars, containing one such char per input value. For
@@ -527,8 +523,8 @@ class ArithOpIter(PlanIter):
         if state.is_done():
             return False
         res_type = (
-            serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE if self._have_real_div
-            else serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER)
+            SerdeUtil.FIELD_VALUE_TYPE.DOUBLE if self._have_real_div
+            else SerdeUtil.FIELD_VALUE_TYPE.INTEGER)
         # Determine the type of the result for the expression by iterating its
         # components, enforcing the promotion rules for numeric types.
         #
@@ -547,28 +543,28 @@ class ArithOpIter(PlanIter):
                 state.done()
                 return True
             if isinstance(arg_val, float):
-                if (res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER or
-                        res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG):
-                    res_type = serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE
+                if (res_type == SerdeUtil.FIELD_VALUE_TYPE.INTEGER or
+                        res_type == SerdeUtil.FIELD_VALUE_TYPE.LONG):
+                    res_type = SerdeUtil.FIELD_VALUE_TYPE.DOUBLE
             elif isinstance(arg_val, int):
                 pass
             elif version_info.major == 2 and CheckValue.is_long(arg_val):
-                if res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER:
-                    res_type = serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG
+                if res_type == SerdeUtil.FIELD_VALUE_TYPE.INTEGER:
+                    res_type = SerdeUtil.FIELD_VALUE_TYPE.LONG
             elif isinstance(arg_val, Decimal):
-                res_type = serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER
+                res_type = SerdeUtil.FIELD_VALUE_TYPE.NUMBER
             else:
                 raise QueryException(
                     'Operand in arithmetic operation has illegal type\n' +
                     'Operand : ' + str(i) + ' type :\n' + str(type(arg_val)),
                     self.get_location())
-        if res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE:
+        if res_type == SerdeUtil.FIELD_VALUE_TYPE.DOUBLE:
             res = float(self._init_result)
-        elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER:
+        elif res_type == SerdeUtil.FIELD_VALUE_TYPE.INTEGER:
             res = self._init_result
-        elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG:
+        elif res_type == SerdeUtil.FIELD_VALUE_TYPE.LONG:
             res = long(self._init_result)
-        elif res_type == serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER:
+        elif res_type == SerdeUtil.FIELD_VALUE_TYPE.NUMBER:
             res = None
         else:
             raise QueryStateException(
@@ -580,28 +576,28 @@ class ArithOpIter(PlanIter):
             if self._code == PlanIter.FUNC_CODE.OP_ADD_SUB:
                 if self._ops[i] == '+':
                     if ((res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
+                         SerdeUtil.FIELD_VALUE_TYPE.DOUBLE) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                             SerdeUtil.FIELD_VALUE_TYPE.INTEGER) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                             SerdeUtil.FIELD_VALUE_TYPE.LONG)):
                         res += arg_val
                     elif (res_type ==
-                          serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
+                          SerdeUtil.FIELD_VALUE_TYPE.NUMBER):
                         if res is None:
                             res = arg_val
                         else:
                             res += arg_val
                 else:
                     if ((res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
+                         SerdeUtil.FIELD_VALUE_TYPE.DOUBLE) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                             SerdeUtil.FIELD_VALUE_TYPE.INTEGER) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                             SerdeUtil.FIELD_VALUE_TYPE.LONG)):
                         res -= arg_val
                     elif (res_type ==
-                          serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
+                          SerdeUtil.FIELD_VALUE_TYPE.NUMBER):
                         if res is None:
                             res = -arg_val
                         else:
@@ -609,28 +605,28 @@ class ArithOpIter(PlanIter):
             else:
                 if self._ops[i] == '*':
                     if ((res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
+                         SerdeUtil.FIELD_VALUE_TYPE.DOUBLE) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                             SerdeUtil.FIELD_VALUE_TYPE.INTEGER) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                             SerdeUtil.FIELD_VALUE_TYPE.LONG)):
                         res *= arg_val
                     elif (res_type ==
-                          serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
+                          SerdeUtil.FIELD_VALUE_TYPE.NUMBER):
                         if res is None:
                             res = arg_val
                         else:
                             res *= arg_val
                 else:
                     if ((res_type ==
-                         serde.BinaryProtocol.FIELD_VALUE_TYPE.DOUBLE) or
+                         SerdeUtil.FIELD_VALUE_TYPE.DOUBLE) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.INTEGER) or
+                             SerdeUtil.FIELD_VALUE_TYPE.INTEGER) or
                             (res_type ==
-                             serde.BinaryProtocol.FIELD_VALUE_TYPE.LONG)):
+                             SerdeUtil.FIELD_VALUE_TYPE.LONG)):
                         res /= arg_val
                     elif (res_type ==
-                          serde.BinaryProtocol.FIELD_VALUE_TYPE.NUMBER):
+                          SerdeUtil.FIELD_VALUE_TYPE.NUMBER):
                         if res is None:
                             res = Decimal(1)
                         else:
@@ -660,7 +656,7 @@ class ConstIter(PlanIter):
 
     def __init__(self, bis):
         super(ConstIter, self).__init__(bis)
-        self._value = serde.BinaryProtocol.read_field_value(bis)
+        self._value = SerdeUtil.read_field_value(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -715,7 +711,7 @@ class ExternalVarRefIter(PlanIter):
 
     def __init__(self, bis):
         super(ExternalVarRefIter, self).__init__(bis)
-        self._name = serde.BinaryProtocol.read_string(bis)
+        self._name = SerdeUtil.read_string(bis)
         self._id = PlanIter.read_positive_int(bis)
 
     def close(self, rcb):
@@ -775,7 +771,7 @@ class FieldStepIter(PlanIter):
     def __init__(self, bis):
         super(FieldStepIter, self).__init__(bis)
         self._input_iter = self.deserialize_iter(bis)
-        self._field_name = serde.BinaryProtocol.read_string(bis)
+        self._field_name = SerdeUtil.read_string(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -1008,7 +1004,7 @@ class GroupIter(PlanIter):
         super(GroupIter, self).__init__(bis)
         self._input = self.deserialize_iter(bis)
         self.num_gb_columns = bis.read_int()
-        self._column_names = serde.BinaryProtocol.read_string_array(bis)
+        self._column_names = SerdeUtil.read_string_array(bis)
         num_aggrs = len(self._column_names) - self.num_gb_columns
         self._aggr_funcs = [0] * num_aggrs
         for i in range(num_aggrs):
@@ -1065,7 +1061,7 @@ class GroupIter(PlanIter):
                     for i in range(i, len(self._column_names)):
                         aggr = self._get_aggr_value(aggr_tuple, i)
                         res[self._column_names[i]] = aggr
-                    res = serde.BinaryProtocol.convert_value_to_none(res)
+                    res = SerdeUtil.convert_value_to_none(res)
                     rcb.set_reg_val(self.result_reg, res)
                     if self._remove_produced_result:
                         state.results.pop(gb_tuple)
@@ -1126,7 +1122,7 @@ class GroupIter(PlanIter):
                     res = dict()
                     for i in range(self.num_gb_columns):
                         res[self._column_names[i]] = gb_tuple.values[i]
-                    res = serde.BinaryProtocol.convert_value_to_none(res)
+                    res = SerdeUtil.convert_value_to_none(res)
                     rcb.set_reg_val(self.result_reg, res)
                     return True
             else:
@@ -1345,12 +1341,12 @@ class ReceiveIter(PlanIter):
         self.distribution_kind = bis.read_short_int()
         # Used for sorting queries. It specifies the names of the top-level
         # fields that contain the values on which to sort the received results.
-        self.sort_fields = serde.BinaryProtocol.read_string_array(bis)
+        self.sort_fields = SerdeUtil.read_string_array(bis)
         self.sort_specs = PlanIter.read_sort_specs(bis)
         # Used for duplicate elimination. It specifies the names of the
         # top-level fields that contain the primary-key values within the
         # received results .
-        self._prim_key_fields = serde.BinaryProtocol.read_string_array(bis)
+        self._prim_key_fields = SerdeUtil.read_string_array(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)
@@ -1574,7 +1570,7 @@ class ReceiveIter(PlanIter):
                 if rcb.get_trace_level() >= 1:
                     rcb.trace('ReceiveIter._sorting_next() : got result :\n' +
                               str(res))
-                res = serde.BinaryProtocol.convert_value_to_none(res)
+                res = SerdeUtil.convert_value_to_none(res)
                 rcb.set_reg_val(self.result_reg, res)
                 if not scanner.is_done():
                     ReceiveIter.add_scanner(state.sorted_scanners, scanner)
@@ -1621,15 +1617,15 @@ class ReceiveIter(PlanIter):
         if isinstance(value, float):
             out.write_float(value)
         elif CheckValue.is_int(value):
-            serde.BinaryProtocol.write_packed_int(out, value)
+            SerdeUtil.write_packed_int(out, value)
         elif CheckValue.is_long(value):
-            serde.BinaryProtocol.write_packed_long(out, value)
+            SerdeUtil.write_packed_long(out, value)
         elif CheckValue.is_str(value):
-            serde.BinaryProtocol.write_string(out, value)
+            SerdeUtil.write_string(out, value)
         elif isinstance(value, datetime):
-            serde.BinaryProtocol.write_datetime(out, value)
+            SerdeUtil.write_datetime(out, value)
         elif isinstance(value, Decimal):
-            serde.BinaryProtocol.write_decimal(out, value)
+            SerdeUtil.write_decimal(out, value)
         else:
             raise QueryStateException(
                 'Unexpected type for primary key column : ' + str(type(value)) +
@@ -1874,9 +1870,9 @@ class SFWIter(PlanIter):
 
     def __init__(self, bis):
         super(SFWIter, self).__init__(bis)
-        self._column_names = serde.BinaryProtocol.read_string_array(bis)
+        self._column_names = SerdeUtil.read_string_array(bis)
         self._num_gb_columns = bis.read_int()
-        self._from_var_name = serde.BinaryProtocol.read_string(bis)
+        self._from_var_name = SerdeUtil.read_string(bis)
         self._is_select_star = bis.read_boolean()
         self.column_iters = self.deserialize_iters(bis)
         self._from_iter = self.deserialize_iter(bis)
@@ -2191,7 +2187,7 @@ class SortIter(PlanIter):
     def __init__(self, bis, kind):
         super(SortIter, self).__init__(bis)
         self._input = self.deserialize_iter(bis)
-        self._sort_fields = serde.BinaryProtocol.read_string_array(bis)
+        self._sort_fields = SerdeUtil.read_string_array(bis)
         self._sort_specs = PlanIter.read_sort_specs(bis)
         if kind == PlanIter.PlanIterKind.SORT2:
             self._count_memory = bis.read_boolean()
@@ -2245,7 +2241,7 @@ class SortIter(PlanIter):
                 return False
             state.set_state(PlanIterState.STATE.RUNNING)
         if state.curr_result < len(state.results):
-            val = serde.BinaryProtocol.convert_value_to_none(
+            val = SerdeUtil.convert_value_to_none(
                 state.results[state.curr_result])
             rcb.set_reg_val(self.result_reg, val)
             state.results[state.curr_result] = None
@@ -2320,7 +2316,7 @@ class VarRefIter(PlanIter):
 
     def __init__(self, bis):
         super(VarRefIter, self).__init__(bis)
-        self._name = serde.BinaryProtocol.read_string(bis)
+        self._name = SerdeUtil.read_string(bis)
 
     def close(self, rcb):
         state = rcb.get_state(self.state_pos)

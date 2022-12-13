@@ -55,7 +55,7 @@ Examples
 Examples can be found `on GitHub <https://github.com/oracle/nosql-python-sdk/
 tree/master/examples>`_.
 
-Examples include simple, standalone programs. They include comments bout how
+Examples include simple, standalone programs. They include comments about how
 they can be configured and run in the different supported environments.
 
 =============
