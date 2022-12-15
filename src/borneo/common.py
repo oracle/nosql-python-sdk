@@ -104,6 +104,8 @@ class ByteInputStream(object):
     def set_offset(self, offset):
         self._offset = offset
 
+    def skip(self, length):
+        self._offset += length
 
 class ByteOutputStream(object):
     """
@@ -126,6 +128,11 @@ class ByteOutputStream(object):
         self.write_value(val_s)
 
     def write_bytearray(self, value, start=0, end=None):
+        # optimize (?) full concatenate
+        if start == 0 and end is None:
+            self._content.extend(value)
+            return
+
         if end is None:
             end = len(value)
         for index in range(start, end):
@@ -151,8 +158,13 @@ class ByteOutputStream(object):
 
     def write_value(self, value):
         val_b = bytearray(value)
-        self.write_bytearray(val_b)
+        self._content.extend(val_b)
 
+    def get_byte_at(self, index):
+        return self._content[index]
+
+    def get_last_byte(self):
+        return self._content[-1]
 
 class CheckValue(object):
 

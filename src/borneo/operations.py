@@ -28,9 +28,12 @@ from .serde import (
     WriteMultipleRequestSerializer)
 try:
     from . import config
+    from . import serdeutil
 except ImportError:
     import config
+    import serdeutil
 
+import borneo.nson
 
 class Request(object):
     """
@@ -714,7 +717,11 @@ class DeleteRequest(WriteRequest):
             raise IllegalArgumentException('DeleteRequest requires a key.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return DeleteRequestSerializer()
 
     def get_request_name(self):
@@ -836,7 +843,11 @@ class GetIndexesRequest(Request):
                 'GetIndexesRequest requires a table name.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return GetIndexesRequestSerializer()
 
     def get_request_name(self):
@@ -994,7 +1005,11 @@ class GetRequest(ReadRequest):
             raise IllegalArgumentException('GetRequest requires a key.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return GetRequestSerializer()
 
     def get_request_name(self):
@@ -1126,8 +1141,13 @@ class GetTableRequest(Request):
                 'GetTableRequest requires a table name.')
 
     @staticmethod
-    def create_serializer():
-        return GetTableRequestSerializer()
+    def get_serial_version(serial_version):
+        return serdeutil.SerdeUtil.SERIAL_VERSION_4
+        #return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.GetTableRequestSerializer()
 
     def get_request_name(self):
         # type: () -> str
@@ -1298,7 +1318,11 @@ class ListTablesRequest(Request):
                 'non-negative.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return ListTablesRequestSerializer()
 
     def get_request_name(self):
@@ -1561,7 +1585,11 @@ class MultiDeleteRequest(Request):
             self._range.validate()
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return MultiDeleteRequestSerializer()
 
     def get_request_name(self):
@@ -1713,7 +1741,11 @@ class PrepareRequest(Request):
                 'PrepareRequest requires a statement.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return PrepareRequestSerializer()
 
     def get_request_name(self):
@@ -2122,7 +2154,11 @@ class PutRequest(WriteRequest):
                 ' may be specified')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return PutRequestSerializer()
 
     def get_request_name(self):
@@ -2671,7 +2707,11 @@ class QueryRequest(Request):
                 'Either statement or prepared statement should be set.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return QueryRequestSerializer()
 
     def get_request_name(self):
@@ -2772,7 +2812,11 @@ class SystemRequest(Request):
                 'SystemRequest requires a statement.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return SystemRequestSerializer()
 
     def get_request_name(self):
@@ -2894,7 +2938,11 @@ class SystemStatusRequest(Request):
                 'SystemStatusRequest requires an operation id.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return SystemStatusRequestSerializer()
 
     def get_request_name(self):
@@ -3090,7 +3138,11 @@ class TableRequest(Request):
             self._limits.validate()
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return TableRequestSerializer()
 
     def get_request_name(self):
@@ -3316,7 +3368,11 @@ class TableUsageRequest(Request):
                 'TableUsageRequest: end time must be greater than start time.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return TableUsageRequestSerializer()
 
     @staticmethod
@@ -3555,7 +3611,11 @@ class WriteMultipleRequest(Request):
             raise IllegalArgumentException('The requests list is empty.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
         return WriteMultipleRequestSerializer()
 
     class OperationRequest(object):
@@ -4877,12 +4937,17 @@ class TableResult(Result):
 
     def __init__(self):
         super(TableResult, self).__init__()
-        self._compartment_id = None
+        self._compartment_or_namespace = None
         self._table_name = None
         self._state = None
         self._limits = None
         self._schema = None
         self._operation_id = None
+        self._ocid = None
+        self._ddl = None
+        self._defined_tags = None
+        self._match_etag = None
+        self._free_form_tags = None
 
     def __str__(self):
         return ('table ' + str(self._table_name) + '[' + self._state + '] ' +
@@ -4891,7 +4956,12 @@ class TableResult(Result):
 
     def set_compartment_id(self, compartment_id):
         # Internal use only.
-        self._compartment_id = compartment_id
+        self._compartment_or_namespace = compartment_id
+        return self
+
+    def set_namespace(self, namespace):
+        # Internal use only.
+        self._compartment_or_namespace = namespace
         return self
 
     def get_compartment_id(self):
@@ -4903,7 +4973,18 @@ class TableResult(Result):
         :returns: compartment id.
         :rtype: str
         """
-        return self._compartment_id
+        return self._compartment_or_namespace
+
+    def get_namespace(self):
+        """
+        On-premise service only.
+
+        Returns the namespace of the table or null if it is not in a namespace.
+
+        :returns: namespace
+        :rtype: str
+        """
+        return self._compartment_or_namespace
 
     def set_table_name(self, table_name):
         self._table_name = table_name
@@ -4975,6 +5056,78 @@ class TableResult(Result):
         """
         return self._operation_id
 
+    def get_ddl(self):
+        """
+        Returns the DDL (create table) statement used to create this table if
+        available. If the table has been altered since initial creation the
+        statement is also altered to reflect the current table schema. This
+        value, when non-null, is functionally equivalent to the schema
+        returned by :py:meth:`set_schema`.
+        table.
+
+        :returns: the ddl statement used to create the table
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._ddl
+
+    def get_table_id(self):
+        """
+        Cloud service only.
+        Returns the OCID of the table. This value will be null if used with the
+        on-premise service.
+
+        :returns: the table OCID
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._ocid
+
+    def get_match_etag(self):
+        """
+        Cloud service only.
+
+        :returns: the tag
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._match_etag
+
+    def get_defined_tags(self):
+        """
+        Cloud service only.
+
+        :returns: the tags
+        :rtype: dict
+        :versionadded: 5.4.0
+        """
+        return self._defined_tags
+
+    def get_free_form_tags(self):
+        """
+        Cloud service only.
+
+        :returns: the tags
+        :rtype: dict
+        :versionadded: 5.4.0
+        """
+        return self._free_form_tags
+
+    def set_ddl(self, value):
+        self._ddl = value
+
+    def set_table_id(self, value):
+        self._ocid = value
+
+    def set_match_etag(self, value):
+        self._match_etag = value
+
+    def set_defined_tags(self, value):
+        self._defined_tags = value
+
+    def set_free_form_tags(self, value):
+        self._free_form_tags = value
+
     def wait_for_completion(self, handle, wait_millis, delay_millis):
         """
         Waits for a table operation to complete. Table operations are
@@ -5018,7 +5171,7 @@ class TableResult(Result):
         delay_s = float(delay_ms) / 1000
         get_table = GetTableRequest().set_table_name(
             self._table_name).set_operation_id(
-            self._operation_id).set_compartment(self._compartment_id)
+            self._operation_id).set_compartment(self._compartment_or_namespace)
         res = None
         while True:
             cur_time = int(round(time() * 1000))

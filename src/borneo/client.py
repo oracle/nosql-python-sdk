@@ -498,9 +498,14 @@ class Client(object):
         """
         content = bytearray()
         bos = ByteOutputStream(content)
-        SerdeUtil.write_serial_version(bos, self.serial_version)
-        request.create_serializer().serialize(
-            request, bos, self.serial_version)
+
+        # serial version used is up to the Request, in order to
+        # (1) support multiple protocol versions and
+        # (2) support the version on a per-Request basis
+        version = request.get_serial_version(self.serial_version)
+        SerdeUtil.write_serial_version(bos, version)
+        request.create_serializer(version).serialize(
+            request, bos, version)
         return content
 
     def serialize_request(self, request, headers):

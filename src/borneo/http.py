@@ -553,10 +553,18 @@ class RequestUtils(object):
         :returns: the result of processing the successful request.
         :rtype: Result
         """
-        code = bis.read_byte()
+        # TODO: abstract this between v3 and v4
+        # this call gives the Request an opinion on which serial version
+        # to use
+        version = request.get_serial_version(self._client.serial_version)
+        if version <= 3:
+            code = bis.read_byte()
+        else:
+            code = 0
         if code == 0:
-            res = request.create_serializer().deserialize(
-                request, bis, self._client.serial_version)
+            #version = request.get_serial_version(self._client.serial_version)
+            res = request.create_serializer(version).deserialize(
+                request, bis, version)
             if request.is_query_request():
                 if not request.is_simple_query():
                     request.get_driver().set_client(self._client)

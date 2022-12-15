@@ -18,18 +18,6 @@ from .common import (
     CheckValue, Empty, IndexInfo, JsonNone, PackedInteger, PreparedStatement,
     PutOption, State, SystemState, TableLimits, TableUsage, TimeUnit, Version,
     enum)
-from .exception import (
-    BatchOperationNumberLimitException, DeploymentException,
-    EvolutionLimitException, IllegalArgumentException, IllegalStateException,
-    IndexExistsException, IndexLimitException, IndexNotFoundException,
-    InvalidAuthorizationException, KeySizeLimitException, NoSQLException,
-    OperationNotSupportedException, OperationThrottlingException,
-    ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
-    ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
-    SecurityInfoNotReadyException, SystemException, TableExistsException,
-    TableLimitException, TableNotFoundException, TableSizeException,
-    UnauthorizedException, UnsupportedProtocolException,
-    WriteThrottlingException)
 from .kv import AuthenticationException
 from .query import PlanIter, QueryDriver, TopologyInfo
 from .serdeutil import SerdeUtil
@@ -77,7 +65,7 @@ class BinaryProtocol(object):
             result.set_compartment_id(SerdeUtil.read_string(bis))
             result.set_table_name(SerdeUtil.read_string(bis))
             result.set_state(
-                SerdeUtil._get_table_state(bis.read_byte()))
+                SerdeUtil.get_table_state(bis.read_byte()))
             has_static_state = bis.read_boolean()
             if has_static_state:
                 read_kb = SerdeUtil.read_packed_int(bis)
@@ -282,7 +270,7 @@ class BinaryProtocol(object):
     @staticmethod
     def write_field_value(bos, value):
         # Serialize a generic field value.
-        bos.write_byte(SerdeUtil._get_type(value))
+        bos.write_byte(SerdeUtil.get_type(value))
         if value is not None:
             if isinstance(value, list):
                 BinaryProtocol.write_list(bos, value)
@@ -783,7 +771,6 @@ class TableRequestSerializer(RequestSerializer):
         result = operations.TableResult()
         BinaryProtocol.deserialize_table_result(bis, result, serial_version)
         return result
-
 
 class TableUsageRequestSerializer(RequestSerializer):
 

@@ -38,8 +38,10 @@ class SerdeUtil(object):
     """
     TRACE_LEVEL = 0
 
-    # Serial version of the protocol.
-    DEFAULT_SERIAL_VERSION = 3
+    # protocol serial versions
+    SERIAL_VERSION_3 = 3
+    SERIAL_VERSION_4 = 4
+    DEFAULT_SERIAL_VERSION = SERIAL_VERSION_3
 
     # Field value type.
     FIELD_VALUE_TYPE = enum(ARRAY=0,
@@ -613,7 +615,7 @@ class SerdeUtil(object):
         return int_len + length
 
     @staticmethod
-    def _get_table_state(state):
+    def get_table_state(state):
         if state == SerdeUtil.TABLE_STATE.ACTIVE:
             return State.ACTIVE
         elif state == SerdeUtil.TABLE_STATE.CREATING:
@@ -628,7 +630,7 @@ class SerdeUtil(object):
             raise IllegalStateException('Unknown table state ' + str(state))
 
     @staticmethod
-    def _get_type(value):
+    def get_type(value):
         if isinstance(value, list):
             return SerdeUtil.FIELD_VALUE_TYPE.ARRAY
         elif isinstance(value, bytearray):

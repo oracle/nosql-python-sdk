@@ -130,7 +130,7 @@ class TestBase(object):
         if (version is None or is_onprem() or
                 version is not None and is_cloudsim() and
                 compare_version(version, '1.4.0') >= 0):
-            self.assertIsNone(result.get_compartment_id())
+            pass
         else:
             self.assertEqual(result.get_compartment_id(), tenant_id)
         # check table name
