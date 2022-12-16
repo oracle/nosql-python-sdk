@@ -107,6 +107,7 @@ class ByteInputStream(object):
     def skip(self, length):
         self._offset += length
 
+
 class ByteOutputStream(object):
     """
     The ByteOutputStream provides methods to write data with different type into
@@ -165,6 +166,7 @@ class ByteOutputStream(object):
 
     def get_last_byte(self):
         return self._content[-1]
+
 
 class CheckValue(object):
 
@@ -987,7 +989,9 @@ class PackedInteger(object):
             byte_len = b1 - 0xf7
             negative = False
         else:
+            # handle Python 2 vs 3 (3 has no long)
             try:
+                # noinspection PyCompatibility
                 return long(b1 - 127)
             except NameError:
                 return b1 - 127
@@ -1032,7 +1036,9 @@ class PackedInteger(object):
             value -= 119
         else:
             value += 121
+        # handle Python 2 vs 3 (no long in 3)
         try:
+            # noinspection PyCompatibility
             return long(value)
         except NameError:
             return value

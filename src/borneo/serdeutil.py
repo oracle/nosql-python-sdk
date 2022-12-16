@@ -5,17 +5,17 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from dateutil import parser, tz
 from decimal import (
-    Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
+    Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
     ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP)
 from sys import version_info
 
+from dateutil import parser, tz
+
 from .common import (
-    CheckValue, Empty, IndexInfo, JsonNone, PackedInteger, PreparedStatement,
-    PutOption, State, SystemState, TableLimits, TableUsage, TimeUnit, Version,
-    enum)
+    CheckValue, Empty, JsonNone, PackedInteger, PutOption, State, SystemState, enum)
 from .exception import (
     BatchOperationNumberLimitException, DeploymentException,
     EvolutionLimitException, IllegalArgumentException, IllegalStateException,
@@ -28,6 +28,121 @@ from .exception import (
     TableLimitException, TableNotFoundException, TableSizeException,
     UnauthorizedException, UnsupportedProtocolException,
     WriteThrottlingException)
+
+from .kv.exception import AuthenticationException
+
+
+#
+# Abstract classes/interfaces related to serialization
+#
+
+class RequestSerializer(object):
+    """
+    Base class of different kinds of RequestSerializer.
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def serialize(self, request, bos, serial_version):
+        """
+        Method used to serialize the request.
+        """
+        pass
+
+    @abstractmethod
+    def deserialize(self, request, bis, serial_version):
+        """
+        Method used to deserialize the request.
+        """
+        pass
+
+
+class NsonEventHandler:
+    """
+    Base class of NsonEvent
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def boolean_value(self, value):
+        pass
+
+    @abstractmethod
+    def binary_value(self, value):
+        pass
+
+    @abstractmethod
+    def string_value(self, value):
+        pass
+
+    @abstractmethod
+    def integer_value(self, value):
+        pass
+
+    @abstractmethod
+    def long_value(self, value):
+        pass
+
+    @abstractmethod
+    def double_value(self, value):
+        pass
+
+    @abstractmethod
+    def number_value(self, value):
+        pass
+
+    @abstractmethod
+    def timestamp_value(self, value):
+        pass
+
+    @abstractmethod
+    def json_null_value(self):
+        pass
+
+    @abstractmethod
+    def null_value(self):
+        pass
+
+    @abstractmethod
+    def empty_value(self):
+        pass
+
+    @abstractmethod
+    def start_map(self, size=None):
+        pass
+
+    @abstractmethod
+    def start_array(self, size=None):
+        pass
+
+    @abstractmethod
+    def end_map(self, size=None):
+        pass
+
+    @abstractmethod
+    def end_array(self, size=None):
+        pass
+
+    @abstractmethod
+    def start_map_field(self, key):
+        pass
+
+    @abstractmethod
+    def end_map_field(self, key=None):
+        pass
+
+    @abstractmethod
+    def start_array_field(self, index=None):
+        pass
+
+    @abstractmethod
+    def end_array_field(self, index=None):
+        pass
+
+    @abstractmethod
+    def stop(self):
+        pass
+
 
 class SerdeUtil(object):
     """
@@ -173,7 +288,6 @@ class SerdeUtil(object):
             return None
         return value
 
-
     @staticmethod
     def get_operation_state(state):
         if state == SerdeUtil.SYSTEM_STATE.COMPLETE:
@@ -185,7 +299,7 @@ class SerdeUtil(object):
                 'Unknown system operation state ' + str(state))
 
     @staticmethod
-    def _get_op_code(request):
+    def get_put_op_code(request):
         """
         Assumes that the request has been validated and only one of the if
         options is set, if any.
@@ -288,7 +402,7 @@ class SerdeUtil(object):
         :param bis: the byte input stream.
         :type bis: ByteInputStream
         :param skip: True if skipping vs reading
-        :type bis: boolean
+        :type skip: boolean
         :returns: the array or None.
         :rtype: bytearray
         """
@@ -495,7 +609,6 @@ class SerdeUtil(object):
     def write_decimal(bos, value):
         # Serialize a decimal value.
         SerdeUtil.write_string(bos, str(value))
-
 
     @staticmethod
     def write_math_context(bos, math_context):

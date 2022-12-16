@@ -19,7 +19,6 @@ from .exception import (
     ReadThrottlingException, RequestTimeoutException, RetryableException,
     SecurityInfoNotReadyException, UnsupportedProtocolException,
     WriteThrottlingException)
-
 from .serdeutil import SerdeUtil
 
 try:
@@ -143,6 +142,7 @@ class RequestUtils(object):
         :type payload: bytearray
         :param timeout_ms: request timeout in milliseconds.
         :type timeout_ms: int
+        :param stats_config: configuration for stats usage
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
@@ -562,7 +562,7 @@ class RequestUtils(object):
         else:
             code = 0
         if code == 0:
-            #version = request.get_serial_version(self._client.serial_version)
+            # version = request.get_serial_version(self._client.serial_version)
             res = request.create_serializer(version).deserialize(
                 request, bis, version)
             if request.is_query_request():

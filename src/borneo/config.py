@@ -7,11 +7,12 @@
 
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from enum import Enum
 from os import getenv
 from random import random
 from ssl import SSLContext
 from time import sleep, time
+
+from enum import Enum
 from typing import Callable
 
 try:
@@ -874,7 +875,7 @@ class NoSQLHandleConfig(object):
         self._is_default_logger = True
 
         profile_property = getenv(self._STATS_PROFILE_PROPERTY,
-            self._DEFAULT_STATS_PROFILE.name.lower())
+                                  self._DEFAULT_STATS_PROFILE.name.lower())
         try:
             self._stats_profile = StatsProfile[profile_property.upper()]
         except KeyError:
@@ -893,14 +894,14 @@ class NoSQLHandleConfig(object):
         # else:
         #     self._stats_profile = StatsProfile.NONE
 
-
         self._stats_interval = getenv(self._STATS_INTERVAL_PROPERTY,
-            self._DEFAULT_STATS_INTERVAL)
+                                      self._DEFAULT_STATS_INTERVAL)
         self._stats_interval = int(self._stats_interval)
 
         self._stats_pretty_print = getenv(self._STATS_PRETTY_PRINT_PROPERTY,
-            self._DEFAULT_STATS_PRETTY_PRINT)
+                                          self._DEFAULT_STATS_PRETTY_PRINT)
         self._stats_pretty_print = bool(self._stats_pretty_print)
+        # noinspection PyTypeChecker
         self._stats_handler = None  # type: Callable
 
     def get_service_url(self):

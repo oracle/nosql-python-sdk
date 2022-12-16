@@ -6,10 +6,11 @@
 #
 from abc import abstractmethod
 from datetime import datetime
-from dateutil import parser, tz
 from decimal import Context, ROUND_HALF_EVEN
 from json import loads
 from time import mktime, sleep, time
+
+from dateutil import parser, tz
 
 from .common import (
     CheckValue, Consistency, Durability, FieldRange, PreparedStatement,
@@ -19,13 +20,14 @@ from .exception import (
     IllegalArgumentException, RequestTimeoutException)
 from .http import RateLimiter
 from .serde import (
-    BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
-    GetRequestSerializer, GetTableRequestSerializer,
-    ListTablesRequestSerializer, MultiDeleteRequestSerializer,
+    DeleteRequestSerializer, GetIndexesRequestSerializer,
+    GetRequestSerializer, ListTablesRequestSerializer, MultiDeleteRequestSerializer,
     PrepareRequestSerializer, PutRequestSerializer, QueryRequestSerializer,
     SystemRequestSerializer, SystemStatusRequestSerializer,
     TableRequestSerializer, TableUsageRequestSerializer,
     WriteMultipleRequestSerializer)
+from .serdeutil import SerdeUtil
+
 try:
     from . import config
     from . import serdeutil
@@ -34,6 +36,7 @@ except ImportError:
     import serdeutil
 
 import borneo.nson
+
 
 class Request(object):
     """
@@ -403,9 +406,6 @@ class WriteRequest(Request):
     def __str__(self):
         return 'WriteRequest'
 
-    def __str__(self):
-        return 'WriteRequest'
-
     def does_writes(self):
         return True
 
@@ -432,7 +432,7 @@ class WriteRequest(Request):
     def _validate_write_request(self, request_name):
         if self.get_table_name() is None:
             raise IllegalArgumentException(
-                 "{} requires table name".format(request_name))
+                "{} requires table name".format(request_name))
 
     def get_durability(self):
         pass
@@ -441,7 +441,8 @@ class WriteRequest(Request):
         # type: () -> str
         return "Write"
 
-    def get_type_name(self):
+    @staticmethod
+    def get_type_name():
         # type: () -> str
         return "Write"
 
@@ -494,6 +495,7 @@ class ReadRequest(Request):
         return "Read"
 
 
+# noinspection PyUnusedLocal
 class DeleteRequest(WriteRequest):
     """
     Represents the input to a :py:meth:`NoSQLHandle.delete` operation.
@@ -729,6 +731,7 @@ class DeleteRequest(WriteRequest):
         return "Delete"
 
 
+# noinspection PyUnusedLocal
 class GetIndexesRequest(Request):
     """
     Represents the argument of a :py:meth:`NoSQLHandle.get_indexes` operation
@@ -855,6 +858,7 @@ class GetIndexesRequest(Request):
         return "GetIndexes"
 
 
+# noinspection PyUnusedLocal
 class GetRequest(ReadRequest):
     """
     Represents the input to a :py:meth:`NoSQLHandle.get` operation which returns
@@ -1017,6 +1021,7 @@ class GetRequest(ReadRequest):
         return "Get"
 
 
+# noinspection PyUnusedLocal
 class GetTableRequest(Request):
     """
     Represents the argument of a :py:meth:`NoSQLHandle.get_table` operation
@@ -1142,8 +1147,9 @@ class GetTableRequest(Request):
 
     @staticmethod
     def get_serial_version(serial_version):
+        # GMF -- temp hack
         return serdeutil.SerdeUtil.SERIAL_VERSION_4
-        #return serial_version
+        # return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
@@ -1360,9 +1366,6 @@ class MultiDeleteRequest(Request):
         self._range = None
         self._max_write_kb = 0
         self._durability = None
-
-    def __str__(self):
-        return 'MultiDeleteRequest'
 
     def __str__(self):
         return 'MultiDeleteRequest'
@@ -3454,7 +3457,8 @@ class WriteMultipleRequest(Request):
         if table_name is None:
             self.set_table_name(request.get_table_name())
         else:
-            if self.get_top_table_name(request.get_table_name().lower()) \
+            if WriteMultipleRequest.get_top_table_name(
+                    request.get_table_name().lower()) \
                     != table_name.lower():
                 raise IllegalArgumentException(
                     'The parent table_name used for the operation is '
@@ -3463,7 +3467,8 @@ class WriteMultipleRequest(Request):
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
 
-    def get_top_table_name(self, table_name: str):
+    @staticmethod
+    def get_top_table_name(table_name):
         pos = table_name.find('.')
         if pos == -1:
             return table_name
@@ -4609,7 +4614,6 @@ class QueryIterableResult(Result):
     """
 
     def __init__(self, request, handle):
-        # type: (QueryRequest, NoSQLHandle) -> None
         # NoSQLHandle handle
         super(QueryIterableResult, self).__init__()
         self.request = request
@@ -4661,7 +4665,6 @@ class QueryIterableResult(Result):
         return self.writeKB
 
     def __iter__(self):
-        # type: () -> QueryIterator
         return QueryIterator(self)
 
 
@@ -4671,83 +4674,80 @@ class QueryIterator:
 
     :versionadded: 5.3.6
     """
+
     def __init__(self, iterable):
-        # type: (QueryIterableResult) -> None
         self._iterable = iterable
         self._internalRequest = iterable.request.copy()
-        self._internalResult = None
+        self._internal_result = None
         self._partialResultList = None
         self._partialResultIter = None
         self._next = None
         self._closed = False
 
     def _compute(self):
-        # type: () -> None
         if self._closed:
             return
         if self._partialResultList is None:
-            self._internalResult = \
+            self._internal_result = \
                 self._iterable.handle.query(self._internalRequest)
-            self._partialResultList = self._internalResult.get_results()
+            self._partialResultList = self._internal_result.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
             try:
                 self._next = next(self._partialResultIter)
                 return
             except StopIteration:
-                hasNext = False
-            self.set_stats(self._internalResult)
+                has_next = False
+            self.set_stats(self._internal_result)
         else:
             try:
                 self._next = next(self._partialResultIter)
                 return
             except StopIteration:
-                hasNext = False
+                has_next = False
 
-        while not hasNext and not self._internalRequest.is_done():
-            self._internalResult = \
+        while not has_next and not self._internalRequest.is_done():
+            self._internal_result = \
                 self._iterable.handle.query(self._internalRequest)
-            self._partialResultList = self._internalResult.get_results()
+            self._partialResultList = self._internal_result.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
-            hasNext = True
+            has_next = True
             try:
                 self._next = next(self._partialResultIter)
             except StopIteration:
-                hasNext = False
-            self.set_stats(self._internalResult)
+                has_next = False
+            self.set_stats(self._internal_result)
 
         if self._internalRequest.is_done():
             self._internalRequest.close()
-            if not hasNext:
+            if not has_next:
                 self._closed = True
 
-    def set_stats(self, internalResult):
-        # type: (QueryResult) -> None
-        self._iterable.readKB += internalResult.get_read_kb()
-        self._iterable.readUnits += internalResult.get_read_units()
-        self._iterable.writeKB += internalResult.get_write_kb()
+    def set_stats(self, internal_result):
+        self._iterable.readKB += internal_result.get_read_kb()
+        self._iterable.readUnits += internal_result.get_read_units()
+        self._iterable.writeKB += internal_result.get_write_kb()
         self._iterable.set_rate_limit_delayed_ms(
             self._iterable.get_rate_limit_delayed_ms() +
-            internalResult.get_rate_limit_delayed_ms())
+            internal_result.get_rate_limit_delayed_ms())
         self._iterable.set_read_kb(self._iterable.get_read_kb() +
-                                   internalResult.get_read_kb())
+                                   internal_result.get_read_kb())
         self._iterable.set_read_units(self._iterable.get_read_units() +
-                                      internalResult.get_read_units())
+                                      internal_result.get_read_units())
         self._iterable.set_write_kb(self._iterable.get_write_kb() +
-                                    internalResult.get_write_kb())
+                                    internal_result.get_write_kb())
         self._iterable.set_write_units(self._iterable.get_write_units() +
-                                       internalResult.get_write_units())
-        if internalResult.get_retry_stats() is not None:
+                                       internal_result.get_write_units())
+        if internal_result.get_retry_stats() is not None:
             if self._iterable.get_retry_stats() is None:
                 self._iterable.set_retry_stats(RetryStats())
             self._iterable.get_retry_stats().add_delay_ms(
-                internalResult.get_retry_stats().get_delay_ms())
+                internal_result.get_retry_stats().get_delay_ms())
             self._iterable.get_retry_stats().increment_retries(
-                internalResult.get_retry_stats().get_retries())
+                internal_result.get_retry_stats().get_retries())
             self._iterable.get_retry_stats().add_exceptions(
-                internalResult.get_retry_stats().get_exceptions_map())
+                internal_result.get_retry_stats().get_exceptions_map())
 
     def __next__(self):
-        # type: () -> dict[str, Object]
         self._compute()
         if self._closed:
             raise StopIteration
@@ -4755,7 +4755,6 @@ class QueryIterator:
 
     # for python2 compatibility
     def next(self):
-        # type: () -> dict[str, Object]
         return self.__next__()
 
 
@@ -4796,7 +4795,7 @@ class SystemResult(Result):
 
     def __str__(self):
         return ('SystemResult [statement=' + self._statement + ', state=' +
-                BinaryProtocol.get_operation_state(self._state) +
+                SerdeUtil.get_operation_state(self._state) +
                 ', operation_id=' + self._operation_id + ', result_string=' +
                 self._result_string + ']')
 
@@ -5516,7 +5515,6 @@ class RetryStats(object):
         self._exception_map[e] = num
 
     def get_exceptions_map(self):
-        # type: () -> dict[Object, int]
         """
         Internal use only.
 
@@ -5527,7 +5525,6 @@ class RetryStats(object):
         return self._exception_map
 
     def add_exceptions(self, ex_map):
-        # type: (dict[Object, int]) -> None
         """
         Internal use only.
 

@@ -5,15 +5,15 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+#
 from base64 import b64encode
 
-from .serdeutil import SerdeUtil
-from .serde import RequestSerializer
-from .nson_protocol import *
+import borneo.operations
 from .common import TableLimits
 from .exception import IllegalArgumentException
+from .nson_protocol import *
+from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
 
-import borneo.operations
 
 #
 # Contains methods to serialize and deserialize NSON
@@ -63,7 +63,7 @@ class Nson(object):
     @staticmethod
     def write_bytearray(bos, value):
         bos.write_byte(SerdeUtil.FIELD_VALUE_TYPE.BINARY)
-        SerdeUtil.write_bytearray(bos, value, False)
+        SerdeUtil.write_bytearray(bos, value)
 
     @staticmethod
     def write_number(bos, value):
@@ -120,6 +120,7 @@ class Nson(object):
         Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.BINARY)
         return SerdeUtil.read_bytearray(bis, skip)
 
+    # noinspection PyUnresolvedReferences
     @staticmethod
     def generate_events_from_nson(bis, handler, skip=False):
         """
@@ -130,7 +131,7 @@ class Nson(object):
                 'Handler must have a value if not skipping')
         if handler is not None and handler.stop():
             return
-        t = bis.read_byte();
+        t = bis.read_byte()
         if t == SerdeUtil.FIELD_VALUE_TYPE.BINARY:
             value = SerdeUtil.read_bytearray(bis, skip)
             if not skip:
@@ -148,7 +149,7 @@ class Nson(object):
             if not skip:
                 handler.integer_value(value)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.LONG:
-            value = SerdeUtil.read_long(bis)
+            value = SerdeUtil.read_packed_long(bis)
             if not skip:
                 handler.long_value(value)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.STRING:
@@ -160,7 +161,7 @@ class Nson(object):
             if not skip:
                 handler.timestamp_value(value)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.NUMBER:
-            value = SerdeUtil.read_number(bis)
+            value = SerdeUtil.read_decimal(bis)
             if not skip:
                 handler.number_value(value)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.JSON_NULL:
@@ -217,7 +218,6 @@ class Nson(object):
         else:
             raise IllegalArgumentException(
                 'Unknown value type code: ' + str(t))
-
 
     @staticmethod
     def generate_events_from_value(value, handler, skip=False):
@@ -302,72 +302,16 @@ class Nson(object):
             raise IllegalArgumentException(
                 'Unknown value type code: ' + str(t))
 
-class NsonEventHandler:
-    def boolean_value(self, value):
-        pass
-
-    def binary_value(self, value):
-        pass
-
-    def string_value(self, value):
-        pass
-
-    def integer_value(self, value):
-        pass
-
-    def long_value(self, value):
-        pass
-
-    def double_value(self, value):
-        pass
-
-    def number_value(self, value):
-        pass
-
-    def timestamp_value(self, value):
-        pass
-
-    def json_null_value(self):
-        pass
-
-    def null_value(self):
-        pass
-
-    def empty_value(self):
-        pass
-
-    def start_map(self, size=None):
-        pass
-
-    def start_array(self, size=None):
-        pass
-
-    def end_map(self, size=None):
-        pass
-
-    def end_array(self, size=None):
-        pass
-
-    def start_map_field(self, key):
-        pass
-
-    def end_map_field(self, key=None):
-        pass
-
-    def start_array_field(self, index=None):
-        pass
-
-    def end_array_field(self, index=None):
-        pass
-
-    def stop(self):
-        return False
 
 class NsonSerializer(NsonEventHandler):
     """
     This class serializes an NSON "document." It maintains state for nested
     maps and arrays.
     """
+
+    def stop(self):
+        pass
+
     def __init__(self, bos):
         # output stream
         self._bos = bos
@@ -421,10 +365,10 @@ class NsonSerializer(NsonEventHandler):
         self._start_map_or_array(SerdeUtil.FIELD_VALUE_TYPE.ARRAY)
 
     def _start_map_or_array(self, field_type):
-        self._bos.write_byte(field_type);
+        self._bos.write_byte(field_type)
         offset = self._bos.get_offset()
-        self._bos.write_int(0) # size in bytes
-        self._bos.write_int(0) # number of elements
+        self._bos.write_int(0)  # size in bytes
+        self._bos.write_int(0)  # number of elements
         self._offset_stack.append(offset)
         self._size_stack.append(0)
 
@@ -448,15 +392,19 @@ class NsonSerializer(NsonEventHandler):
         SerdeUtil.write_string(self._bos, field_name)
 
     def end_map_field(self, field_name=None):
-        self._incr_size() # add 1 to number of elements
+        self._incr_size()  # add 1 to number of elements
+
+    def start_array_field(self, index=None):
+        pass
 
     def end_array_field(self, index=0):
-        self._incr_size() # add 1 to number of elements
+        self._incr_size()  # add 1 to number of elements
 
     def _incr_size(self):
         # add one to value on top of size stack. Using an index of -1
         # refers to the last element in the array/list
         self._size_stack[-1] += 1
+
 
 class MapWalker(object):
     """
@@ -470,12 +418,12 @@ class MapWalker(object):
     def __init__(self, bis):
         self._bis = bis
         self._current_name = None
-        self._current_index = 0;
+        self._current_index = 0
         t = bis.read_byte()
         if t != SerdeUtil.FIELD_VALUE_TYPE.MAP:
             raise IllegalArgumentException(
                 'NSON MapWalker: stream must be located at a MAP')
-        SerdeUtil.read_full_int(bis) # total length in bytes, not relevant
+        SerdeUtil.read_full_int(bis)  # total length in bytes, not relevant
         self._num_elements = SerdeUtil.read_full_int(bis)
         if self._num_elements < 0 or self._num_elements > MapWalker.MAX_ELEMS:
             raise IllegalArgumentException(
@@ -501,7 +449,7 @@ class MapWalker(object):
     def skip(self):
         t = self._bis.read_byte()
         if (t == SerdeUtil.FIELD_VALUE_TYPE.MAP or
-            t == SerdeUtil.FIELD_VALUE_TYPE.ARRAY):
+                t == SerdeUtil.FIELD_VALUE_TYPE.ARRAY):
             length = SerdeUtil.read_full_int(self._bis)
             self._bis.skip(length)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.BINARY:
@@ -513,7 +461,7 @@ class MapWalker(object):
         elif t == SerdeUtil.FIELD_VALUE_TYPE.INTEGER:
             SerdeUtil.read_packed_int(self._bis)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.LONG:
-            SerdeUtil.read_long(self._bis)
+            SerdeUtil.read_packed_long(self._bis)
         elif (t == SerdeUtil.FIELD_VALUE_TYPE.STRING or
               t == SerdeUtil.FIELD_VALUE_TYPE.TIMESTAMP or
               t == SerdeUtil.FIELD_VALUE_TYPE.NUMBER):
@@ -525,9 +473,10 @@ class MapWalker(object):
         else:
             raise IllegalArgumentException('Unknown field type: ' + str(t))
 
+
 class JsonSerializer(NsonEventHandler):
-    QUOTE ='"'
-    COMMA=','
+    QUOTE = '"'
+    COMMA = ','
     comma_value = 44
     CR = '\n'
     SP = ' '
@@ -541,7 +490,7 @@ class JsonSerializer(NsonEventHandler):
     # Pretty-printing is an option that results in object files on their own
     # lines and indentation for nested objects
     #
-    def __init__(self, pretty = False):
+    def __init__(self, pretty=False):
         self._builder = []
         self._pretty = pretty
         self._current_indent = 0
@@ -596,7 +545,7 @@ class JsonSerializer(NsonEventHandler):
         if self._builder[-1] == self.COMMA:
             self._builder.pop()
         if self._pretty:
-            self._change_indent(-(self._incr))
+            self._change_indent(-self._incr)
             self._append(self.CR, False)
             self._append(self._indent, False)
 
@@ -649,6 +598,7 @@ class JsonSerializer(NsonEventHandler):
     def __str__(self):
         return "".join(self._builder)
 
+
 #
 # Here down... request serializers
 #
@@ -657,7 +607,7 @@ class GetTableRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
         ns = NsonSerializer(bos)
-        ns.start_map() # top-level object
+        ns.start_map()  # top-level object
 
         # header
         Proto.start_map(ns, HEADER)
@@ -670,7 +620,7 @@ class GetTableRequestSerializer(RequestSerializer):
                                      request.get_operation_id())
         Proto.end_map(ns, PAYLOAD)
 
-        ns.end_map() # top-level object
+        ns.end_map()  # top-level object
 
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_table_result(bis)
@@ -741,7 +691,6 @@ class Proto(object):
     def deserialize_table_result(bis):
         result = borneo.operations.TableResult()
         # save and reset offset in stream
-        saved_offset = bis.get_offset()
         bis.set_offset(0)
         walker = MapWalker(bis)
 
@@ -755,7 +704,7 @@ class Proto(object):
             elif name == NAMESPACE:
                 result.set_namespace(Nson.read_string(bis))
             elif name == TABLE_OCID:
-                result.set_table_ocid(Nson.read_string(bis))
+                result.set_table_id(Nson.read_string(bis))
             elif name == TABLE_NAME:
                 result.set_table_name(Nson.read_string(bis))
             elif name == TABLE_STATE:
@@ -829,7 +778,6 @@ class Proto(object):
         code = Nson.read_int(bis)
         if code == 0:
             return
-        msg = None
         while walker.has_next():
             walker.next()
             name = walker.get_current_name()

@@ -5,22 +5,18 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
-from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from datetime import datetime
-from dateutil import parser, tz
 from decimal import (
     Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
     ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP)
-from sys import version_info
 
 from .common import (
-    CheckValue, Empty, IndexInfo, JsonNone, PackedInteger, PreparedStatement,
-    PutOption, State, SystemState, TableLimits, TableUsage, TimeUnit, Version,
-    enum)
-from .kv import AuthenticationException
+    CheckValue, Empty, IndexInfo, JsonNone, PreparedStatement,
+    TableLimits, TableUsage, TimeUnit, Version)
+from .exception import IllegalStateException
 from .query import PlanIter, QueryDriver, TopologyInfo
-from .serdeutil import SerdeUtil
+from .serdeutil import (SerdeUtil, RequestSerializer)
 
 try:
     from . import operations
@@ -360,27 +356,6 @@ class BinaryProtocol(object):
         SerdeUtil.write_bytearray(bos, version.get_bytes())
 
 
-class RequestSerializer(object):
-    """
-    Base class of different kinds of RequestSerializer.
-    """
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def serialize(self, request, bos, serial_version):
-        """
-        Method used to serialize the request.
-        """
-        pass
-
-    @abstractmethod
-    def deserialize(self, request, bis, serial_version):
-        """
-        Method used to deserialize the request.
-        """
-        pass
-
-
 class DeleteRequestSerializer(RequestSerializer):
     """
     The flag indicates if the serializer is used for a standalone request or a
@@ -412,6 +387,7 @@ class DeleteRequestSerializer(RequestSerializer):
         result.set_success(bis.read_boolean())
         BinaryProtocol.deserialize_write_response(bis, result, serial_version)
         return result
+
 
 class GetIndexesRequestSerializer(RequestSerializer):
 
@@ -607,7 +583,7 @@ class PutRequestSerializer(RequestSerializer):
         self._is_sub_request = is_sub_request
 
     def serialize(self, request, bos, serial_version):
-        op = SerdeUtil._get_op_code(request)
+        op = SerdeUtil.get_put_op_code(request)
         BinaryProtocol.write_op_code(bos, op)
         if self._is_sub_request:
             bos.write_boolean(request.get_return_row())
@@ -632,6 +608,7 @@ class PutRequestSerializer(RequestSerializer):
         # generated identity column value
         BinaryProtocol.deserialize_generated_value(bis, result)
         return result
+
 
 class QueryRequestSerializer(RequestSerializer):
 
@@ -772,6 +749,7 @@ class TableRequestSerializer(RequestSerializer):
         BinaryProtocol.deserialize_table_result(bis, result, serial_version)
         return result
 
+
 class TableUsageRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
@@ -848,7 +826,6 @@ class WriteMultipleRequestSerializer(RequestSerializer):
 
         # Operations
         for op in request.get_operations():
-            start = bos.get_offset()
 
             # Abort if successful flag
             bos.write_boolean(op.is_abort_if_unsuccessful())

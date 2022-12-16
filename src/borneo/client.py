@@ -8,10 +8,11 @@
 from logging import DEBUG
 from multiprocessing import pool
 from platform import python_version
-from requests import Session
 from sys import version_info
 from threading import Lock
 from time import time
+
+from requests import Session
 
 from .common import (
     ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter,
@@ -24,8 +25,8 @@ from .kv import StoreAccessTokenProvider
 from .operations import GetTableRequest, QueryResult, TableRequest, WriteRequest
 from .query import QueryDriver
 from .serdeutil import SerdeUtil
-from .version import __version__
 from .stats import StatsControl
+from .version import __version__
 
 
 class Client(object):
@@ -247,7 +248,8 @@ class Client(object):
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
         return request_utils.do_post_request(self._request_uri, headers,
-            content, timeout_ms, self._stats_control)
+                                             content, timeout_ms,
+                                             self._stats_control)
 
     # set the session cookie if in return headers (see RequestUtils in http.py)
     @synchronized

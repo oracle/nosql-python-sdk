@@ -6,8 +6,8 @@
 #
 
 from abc import ABCMeta, abstractmethod
-from datetime import datetime
 from collections import OrderedDict
+from datetime import datetime
 from decimal import Decimal, setcontext
 from sys import getsizeof, version_info
 
@@ -27,7 +27,6 @@ try:
     from . import serde
 except ImportError:
     import serde
-
 
 
 class PlanIterState(object):
@@ -570,7 +569,11 @@ class ArithOpIter(PlanIter):
         elif res_type == SerdeUtil.FIELD_VALUE_TYPE.INTEGER:
             res = self._init_result
         elif res_type == SerdeUtil.FIELD_VALUE_TYPE.LONG:
-            res = long(self._init_result)
+            try:
+                # noinspection PyCompatibility
+                res = long(self._init_result)
+            except NameError:
+                res = self._init_result
         elif res_type == SerdeUtil.FIELD_VALUE_TYPE.NUMBER:
             res = None
         else:
@@ -2654,9 +2657,8 @@ class QueryDriver(object):
         self._results = None
         self._rcb.reset_kb_consumption()
 
-    def copy(self, queryRequest):
-        # type: (QueryRequest) -> QueryDriver
-        copy = QueryDriver(queryRequest)
+    def copy(self, query_request):
+        copy = QueryDriver(query_request)
         copy._client = self._client
         copy._topology_info = self._topology_info
         copy._prep_cost = self._prep_cost
