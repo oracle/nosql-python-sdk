@@ -21,7 +21,8 @@ from .exception import (
 from .http import RateLimiter
 from .serde import (
     DeleteRequestSerializer, GetIndexesRequestSerializer,
-    GetRequestSerializer, ListTablesRequestSerializer, MultiDeleteRequestSerializer,
+    GetRequestSerializer, GetTableRequestSerializer,ListTablesRequestSerializer,
+    MultiDeleteRequestSerializer,
     PrepareRequestSerializer, PutRequestSerializer, QueryRequestSerializer,
     SystemRequestSerializer, SystemStatusRequestSerializer,
     TableRequestSerializer, TableUsageRequestSerializer,
@@ -720,10 +721,14 @@ class DeleteRequest(WriteRequest):
 
     @staticmethod
     def get_serial_version(serial_version):
-        return serial_version
+        # temporary hack
+        return serdeutil.SerdeUtil.SERIAL_VERSION_4
+        #return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.DeleteRequestSerializer()
         return DeleteRequestSerializer()
 
     def get_request_name(self):
@@ -1010,10 +1015,14 @@ class GetRequest(ReadRequest):
 
     @staticmethod
     def get_serial_version(serial_version):
-        return serial_version
+        # temporary hack
+        return serdeutil.SerdeUtil.SERIAL_VERSION_4
+        #return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.GetRequestSerializer()
         return GetRequestSerializer()
 
     def get_request_name(self):
@@ -1147,13 +1156,15 @@ class GetTableRequest(Request):
 
     @staticmethod
     def get_serial_version(serial_version):
-        # GMF -- temp hack
+        # temp hack
         return serdeutil.SerdeUtil.SERIAL_VERSION_4
         # return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
-        return borneo.nson.GetTableRequestSerializer()
+        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.GetTableRequestSerializer()
+        return GetTableRequestSerializer
 
     def get_request_name(self):
         # type: () -> str
@@ -2158,11 +2169,15 @@ class PutRequest(WriteRequest):
 
     @staticmethod
     def get_serial_version(serial_version):
-        return serial_version
+        # temp hack
+        return serdeutil.SerdeUtil.SERIAL_VERSION_4
+        # return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
-        return PutRequestSerializer()
+        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.PutRequestSerializer()
+        return PutRequestSerializer
 
     def get_request_name(self):
         # type: () -> str

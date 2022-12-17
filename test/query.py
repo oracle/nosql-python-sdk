@@ -898,9 +898,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
 
-        list = []
+        res_list = []
         for row in result:
-            list.append(row)
+            res_list.append(row)
 
         exp_list = []
         while True:
@@ -908,10 +908,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             results = result.get_results()
             for row in results:
                 exp_list.append(row)
-                list.remove(row)
+                res_list.remove(row)
             if query_request.is_done():
                 break
-        self.assertEqual(0, len(list))
+        self.assertEqual(0, len(res_list))
 
         # Check with an ORDER BY query that makes use of QueryDriver.
         statement = 'SELECT * FROM ' + table_name + " ORDER BY fld_id, fld_sid"
@@ -921,9 +921,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
 
-        list = []
+        res_list = []
         for row in result:
-            list.append(row)
+            res_list.append(row)
 
         exp_list = []
         i = 0
@@ -932,11 +932,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             results = result.get_results()
             for row in results:
                 exp_list.append(row)
-                self.assertEqual(row, list[i])
+                self.assertEqual(row, res_list[i])
                 i += 1
             if query_request.is_done():
                 break
-        self.assertEqual(len(exp_list), len(list))
+        self.assertEqual(len(exp_list), len(res_list))
 
     def testQueryIterableReuse(self):
         statement = 'SELECT * FROM ' + table_name

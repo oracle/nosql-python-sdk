@@ -21,6 +21,7 @@ from test_base import TestBase
 from testutils import get_row
 
 
+# noinspection PyUnboundLocalVariable
 class TestWriteMultiple(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
@@ -257,7 +258,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     .set_return_row(True)
             wm_req.add(request, True)
 
-            child_row: dict = dict()
+            child_row = dict()
             child_row['fld_sid'] = 1
             child_row['fld_id'] = i
             child_row['childid'] = i
@@ -288,7 +289,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             result = self.handle.get(request)
             self.assertEqual('str_' + str(i), result.get_value()['fld_str'])
 
-            child_row: dict = dict()
+            child_row = dict()
             child_row['fld_sid'] = 1
             child_row['fld_id'] = i
             child_row['childid'] = i

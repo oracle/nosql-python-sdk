@@ -292,6 +292,7 @@ class BinaryProtocol(object):
                 raise IllegalStateException(
                     'Unknown value type ' + str(type(value)))
 
+
     @staticmethod
     def write_list(bos, value):
         # Serialize a list.

@@ -7,13 +7,13 @@
 
 #
 from base64 import b64encode
+from collections import OrderedDict
 
 import borneo.operations
-from .common import TableLimits
+from .common import (Empty, JsonNone, TableLimits, Version)
 from .exception import IllegalArgumentException
 from .nson_protocol import *
 from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
-
 
 #
 # Contains methods to serialize and deserialize NSON
@@ -38,7 +38,7 @@ class Nson(object):
     @staticmethod
     def write_boolean(bos, value):
         bos.write_byte(SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN)
-        bos.write_byte(value)
+        bos.write_boolean(value)
 
     @staticmethod
     def write_long(bos, value):
@@ -91,6 +91,11 @@ class Nson(object):
         return SerdeUtil.read_packed_int(bis)
 
     @staticmethod
+    def read_boolean(bis):
+        Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN)
+        return bis.read_boolean() # turns byte into boolean
+
+    @staticmethod
     def read_long(bis):
         Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.LONG)
         return SerdeUtil.read_packed_long(bis)
@@ -116,7 +121,7 @@ class Nson(object):
         return SerdeUtil.read_decimal(bis)
 
     @staticmethod
-    def read_bytearray(bis, skip):
+    def read_binary(bis, skip=False):
         Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.BINARY)
         return SerdeUtil.read_bytearray(bis, skip)
 
@@ -137,7 +142,7 @@ class Nson(object):
             if not skip:
                 handler.binary_value(value)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN:
-            value = bis.read_byte()
+            value = bis.read_boolean()
             if not skip:
                 handler.boolean_value(value)
         elif t == SerdeUtil.FIELD_VALUE_TYPE.DOUBLE:
@@ -473,7 +478,6 @@ class MapWalker(object):
         else:
             raise IllegalArgumentException('Unknown field type: ' + str(t))
 
-
 class JsonSerializer(NsonEventHandler):
     QUOTE = '"'
     COMMA = ','
@@ -502,7 +506,11 @@ class JsonSerializer(NsonEventHandler):
             self._sep = ':'
 
     def boolean_value(self, value):
-        self._append(value, False)
+        if value:
+            val = 'true'
+        else:
+            val = 'false'
+        self._append(val, False)
 
     def binary_value(self, value):
         self._append(b64encode(value), True)
@@ -578,7 +586,7 @@ class JsonSerializer(NsonEventHandler):
     def _append(self, val, quote):
         if quote:
             self._quote()
-        self._builder.append(val)
+        self._builder.append(str(val))
         if quote:
             self._quote()
 
@@ -598,11 +606,181 @@ class JsonSerializer(NsonEventHandler):
     def __str__(self):
         return "".join(self._builder)
 
+#
+# Deserialize NSON into values (e.g. dict)
+#
+class FieldValueCreator(NsonEventHandler):
+
+    def __init__(self):
+        self._map_stack = []
+        self._array_stack = []
+        self._key_stack = []
+        self._current_map = None
+        self._current_array = None
+        self._current_key = None
+        self._current_value = None
+
+    def get_current_value(self):
+        return self._current_value
+
+    def _push_map(self, value):
+        if self._current_map is not None:
+            self._map_stack.append(self._current_map)
+        self._current_map = value
+        self._current_value = value
+
+    def _push_array(self, value):
+        if self._current_array is not None:
+            self._array_stack.append(self._current_array)
+        self._current_array = value
+        self._current_value = value
+
+    def _push_key(self, value):
+        if self._current_key is not None:
+            self._key_stack.append(self._current_key)
+        self._current_key = value
+
+    def boolean_value(self, value):
+        self._current_value = value
+
+    def binary_value(self, value):
+        self._current_value = value
+
+    def string_value(self, value):
+        self._current_value = value
+
+    def integer_value(self, value):
+        self._current_value = value
+
+    def long_value(self, value):
+        self._current_value = value
+
+    def double_value(self, value):
+        self._current_value = value
+
+    def number_value(self, value):
+        self._current_value = value
+
+    def timestamp_value(self, value):
+        self._current_value = value
+
+    def json_null_value(self):
+        self._current_value = None # JsonNone() ?
+
+    def null_value(self):
+        self._current_value = None
+
+    def empty_value(self):
+        self._current_value = Empty()
+
+    def start_map(self, size=None):
+        self._push_map(OrderedDict())
+
+    def start_array(self, size=None):
+        self._push_array(list())
+
+    def end_map(self, size=None):
+        # the working map (dict) becomes current value
+        self._current_value = self._current_map
+        if self._map_stack:
+            self._current_map = self._map_stack.pop()
+        else:
+            self._current_map = None
+
+    def end_array(self, size=None):
+        # the working array becomes current value
+        self._current_value = self._current_array
+        if self._array_stack:
+            self._current_array = self._array_stack.pop()
+        else:
+            self._current_array = None
+
+    def start_map_field(self, key):
+        self._push_key(key)
+
+    def end_map_field(self, key=None):
+        if self._current_key is not None and self._current_map is not None:
+            self._current_map[self._current_key] = self._current_value
+        if self._key_stack:
+            self._current_key = self._key_stack.pop()
+        else:
+            self._current_key = None
+        # current_value is undefined at this time
+
+    def start_array_field(self, index=None):
+        pass
+
+    def end_array_field(self, index=None):
+        if self._current_array is not None:
+            self._current_array.append(self._current_value)
+
+    def stop(self):
+        return False
 
 #
 # Here down... request serializers
 #
 
+# Protocol is an NSON MAP, divided into 2 sections:
+# header and payload. Field names here are "long" names and not
+# what is actually serialized. See nson_protocol.py for the short names.
+# Types referenced are NSON types, and tagged/serialized as such. Fields
+# within an NSON map are not ordered
+#
+# Request header:
+# {
+#   "header" : {
+#     "SERIAL_VERSION" : <int>
+#     "TABLE_NAME" : <string>  #optional, present if needed by reques
+#     "OPCODE" : <int>
+#     "TIMEOUT" : <int>
+#   }
+#
+# Responses do not have headers but if there's an error they have a
+# generic error object. E.g. here is an error response:
+# {
+#   "ERROR_CODE": <int> # if non-zero, the rest of this information may be
+#                         present. If zero, no error, normal response
+#   "exception": <string> # usually present
+#   "consumed": {  # at this point consumed capacity isn't available for errors
+#      "read_units": int,
+#      "read_kb": int,
+#      "write_kb": int
+#    }
+#   }
+# }
+#
+#
+
+
+# GetTableRequest
+# Payload:
+# {
+#   "payload" : {
+#     "OPERATION_ID" : <string> # optional; present if available
+#   }
+# }
+#
+# Non-error response:
+# {
+#   "ERROR_CODE" : 0
+#   "TABLE_NAME" : <string>        # required
+#   "TABLE_STATE" : int            # required
+#   "LIMITS" : {                   # required
+#      "READ_UNITS" : <int>
+#      "WRITE_UNITS" : <int>
+#      "STORAGE_GB" : <int>
+#      "LIMITS_MODE" : <int>       # PROVISIONED vs ON-DEMAND
+#   "COMPARTMENT_OCID" : <string>  # optional - cloud only
+#   "NAMESPACE" : <string>         # optional, on-prem only
+#   "TABLE_OCID" " : <string>      # optional, cloud-only
+#   "TABLE_SCHEMA" : <string>      # optional
+#   "TABLE_DDL" : <string>         # optional
+#   "OPERATION_ID" : <string>      # optional
+#   "FREE_FORM_TAGS" : <string>    # optional, cloud-only
+#   "DEFINED_TAGS" :   <string>    # optional, cloud-only
+# }
+#
 class GetTableRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
@@ -625,12 +803,253 @@ class GetTableRequestSerializer(RequestSerializer):
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_table_result(bis)
 
+#
+# GetRequest
+#
+# Payload:
+# {
+#   "payload" : {
+#     "CONSISTENCY" : {        # required
+#       "TYPE" : <int>         # required. If the consistency type requires it,
+#                              # additional fields will be present (not used)
+#     }
+#     "KEY" : {                 # Map of the key value
+#     }
+#   }
+# }
+#
+# Non-error response:
+# {
+#   "ERROR_CODE" : 0
+#   "CONSUMED" : {
+#      "READ_UNITS" : <int>
+#      "READ_KV" : <int>
+#      "WRITE_UNITS" : <int>
+#   }
+#   "ROW" : {                  # the row plus metadata
+#     "MODIFIED" : <long>      # last modified
+#     "EXPIRATION" : <long>    # expiration if using TTL
+#     "ROW_VERSION" : <binary> # kv version
+#     "VALUE" : {              # the row's value in NSON
+#     }
+#   }
+# }
+#
+class GetRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.GET, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_consistency(ns, request.get_consistency())
+        Proto.write_key(ns, request.get_key())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.GetResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CONSUMED:
+                Proto.read_consumed_capacity(bis, result)
+            elif name == ROW:
+                Proto.read_row(bis, result)
+            else:
+                walker.skip()
+
+        return result
+#
+# PutRequest
+#
+# Payload:
+# {
+#   "payload" : {
+# shared with all Write ops
+#     "DURABILITY" : <int>
+#     "RETURN_ROW" : {
+# shared with WriteMultiple
+#     "EXACT_MATCH" :
+#     "UPDATE_TTL" :
+#     "TTL" :
+#     "IDENTITY_CACHE_SIZE" :
+#     "MATCH_VERSION" :
+#     "VALUE" : {
+#     }
+#   }
+# }
+#
+# Non-error response:
+# {
+#   "ERROR_CODE" : 0
+#   "CONSUMED" : {
+#      "READ_UNITS" : <int>
+#      "READ_KV" : <int>
+#      "WRITE_UNITS" : <int>
+#   }
+#   "ROW_VERSION" :
+#   "RETURN_INFO" :
+#   "GENERATED" :
+# }
+#
+
+#
+# PutRequest
+#
+class PutRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.get_put_op_code(request), request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_write_request(ns, request)
+        self._write_put_request(ns, request)
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.PutResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CONSUMED:
+                Proto.read_consumed_capacity(bis, result)
+            elif name == ROW_VERSION:
+                result.set_version(Version.create_version(
+                    Nson.read_binary(bis)))
+            elif name == RETURN_INFO:
+                Proto.read_return_info(bis, result)
+            elif name == GENERATED:
+                result.set_generated_value(Proto.read_field_value(bis))
+            else:
+                walker.skip()
+
+        return result
+
+    def _write_put_request(self, ns, request):
+        if request.get_exact_match():
+            Proto.write_bool_map_field(ns, EXACT_MATCH, True)
+        if request.get_update_ttl():
+            Proto.write_bool_map_field(ns, UPDATE_TTL, True)
+        if request.get_ttl() is not None:
+            # TTL is written as string, e.g. '5 DAYS'
+            Proto.write_string_map_field(ns, TTL, str(request.get_ttl()))
+        if request.get_identity_cache_size() != 0:
+            Proto.write_int_map_field(ns, IDENTITY_CACHE_SIZE,
+                                          request.get_identity_cache_size())
+        if request.get_match_version() is not None:
+            Proto.write_bin_map_field(
+                ns, ROW_VERSION, request.get_match_version().get_bytes())
+        ns.start_map_field(VALUE)
+        Proto.write_field_value(ns, request.get_value())
+        ns.end_map_field(VALUE)
+
+#
+# DeleteRequest
+#
+# Payload:
+# {
+#   "payload" : {
+# shared with all Delete ops
+#     "DURABILITY" : <int>
+#     "RETURN_ROW" : {
+# shared with WriteMultiple
+#     "MATCH_VERSION" :
+#     "KEY" : {}
+#   }
+# }
+#
+# Non-error response:
+# {
+#   "ERROR_CODE" : 0
+#   "CONSUMED" : {
+#      "READ_UNITS" : <int>
+#      "READ_KV" : <int>
+#      "WRITE_UNITS" : <int>
+#   }
+#   "RETURN_INFO" :
+#   "SUCCESS" :
+# }
+#
+class DeleteRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        match_version = request.get_match_version()
+        op_code = (SerdeUtil.OP_CODE.DELETE if match_version is None else
+                   SerdeUtil.OP_CODE.DELETE_IF_VERSION)
+        Proto.write_header(ns, op_code, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_write_request(ns, request)
+        self._write_delete_request(ns, request)
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.DeleteResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CONSUMED:
+                Proto.read_consumed_capacity(bis, result)
+            elif name == SUCCESS:
+                result.set_success(Nson.read_boolean(bis))
+            elif name == RETURN_INFO:
+                Proto.read_return_info(bis, result)
+            else:
+                walker.skip()
+
+        return result
+
+    def _write_delete_request(self, ns, request):
+        if request.get_match_version() is not None:
+            Proto.write_bin_map_field(
+                ns, ROW_VERSION, request.get_match_version().get_bytes())
+        ns.start_map_field(KEY)
+        Proto.write_field_value(ns, request.get_key())
+        ns.end_map_field(KEY)
 
 class Proto(object):
     #
     # Common methods for serializers
     #
 
+    #
+    # Serialization/write methods first
+    #
     @staticmethod
     def write_header(ns, op, request):
         Proto.write_int_map_field(ns, VERSION,
@@ -640,6 +1059,46 @@ class Proto(object):
                                          request.get_table_name())
         Proto.write_int_map_field(ns, OP_CODE, op)
         Proto.write_int_map_field(ns, TIMEOUT, request.get_timeout())
+
+    @staticmethod
+    def write_consistency(ns, consistency):
+        Proto.start_map(ns, CONSISTENCY)
+        Proto.write_int_map_field(ns, TYPE, consistency)
+        Proto.end_map(ns, CONSISTENCY)
+
+    @staticmethod
+    def write_key(ns, key):
+        # use ns to start/end the field; the key serialization will start
+        # and end the map itself that represents the key value
+        ns.start_map_field(KEY)
+        Proto.write_field_value(ns, key)
+        ns.end_map_field(KEY)
+
+    @staticmethod
+    def write_write_request(ns, request):
+        Proto.write_durability(ns, request)
+        Proto.write_bool_map_field(ns, RETURN_ROW, request.get_return_row())
+
+    @staticmethod
+    def write_durability(ns, request):
+        dur = request.get_durability()
+        # Don't bother writing it if not set, use proxy default
+        if dur is None:
+            return
+        dur_val = dur.master_sync
+        dur_val |= (dur.replica_sync << 2)
+        dur_val |= (dur.replica_ack << 4)
+        Proto.write_int_map_field(ns, DURABILITY, dur_val)
+
+    #
+    # This writes a field_value by generating NSON events. The ns parameter
+    # is a serializer that turns those events into NSON in the output stream
+    #
+    # The value in this path must be a dict
+    #
+    @staticmethod
+    def write_field_value(ns, value):
+        Nson.generate_events_from_value(value, ns)
 
     # atomic fields
     # Java uses type-specific overloads to differentiate the atomic values
@@ -685,8 +1144,9 @@ class Proto(object):
         ns.end_map_field(name)
 
     #
-    # Objects shared among request types
+    # Deserialization/read methods
     #
+
     @staticmethod
     def deserialize_table_result(bis):
         result = borneo.operations.TableResult()
@@ -748,6 +1208,72 @@ class Proto(object):
                 # log/warn?
                 walker.skip()
         return result
+
+    @staticmethod
+    def read_consumed_capacity(bis, result):
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == READ_UNITS:
+                result.set_read_units(Nson.read_int(bis))
+            elif name == READ_KB:
+                result.set_read_kb(Nson.read_int(bis))
+            elif name == WRITE_KB:
+                units = Nson.read_int(bis)
+                result.set_write_units(units)
+                result.set_write_kb(units)
+            else:
+                walker.skip()
+
+    @staticmethod
+    def read_row(bis, result):
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == MODIFIED:
+                result.set_modification_time(Nson.read_long(bis))
+            elif name == EXPIRATION:
+                result.set_expiration_time(Nson.read_long(bis))
+            elif name == ROW_VERSION:
+                result.set_version(
+                    Version.create_version(Nson.read_binary(bis)))
+            elif name == VALUE:
+                result.set_value(Proto.read_field_value(bis))
+            else:
+                walker.skip()
+
+    @staticmethod
+    def read_field_value(bis):
+        fvc = FieldValueCreator()
+        Nson.generate_events_from_nson(bis, fvc, False)
+        return fvc.get_current_value()
+
+    #
+    # "return_info" : {
+    #   "existing_value" : {}
+    #   "existing_version" : byte[]
+    #   "existing_mod" : long
+    #   "existing_expiration" : long  # not yet implemented
+    # }
+    #
+    @staticmethod
+    def read_return_info(bis, result):
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == EXISTING_MOD_TIME:
+                result.set_existing_modification_time(Nson.read_long(bis))
+            elif name == EXISTING_VERSION:
+                result.set_existing_version(Version.create_version(
+                    Nson.read_binary(bis)))
+            elif name == EXISTING_VALUE:
+                result.set_existing_value(Proto.read_field_value(bis))
+            else:
+                walker.skip()
+
 
     #
     # Handle success/failure in a response. Success is a 0 error code.

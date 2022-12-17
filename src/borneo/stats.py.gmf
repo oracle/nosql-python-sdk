@@ -12,17 +12,18 @@ from datetime import datetime
 from logging import INFO
 from threading import Timer, Lock
 from time import localtime
-from typing import Any, Dict
 
 try:
     from collections.abc import Callable
 except ImportError:
     from collections import Callable
 
+from typing import Any, Dict
+
 from . import StatsProfile
+from .common import LogUtils, synchronized, CheckValue
 from .exception import SecurityInfoNotReadyException, ThrottlingException, \
     IllegalArgumentException
-from .common import LogUtils, synchronized, CheckValue
 from .kv.exception import AuthenticationException
 from .version import __version__
 
@@ -294,7 +295,8 @@ class StatsControl:
 
         self._enable_collection = False
 
-        self._stats = None   # type: Stats
+        # noinspection PyTypeChecker
+        self._stats = None  # type: Stats
         self._id = str(uuid.uuid4())[:8]
 
         if self._profile is not StatsProfile.NONE:
@@ -494,6 +496,7 @@ class QueryEntryStat:
     Statistics for a certain query.
     """
 
+    # noinspection PyUnusedLocal
     def __init__(self, profile, query_request):
         self._plan = None
         self._does_writes = False
@@ -503,7 +506,6 @@ class QueryEntryStat:
         self._req_stats = ReqStats(profile)
 
     def observe_query(self, query_request):
-        # type: (QueryRequest) -> None
         self._count += 1
         if not query_request.is_prepared():
             self._unprepared += 1
@@ -560,10 +562,7 @@ class ExtraQueryStats:
                        network_latency)
 
     def get_extra_query_stat_entry(self, query_request):
-        # type: (borneo.QueryRequest) -> QueryEntryStat
         sql = query_request.get_statement()
-        if sql is None and self._prepared_statement is not None:
-            sql = self._prepared_statement.get_sql_text()
         q_stat = self._queries.get(sql)
         if q_stat is None:
             q_stat = QueryEntryStat(self._profile, query_request)
@@ -592,14 +591,13 @@ class Percentile:
     """
 
     def __init__(self):
-        self._values = []    # type: [int]
+        self._values = []  # type: [int]
 
     def add_value(self, network_latency):
         # type: (int) -> None
         self._values.append(network_latency)
 
     def get_percentile(self, percentiles):
-        # type: ([float]) -> [int]
         size = len(self._values)
         self._values.sort()
         # if no values available return -1
@@ -628,123 +626,123 @@ class ReqStats:
 
     def __init__(self, profile):
         # type: (StatsProfile) -> None
-        self._httpRequestCount = 0
+        self._http_request_count = 0
         self._errors = 0
-        self._reqSizeMin = sys.maxsize
-        self._reqSizeMax = 0
-        self._reqSizeSum = 0
-        self._resSizeMin = sys.maxsize
-        self._resSizeMax = 0
-        self._resSizeSum = 0
-        self._retryAuthCount = 0
-        self._retryThrottleCount = 0
-        self._retryCount = 0
-        self._retryDelayMs = 0
-        self._rateLimitDelayMs = 0
-        self._requestLatencyMin = sys.maxsize
-        self._requestLatencyMax = 0
-        self._requestLatencySum = 0
+        self._req_size_min = sys.maxsize
+        self._req_size_max = 0
+        self._req_size_sum = 0
+        self._res_size_min = sys.maxsize
+        self._res_size_max = 0
+        self._res_size_sum = 0
+        self._retry_auth_count = 0
+        self._retry_throttle_count = 0
+        self._retry_count = 0
+        self._retry_delay_ms = 0
+        self._rate_limit_delay_ms = 0
+        self._request_latency_min = sys.maxsize
+        self._request_latency_max = 0
+        self._request_latency_sum = 0
         if profile.value >= StatsProfile.MORE.value:
-            self._requestLatencyPercentile = Percentile()
+            self._request_latency_percentilee = Percentile()
         else:
-            self._requestLatencyPercentile = None
+            self._request_latency_percentilee = None
 
     def observe(self, error, retries, retry_delay,
                 rate_limit_delay, auth_count, throttle_count,
                 req_size, res_size, network_latency):
         # type: (bool, int, int, int, int, int, int, int, int) -> None
-        self._httpRequestCount += 1
-        self._retryCount += retries
-        self._retryDelayMs += retry_delay
-        self._retryAuthCount += auth_count
-        self._retryThrottleCount += throttle_count
-        self._rateLimitDelayMs += rate_limit_delay
+        self._http_request_count += 1
+        self._retry_count += retries
+        self._retry_delay_ms += retry_delay
+        self._retry_auth_count += auth_count
+        self._retry_throttle_count += throttle_count
+        self._rate_limit_delay_ms += rate_limit_delay
 
         if error:
             self._errors += 1
         else:
-            self._reqSizeMin = min(self._reqSizeMin, req_size)
-            self._reqSizeMax = max(self._reqSizeMax, req_size)
-            self._reqSizeSum += req_size
-            self._resSizeMin = min(self._resSizeMin, res_size)
-            self._resSizeMax = max(self._resSizeMax, res_size)
-            self._resSizeSum += res_size
-            self._requestLatencyMin = \
-                min(self._requestLatencyMin, network_latency)
-            self._requestLatencyMax = \
-                max(self._requestLatencyMax, network_latency)
-            self._requestLatencySum += network_latency
-            if self._requestLatencyPercentile is not None:
-                self._requestLatencyPercentile.add_value(network_latency)
+            self._req_size_min = min(self._req_size_min, req_size)
+            self._req_size_max = max(self._req_size_max, req_size)
+            self._req_size_sum += req_size
+            self._res_size_min = min(self._res_size_min, res_size)
+            self._res_size_max = max(self._res_size_max, res_size)
+            self._res_size_sum += res_size
+            self._request_latency_min = \
+                min(self._request_latency_min, network_latency)
+            self._request_latency_max = \
+                max(self._request_latency_max, network_latency)
+            self._request_latency_sum += network_latency
+            if self._request_latency_percentilee is not None:
+                self._request_latency_percentilee.add_value(network_latency)
 
     def to_json(self, request_name, req_array):
         # type: (str, []) -> None
-        if self._httpRequestCount > 0:
+        if self._http_request_count > 0:
             req = {"name": request_name}
             self.to_map_value(req)
             req_array.append(req)
 
     def to_map_value(self, map_value):
-        map_value["httpRequestCount"] = self._httpRequestCount
+        map_value["http_request_count"] = self._http_request_count
         map_value["errors"] = self._errors
 
         retry = {
-            "count": self._retryCount,
-            "delayMs": self._retryDelayMs,
-            "authCount": self._retryAuthCount,
-            "throttleCount": self._retryThrottleCount
+            "count": self._retry_count,
+            "delayMs": self._retry_delay_ms,
+            "authCount": self._retry_auth_count,
+            "throttleCount": self._retry_throttle_count
         }
         map_value["retry"] = retry
-        map_value["rateLimitDelayMs"] = self._rateLimitDelayMs
+        map_value["rate_limit_delay_ms"] = self._rate_limit_delay_ms
 
-        if self._requestLatencyMax > 0:
+        if self._request_latency_max > 0:
             latency = {
-                "min": self._requestLatencyMin,
-                "max": self._requestLatencyMax,
-                "avg": self._requestLatencySum / (self._httpRequestCount - self._errors)
+                "min": self._request_latency_min,
+                "max": self._request_latency_max,
+                "avg": self._request_latency_sum / (self._http_request_count - self._errors)
             }
-            if self._requestLatencyPercentile is not None:
+            if self._request_latency_percentilee is not None:
                 (p95th, p99th) = \
-                    self._requestLatencyPercentile.get_95th99th_percentile()
+                    self._request_latency_percentilee.get_95th99th_percentile()
                 latency["95th"] = p95th
                 latency["99th"] = p99th
             map_value["httpRequestLatencyMs"] = latency
 
-        if self._reqSizeMax > 0:
-            reqSize = {
-                "min": self._reqSizeMin,
-                "max": self._reqSizeMax,
-                "avg": self._reqSizeSum / (self._httpRequestCount - self._errors)
+        if self._req_size_max > 0:
+            req_size = {
+                "min": self._req_size_min,
+                "max": self._req_size_max,
+                "avg": self._req_size_sum / (self._http_request_count - self._errors)
             }
-            map_value["requestSize"] = reqSize
+            map_value["requestSize"] = req_size
 
-        if self._resSizeMax > 0:
-            resSize = {
-                "min": self._resSizeMin,
-                "max": self._resSizeMax,
-                "avg": self._resSizeSum / (self._httpRequestCount - self._errors)
+        if self._res_size_max > 0:
+            res_size = {
+                "min": self._res_size_min,
+                "max": self._res_size_max,
+                "avg": self._res_size_sum / (self._http_request_count - self._errors)
             }
-            map_value["resultSize"] = resSize
+            map_value["resultSize"] = res_size
 
     def clear(self):
-        self._httpRequestCount = 0
+        self._http_request_count = 0
         self._errors = 0
-        self._reqSizeMin = sys.maxsize
-        self._reqSizeMax = 0
-        self._reqSizeSum = 0
-        self._resSizeMin = sys.maxsize
-        self._resSizeMax = 0
-        self._resSizeSum = 0
-        self._retryAuthCount = 0
-        self._retryThrottleCount = 0
-        self._retryCount = 0
-        self._retryDelayMs = 0
-        self._rateLimitDelayMs = 0
-        self._requestLatencyMin = sys.maxsize
-        self._requestLatencyMax = 0
-        self._requestLatencySum = 0
-        if self._requestLatencyPercentile is not None:
-            self._requestLatencyPercentile.clear()
+        self._req_size_min = sys.maxsize
+        self._req_size_max = 0
+        self._req_size_sum = 0
+        self._res_size_min = sys.maxsize
+        self._res_size_max = 0
+        self._res_size_sum = 0
+        self._retry_auth_count = 0
+        self._retry_throttle_count = 0
+        self._retry_count = 0
+        self._retry_delay_ms = 0
+        self._rate_limit_delay_ms = 0
+        self._request_latency_min = sys.maxsize
+        self._request_latency_max = 0
+        self._request_latency_sum = 0
+        if self._request_latency_percentilee is not None:
+            self._request_latency_percentilee.clear()
 
 
 class Stats:
@@ -752,8 +750,8 @@ class Stats:
     Implements all the statistics.
     """
     _stats_control = None  # type: StatsControl
-    _timer = None         # type: RepeatedTimer
-    _requests = None      # type: Dict[str, ReqStats]
+    _timer = None  # type: RepeatedTimer
+    _requests = None  # type: Dict[str, ReqStats]
 
     _request_names = ["Delete", "Get", "GetIndexes", "GetTable",
                       "ListTables", "MultiDelete", "Prepare", "Put", "Query",
@@ -792,8 +790,7 @@ class Stats:
     def __log_client_stats(self):
         handler = self._stats_control.get_stats_handler()
         log = self._stats_control.get_logger() is not None and \
-                 self._stats_control.get_logger().isEnabledFor(INFO)
-
+        self._stats_control.get_logger().isEnabledFor(INFO)
         if handler is not None or log:
             stats = self.__generate_stats()
             self.clear()
@@ -801,13 +798,13 @@ class Stats:
             if handler is not None:
                 handler(stats)
 
-            if log:
-                if self._stats_control.get_pretty_print():
-                    stats_str = pprint.pformat(stats)
-                else:
-                    stats_str = str(stats)
-                self._stats_control.get_logger().info(StatsControl.LOG_PREFIX +
-                                                      stats_str)
+                if log:
+                    if self._stats_control.get_pretty_print():
+                        stats_str = pprint.pformat(stats)
+                    else:
+                        stats_str = str(stats)
+                        self._stats_control.get_logger().info(
+                            StatsControl.LOG_PREFIX + stats_str)
 
     def __generate_stats(self):
         self._end_time = datetime.utcnow()
@@ -848,15 +845,15 @@ class Stats:
     @synchronized
     def observe(self, request, error, req_size, res_size, network_latency):
         self.__observe(request, error, req_size, res_size,
-                       network_latency)
+                           network_latency)
 
     def __observe(self, request, error, req_size, res_size,
                   network_latency):
-        reqStr = request.get_request_name()
-        req_stat = self._requests.get(reqStr)
+        req_str = request.get_request_name()
+        req_stat = self._requests.get(req_str)
         if req_stat is None:
             req_stat = ReqStats(self._stats_control.get_profile())
-            self._requests[reqStr] = req_stat
+            self._requests[req_str] = req_stat
 
         auth_count = 0
         throttle_count = 0
@@ -869,33 +866,33 @@ class Stats:
                 ThrottlingException)
 
         req_stat.observe(error, request.get_num_retries(),
-                         request.get_retry_delay_ms(),
-                         request.get_rate_limit_delayed_ms(), auth_count,
-                         throttle_count, req_size, res_size, network_latency)
+                        request.get_retry_delay_ms(),
+                        request.get_rate_limit_delayed_ms(), auth_count,
+                     throttle_count, req_size, res_size, network_latency)
 
         from . import QueryRequest
 
         if self._extra_query_stats is not None and \
-                isinstance(request, QueryRequest) and \
-                self._stats_control.get_profile().value >= \
-                StatsProfile.ALL.value:
+            isinstance(request, QueryRequest) and \
+            self._stats_control.get_profile().value >= \
+            StatsProfile.ALL.value:
             self._extra_query_stats.observe_q_rec(request, error,
-                                                  request.get_num_retries(),
-                                                  request.get_retry_delay_ms(),
-                                                  request.
-                                                  get_rate_limit_delayed_ms(),
-                                                  auth_count, throttle_count,
-                                                  req_size, res_size,
-                                                  network_latency)
+                                              request.get_num_retries(),
+                                              request.get_retry_delay_ms(),
+                                              request.
+                                              get_rate_limit_delayed_ms(),
+                                              auth_count, throttle_count,
+                                              req_size, res_size,
+                                              network_latency)
 
     @synchronized
     def observe_query(self, query_request):
         if self._extra_query_stats is None and \
-                self._stats_control.get_profile().value >= \
-                StatsProfile.ALL.value:
+          self._stats_control.get_profile().value >= \
+         StatsProfile.ALL.value:
             self._extra_query_stats = \
-                ExtraQueryStats(self._stats_control.get_profile())
+            ExtraQueryStats(self._stats_control.get_profile())
         if self._extra_query_stats is not None and \
-                self._stats_control.get_profile().value >= \
-                StatsProfile.ALL.value:
+            self._stats_control.get_profile().value >= \
+            StatsProfile.ALL.value:
             self._extra_query_stats.observe_query(query_request)
