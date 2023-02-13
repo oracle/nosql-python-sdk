@@ -23,7 +23,7 @@ from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
 from .operations import GetTableRequest, QueryResult, TableRequest, WriteRequest
 from .query import QueryDriver
-from .serde import BinaryProtocol
+from .serdeutil import SerdeUtil
 from .version import __version__
 from .stats import StatsControl
 
@@ -91,7 +91,7 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
-        self.serial_version = BinaryProtocol.DEFAULT_SERIAL_VERSION
+        self.serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
         # StoreAccessTokenProvider means onprem
         self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
         if config.get_rate_limiting_enabled() and self._is_cloud:
@@ -224,9 +224,6 @@ class Client(object):
         if self._session_cookie is not None:
             headers['Cookie'] = self._session_cookie
 
-        # We expressly check size limit below based on onprem versus cloud. Set
-        # the request to not check size limit inside self._write_content().
-        request.set_check_request_size(False)
         content = self.serialize_request(request, headers)
         content_len = len(content)
         # If on-premise the auth_provider will always be a
@@ -237,9 +234,6 @@ class Client(object):
                 raise RequestSizeLimitException(
                     'The request size of ' + str(content_len) + ' exceeded ' +
                     'the limit of ' + str(self._max_content_length))
-        else:
-            request.set_check_request_size(True)
-            BinaryProtocol.check_request_size_limit(request, content_len)
         if request.get_compartment() is None:
             request.set_compartment_internal(
                 self._config.get_default_compartment())
@@ -504,7 +498,7 @@ class Client(object):
         """
         content = bytearray()
         bos = ByteOutputStream(content)
-        BinaryProtocol.write_serial_version(bos, self.serial_version)
+        SerdeUtil.write_serial_version(bos, self.serial_version)
         request.create_serializer().serialize(
             request, bos, self.serial_version)
         return content

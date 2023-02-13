@@ -35,10 +35,10 @@ from .operations import (
     DeleteRequest, DeleteResult, GetIndexesRequest, GetIndexesResult,
     GetRequest, GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
     MultiDeleteRequest, MultiDeleteResult, OperationResult, PrepareRequest,
-    PrepareResult, PutRequest, PutResult, QueryRequest, QueryResult, Request,
-    Result, SystemRequest, SystemResult, SystemStatusRequest, TableRequest,
-    TableResult, TableUsageRequest, TableUsageResult, WriteMultipleRequest,
-    WriteMultipleResult)
+    PrepareResult, PutRequest, PutResult, QueryRequest, QueryIterableResult,
+    QueryResult, Request, Result, SystemRequest, SystemResult,
+    SystemStatusRequest, TableRequest, TableResult, TableUsageRequest,
+    TableUsageResult, WriteMultipleRequest, WriteMultipleResult)
 from .stats import (StatsControl)
 from .version import __version__
 
@@ -79,6 +79,7 @@ __all__ = ['AuthorizationProvider',
            'PutResult',
            'QueryRequest',
            'QueryResult',
+           'QueryIterableResult',
            'ReadThrottlingException',
            'Region',
            'Regions',

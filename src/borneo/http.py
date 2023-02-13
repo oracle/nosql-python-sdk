@@ -20,16 +20,16 @@ from .exception import (
     SecurityInfoNotReadyException, UnsupportedProtocolException,
     WriteThrottlingException)
 
+from .serdeutil import SerdeUtil
+
 try:
     from . import config
     from . import kv
     from . import operations
-    from . import serde
 except ImportError:
     import config
     import kv
     import operations
-    import serde
 
 
 class HttpResponse(object):
@@ -147,7 +147,7 @@ class RequestUtils(object):
         :rtype: HttpResponse or Result
         """
         return self._do_request('POST', uri, headers, payload, timeout_ms,
-            stats_config)
+                                stats_config)
 
     def do_put_request(self, uri, headers, payload, timeout_ms):
         """
@@ -566,8 +566,37 @@ class RequestUtils(object):
         Operation failed. Handle the failure and throw an appropriate
         exception.
         """
-        err = serde.BinaryProtocol.read_string(bis)
-        raise serde.BinaryProtocol.map_exception(code, err)
+        err = SerdeUtil.read_string(bis)
+
+        # special case for TNF errors on WriteMultiple with many tables
+        if code == SerdeUtil.USER_ERROR.TABLE_NOT_FOUND and \
+                isinstance(request, operations.WriteMultipleRequest):
+            raise self._handle_write_multiple_table_not_found(code, err, request)
+
+        raise SerdeUtil.map_exception(code, err)
+
+    @staticmethod
+    def _handle_write_multiple_table_not_found(code, err, wm_request):
+        """
+        Special case for TNF errors on WriteMultiple with many tables.
+        Earlier server versions do not support this and will return a
+        Table Not Found error with the table names in a single string,
+        separated by commas, with no brackets, like:
+          table1,table2,table3
+
+        Later versions may legitimately return Table Not Found,
+        but table names will be inside a bracketed list, like:
+          [table1, table2, table3]
+        """
+        if code != SerdeUtil.USER_ERROR.TABLE_NOT_FOUND or \
+                wm_request.is_single_table() or \
+                err.index(",") < 0 or \
+                err.index("[") >= 0:
+            raise SerdeUtil.map_exception(code, err)
+        raise UnsupportedProtocolException(
+            "WriteMultiple requests " +
+            "using multiple tables are not supported by the " +
+            "version of the connected server.")
 
     @staticmethod
     def _process_not_ok_response(content, status):

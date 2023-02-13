@@ -21,7 +21,7 @@ from .operations import (
     DeleteRequest, GetIndexesRequest, GetRequest, GetTableRequest,
     ListTablesRequest, MultiDeleteRequest, PrepareRequest, PutRequest,
     QueryRequest, SystemRequest, SystemStatusRequest, TableRequest,
-    TableUsageRequest, WriteMultipleRequest)
+    TableUsageRequest, WriteMultipleRequest, QueryIterableResult)
 
 
 class NoSQLHandle(object):
@@ -364,7 +364,7 @@ class NoSQLHandle(object):
         than more distributed queries that must go to multiple shards.
 
         Table and system-style queries such as "CREATE TABLE ..." or "DROP TABLE
-        ..." are not supported by this interfaces. Those operations must be
+        ..." are not supported by these interfaces. Those operations must be
         performed using :py:meth:`table_request` or :py:meth:`system_request` as
         appropriate.
 
@@ -392,6 +392,40 @@ class NoSQLHandle(object):
             raise IllegalArgumentException(
                 'The parameter should be an instance of QueryRequest.')
         return self._execute(request)
+
+    def query_iterable(self, request):
+        # type: (QueryRequest) -> QueryIterableResult
+        """
+        Queries a table based on the query statement specified in the
+        :py:class:`QueryRequest`.
+
+        Queries that include a full shard key will execute much more efficiently
+        than more distributed queries that must go to multiple shards.
+
+        Table and system-style queries such as "CREATE TABLE ..." or "DROP TABLE
+        ..." are not supported by these interfaces. Those operations must be
+        performed using :py:meth:`table_request` or :py:meth:`system_request` as
+        appropriate.
+
+        The amount of data read by a single query request is limited by a system
+        default and can be further limited using
+        :py:meth:`QueryRequest.set_max_read_kb`. This limits the amount of data
+        *read* and not the amount of data *returned*.
+
+        :param request: the input parameters for the operation.
+        :type request: QueryRequest
+        :returns: the result of the operation.
+        :rtype: QueryResult
+        :raises IllegalArgumentException: raises the exception if request is not
+            an instance of :py:class:`QueryRequest`.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded: 5.3.6
+        """
+        if not isinstance(request, QueryRequest):
+            raise IllegalArgumentException(
+                'The parameter should be an instance of QueryRequest.')
+        return QueryIterableResult(request, self)
 
     def system_request(self, request):
         """

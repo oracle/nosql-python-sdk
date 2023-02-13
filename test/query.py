@@ -891,6 +891,124 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.check_query_result(result, 0, True, records)
                 self.assertEqual(records, [])
 
+    def testQueryIterable(self):
+        statement = 'SELECT * FROM ' + table_name
+        query_request = QueryRequest()\
+            .set_statement(statement)\
+            .set_limit(3)
+        result = self.handle.query_iterable(query_request)
+
+        list = []
+        for row in result:
+            list.append(row)
+
+        exp_list = []
+        while True:
+            result = self.handle.query(query_request)
+            results = result.get_results()
+            for row in results:
+                exp_list.append(row)
+                list.remove(row)
+            if query_request.is_done():
+                break
+        self.assertEqual(0, len(list))
+
+        # Check with an ORDER BY query that makes use of QueryDriver.
+        statement = 'SELECT * FROM ' + table_name + " ORDER BY fld_id, fld_sid"
+        query_request = QueryRequest()\
+            .set_statement(statement)\
+            .set_timeout(10000)\
+            .set_limit(3)
+        result = self.handle.query_iterable(query_request)
+
+        list = []
+        for row in result:
+            list.append(row)
+
+        exp_list = []
+        i = 0
+        while True:
+            result = self.handle.query(query_request)
+            results = result.get_results()
+            for row in results:
+                exp_list.append(row)
+                self.assertEqual(row, list[i])
+                i += 1
+            if query_request.is_done():
+                break
+        self.assertEqual(len(exp_list), len(list))
+
+    def testQueryIterableReuse(self):
+        statement = 'SELECT * FROM ' + table_name
+        query_request = QueryRequest()\
+            .set_statement(statement)\
+            .set_limit(3)
+        result = self.handle.query_iterable(query_request)
+
+        # chose a number less than 10
+        number_of_rows = 7
+        iter1 = iter(result)
+        list1 = []
+        for i in range(number_of_rows):
+            list1.append(next(iter1))
+
+        # Reuse the IterableResult to get a new iterator over the same results
+        iter2 = iter(result)
+        list2 = []
+        for i in range(number_of_rows):
+            list2.append(next(iter2))
+
+        self.assertEqual(number_of_rows, len(list1))
+        self.assertEqual(number_of_rows, len(list2))
+
+        # Check with an ORDER BY query that makes use of QueryDriver.
+        statement = 'SELECT * FROM ' + table_name + " ORDER BY fld_id, fld_sid"
+        query_request = QueryRequest()\
+            .set_statement(statement)\
+            .set_limit(3)
+        result = self.handle.query_iterable(query_request)
+
+        # chose a number less than 10
+        number_of_rows = 7
+        iter1 = iter(result)
+        list1 = []
+        for i in range(number_of_rows):
+            list1.append(next(iter1))
+
+        iter2 = iter(result)
+        list2 = []
+        i = 0
+        for i in range(number_of_rows):
+            r2 = next(iter2)
+            list2.append(r2)
+            self.assertEqual(list1[i], r2)
+            i += 1
+
+        self.assertEqual(number_of_rows, len(list1))
+        self.assertEqual(number_of_rows, len(list2))
+
+        iter1 = iter(result)
+        iter2 = iter(result)
+        i1 = 0
+        i2 = 0
+        while True:
+            try:
+                r1 = next(iter1)
+                i1 += 1
+                r2 = next(iter2)
+                i2 += 1
+                self.assertEqual(r1, r2)
+            except StopIteration:
+                self.assertEqual(i1, i2)
+                try:
+                    next(iter2)
+                    i2 += 1
+                    self.assertTrue(False)
+                except StopIteration:
+                    self.assertEqual(i1, i2)
+                    break
+        self.assertEqual(i1, i2)
+
     @staticmethod
     def _expected_row(fld_sid, fld_id, fld_long=None):
         expected_row = OrderedDict()

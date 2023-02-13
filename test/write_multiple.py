@@ -26,7 +26,7 @@ class TestWriteMultiple(unittest.TestCase, TestBase):
     def setUpClass(cls):
         cls.set_up_class()
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
+                'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
 fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(8), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
@@ -39,8 +39,19 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         global serial_version
         serial_version = cls.handle.get_client().serial_version
 
+        cls.child_table_name = table_name + '.child'
+        create_child_statement = (
+                'CREATE TABLE ' + cls.child_table_name + ' (childid INTEGER, childname STRING, \
+                childdata STRING, \
+                PRIMARY KEY(childid)) USING TTL 1 DAYS')
+        limits = TableLimits(50, 50, 1)
+        create_request = TableRequest().set_statement(
+            create_child_statement)
+        cls.table_request(create_request)
+
     @classmethod
     def tearDownClass(cls):
+        cls.table_request(TableRequest().set_statement('DROP TABLE ' + cls.child_table_name))
         cls.tear_down_class()
 
     def setUp(self):
@@ -139,27 +150,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.requests[0], True).add(self.illegal_requests[1], False)
         self.assertRaises(IllegalArgumentException, self.handle.write_multiple,
                           self.write_multiple_request)
-        if not is_onprem():
-            # add operations when the request size exceeded the limit
-            self.write_multiple_request.clear()
-            for op in range(64):
-                row = get_row()
-                row['fld_str'] = self.get_random_str(0.4)
-                self.write_multiple_request.add(PutRequest().set_value(
-                    row).set_table_name(table_name), True)
-            self.assertRaises(RequestSizeLimitException,
-                              self.handle.write_multiple,
-                              self.write_multiple_request)
-            # add operations when sub requests reached the max number
-            self.write_multiple_request.clear()
-            for op in range(51):
-                row = get_row()
-                row['fld_id'] = op
-                self.write_multiple_request.add(PutRequest().set_value(
-                    row).set_table_name(table_name), True)
-            self.assertRaises(BatchOperationNumberLimitException,
-                              self.handle.write_multiple,
-                              self.write_multiple_request)
 
     def testWriteMultipleGetRequestWithIllegalIndex(self):
         self.assertRaises(IllegalArgumentException,
@@ -250,6 +240,65 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                         expect_expiration, TimeUnit.HOURS, False,
                         (serial_version > 2))
                 self.check_cost(result, 1, 2, 0, 0)
+
+    def testWriteMultipleChild(self):
+        num_operations = 6
+        wm_req = WriteMultipleRequest()
+        for i in range(num_operations):
+            parent_row = dict()
+            parent_row['fld_sid'] = 1
+            parent_row['fld_id'] = i
+            parent_row['fld_str'] = 'str_' + str(i)
+            request = \
+                PutRequest() \
+                    .set_value(parent_row) \
+                    .set_table_name(table_name) \
+                    .set_ttl(self.ttl) \
+                    .set_return_row(True)
+            wm_req.add(request, True)
+
+            child_row: dict = dict()
+            child_row['fld_sid'] = 1
+            child_row['fld_id'] = i
+            child_row['childid'] = i
+            child_row['childname'] = 'name_' + str(i)
+            child_row['childdata'] = 'data_' + str(i)
+
+            request = PutRequest() \
+                .set_value(child_row) \
+                .set_table_name(self.child_table_name) \
+                .set_ttl(self.ttl) \
+                .set_return_row(True)
+            wm_req.add(request, True)
+
+        result = self.handle.write_multiple(wm_req)
+
+        op_results = self._check_write_multiple_result(result, num_operations * 2)
+        for idx in range(result.size()):
+            self._check_operation_result(op_results[idx], True, True)
+
+        for i in range(num_operations):
+            parent_row = dict()
+            parent_row['fld_sid'] = 1
+            parent_row['fld_id'] = i
+            request = \
+                GetRequest() \
+                    .set_key(parent_row) \
+                    .set_table_name(table_name)
+            result = self.handle.get(request)
+            self.assertEqual('str_' + str(i), result.get_value()['fld_str'])
+
+            child_row: dict = dict()
+            child_row['fld_sid'] = 1
+            child_row['fld_id'] = i
+            child_row['childid'] = i
+            request = \
+                GetRequest() \
+                    .set_key(child_row) \
+                    .set_table_name(self.child_table_name)
+            result = self.handle.get(request)
+            self.assertEqual('name_' + str(i), result.get_value()['childname'])
+            self.assertEqual('data_' + str(i), result.get_value()['childdata'])
 
     def testWriteMultipleAbortIfUnsuccessful(self):
         failed_idx = 1

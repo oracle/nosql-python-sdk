@@ -15,7 +15,9 @@ NoSQLHandle
       ~NoSQLHandle.do_system_request
       ~NoSQLHandle.do_table_request
       ~NoSQLHandle.get
+      ~NoSQLHandle.get_client
       ~NoSQLHandle.get_indexes
+      ~NoSQLHandle.get_stats_control
       ~NoSQLHandle.get_table
       ~NoSQLHandle.get_table_usage
       ~NoSQLHandle.list_namespaces
@@ -26,6 +28,7 @@ NoSQLHandle
       ~NoSQLHandle.prepare
       ~NoSQLHandle.put
       ~NoSQLHandle.query
+      ~NoSQLHandle.query_iterable
       ~NoSQLHandle.system_request
       ~NoSQLHandle.system_status
       ~NoSQLHandle.table_request
@@ -38,7 +41,9 @@ NoSQLHandle
    .. automethod:: do_system_request
    .. automethod:: do_table_request
    .. automethod:: get
+   .. automethod:: get_client
    .. automethod:: get_indexes
+   .. automethod:: get_stats_control
    .. automethod:: get_table
    .. automethod:: get_table_usage
    .. automethod:: list_namespaces
@@ -49,6 +54,7 @@ NoSQLHandle
    .. automethod:: prepare
    .. automethod:: put
    .. automethod:: query
+   .. automethod:: query_iterable
    .. automethod:: system_request
    .. automethod:: system_status
    .. automethod:: table_request

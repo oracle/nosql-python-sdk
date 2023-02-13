@@ -3,6 +3,36 @@ Change Log
 All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
+====================
+ 5.3.7 - 2022-12-12
+====================
+
+NOTE: version 5.3.6 was skipped
+
+Fixed
+-----
+
+* Fixed import package collections.abc for Callable.
+
+Added
+_____
+
+* Cloud only: New regions: us-tacoma-1, us-chicago-1, eu-dcc-milan-1,
+  eu-dcc-milan-2, eu-dcc-dublin-1, eu-dcc-dublin-2, eu-dcc-rating-1,
+  eu-dcc-rating-2, us-westjordan-1, us-dcc-phoenix-1, us-dcc-phoenix-2
+* Added new method borneo.NoSQLHandle.query_iterable(query_request) to get an
+  iterable that contains all the results of a query.
+* Added support for specifying update operations from parent and child tables
+  when executing write_multiple operations.
+
+====================
+ 5.3.5 - 2022-08-09
+====================
+
+Fixed
+_____
+
+* Cloud only. Fixed references to the OCI "auth" package from iam.py that could lead to the error, "name 'auth' is not defined."
 
 ====================
  5.3.4 - 2022-06-13
