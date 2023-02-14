@@ -26,9 +26,7 @@ The Python SDK requires:
 
 * For the Oracle NoSQL Database Cloud Simulator:
 
-  * See `Download the Oracle NoSQL Cloud Simulator <https://docs.oracle.com/pls/
-    topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-3E11C056-B144-4EEA-
-    8224-37F4C3CB83F6>`_ to download and start the Cloud Simulator.
+  * See `Download the Oracle NoSQL Cloud Simulator <https://www.oracle.com/downloads/cloud/nosql-cloud-sdk-downloads.html>`_ to download and start the Cloud Simulator.
 
 * For the on-premise Oracle NoSQL Database:
 
@@ -37,7 +35,7 @@ The Python SDK requires:
     )
   * A running proxy server, see `Information about the proxy <https://docs.
     oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-database/
-    19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_
+    22.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_
 
 ------------------------------------
  Downloading and Installing the SDK
@@ -265,9 +263,7 @@ The Oracle NoSQL Cloud Simulator is a useful way to use this SDK to connect to a
 local server that supports the same protocol. The Cloud Simulator requires Java
 8 or higher.
 
-See `Download the Oracle NoSQL Cloud Simulator <https://docs.oracle.com/pls/
-topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD-GUID-3E11C056-B144-4EEA-8224
--37F4C3CB83F6>`_ to download and start the Cloud Simulator.
+See `Download the Oracle NoSQL Cloud Simulator <https://www.oracle.com/downloads/cloud/nosql-cloud-sdk-downloads.html>`_ to download and start the Cloud Simulator.
 
  1. Download and start the Cloud Simulator
  2. Follow instructions in the examples/config.py file for connecting examples
@@ -290,7 +286,7 @@ database. In addition a running proxy service is required. See `Oracle NoSQL
 Database Downloads <https://www.oracle.com/database/technologies/nosql-database-
 server-downloads.html>`_ for downloads, and see `Information about the proxy
 <https://docs.oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-
-database/19.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
+database/22.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
 proxy configuration information.
 
 If running a secure store, a certificate path should be specified through the
