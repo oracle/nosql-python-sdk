@@ -129,8 +129,7 @@ ignored on-premise, if provided.
 Before creating a table, learn about:
 
 The supported data types for Oracle NoSQL Database. See
-[Supported Data Types]
-(https://docs.oracle.com/en/cloud/paas/nosql-cloud/rnpxl/index.html#RNPXL-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8).
+`Supported Data Types <https://docs.oracle.com/en/cloud/paas/nosql-cloud/rnpxl/index.html#RNPXL-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8>`_.
 _. Also see :ref:`datatypes` for a description of how database types map to Python.
 
 For the Oracle NoSQL Database Cloud Service limits. See `Oracle NoSQL Database
