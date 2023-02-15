@@ -13,7 +13,8 @@ Oracle NoSQL Database Types
 ===========================
 
 See
-[Supported Data Types](https://docs.oracle.com/en/cloud/paas/nosql-cloud/rnpxl/index.html#RNPXL-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8). _ for a
+`Supported Data Types
+<https://docs.oracle.com/en/cloud/paas/nosql-cloud/rnpxl/index.html#RNPXL-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8>`_ for a
 description of the data types supported by the service. An application uses these types to create tables and indexes. For example, a table may be created
 using this Data Definition Language (DDL) statement, which defines types in terms of the database types::
 
