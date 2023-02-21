@@ -128,14 +128,11 @@ ignored on-premise, if provided.
 
 Before creating a table, learn about:
 
-The supported data types for Oracle NoSQL Database. See `Supported Data Types
-<https://docs.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud&id=CSNSD
--GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8>`_. Also see :ref:`datatypes` for a
-description of how database types map to Python.
+The supported data types for Oracle NoSQL Database. See
+`Supported Data Types <https://docs.oracle.com/en/cloud/paas/nosql-cloud/rnpxl/index.html#RNPXL-GUID-833B2B2A-1A32-48AB-A19E-413EAFB964B8>`_. Also see :ref:`datatypes` for a description of how database types map to Python.
 
 For the Oracle NoSQL Database Cloud Service limits. See `Oracle NoSQL Database
-Cloud Limits <https://docs.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-
-cloud&id=CSNSD-GUID-30129AB3-906B-4E71-8EFB-8E0BBCD67144>`_. These limits are
+Cloud Limits <https://docs.oracle.com/en/cloud/paas/nosql-cloud/fkdyw/index.html#FKDYW-GUID-30129AB3-906B-4E71-8EFB-8E0BBCD67144>`_. These limits are
 not relevant on-premise.
 
 Examples of DDL statements are::
