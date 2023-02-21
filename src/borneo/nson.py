@@ -531,7 +531,7 @@ class JsonSerializer(NsonEventHandler):
         self._append(str(value), False)
 
     def timestamp_value(self, value):
-        self._append(str(value), True)
+        self._append(SerdeUtil.datetime_to_iso(value), True)
 
     def json_null_value(self):
         self._append('null', False)

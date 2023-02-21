@@ -598,12 +598,50 @@ class SerdeUtil(object):
         # Writes a full 4-byte int at the specified offset
         bos.write_int_at_offset(offset, value)
 
+
+    # Used by datetime_to_iso to deal with padding ISO 8601 values with '0'
+    @staticmethod
+    def append_with_pad(str, newstr, num):
+        while num > 0 and len(newstr) < num:
+            newstr = '0' + newstr
+        if str is not None:
+            return str + newstr
+        return newstr
+
+    #
+    # For consistency with ISO 8601 and other SDKs there is a custom writer
+    # for datetime. Format is YYYY-MM-DD[THH:MM:SS.usecZ]
+    #
+    @staticmethod
+    def datetime_to_iso(date):
+        daysep = '-'
+        timesep = ':'
+        val = SerdeUtil.append_with_pad(None, str(date.year), 4)
+        val = val + daysep
+        val = SerdeUtil.append_with_pad(val, str(date.month), 2)
+        val = val + daysep
+        val = SerdeUtil.append_with_pad(val, str(date.day), 2)
+        # always add time even if it's 0; simpler that way
+        val = val + 'T'
+        val = SerdeUtil.append_with_pad(val, str(date.hour), 2)
+        val = val + timesep
+        val = SerdeUtil.append_with_pad(val, str(date.minute), 2)
+        val = val + timesep
+        val = SerdeUtil.append_with_pad(val, str(date.second), 2)
+        if date.microsecond > 0:
+            val = val + '.'
+            # strip trailing '0' from usecs
+            val = SerdeUtil.append_with_pad(val,
+                                        str(date.microsecond).rstrip('0'), 0)
+        val = val + 'Z'
+        return val
+
     @staticmethod
     def write_datetime(bos, value):
         # Serialize a datetime value.
         if value.tzinfo is not None:
             value = value.astimezone(tz.UTC)
-        SerdeUtil.write_string(bos, value.isoformat())
+        SerdeUtil.write_string(bos, SerdeUtil.datetime_to_iso(value))
 
     @staticmethod
     def write_decimal(bos, value):
@@ -766,6 +804,8 @@ class SerdeUtil(object):
             return SerdeUtil.FIELD_VALUE_TYPE.NUMBER
         elif value is None:
             return SerdeUtil.FIELD_VALUE_TYPE.NULL
+        elif isinstance(value, Empty):
+            return SerdeUtil.FIELD_VALUE_TYPE.EMPTY
         else:
             raise IllegalStateException(
                 'Unknown value type ' + str(type(value)))
