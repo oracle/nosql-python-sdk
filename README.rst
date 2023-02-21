@@ -454,7 +454,7 @@ complex configuration.
 License
 =======
 
-Copyright (C) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+Copyright (C) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
 
 This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
 <./LICENSE.txt>`_ for details.
