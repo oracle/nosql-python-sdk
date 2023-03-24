@@ -1634,7 +1634,7 @@ class NoSQLHandleConfig(object):
         """
         if not isinstance(stats_handler, Callable):
             raise IllegalArgumentException(
-                'stats_hadler must be of Callable type')
+                'stats_handler must be of Callable type')
         self._stats_handler = stats_handler
         return self
 

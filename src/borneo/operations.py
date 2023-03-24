@@ -3055,13 +3055,16 @@ class TableRequest(Request):
     :py:meth:`NoSQLHandle.table_request` returns a :py:class:`TableResult`
     instance that can be used to poll until the table reaches the desired state.
 
-    The statement is required parameter.
+    The statement is required parameter unless modifying limits.
     """
 
     def __init__(self):
         super(TableRequest, self).__init__()
         self._statement = None
         self._limits = None
+        self._defined_tags = None # a dict, with str values
+        self._match_etag = None
+        self._free_form_tags = None # a dict, wih str values
 
     def __str__(self):
         return ('TableRequest: [name=' + str(self.get_table_name()) +
@@ -3150,6 +3153,78 @@ class TableRequest(Request):
         :rtype: TableLimits
         """
         return self._limits
+
+    def set_defined_tags(self, tags):
+        """
+        Cloud service only.
+
+        Sets defined tags
+
+        :param tags the tags
+        :type tags: dict(str, dict(str, object))
+        :versionadded: 5.4.0
+        """
+        self._defined_tags = tags
+
+    def get_defined_tags(self):
+        """
+        Cloud service only.
+
+        Returns the defined tags or None if not set
+
+        :returns: the defined tags.
+        :rtype: dict(str, dict(str, object))
+        :versionadded: 5.4.0
+        """
+        return self._defined_tags
+
+    def set_free_form_tags(self, tags):
+        """
+        Cloud service only.
+
+        Sets free_form tags
+
+        :param tags the tags
+        :type tags: dict(str, str)
+        :versionadded: 5.4.0
+        """
+        self._free_form_tags = tags
+
+    def get_free_form_tags(self):
+        """
+        Returns the free_form tags or None if not set
+
+        :returns: the free_form tags.
+        :rtype: dict(str, str)
+        :versionadded: 5.4.0
+        """
+        return self._free_form_tags
+
+    def set_match_etag(self, etag):
+        """
+        Cloud service only.
+
+        Sets a ETag to match for the operation to proceed. The ETag must be
+        non-null and have been previously returned in :py:class:`TableResult`.
+        The ETag is a form of optimistic concurrency control allowing an
+        application to ensure no unexpected modifications have been made to the
+        table.
+
+        :param etag the tag
+        :type etag: str
+        :versionadded: 5.4.0
+        """
+        self._match_etag = etag
+
+    def get_match_etag(self):
+        """
+        Cloud service only.
+
+        :returns: the match etag or None if not set
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._match_etag
 
     def set_table_name(self, table_name):
         """
@@ -5053,9 +5128,9 @@ class TableResult(Result):
         self._operation_id = None
         self._ocid = None
         self._ddl = None
-        self._defined_tags = None
-        self._match_etag = None
-        self._free_form_tags = None
+        self._defined_tags = None # dict(str, dict(str, object))
+        self._match_etag = None # str
+        self._free_form_tags = None # dict(str, str)
 
     def __str__(self):
         return ('table ' + str(self._table_name) + '[' + self._state + '] ' +
@@ -5206,7 +5281,7 @@ class TableResult(Result):
         Cloud service only.
 
         :returns: the tags
-        :rtype: dict
+        :rtype: dict(str, dict(str, object))
         :versionadded: 5.4.0
         """
         return self._defined_tags
@@ -5216,7 +5291,7 @@ class TableResult(Result):
         Cloud service only.
 
         :returns: the tags
-        :rtype: dict
+        :rtype: dict(str, str)
         :versionadded: 5.4.0
         """
         return self._free_form_tags

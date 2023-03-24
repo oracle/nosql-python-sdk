@@ -8,6 +8,7 @@
 #
 from base64 import b64encode
 from collections import OrderedDict
+import json
 
 import borneo.operations
 from .common import (ByteInputStream, ByteOutputStream, Empty, IndexInfo, JsonNone,
@@ -1078,6 +1079,8 @@ class TableRequestSerializer(RequestSerializer):
         Proto.write_string_map_field(ns, STATEMENT,
           request.get_statement())
         Proto.write_limits(ns, request.get_table_limits())
+        Proto.write_tags(ns, request)
+        Proto.write_string_map_field(ns, ETAG, request.get_match_etag())
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
@@ -1911,6 +1914,21 @@ class Proto(object):
             Proto.write_int_map_field(ns, LIMITS_MODE, limits.get_mode())
             Proto.end_map(ns, LIMITS)
 
+    #
+    # tags are dict() of string in Python but sent and received as a single
+    # JSON string
+    #
+    @staticmethod
+    def write_tags(ns, request):
+        if request.get_defined_tags() is not None:
+            Proto.write_string_map_field(
+                ns, DEFINED_TAGS, Proto.value_to_json(
+                    request.get_defined_tags()))
+        if request.get_free_form_tags() is not None:
+            Proto.write_string_map_field(
+                ns, FREE_FORM_TAGS, Proto.value_to_json(
+                    request.get_free_form_tags()))
+
     @staticmethod
     def write_key(ns, key):
         # use ns to start/end the field; the key serialization will start
@@ -2076,11 +2094,9 @@ class Proto(object):
             elif name == OPERATION_ID:
                 result.set_operation_id(Nson.read_string(bis))
             elif name == FREE_FORM_TAGS:
-                # TODO
-                walker.skip()
+                result.set_free_form_tags(json.loads(Nson.read_string(bis)))
             elif name == DEFINED_TAGS:
-                # TODO
-                walker.skip()
+                result.set_defined_tags(json.loads(Nson.read_string(bis)))
             elif name == ETAG:
                 result.set_match_etag(Nson.read_string(bis))
             elif name == LIMITS:
@@ -2104,7 +2120,6 @@ class Proto(object):
                         lw.skip()
                 result.set_table_limits(TableLimits(ru, wu, sg, mode))
             else:
-                # log/warn?
                 walker.skip()
         return result
 
@@ -2239,8 +2254,6 @@ class Proto(object):
         Nson.generate_events_from_value(value, ns)
         return content
 
-
-    # TODO: JSON equals, unordered...
 
     #
     # "return_info" : {
