@@ -81,8 +81,11 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
 
         def testSystemStatusRequestNormal(self):
             # cleanup -- drop namespace, don't wait
-            self.sys_request.set_statement(self.drop)
-            result = self.handle.system_request(self.sys_request)
+            try:
+                self.sys_request.set_statement(self.drop)
+                result = self.handle.system_request(self.sys_request)
+            except:
+                pass
 
             # execute create namespace system request.
             self.sys_request.set_statement(self.create)
