@@ -10,11 +10,13 @@ from base64 import b64encode
 from collections import OrderedDict
 
 import borneo.operations
-from .common import (Empty, JsonNone, TableLimits, Version)
+from .common import (ByteInputStream, ByteOutputStream, Empty, IndexInfo, JsonNone,
+                         PreparedStatement, TableLimits, TableUsage, Version)
 from .exception import IllegalArgumentException
 from .nson_protocol import *
+from .query import PlanIter, QueryDriver, TopologyInfo
 from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
-
+from .serde import (math_name_to_value, math_value_to_name)
 #
 # Contains methods to serialize and deserialize NSON
 #
@@ -22,6 +24,18 @@ from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
 # The supported types and their associated numeric values
 # are defined in serdeutil in SerdeUtil.FIELD_VALUE_TYPE
 #
+
+
+#
+# GMF todo:
+#
+#  add tests for new fields (see Java)
+#  add default namespace and per-request namespace to API
+#  add new requests (tags, etc)
+#
+#  MR operations?
+#
+
 
 class Nson(object):
 
@@ -479,7 +493,8 @@ class MapWalker(object):
             raise IllegalArgumentException('Unknown field type: ' + str(t))
 
 class JsonSerializer(NsonEventHandler):
-    QUOTE = '"'
+    DQUOTE = '"'
+    SQUOTE = '\''
     COMMA = ','
     comma_value = 44
     CR = '\n'
@@ -494,7 +509,7 @@ class JsonSerializer(NsonEventHandler):
     # Pretty-printing is an option that results in object files on their own
     # lines and indentation for nested objects
     #
-    def __init__(self, pretty=False):
+    def __init__(self, pretty=False, use_single_quote=False):
         self._builder = []
         self._pretty = pretty
         self._current_indent = 0
@@ -504,6 +519,11 @@ class JsonSerializer(NsonEventHandler):
             self._sep = ' : '
         else:
             self._sep = ':'
+        if use_single_quote:
+            self._quote_char = self.SQUOTE
+        else:
+            self._quote_char = self.DQUOTE
+
 
     def boolean_value(self, value):
         if value:
@@ -591,7 +611,7 @@ class JsonSerializer(NsonEventHandler):
             self._quote()
 
     def _quote(self):
-        self._builder.append(self.QUOTE)
+        self._builder.append(self._quote_char)
 
     def _change_indent(self, num):
         if self._pretty:
@@ -611,7 +631,7 @@ class JsonSerializer(NsonEventHandler):
 #
 class FieldValueCreator(NsonEventHandler):
 
-    def __init__(self):
+    def __init__(self, ordered=True):
         self._map_stack = []
         self._array_stack = []
         self._key_stack = []
@@ -619,6 +639,7 @@ class FieldValueCreator(NsonEventHandler):
         self._current_array = None
         self._current_key = None
         self._current_value = None
+        self._ordered = ordered
 
     def get_current_value(self):
         return self._current_value
@@ -674,7 +695,10 @@ class FieldValueCreator(NsonEventHandler):
         self._current_value = Empty()
 
     def start_map(self, size=None):
-        self._push_map(OrderedDict())
+        if self._ordered:
+            self._push_map(OrderedDict())
+        else:
+            self._push_map(dict())
 
     def start_array(self, size=None):
         self._push_array(list())
@@ -762,24 +786,7 @@ class FieldValueCreator(NsonEventHandler):
 # }
 #
 # Non-error response:
-# {
-#   "ERROR_CODE" : 0
-#   "TABLE_NAME" : <string>        # required
-#   "TABLE_STATE" : int            # required
-#   "LIMITS" : {                   # required
-#      "READ_UNITS" : <int>
-#      "WRITE_UNITS" : <int>
-#      "STORAGE_GB" : <int>
-#      "LIMITS_MODE" : <int>       # PROVISIONED vs ON-DEMAND
-#   "COMPARTMENT_OCID" : <string>  # optional - cloud only
-#   "NAMESPACE" : <string>         # optional, on-prem only
-#   "TABLE_OCID" " : <string>      # optional, cloud-only
-#   "TABLE_SCHEMA" : <string>      # optional
-#   "TABLE_DDL" : <string>         # optional
-#   "OPERATION_ID" : <string>      # optional
-#   "FREE_FORM_TAGS" : <string>    # optional, cloud-only
-#   "DEFINED_TAGS" :   <string>    # optional, cloud-only
-# }
+# TableResult (see deserialize_table_result)
 #
 class GetTableRequestSerializer(RequestSerializer):
 
@@ -921,7 +928,7 @@ class PutRequestSerializer(RequestSerializer):
         # payload
         Proto.start_map(ns, PAYLOAD)
         Proto.write_write_request(ns, request)
-        self._write_put_request(ns, request)
+        PutRequestSerializer._write_put_request(ns, request)
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
@@ -942,13 +949,14 @@ class PutRequestSerializer(RequestSerializer):
             elif name == RETURN_INFO:
                 Proto.read_return_info(bis, result)
             elif name == GENERATED:
-                result.set_generated_value(Proto.read_field_value(bis))
+                result.set_generated_value(Proto.nson_to_value(bis))
             else:
                 walker.skip()
 
         return result
 
-    def _write_put_request(self, ns, request):
+    @staticmethod
+    def _write_put_request(ns, request):
         if request.get_exact_match():
             Proto.write_bool_map_field(ns, EXACT_MATCH, True)
         if request.get_update_ttl():
@@ -962,9 +970,7 @@ class PutRequestSerializer(RequestSerializer):
         if request.get_match_version() is not None:
             Proto.write_bin_map_field(
                 ns, ROW_VERSION, request.get_match_version().get_bytes())
-        ns.start_map_field(VALUE)
-        Proto.write_field_value(ns, request.get_value())
-        ns.end_map_field(VALUE)
+        Proto.write_value(ns, request.get_value())
 
 #
 # DeleteRequest
@@ -1010,7 +1016,7 @@ class DeleteRequestSerializer(RequestSerializer):
         # payload
         Proto.start_map(ns, PAYLOAD)
         Proto.write_write_request(ns, request)
-        self._write_delete_request(ns, request)
+        DeleteRequestSerializer._write_delete_request(ns, request)
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
@@ -1034,13 +1040,841 @@ class DeleteRequestSerializer(RequestSerializer):
 
         return result
 
-    def _write_delete_request(self, ns, request):
+    @staticmethod
+    def _write_delete_request(ns, request):
         if request.get_match_version() is not None:
             Proto.write_bin_map_field(
                 ns, ROW_VERSION, request.get_match_version().get_bytes())
-        ns.start_map_field(KEY)
-        Proto.write_field_value(ns, request.get_key())
-        ns.end_map_field(KEY)
+        Proto.write_key(ns, request.get_key())
+
+#
+# TableRequest
+#
+# Payload:
+# {
+#   "payload" : {
+#     "STATEMENT" : <optional, string>
+#     "LIMITS": {<optional limits object>}
+#     "ETAG" : {<optional>}
+#   }
+# }
+#
+# Non-error response (all optional)
+# See deserialize_table_result
+#
+class TableRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.TABLE_REQUEST, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, STATEMENT,
+          request.get_statement())
+        Proto.write_limits(ns, request.get_table_limits())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        return Proto.deserialize_table_result(bis)
+
+#
+# TableUsageRequest
+#
+# Payload:
+# {
+#   "payload" : {
+#     "START" : <optional start time string>
+#     "END":<optional end time string>
+#     "LIST_MAX_TO_READ" : <optional int>
+#     "LIST_START_INDEX" : <optional int>
+#   }
+# }
+#
+# Non-error response
+# {
+#   TABLE_NAME : <string>
+#   LAST_INDEX : <int>
+#   TABLE_USAGE: [
+#      {
+#        START: <long>
+#        TABLE_USAGE_PERIOD: <int>
+#        READ_UNITS: <int>
+#        WRITE_UNITS: <int>
+#        STORAGE_GB: <int>
+#        READ_THROTTLE_COUNT: <int>
+#        WRITE_THROTTLE_COUNT: <int>
+#        STORAGE_THROTTLE_COUNT: <int>
+#        MAX_SHARD_USAGE_PERCENT: <int>
+#      }
+#   ]
+# }
+class TableUsageRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.GET_TABLE_USAGE, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, START, request.get_start_time_string())
+        Proto.write_string_map_field(ns, END, request.get_end_time_string())
+        Proto.write_int_map_field(ns, LIST_MAX_TO_READ, request.get_limit())
+        Proto.write_int_map_field(ns, LIST_START_INDEX,
+          request.get_start_index())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.TableUsageResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == TABLE_NAME:
+                result.set_table_name(Nson.read_string(bis))
+            elif name == LAST_INDEX:
+                result.set_last_index_returned(Nson.read_int(bis))
+            elif name == TABLE_USAGE:
+                t = bis.read_byte()
+                if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+                    raise IllegalArgumentException(
+                        'Bad type in table usage result: ' + str(t) +
+                        ' should be ARRAY')
+                SerdeUtil.read_full_int(bis) # consume total bytes
+                num_elements = SerdeUtil.read_full_int(bis)
+                usage_records = list()
+                for i in range(num_elements):
+                    usage_records.append(self._read_usage_record(bis))
+                result.set_usage_records(usage_records)
+            else:
+                walker.skip()
+
+        return result
+
+    def _read_usage_record(self, bis):
+        walker = MapWalker(bis)
+        start_time = 0
+        period = 0
+        ru = 0
+        wu = 0
+        sgb = 0
+        rtc = 0
+        wtc = 0
+        stc = 0
+        msup = 0
+
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == START:
+                start = SerdeUtil.iso_time_to_ms(Nson.read_string(bis))
+            elif name == TABLE_USAGE_PERIOD:
+                period = Nson.read_int(bis)
+            elif name == READ_UNITS:
+                ru = Nson.read_int(bis)
+            elif name == WRITE_UNITS:
+                wu = Nson.read_int(bis)
+            elif name == STORAGE_GB:
+                sgb = Nson.read_int(bis)
+            elif name == READ_THROTTLE_COUNT:
+                rtc = Nson.read_int(bis)
+            elif name == WRITE_THROTTLE_COUNT:
+                wtc = Nson.read_int(bis)
+            elif name == STORAGE_THROTTLE_COUNT:
+                stc = Nson.read_int(bis)
+            elif name == MAX_SHARD_USAGE_PERCENT:
+                msup = Nson.read_int(bis)
+            else:
+                walker.skip()
+
+        return TableUsage(start, period, ru, wu, sgb, rtc, wtc, stc, msup)
+
+#
+# ListTablesRequest
+#
+# Payload:
+# {
+#   "payload" : {
+#     LIST_MAX_TO_READ : <optional int>
+#     LIST_START_INDEX : <optional int>
+#     NAMESPACE : <optional string, onprem only>
+#   }
+# }
+#
+# Non-error response
+# {
+#   TABLES: [name1, name2, ...]
+#   LAST_INDEX: <int>
+# }
+
+class ListTablesRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.LIST_TABLES, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_int_map_field(ns, LIST_MAX_TO_READ, request.get_limit())
+        Proto.write_int_map_field(ns, LIST_START_INDEX,
+          request.get_start_index())
+        Proto.write_string_map_field(ns, NAMESPACE, request.get_namespace())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.ListTablesResult()
+        table_list = list()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == LAST_INDEX:
+                result.set_last_index_returned(Nson.read_int(bis))
+            elif name == TABLES:
+                t = bis.read_byte()
+                if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+                    raise IllegalArgumentException(
+                        'Bad type in list tables result: ' + str(t) +
+                        ' should be ARRAY')
+                SerdeUtil.read_full_int(bis) # consume total bytes
+                num_elements = SerdeUtil.read_full_int(bis)
+                for i in range(num_elements):
+                    table_list.append(Nson.read_string(bis))
+            else:
+                walker.skip()
+
+        # if no tables, use empty list
+        result.set_tables(table_list)
+        return result
+#
+# GetIndexesRequest
+#
+# Payload:
+# {
+#   "payload" : {
+#     INDEX : <optional index name string>
+#   }
+# }
+#
+# Non-error response
+# {
+#   INDEXES: [
+#    {
+#     NAME: <string>
+#     FIELDS: [ {PATH: <string>, TYPE: <string>}]
+#    }
+#   ]
+# }
+
+class GetIndexesRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.GET_INDEXES, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, INDEX, request.get_index_name())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.GetIndexesResult()
+        index_list = list()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == LAST_INDEX:
+                result.set_last_index_returned(Nson.read_int(bis))
+            elif name == INDEXES:
+                t = bis.read_byte()
+                if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+                    raise IllegalArgumentException(
+                        'Bad type in get indexes result: ' + str(t) +
+                        ' should be ARRAY')
+                SerdeUtil.read_full_int(bis) # consume total bytes
+                num_elements = SerdeUtil.read_full_int(bis)
+                for i in range(num_elements):
+                    index_list.append(self._read_index_info(bis))
+            else:
+                walker.skip()
+
+        # if no indexes, use empty list
+        result.set_indexes(index_list)
+        return result
+
+    def _read_index_info(self, bis):
+        walker = MapWalker(bis)
+        index_name = None
+        fields = list()
+        types = list()
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == NAME:
+                index_name = Nson.read_string(bis)
+            elif name == FIELDS:
+                t = bis.read_byte()
+                if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+                    raise IllegalArgumentException(
+                        'Bad type in get indexes result: ' + str(t) +
+                        ' should be ARRAY')
+                SerdeUtil.read_full_int(bis) # consume total bytes
+                num_elements = SerdeUtil.read_full_int(bis)
+                # array of map with PATH, TYPE elements
+                for i in range(num_elements):
+                    iwalker = MapWalker(bis)
+                    while iwalker.has_next():
+                        iwalker.next()
+                        fname = iwalker.get_current_name()
+                        if fname == PATH:
+                            fields.append(Nson.read_string(bis))
+                        elif fname == TYPE:
+                            types.append(Nson.read_string(bis))
+                        else:
+                            iwalker.skip()
+            else:
+                walker.skip()
+
+        if index_name is None:
+            raise IllegalArgumentException('Missing name in index info')
+
+        return IndexInfo(index_name, fields, types)
+
+#
+# SystemRequest
+#
+# Payload:
+# {
+#   "payload" : {
+#     "STATEMENT" : <utf-8 encoded version of string>
+#   }
+# }
+#
+# Non-error response
+# See deserialize_system_result
+# {acd
+#   SYSOP_STATE: <int>
+#   SYSOP_RESULT: <string>
+#   STATEMENT: <string>
+#   OPERATION_ID: <string>
+# }
+#
+class SystemRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.SYSTEM_REQUEST, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        # use a byte array
+        buf = bytearray(request.get_statement().encode('utf-8'))
+        Proto.write_bin_map_field(ns, STATEMENT, buf)
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        return Proto.deserialize_system_result(bis)
+
+#
+# SystemStatus
+#
+# Payload:
+# {
+#   "payload" : {
+#     STATEMENT : <string>
+#     OPERATION_ID : <string>
+#   }
+# }
+#
+# Non-error response
+# See deserialize_system_result
+#
+class SystemStatusRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.SYSTEM_STATUS_REQUEST, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, STATEMENT,request.get_statement())
+        Proto.write_string_map_field(ns, OPERATION_ID,
+          request.get_operation_id())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        return Proto.deserialize_system_result(bis)
+
+#
+# MultiDeleteRequest
+#
+# Payload:
+# {
+#   "payload" : {
+# shared with all Delete ops
+#     DURABILITY : <int>
+#     KEY : {}
+#     RANGE : {}
+#     MAX_WRITE_KB : <int>
+#     CONTINUATION_KEY : <binary>
+#   }
+# }
+#
+# Non-error response:
+# {
+#   "CONSUMED" : {
+#      "READ_UNITS" : <int>
+#      "READ_KV" : <int>
+#      "WRITE_UNITS" : <int>
+#   }
+#   NUM_DELETIONS: <int>
+#   CONTINUATION_KEY: <binary>
+# }
+#
+class MultiDeleteRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        start_off = bos.get_offset()
+
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.MULTI_DELETE, request)
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_int_map_field(ns, MAX_WRITE_KB, request.get_max_write_kb())
+        Proto.write_bin_map_field(ns, CONTINUATION_KEY,
+                                      request.get_continuation_key())
+        Proto.write_durability(ns, request)
+        self._write_field_range(ns, request.get_range())
+        Proto.write_key(ns, request.get_key())
+
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.MultiDeleteResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CONSUMED:
+                Proto.read_consumed_capacity(bis, result)
+            elif name == NUM_DELETIONS:
+                result.set_num_deletions(Nson.read_int(bis))
+            elif name == CONTINUATION_KEY:
+                result.set_continuation_key(Nson.read_binary(bis))
+            else:
+                walker.skip()
+
+        return result
+
+
+    #
+    # "range": {
+    #   "path": path to field (string)
+    #   "start" {
+    #      "value": {FieldValue}
+    #      "inclusive": bool
+    #   }
+    #   "end" {
+    #      "value": {FieldValue}
+    #      "inclusive": bool
+    #   }
+    #
+    def _write_field_range(self, ns, key_range):
+        if key_range is None:
+            return
+        Proto.start_map(ns, RANGE)
+        Proto.write_string_map_field(ns, RANGE_PATH, key_range.get_field_path())
+        if key_range.get_start() is not None:
+            Proto.start_map(ns, START)
+            Proto.write_value(ns, key_range.get_start())
+            Proto.write_bool_map_field(ns, INCLUSIVE,
+                                           key_range.get_start_inclusive())
+            Proto.end_map(ns, START)
+        if key_range.get_end() is not None:
+            Proto.start_map(ns, END)
+            Proto.write_value(ns, key_range.get_end())
+            Proto.write_bool_map_field(ns, INCLUSIVE,
+                                           key_range.get_end_inclusive())
+            Proto.end_map(ns, END)
+        Proto.end_map(ns, RANGE)
+
+#
+# WriteMultipleRequest
+#
+# Header:
+#  Normal header but...
+#    if one table, table name, if > 1 table, table names are in the ops
+#
+# Payload:
+# {
+#   "payload" : {
+#     DURABILITY : <int>
+#     NUM_OPERATIONS: <int>
+#     OPERATIONS: [ array, for each op...
+#       TABLE_NAME: <optional string, if using parent/child>
+#       OP_CODE: <int>
+#       ABORT_ON_FAIL: <bool>
+#       RETURN_ROW:
+#       delete or put op info w/o durability
+#   }
+# }
+#
+# Non-error response:
+# {
+#   "CONSUMED" : {
+#      "READ_UNITS" : <int>
+#      "READ_KV" : <int>
+#      "WRITE_UNITS" : <int>
+#   }
+#   WM_SUCCESS: [{}]
+#   WM_FAILURE: {
+#     WM_FAIL_INDEX: <int>
+#     WM_FAIL_RESULT: {}
+#   }
+# }
+#
+class WriteMultipleRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        start_off = bos.get_offset()
+
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        # header -- special header handling because of single vs multiple tables
+        Proto.start_map(ns, HEADER)
+        Proto.write_int_map_field(ns, VERSION,
+                                  SerdeUtil.SERIAL_VERSION_4)
+        if request.is_single_table():
+            Proto.write_string_map_field(ns, TABLE_NAME,
+                                         request.get_table_name())
+        Proto.write_int_map_field(ns, OP_CODE, SerdeUtil.OP_CODE.WRITE_MULTIPLE)
+        Proto.write_int_map_field(ns, TIMEOUT, request.get_timeout())
+        Proto.end_map(ns, HEADER)
+
+        # payload
+        # IMPORTANT: durability MUST be ordered
+        # ahead of the operations or the server can't easily
+        # deserialize efficiently
+        Proto.start_map(ns, PAYLOAD)
+        # common to all ops
+        Proto.write_durability(ns, request)
+        Proto.write_int_map_field(ns, NUM_OPERATIONS,
+                                      request.get_num_operations())
+        Proto.start_array(ns, OPERATIONS)
+        for op in request.get_operations():
+            self._write_multi_op(ns, op, request.is_single_table())
+        Proto.end_array(ns, OPERATIONS)
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.WriteMultipleResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CONSUMED:
+                Proto.read_consumed_capacity(bis, result)
+            elif name == WM_SUCCESS:
+                # array of map
+                t = bis.read_byte()
+                if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+                    raise IllegalArgumentException(
+                        'Bad type in write multiple: ' + str(t) +
+                        ' should be ARRAY')
+                SerdeUtil.read_full_int(bis) # consume total bytes
+                num_elements = SerdeUtil.read_full_int(bis)
+                # array of map
+                for i in range(num_elements):
+                    result.add_result(self._read_operation_result(bis))
+            elif name == WM_FAILURE:
+                # a map
+                fwalker = MapWalker(bis)
+                while fwalker.has_next():
+                    fwalker.next()
+                    fname = fwalker.get_current_name()
+                    if fname == WM_FAIL_INDEX:
+                        result.set_failed_operation_index(Nson.read_int(bis))
+                    elif fname == WM_FAIL_RESULT:
+                        result.add_result(self._read_operation_result(bis))
+                    else:
+                        fwalker.skip()
+            else:
+                walker.skip()
+        return result
+
+    #
+    # Each op is an anonymous map inside and array of maps
+    #
+    def _write_multi_op(self, ns, op, is_single_table):
+        ns.start_array_field()
+        ns.start_map()
+        rq = op.get_request()
+        is_put = isinstance(rq, borneo.operations.PutRequest)
+        if is_put:
+            opcode = SerdeUtil.get_put_op_code(rq)
+        else:
+            match_version = rq.get_match_version()
+            opcode = (SerdeUtil.OP_CODE.DELETE if match_version is None else
+                      SerdeUtil.OP_CODE.DELETE_IF_VERSION)
+
+        # write op first -- important!
+        if not is_single_table:
+            Proto.write_string_map_field(ns, TABLE_NAME, rq.get_table_name())
+        Proto.write_int_map_field(ns, OP_CODE, opcode)
+        if is_put:
+            PutRequestSerializer._write_put_request(ns, rq)
+        else:
+            DeleteRequestSerializer._write_delete_request(ns, rq)
+
+        # common to delete and put
+        Proto.write_bool_map_field(ns, RETURN_ROW, rq.get_return_row())
+        Proto.write_bool_map_field(ns, ABORT_ON_FAIL,
+                                       op.is_abort_if_unsuccessful())
+        ns.end_map()
+        ns.end_array_field()
+
+    def _read_operation_result(self, bis):
+        opres = borneo.operations.OperationResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == SUCCESS:
+                opres.set_success(Nson.read_boolean(bis))
+            elif name == ROW_VERSION:
+                opres.set_version(Version.create_version(
+                    Nson.read_binary(bis)))
+            elif name == GENERATED:
+                opres.set_generated_value(Proto.nson_to_value(bis))
+            elif name == RETURN_INFO:
+                Proto.read_return_info(bis, opres)
+            else:
+                walker.skip()
+        return opres
+
+
+#
+# PrepareRequest
+#
+# Header:
+#  Normal header but no table name
+#
+# Payload:
+# {
+#   "payload" : {
+#     QUERY_VERSION : <int>
+#     STATEMENT: <string>
+#     GET_QUERY_PLAN: <bool>
+#     GET_QUERY_SCHEMA: <bool>
+#   }
+# }
+#
+# Non-error response:
+#   See deserialize_prepare_or_query
+#
+class PrepareRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.PREPARE, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_int_map_field(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION)
+        Proto.write_string_map_field(ns, STATEMENT, request.get_statement())
+        if request.get_query_plan():
+            Proto.write_bool_map_field(ns, GET_QUERY_PLAN, request.get_query_plan())
+        if request.get_query_schema():
+            Proto.write_bool_map_field(ns, GET_QUERY_SCHEMA,
+                                           request.get_query_schema())
+
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.PrepareResult()
+        Proto.deserialize_prepare_or_query(None, None, # query request/result
+                                               request, result,
+                                               bis, serial_version)
+        return result
+
+#
+# QueryRequest
+#
+# Header:
+#  Normal header but no table name
+#
+# Payload:
+# {
+#   "payload" : {
+#     QUERY_VERSION : <int>
+#     if non-zero (all int):
+#       MAX_READ_KB, MAX_WRITE_KB, NUMBER_LIMIT, TRACE_LEVEL
+#     if prepared:
+#       IS_PREPARED: <bool>
+#       IS_SIMPLE_QUERY: <bool>
+#       PREPARED_QUERY: <string -- orig query>
+#       bind variables
+#     else
+#       STATEMENT: <string>
+#     CONTINUATION_KEY: <binary>
+#     math context
+#     SHARD_ID: <int>
+#     TOPO_SEQ_NUM: <int>
+#   }
+# }
+#
+# Non-error response:
+#   See deserialize_prepare_or_query
+#
+class QueryRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.QUERY, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_int_map_field(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION)
+        Proto.write_int_map_field_not_zero(
+            ns, MAX_READ_KB, request.get_max_read_kb())
+        Proto.write_int_map_field_not_zero(
+            ns, MAX_WRITE_KB, request.get_max_write_kb())
+        Proto.write_int_map_field_not_zero(
+            ns, NUMBER_LIMIT, request.get_limit())
+        Proto.write_int_map_field_not_zero(
+            ns, TRACE_LEVEL, request.get_trace_level())
+        Proto.write_consistency(ns, request.get_consistency())
+        Proto.write_consistency(ns, request.get_consistency())
+        Proto.write_durability(ns, request)
+
+        if request.is_prepared():
+            Proto.write_bool_map_field(ns, IS_PREPARED, True)
+            Proto.write_bool_map_field(ns, IS_SIMPLE_QUERY, request.is_simple_query())
+            Proto.write_bin_map_field(
+                ns, PREPARED_QUERY, request.get_prepared_statement().get_statement())
+            self._write_bind_variables(
+                ns, request.get_prepared_statement().get_variables())
+        else:
+            Proto.write_string_map_field(ns, STATEMENT, request.get_statement())
+
+        if request.get_cont_key() is not None:
+            Proto.write_bin_map_field(
+                ns, CONTINUATION_KEY, request.get_cont_key())
+        if request.get_math_context() is not None:
+            self._write_math_context(ns, request.get_math_context())
+        if request.get_shard_id() != -1:
+            Proto.write_int_map_field(ns, SHARD_ID, request.get_shard_id())
+        if request.topology_seq_num() != -1:
+            Proto.write_int_map_field(
+                ns, TOPO_SEQ_NUM, request.topology_seq_num())
+
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def _write_bind_variables(self, ns, variables):
+        if variables is None or len(variables) == 0:
+            return
+        Proto.start_array(ns, BIND_VARIABLES)
+        for key in variables:
+            ns.start_array_field()
+            ns.start_map(0)
+            Proto.write_string_map_field(ns, NAME, key)
+            ns.start_map_field(VALUE)
+            Proto.write_field_value(ns, variables[key])
+            ns.end_map_field(VALUE)
+            ns.end_map(0)
+            ns.end_array_field()
+        Proto.end_array(ns, BIND_VARIABLES)
+
+    def _write_math_context(self, ns, context):
+        Proto.write_int_map_field(ns, MATH_CONTEXT_CODE, 5)
+        Proto.write_int_map_field(ns, MATH_CONTEXT_PRECISION, context.prec)
+        Proto.write_int_map_field(
+            ns, MATH_CONTEXT_ROUNDING_MODE,
+            math_name_to_value.get(context.rounding))
+
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.QueryResult(request)
+        Proto.deserialize_prepare_or_query(
+            request, result,
+            None, None, # prepare request/result
+            bis, serial_version)
+        return result
 
 class Proto(object):
     #
@@ -1062,9 +1896,20 @@ class Proto(object):
 
     @staticmethod
     def write_consistency(ns, consistency):
-        Proto.start_map(ns, CONSISTENCY)
-        Proto.write_int_map_field(ns, TYPE, consistency)
-        Proto.end_map(ns, CONSISTENCY)
+        if consistency is not None:
+            Proto.start_map(ns, CONSISTENCY)
+            Proto.write_int_map_field(ns, TYPE, consistency)
+            Proto.end_map(ns, CONSISTENCY)
+
+    @staticmethod
+    def write_limits(ns, limits):
+        if limits is not None:
+            Proto.start_map(ns, LIMITS)
+            Proto.write_int_map_field(ns, READ_UNITS, limits.get_read_units())
+            Proto.write_int_map_field(ns, WRITE_UNITS, limits.get_write_units())
+            Proto.write_int_map_field(ns, STORAGE_GB, limits.get_storage_gb())
+            Proto.write_int_map_field(ns, LIMITS_MODE, limits.get_mode())
+            Proto.end_map(ns, LIMITS)
 
     @staticmethod
     def write_key(ns, key):
@@ -1091,6 +1936,20 @@ class Proto(object):
         Proto.write_int_map_field(ns, DURABILITY, dur_val)
 
     #
+    # This writes a "value" key in a map with a value of a FieldValue
+    #
+    # The value in this path must be a dict
+    #
+    @staticmethod
+    def write_value(ns, value):
+        if value is not None:
+            ns.start_map_field(VALUE)
+            Nson.generate_events_from_value(value, ns)
+            ns.end_map_field(VALUE)
+
+
+
+    #
     # This writes a field_value by generating NSON events. The ns parameter
     # is a serializer that turns those events into NSON in the output stream
     #
@@ -1113,22 +1972,32 @@ class Proto(object):
         ns.end_map_field(name)
 
     @staticmethod
+    def write_int_map_field_not_zero(ns, name, value):
+        if value != 0:
+            ns.start_map_field(name)
+            ns.integer_value(value)
+            ns.end_map_field(name)
+
+    @staticmethod
     def write_string_map_field(ns, name, value):
-        ns.start_map_field(name)
-        ns.string_value(value)
-        ns.end_map_field(name)
+        if value is not None:
+            ns.start_map_field(name)
+            ns.string_value(value)
+            ns.end_map_field(name)
 
     @staticmethod
     def write_bool_map_field(ns, name, value):
-        ns.start_map_field(name)
-        ns.boolean_value(value)
-        ns.end_map_field(name)
+        if value is not None:
+            ns.start_map_field(name)
+            ns.boolean_value(value)
+            ns.end_map_field(name)
 
     @staticmethod
     def write_bin_map_field(ns, name, value):
-        ns.start_map_field(name)
-        ns.binary_value(value)
-        ns.end_map_field(name)
+        if value is not None:
+            ns.start_map_field(name)
+            ns.binary_value(value)
+            ns.end_map_field(name)
 
     #
     # start/end complex types
@@ -1143,9 +2012,39 @@ class Proto(object):
         ns.end_map()
         ns.end_map_field(name)
 
+    @staticmethod
+    def start_array(ns, name):
+        ns.start_map_field(name)
+        ns.start_array()
+
+    @staticmethod
+    def end_array(ns, name):
+        ns.end_array()
+        ns.end_map_field(name)
+
     #
     # Deserialization/read methods
     #
+
+    # TableResult
+    # {
+    #   "ERROR_CODE" : 0
+    #   "TABLE_NAME" : <string>        # required
+    #   "TABLE_STATE" : int            # required
+    #   "LIMITS" : {                   # required
+    #      "READ_UNITS" : <int>
+    #      "WRITE_UNITS" : <int>
+    #      "STORAGE_GB" : <int>
+    #      "LIMITS_MODE" : <int>       # PROVISIONED vs ON-DEMAND
+    #   "COMPARTMENT_OCID" : <string>  # optional - cloud only
+    #   "NAMESPACE" : <string>         # optional, on-prem only
+    #   "TABLE_OCID" " : <string>      # optional, cloud-only
+    #   "TABLE_SCHEMA" : <string>      # optional
+    #   "TABLE_DDL" : <string>         # optional
+    #   "OPERATION_ID" : <string>      # optional
+    #   "FREE_FORM_TAGS" : <string>    # optional, cloud-only
+    #   "DEFINED_TAGS" :   <string>    # optional, cloud-only
+    # }
 
     @staticmethod
     def deserialize_table_result(bis):
@@ -1209,6 +2108,36 @@ class Proto(object):
                 walker.skip()
         return result
 
+    # {
+    #   SYSOP_STATE: <int>
+    #   SYSOP_RESULT: <string>
+    #   STATEMENT: <string>
+    #   OPERATION_ID: <string>
+    # }
+    @staticmethod
+    def deserialize_system_result(bis):
+        result = borneo.operations.SystemResult()
+        bis.set_offset(0)
+        walker = MapWalker(bis)
+
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == SYSOP_STATE:
+                result.set_state(
+                    SerdeUtil.get_operation_state(Nson.read_int(bis)))
+            elif name == SYSOP_RESULT:
+                result.set_result_string(Nson.read_string(bis))
+            elif name == STATEMENT:
+                result.set_statement(Nson.read_string(bis))
+            elif name == OPERATION_ID:
+                result.set_operation_id(Nson.read_string(bis))
+            else:
+                walker.skip()
+        return result
+
     @staticmethod
     def read_consumed_capacity(bis, result):
         walker = MapWalker(bis)
@@ -1240,15 +2169,78 @@ class Proto(object):
                 result.set_version(
                     Version.create_version(Nson.read_binary(bis)))
             elif name == VALUE:
-                result.set_value(Proto.read_field_value(bis))
+                result.set_value(Proto.nson_to_value(bis))
             else:
                 walker.skip()
 
     @staticmethod
-    def read_field_value(bis):
-        fvc = FieldValueCreator()
+    def nson_to_value(bis, ordered=True):
+        """
+        Deserializes NSON into a value
+
+        :param bis: the stream containing NSON
+        :type value: ByteInputStream
+        :param ordered: True (default) for using OrderedDict vs dict
+        :type ordered: bool
+        :returns: object
+        """
+        fvc = FieldValueCreator(ordered)
         Nson.generate_events_from_nson(bis, fvc, False)
         return fvc.get_current_value()
+
+    @staticmethod
+    def nson_to_json(stream, offset = 0, pretty = False):
+        """
+        Serializes the NSON to JSON in a non-destructive manner, leaving
+        the original stream unmodified
+
+        :param stream: the stream containing NSON
+        :type value: ByteInputStream
+        :param offset: the offset in the stream to use, defaults to 0
+        :type offset: int
+        :param pretty: controls pretty printing, defaults to not pretty
+        :type pretty: bool
+        :returns: str
+        """
+        js = JsonSerializer(pretty)
+        new_stream = ByteInputStream(stream.get_content())
+        new_stream.set_offset(offset)
+        Nson.generate_events_from_nson(new_stream, js, False)
+        return str(js)
+
+    @staticmethod
+    def value_to_json(value, pretty = False):
+        """
+        Serializes the value to JSON
+
+        :param value: the value to serialize
+        :type value: object
+        :param pretty: controls pretty printing, defaults to not pretty
+        :type pretty: bool
+        :returns: str
+        """
+        js = JsonSerializer(pretty, use_single_quote=True)
+        Nson.generate_events_from_value(value, js, False)
+        return str(js)
+
+
+    @staticmethod
+    def value_to_nson(value):
+        """
+        Serializes the value to an NSON stream in a bytearray
+
+        :param value: the value to serialize
+        :type value: object
+        :returns: bytearray
+        """
+        content = bytearray()
+        bos = ByteOutputStream(content)
+        ns = NsonSerializer(bos)
+        Nson.generate_events_from_value(value, ns)
+        return content
+
+
+    # TODO: JSON equals, unordered...
 
     #
     # "return_info" : {
@@ -1270,9 +2262,175 @@ class Proto(object):
                 result.set_existing_version(Version.create_version(
                     Nson.read_binary(bis)))
             elif name == EXISTING_VALUE:
-                result.set_existing_value(Proto.read_field_value(bis))
+                result.set_existing_value(Proto.nson_to_value(bis))
             else:
                 walker.skip()
+
+
+    # Queries are complicated... share code for deserializing Query and Prepare
+    # results. Because an initial query request has an implied prepare the
+    # deserialization of an unprepared query is a superset of a prepare request
+    #
+    @staticmethod
+    def deserialize_prepare_or_query(
+            query_request, query_result,
+            prepare_request, prepare_result,
+            bis, serial_version):
+
+        # ps is PreparedStatement
+        request_was_prepared = False
+        if query_request is not None:
+            ps = query_request.get_prepared_statement()
+            if ps is not None:
+                request_was_prepared = True
+        else:
+            ps = None
+
+        # variables used to construct a PreparedStatement as needed
+        dpi = None # driver plan info
+        query_plan = None
+        query_schema = None
+        table_name = None
+        namespace = None
+        operation = None
+        proxy_topo_seqnum = None
+        proxy_prepared_query = None
+        shard_ids = None
+        cont_key = None
+
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CONSUMED:
+                if query_result is not None:
+                    Proto.read_consumed_capacity(bis, query_result)
+                else:
+                    Proto.read_consumed_capacity(bis, prepare_result)
+            elif name == PREPARED_QUERY:
+                proxy_prepared_query = Nson.read_binary(bis)
+            elif name == DRIVER_QUERY_PLAN:
+                dpi = DriverPlanInfo()
+                dpi.read_plan(Nson.read_binary(bis))
+            elif name == QUERY_PLAN_STRING:
+                query_plan = Nson.read_string(bis)
+            elif name == QUERY_RESULT_SCHEMA:
+                query_schema = Nson.read_string(bis)
+            elif name == TABLE_NAME:
+                table_name = Nson.read_string(bis)
+            elif name == NAMESPACE:
+                namespace = Nson.read_string(bis)
+            elif name == QUERY_OPERATION:
+                operation = Nson.read_int(bis)
+            elif name == PROXY_TOPO_SEQNUM:
+                proxy_topo_seqnum = Nson.read_int(bis)
+            elif name == SHARD_IDS:
+                # array of int
+                shard_ids = Proto.read_nson_int_array(bis)
+            elif name == QUERY_RESULTS:
+                # query only
+                Proto.read_query_results(query_result, bis)
+            elif name == CONTINUATION_KEY:
+                # query only
+                cont_key = Nson.read_binary(bis)
+            elif name == SORT_PHASE1_RESULTS:
+                # query only
+                Proto.read_phase1_results(query_result, bis)
+            elif name == REACHED_LIMIT:
+                # query only
+                if query_result is not None:
+                    query_result.set_reached_limit(Nson.read_boolean(bis))
+            else:
+                walker.skip()
+
+        # this is outside of the walker loop to make sure that the continuation
+        # key is cleared if not returned, meaning the query is done
+        if query_result is not None:
+            query_result.set_continuation_key(cont_key)
+            query_request.set_cont_key(query_result.get_continuation_key())
+
+        # if this was already prepared and is from a query, we are done
+        if request_was_prepared:
+            return
+        if proxy_topo_seqnum is not None:
+            ti = TopologyInfo(proxy_topo_seqnum, shard_ids)
+        else:
+            ti = None
+        if query_request is not None:
+            statement = query_request.get_statement()
+        else:
+            statement = prepare_request.get_statement()
+        prepared_statement = PreparedStatement(
+            statement, query_plan, query_schema, ti,
+            proxy_prepared_query,
+            None if dpi is None else dpi.get_plan(),
+            None if dpi is None else dpi.get_num_iters(),
+            None if dpi is None else dpi.get_num_regs(),
+            None if dpi is None else dpi.get_vars(),
+            namespace,
+            table_name,
+            operation)
+        if prepare_result is not None:
+            prepare_result.set_prepared_statement(prepared_statement)
+        elif query_request is not None:
+            query_request.set_prepared_statement(prepared_statement)
+            if not prepared_statement.is_simple_query():
+                driver = QueryDriver(query_request)
+                driver.set_topology_info(prepared_statement.topology_info())
+                driver.set_prep_cost(query_result.get_read_kb())
+                query_result.set_computed(False)
+
+
+    # array of int for shard_ids in query topologyinfo
+    @staticmethod
+    def read_nson_int_array(bis):
+        t = bis.read_byte()
+        if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+            raise IllegalArgumentException(
+                'NSON read int array: stream must be located at type ARRAY')
+        SerdeUtil.read_full_int(bis) # total length in bytes
+        num_elements = SerdeUtil.read_full_int(bis)
+        arr = []
+        for i in range(num_elements):
+            arr.append(Nson.read_int(bis))
+        return arr
+
+    #
+    # Methods to read query results and set them in result objects
+    #
+
+    @staticmethod
+    def read_query_results(query_result, bis):
+        # results are array of MAP
+        t = bis.read_byte()
+        if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+            raise IllegalArgumentException(
+                'NSON query results must be of type ARRAY')
+        SerdeUtil.read_full_int(bis) # total length in bytes
+        num_elements = SerdeUtil.read_full_int(bis)
+        results = list()
+        for i in range(num_elements):
+            results.append(Proto.nson_to_value(bis))
+        query_result.set_results(results)
+
+    @staticmethod
+    def read_phase1_results(query_result, bis):
+        # binary, wrap byte array in another input stream
+        bis1 = ByteInputStream(Nson.read_binary(bis))
+        query_result.set_is_in_phase1(bis1.read_boolean())
+        pids = SerdeUtil.read_packed_int_array(bis1)
+        if pids is not None:
+            query_result.set_pids(pids)
+            query_result.set_num_results_per_pid(
+                SerdeUtil.read_packed_int_array(bis1))
+            cont_keys = list()
+            for i in range(len(pids)):
+                cont_keys.append(SerdeUtil.read_bytearray(bis1, False))
+            query_result.set_partition_cont_keys(cont_keys)
+
+
 
 
     #
@@ -1315,3 +2473,46 @@ class Proto(object):
                 walker.skip()
             else:
                 walker.skip()
+
+# This code is redundant WRT code in serde.py that does the same thing but
+# it is easier to do this than share. The V3 code will never change but this
+# might evolve with time
+#
+# Read and encapsulate the driver portion of the query plan for local execution
+#
+class DriverPlanInfo(object):
+
+    def __init__(self):
+        self._num_iters = None
+        self._num_regs = None
+        self._plan = None
+        self._external_vars = None
+
+    def read_plan(self, binary_plan):
+        bis = ByteInputStream(binary_plan)
+        self._plan = PlanIter.deserialize_iter(bis)
+        if self._plan is None:
+            return None
+        self._num_iters = bis.read_int()
+        self._num_regs = bis.read_int()
+        SerdeUtil.trace(
+            'PREP-RESULT: Query Plan:\n' + self._plan.display() + '\n', 1)
+        length = bis.read_int()
+        if length > 0:
+            self._external_vars = dict()
+            for i in range(length):
+                var_name = SerdeUtil.read_string(bis)
+                var_id = bis.read_int()
+                self._external_vars[var_name] = var_id
+
+    def get_plan(self):
+        return self._plan
+
+    def get_num_iters(self):
+        return self._num_iters
+
+    def get_num_regs(self):
+        return self._num_regs
+
+    def get_vars(self):
+        return self._external_vars

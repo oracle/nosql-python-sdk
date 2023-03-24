@@ -8,7 +8,7 @@ from abc import abstractmethod
 from datetime import datetime
 from decimal import Context, ROUND_HALF_EVEN
 from json import loads
-from time import mktime, sleep, time
+from time import sleep, time
 
 from dateutil import parser, tz
 
@@ -721,13 +721,11 @@ class DeleteRequest(WriteRequest):
 
     @staticmethod
     def get_serial_version(serial_version):
-        # temporary hack
-        return serdeutil.SerdeUtil.SERIAL_VERSION_4
-        #return serial_version
+        return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
-        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
             return borneo.nson.DeleteRequestSerializer()
         return DeleteRequestSerializer()
 
@@ -856,6 +854,8 @@ class GetIndexesRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.GetIndexesRequestSerializer()
         return GetIndexesRequestSerializer()
 
     def get_request_name(self):
@@ -1015,13 +1015,11 @@ class GetRequest(ReadRequest):
 
     @staticmethod
     def get_serial_version(serial_version):
-        # temporary hack
-        return serdeutil.SerdeUtil.SERIAL_VERSION_4
-        #return serial_version
+        return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
-        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
             return borneo.nson.GetRequestSerializer()
         return GetRequestSerializer()
 
@@ -1156,15 +1154,13 @@ class GetTableRequest(Request):
 
     @staticmethod
     def get_serial_version(serial_version):
-        # temp hack
-        return serdeutil.SerdeUtil.SERIAL_VERSION_4
-        # return serial_version
+        return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
-        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
             return borneo.nson.GetTableRequestSerializer()
-        return GetTableRequestSerializer
+        return GetTableRequestSerializer()
 
     def get_request_name(self):
         # type: () -> str
@@ -1340,6 +1336,8 @@ class ListTablesRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.ListTablesRequestSerializer()
         return ListTablesRequestSerializer()
 
     def get_request_name(self):
@@ -1604,6 +1602,8 @@ class MultiDeleteRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.MultiDeleteRequestSerializer()
         return MultiDeleteRequestSerializer()
 
     def get_request_name(self):
@@ -1629,6 +1629,7 @@ class PrepareRequest(Request):
         super(PrepareRequest, self).__init__()
         self._statement = None
         self._get_query_plan = False
+        self._get_query_schema = False
 
     def __str__(self):
         return 'PrepareRequest'
@@ -1698,11 +1699,11 @@ class PrepareRequest(Request):
 
     def set_get_query_plan(self, get_query_plan):
         """
-        Sets whether a printout of the query execution plan should be included
-        in the :py:class:`PrepareResult`.
+        Sets whether a JSON representation of the query execution plan should
+        be included in the :py:class:`PreparedStatement`.
 
-        :param get_query_plan: True if a printout of the query execution plan
-            should be included in the :py:class:`PrepareResult`. False
+        :param get_query_plan: True if a the query execution plan
+            should be included in the :py:class:`PreparedStatement`. False
             otherwise.
         :type get_query_plan: bool
         :returns: self.
@@ -1715,14 +1716,43 @@ class PrepareRequest(Request):
 
     def get_query_plan(self):
         """
-        Returns whether a printout of the query execution plan should be include
-        in the :py:class:`PrepareResult`.
+        Returns whether a JSON representation of the query execution plan should
+        be included in the :py:class:`PreparedStatement`.
 
-        :returns: whether a printout of the query execution plan should be
-            include in the :py:class:`PrepareResult`.
+        :returns: whether the the query execution plan should be
+            included in the :py:class:`PreparedStatement`.
         :rtype: bool
         """
         return self._get_query_plan
+
+    def set_get_query_schema(self, get_query_schema):
+        """
+        Sets whether a JSON representation of the schema of the query should
+        be included in the :py:class:`PreparedStatement`.
+
+        :param: get_query_schema: True if a JSON representation of the schema
+        of the query should be included in the :py:class:`PreparedStatement`.
+        :type get_query_schema: bool
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if get_query_schema
+            is not a boolean.
+        :versionadded: 5.4.0
+        """
+        CheckValue.check_boolean(get_query_schema, 'get_query_schema')
+        self._get_query_schema = get_query_schema
+        return self
+
+    def get_query_schema(self):
+        """
+        Returns whether a JSON representation of the schema of the query should
+        be included in the :py:class:`PreparedStatement`.
+
+        :returns: True if a JSON representation of the schema
+        of the query should be included in the :py:class:`PreparedStatement`.
+        :rtype: bool
+        :versionadded: 5.4.0
+        """
+        return self._get_query_schema
 
     def set_timeout(self, timeout_ms):
         """
@@ -1760,6 +1790,8 @@ class PrepareRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.PrepareRequestSerializer()
         return PrepareRequestSerializer()
 
     def get_request_name(self):
@@ -2169,15 +2201,13 @@ class PutRequest(WriteRequest):
 
     @staticmethod
     def get_serial_version(serial_version):
-        # temp hack
-        return serdeutil.SerdeUtil.SERIAL_VERSION_4
-        # return serial_version
+        return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
-        if serial_version >= serdeutil.SerdeUtil.SERIAL_VERSION_4:
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
             return borneo.nson.PutRequestSerializer()
-        return PutRequestSerializer
+        return PutRequestSerializer()
 
     def get_request_name(self):
         # type: () -> str
@@ -2239,6 +2269,7 @@ class QueryRequest(Request):
         self._max_memory_consumption = 1024 * 1024 * 1024
         self._math_context = Context(prec=7, rounding=ROUND_HALF_EVEN)
         self._consistency = None
+        self._durability = None
         self._statement = None
         self._prepared_statement = None
         self._continuation_key = None
@@ -2269,6 +2300,7 @@ class QueryRequest(Request):
         internal_req.set_max_memory_consumption(self._max_memory_consumption)
         internal_req.set_math_context(self._math_context)
         internal_req.set_consistency(self._consistency)
+        internal_req.set_durability(self._durability)
         internal_req.set_prepared_statement(self._prepared_statement)
         internal_req.driver = self.driver
         internal_req.is_internal = True
@@ -2294,6 +2326,8 @@ class QueryRequest(Request):
         copy.set_math_context(self._math_context)
         if self._consistency is not None:
             copy.set_consistency(self._consistency)
+        if self._durability is not None:
+            copy.set_durability(self._durability)
         if self._prepared_statement is not None:
             copy.set_prepared_statement(self._prepared_statement)
         copy._statement = self._statement
@@ -2537,6 +2571,30 @@ class QueryRequest(Request):
         """
         return self._consistency
 
+    def set_durability(self, durability):
+        """
+        On-premise only. Sets the durability to use for the operation. Only
+        used for queries that do writes or deletes.
+
+        :param durability: the Durability to use
+        :type durability: Durability
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if Durability
+            is not valid
+        :versionadded: 5.4.0
+        """
+        self._durability = durability
+        return self
+
+    def get_durability(self):
+        """
+        On-premise only. Gets the durability to use for the operation or
+        None if not set
+        :returns: the Durability
+        :versionadded: 5.4.0
+        """
+        return self._durability
+
     @deprecated
     def set_continuation_key(self, continuation_key):
         """
@@ -2726,10 +2784,14 @@ class QueryRequest(Request):
 
     @staticmethod
     def get_serial_version(serial_version):
+        # until V4 is supported
+        #return SerdeUtil.SERIAL_VERSION_3
         return serial_version
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.QueryRequestSerializer()
         return QueryRequestSerializer()
 
     def get_request_name(self):
@@ -2835,6 +2897,8 @@ class SystemRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.SystemRequestSerializer()
         return SystemRequestSerializer()
 
     def get_request_name(self):
@@ -2961,6 +3025,8 @@ class SystemStatusRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.SystemStatusRequestSerializer()
         return SystemStatusRequestSerializer()
 
     def get_request_name(self):
@@ -3161,6 +3227,8 @@ class TableRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.TableRequestSerializer()
         return TableRequestSerializer()
 
     def get_request_name(self):
@@ -3193,6 +3261,7 @@ class TableUsageRequest(Request):
         self._start_time = 0
         self._end_time = 0
         self._limit = 0
+        self._start_index = 0
 
     def set_table_name(self, table_name):
         """
@@ -3251,7 +3320,7 @@ class TableUsageRequest(Request):
         """
         self._check_time(start_time)
         if isinstance(start_time, str):
-            start_time = self._iso_time_to_timestamp(start_time)
+            start_time = SerdeUtil.iso_time_to_ms(start_time)
         self._start_time = start_time
         return self
 
@@ -3296,7 +3365,7 @@ class TableUsageRequest(Request):
         """
         self._check_time(end_time)
         if isinstance(end_time, str):
-            end_time = self._iso_time_to_timestamp(end_time)
+            end_time = SerdeUtil.iso_time_to_ms(end_time)
         self._end_time = end_time
         return self
 
@@ -3348,6 +3417,33 @@ class TableUsageRequest(Request):
         """
         return self._limit
 
+    def set_start_index(self, start_index):
+        """
+        Sets the index to use to start returning usage records within the
+        specified range. This is related to the last_returned_index from a
+        previous request and can be used to page usage records. If not set
+        the list starts a 0
+        :param start_index: the numeric index.
+        :type start_index: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if start_index
+        is a negative number.
+        :versionadded: 5.4.0
+        """
+        CheckValue.check_int_ge_zero(limit, 'limit')
+        self._start_index = start_index
+        return self
+
+    def get_start_index(self):
+        """
+        Returns the start_index for usage records desired.
+
+        :returns: the numeric start_index.
+        :rtype: int
+        :versionadded: 5.4.0
+        """
+        return self._start_index
+
     def set_timeout(self, timeout_ms):
         """
         Sets the request timeout value, in milliseconds. This overrides any
@@ -3391,6 +3487,8 @@ class TableUsageRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.TableUsageRequestSerializer()
         return TableUsageRequestSerializer()
 
     @staticmethod
@@ -3401,13 +3499,6 @@ class TableUsageRequest(Request):
             raise IllegalArgumentException(
                 'dt must be an integer that is not negative or an ISO ' +
                 '8601 formatted string. Got:' + str(dt))
-
-    @staticmethod
-    def _iso_time_to_timestamp(dt):
-        dt = parser.parse(dt)
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(tz.UTC)
-        return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
     def get_request_name(self):
         # type: () -> str
@@ -3636,6 +3727,8 @@ class WriteMultipleRequest(Request):
 
     @staticmethod
     def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.WriteMultipleRequestSerializer()
         return WriteMultipleRequestSerializer()
 
     class OperationRequest(object):
@@ -4092,6 +4185,7 @@ class ListTablesResult(Result):
 
         :returns: the index.
         :rtype: int
+        :versionadded: 5.4.0
         """
         return self._last_index_returned
 
@@ -5217,6 +5311,7 @@ class TableUsageResult(Result):
         super(TableUsageResult, self).__init__()
         self._table_name = None
         self._usage_records = None
+        self._last_index = 0
 
     def __str__(self):
         if self._usage_records is None:
@@ -5257,6 +5352,18 @@ class TableUsageResult(Result):
         """
         return self._usage_records
 
+    def set_last_index_returned(self, last_index_returned):
+        self._last_index_returned = last_index_returned
+        return self
+
+    def get_last_index_returned(self):
+        """
+        Returns the index of the last usage record returned
+
+        :returns: the index.
+        :rtype: int
+        """
+        return self._last_index_returned
 
 class WriteMultipleResult(Result):
     """

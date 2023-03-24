@@ -3,38 +3,28 @@
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
-#
 
 #
-# Parameters used by test code -- On-premise Oracle NoSQL database
+# Parameters used by test code -- Cloud Simulator Configuration
 #
-# This file is configured for the unit tests to be run against a On-prem Oracle
-# NoSQL database. Please start the database and proxy first.
+# This file is configured for the unit tests to be run against a Cloud Simulator
+# instance. The simulator is used so that limits that exist in the cloud service
+# are not involved and there is no cost involved in running the unit tests.
 #
-# The default settings below are sufficient if the On-prem proxy has been
-# started on the endpoint, localhost:8080,  with security disable. If not, the
-# parameters in this file should be changed as needed.
+# The default settings below are sufficient if the Cloud Simulator has been
+# started on the endpoint, localhost:8080, which is its default. If not, the
+# parameters in this file should be changed as needed. This is a backup of
+# config.py, when config.py is overwritten by other config*.py, the default
+# config.py of Cloud Simulator is back up in this file.
 #
 
-# The endpoint to use to connect to the service. This endpoint is for a on-prem
-# proxy started by the customer. Use 'http' protocol for non-secure database and
-# 'https' for secure database.
-endpoint = 'http://localhost:80'
+# The endpoint to use to connect to the service. This endpoint is for a Cloud
+# Simulator running on its default port (8080) on the local machine.
+endpoint = 'localhost:8080'
 
 # The server type, please don't change it.
-server_type = 'onprem'
+server_type = 'cloudsim'
 
-# On-prem Oracle NoSQL database version. Use None to test with the latest NoSQL
-# Database version, a specified version should be like "20.2.0".
+# Cloud Simulator version. Use None to test with the latest Cloud Simulator
+# version, a specified version should be like "1.4.0".
 version = None
-
-# Please set the following parameters if running against secure database.
-
-# SSL CA certificates. Configure it to specify CA certificates or set
-# REQUESTS_CA_BUNDLE environment variable when running against a secure
-# database. For non-secure database, use the default None.
-ca_certs = None
-# User name for secure database, for non-secure database, use the default None.
-user_name = None
-# Password for secure database, for non-secure database, use the default None.
-user_password = None

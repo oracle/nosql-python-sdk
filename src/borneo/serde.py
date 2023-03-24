@@ -23,6 +23,22 @@ try:
 except ImportError:
     import operations
 
+math_name_to_value = {ROUND_UP: 0,
+                      ROUND_DOWN: 1,
+                      ROUND_CEILING: 2,
+                      ROUND_FLOOR: 3,
+                      ROUND_HALF_UP: 4,
+                      ROUND_HALF_DOWN: 5,
+                      ROUND_HALF_EVEN: 6,
+                      ROUND_05UP: 8}
+math_value_to_name = {0: ROUND_UP,
+                      1: ROUND_DOWN,
+                      2: ROUND_CEILING,
+                      3: ROUND_FLOOR,
+                      4: ROUND_HALF_UP,
+                      5: ROUND_HALF_DOWN,
+                      6: ROUND_HALF_EVEN,
+                      8: ROUND_05UP}
 
 class BinaryProtocol(object):
     """
@@ -154,14 +170,6 @@ class BinaryProtocol(object):
 
     @staticmethod
     def read_math_context(bis):
-        value_to_name = {0: ROUND_UP,
-                         1: ROUND_DOWN,
-                         2: ROUND_CEILING,
-                         3: ROUND_FLOOR,
-                         4: ROUND_HALF_UP,
-                         5: ROUND_HALF_DOWN,
-                         6: ROUND_HALF_EVEN,
-                         8: ROUND_05UP}
         code = bis.read_byte()
         if code == 0:
             return None
@@ -175,7 +183,7 @@ class BinaryProtocol(object):
             return Context(prec=0, rounding=ROUND_HALF_UP)
         elif code == 5:
             precision = bis.read_int()
-            rounding_mode = value_to_name.get(bis.read_int())
+            rounding_mode = math_value_to_name.get(bis.read_int())
             return Context(prec=precision, rounding=rounding_mode)
         else:
             raise IOError('Unknown MathContext code.')
@@ -308,20 +316,12 @@ class BinaryProtocol(object):
 
     @staticmethod
     def write_math_context(bos, math_context):
-        name_to_value = {ROUND_UP: 0,
-                         ROUND_DOWN: 1,
-                         ROUND_CEILING: 2,
-                         ROUND_FLOOR: 3,
-                         ROUND_HALF_UP: 4,
-                         ROUND_HALF_DOWN: 5,
-                         ROUND_HALF_EVEN: 6,
-                         ROUND_05UP: 8}
         if math_context is None:
             bos.write_byte(0)
         else:
             bos.write_byte(5)
             bos.write_int(math_context.prec)
-            bos.write_int(name_to_value.get(math_context.rounding))
+            bos.write_int(math_name_to_value.get(math_context.rounding))
 
     @staticmethod
     def write_op_code(bos, op):
@@ -566,8 +566,8 @@ class PrepareRequestSerializer(RequestSerializer):
                     external_vars[var_name] = var_id
             topology_info = BinaryProtocol.read_topology_info(bis)
         return PreparedStatement(
-            sql_text, query_plan, topology_info, proxy_statement, driver_plan,
-            num_iterators, num_registers, external_vars,
+            sql_text, query_plan, None, topology_info, proxy_statement,
+            driver_plan, num_iterators, num_registers, external_vars,
             namespace, table_name, operation)
 
 

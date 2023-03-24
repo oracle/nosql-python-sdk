@@ -55,6 +55,9 @@ class ByteInputStream(object):
         self._content = content
         self._offset = 0
 
+    def get_content(self):
+        return self._content
+
     def get_offset(self):
         return self._offset
 
@@ -116,6 +119,9 @@ class ByteOutputStream(object):
 
     def __init__(self, content):
         self._content = content
+
+    def get_content(self):
+        return self._content
 
     def get_offset(self):
         return len(self._content)
@@ -494,14 +500,15 @@ class HttpConstants(object):
 
 class IndexInfo(object):
     """
-    IndexInfo represents the information about a single index including its name
-    and field names. Instances of this class are returned in
+    IndexInfo represents the information about a single index including its
+    name, field names and field types. Instances of this class are returned in
     :py:class:`GetIndexesResult`.
     """
 
-    def __init__(self, index_name, field_names):
+    def __init__(self, index_name, field_names, field_types = None):
         self._index_name = index_name
         self._field_names = field_names
+        self._field_types = field_types
 
     def __str__(self):
         return ('IndexInfo [indexName=' + self._index_name + ', fields=[' +
@@ -525,6 +532,15 @@ class IndexInfo(object):
         """
         return self._field_names
 
+    def get_field_types(self):
+        """
+        Returns the list of types of fields that define the index.
+
+        :returns: the field types.
+        :rtype: list(str)
+        :versionadded: 5.4.0
+        """
+        return self._field_types
 
 class JsonNone(object):
     """
@@ -1062,9 +1078,9 @@ class PreparedStatement(object):
     """
     OPCODE_SELECT = 5
 
-    def __init__(self, sql_text, query_plan, topology_info, proxy_statement,
-                 driver_plan, num_iterators, num_registers, external_vars,
-                 namespace, table_name, operation):
+    def __init__(self, sql_text, query_plan, query_schema, topology_info,
+                 proxy_statement, driver_plan, num_iterators, num_registers,
+                 external_vars, namespace, table_name, operation):
         """
         Constructs a PreparedStatement. Construction is hidden to eliminate
         application access to the underlying statement, reducing the chance of
@@ -1077,6 +1093,7 @@ class PreparedStatement(object):
 
         self._sql_text = sql_text
         self._query_plan = query_plan
+        self._query_schema = query_schema
         # Applicable to advanced queries only.
         self._topology_info = topology_info
         # The serialized PreparedStatement created at the backend store. It is
@@ -1126,7 +1143,7 @@ class PreparedStatement(object):
         :rtype: PreparedStatement
         """
         return PreparedStatement(
-            self._sql_text, self._query_plan, self._topology_info,
+            self._sql_text, self._query_plan, self._query_schema, self._topology_info,
             self._proxy_statement, self._driver_query_plan, self._num_iterators,
             self._num_registers, self._variables, self._namespace,
             self._table_name, self._operation)
@@ -1151,6 +1168,17 @@ class PreparedStatement(object):
         :rtype: bool
         """
         return self._query_plan
+
+    def get_query_schema(self):
+        """
+        Returns a string representation of the query schema if it was
+        requested in the :py:class:`PrepareRequest`; None otherwise.
+
+        :returns: the string representation of the query schema.
+        :rtype: bool
+        :versionadded: 5.4.0
+        """
+        return self._query_schema
 
     def get_sql_text(self):
         """
@@ -1679,7 +1707,8 @@ class TableUsage(object):
 
     def __init__(self, start_time_ms, seconds_in_period, read_units,
                  write_units, storage_gb, read_throttle_count,
-                 write_throttle_count, storage_throttle_count):
+                 write_throttle_count, storage_throttle_count,
+                 max_shard_usage_percent):
         # Internal use only.
         self._start_time_ms = start_time_ms
         self._seconds_in_period = seconds_in_period
@@ -1689,6 +1718,7 @@ class TableUsage(object):
         self._read_throttle_count = read_throttle_count
         self._write_throttle_count = write_throttle_count
         self._storage_throttle_count = storage_throttle_count
+        self_max_shard_usage_percent = max_shard_usage_percent
 
     def __str__(self):
         return ('TableUsage [start_time_ms=' + str(self._start_time_ms) +
@@ -1698,7 +1728,9 @@ class TableUsage(object):
                 str(self._storage_gb) + ', read_throttle_count=' +
                 str(self._read_throttle_count) + ', write_throttle_count=' +
                 str(self._write_throttle_count) + ', storage_throttle_count=' +
-                str(self._storage_throttle_count) + ']')
+                str(self._storage_throttle_count) +
+                      ', max_shard_usage_percent=' +
+                str(self._max_shard_usage_percent) + ']')
 
     def get_start_time(self):
         """
@@ -1791,6 +1823,16 @@ class TableUsage(object):
         """
         return self._storage_throttle_count
 
+    def get_max_shard_usage_percent(self):
+        """
+        Returns the percentage of allowed storage usage for the shard with the
+        highest usage percentage across all table shards. This can be used as a
+        gauge of toal storage available as well as a hint for key distribution.
+        :returns: the percentage
+        :rtype: int
+        :versionadded: 5.4.0
+        """
+        return self._max_shard_usage_percent
 
 class TimeUnit(object):
     """

@@ -106,8 +106,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                           self.multi_delete_request)
         self.multi_delete_request.set_range(
             FieldRange('fld_sid').set_start(2, True))
+
         self.assertRaises(IllegalArgumentException, self.handle.multi_delete,
-                          self.multi_delete_request)
+                            self.multi_delete_request)
         self.multi_delete_request.set_range(
             FieldRange('fld_long').set_start(2147483648, True))
         self.assertRaises(IllegalArgumentException, self.handle.multi_delete,

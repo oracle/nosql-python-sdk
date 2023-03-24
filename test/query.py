@@ -897,7 +897,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             .set_statement(statement)\
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
-
         res_list = []
         for row in result:
             res_list.append(row)

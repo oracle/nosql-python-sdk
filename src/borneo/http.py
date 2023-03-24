@@ -408,7 +408,8 @@ class RequestUtils(object):
                         payload = self._client.serialize_request(self._request,
                                                                  headers)
                     self._request.increment_retries()
-                    exception = upe
+                    # don't set exception for this case -- it is misleading
+                    # exception = upe
                     continue
                 self._logutils.log_error(
                     'Client execution UnsupportedProtocolException: ' + str(upe))

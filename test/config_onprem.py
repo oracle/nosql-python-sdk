@@ -19,7 +19,7 @@
 # The endpoint to use to connect to the service. This endpoint is for a on-prem
 # proxy started by the customer. Use 'http' protocol for non-secure database and
 # 'https' for secure database.
-endpoint = 'http://localhost:8080'
+endpoint = 'http://localhost:80'
 
 # The server type, please don't change it.
 server_type = 'onprem'

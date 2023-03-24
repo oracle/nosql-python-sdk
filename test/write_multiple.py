@@ -5,6 +5,7 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+import json
 import unittest
 from collections import OrderedDict
 from copy import deepcopy
@@ -19,6 +20,8 @@ from borneo import (
 from parameters import is_onprem, table_name, timeout
 from test_base import TestBase
 from testutils import get_row
+
+import borneo
 
 
 # noinspection PyUnboundLocalVariable
@@ -387,8 +390,9 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
         (self.assertIsNone(existing_ver) if existing_version is None
          else self.assertEqual(existing_ver.get_bytes(),
                                existing_version.get_bytes()))
-        # check existing value
-        self.assertEqual(op_result.get_existing_value(), existing_value)
+        # check existing value -- use unordered comparison
+        self.assertTrue(self.values_equal(op_result.get_existing_value(),
+                                                  existing_value, False))
         return ver, generated
 
     def _check_write_multiple_result(

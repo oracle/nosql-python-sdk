@@ -27,6 +27,7 @@ from .common import CheckValue, Consistency
 from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException)
 from .operations import Request
+from .serdeutil import SerdeUtil
 
 try:
     from . import iam
@@ -873,6 +874,7 @@ class NoSQLHandleConfig(object):
         self._ssl_protocol = None
         self._logger = None
         self._is_default_logger = True
+        self._serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
 
         profile_property = getenv(self._STATS_PROFILE_PROPERTY,
                                   self._DEFAULT_STATS_PROFILE.name.lower())
@@ -1697,3 +1699,9 @@ class NoSQLHandleConfig(object):
         CheckValue.check_boolean(pretty_print, "pretty_print")
         self._stats_pretty_print = pretty_print
         return self
+
+    def _get_serial_version(self):
+        return self._serial_version
+
+    def _set_serial_version(self, version):
+        self._serial_version = version

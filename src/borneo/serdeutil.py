@@ -7,12 +7,12 @@
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from dateutil import parser, tz
 from decimal import (
     Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
     ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP)
 from sys import version_info
-
-from dateutil import parser, tz
+from time import mktime
 
 from .common import (
     CheckValue, Empty, JsonNone, PackedInteger, PutOption, State, SystemState, enum)
@@ -156,7 +156,7 @@ class SerdeUtil(object):
     # protocol serial versions
     SERIAL_VERSION_3 = 3
     SERIAL_VERSION_4 = 4
-    DEFAULT_SERIAL_VERSION = SERIAL_VERSION_3
+    DEFAULT_SERIAL_VERSION = SERIAL_VERSION_4
 
     # Field value type.
     FIELD_VALUE_TYPE = enum(ARRAY=0,
@@ -441,6 +441,7 @@ class SerdeUtil(object):
         # timezone aware
         return parser.parse(SerdeUtil.read_string(bis))
 
+
     @staticmethod
     def read_decimal(bis):
         # Deserialize a decimal value.
@@ -600,6 +601,8 @@ class SerdeUtil(object):
 
 
     # Used by datetime_to_iso to deal with padding ISO 8601 values with '0'
+    # in front of numbers to keep the number of digits consistent. E.g.
+    # months is always 2 digits, years 4, days 2, etc
     @staticmethod
     def append_with_pad(str, newstr, num):
         while num > 0 and len(newstr) < num:
@@ -629,10 +632,15 @@ class SerdeUtil(object):
         val = val + timesep
         val = SerdeUtil.append_with_pad(val, str(date.second), 2)
         if date.microsecond > 0:
+            # usecs need to be 6 digits, so pad to 6 chars but strip
+            # trailing 0. The strip isn't strictly necessary but plays
+            # better with Java. Anything after the "." is effectively
+            # microseconds or milliseconds. E.g. these are the same:
+            #  .1, .100, .100000 and they all mean 100ms (100000us)
+            # In other words the trailing 0 values are implied
             val = val + '.'
-            # strip trailing '0' from usecs
             val = SerdeUtil.append_with_pad(val,
-                                        str(date.microsecond).rstrip('0'), 0)
+                                        str(date.microsecond), 6).rstrip('0')
         val = val + 'Z'
         return val
 
@@ -642,6 +650,13 @@ class SerdeUtil(object):
         if value.tzinfo is not None:
             value = value.astimezone(tz.UTC)
         SerdeUtil.write_string(bos, SerdeUtil.datetime_to_iso(value))
+
+    @staticmethod
+    def iso_time_to_ms(iso_string):
+        dt = parser.parse(iso_string)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(tz.UTC)
+        return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
     @staticmethod
     def write_decimal(bos, value):

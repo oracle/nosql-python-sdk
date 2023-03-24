@@ -92,7 +92,7 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
-        self.serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
+        self.serial_version = config._get_serial_version()
         # StoreAccessTokenProvider means onprem
         self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
         if config.get_rate_limiting_enabled() and self._is_cloud:
@@ -486,6 +486,9 @@ class Client(object):
         """
         if self.serial_version > 2:
             self.serial_version -= 1
+            msg = ('Unsupported protocol error, decrementing serial ' +
+                       'version to ' + str(self.serial_version) +
+                       ' and retrying')
             return True
         return False
 
@@ -506,8 +509,7 @@ class Client(object):
         # (2) support the version on a per-Request basis
         version = request.get_serial_version(self.serial_version)
         SerdeUtil.write_serial_version(bos, version)
-        request.create_serializer(version).serialize(
-            request, bos, version)
+        request.create_serializer(version).serialize(request, bos, version)
         return content
 
     def serialize_request(self, request, headers):

@@ -12,6 +12,8 @@ from time import sleep, time
 from unittest import TestCase
 
 from borneo import ListTablesRequest, QueryResult, TableRequest, TimeUnit
+from borneo.common import ByteInputStream
+from borneo.nson import Proto
 from parameters import (
     is_cloudsim, is_onprem, is_pod, not_cloudsim, table_prefix, table_name,
     tenant_id, version, wait_timeout)
@@ -170,6 +172,14 @@ class TestBase(object):
 
     def tear_down(self):
         self.handle.close()
+
+    def values_equal(self, value1, value2, ordered = False):
+        n1 = Proto.value_to_nson(value1)
+        n2 = Proto.value_to_nson(value2)
+        bis1 = ByteInputStream(n1)
+        bis2 = ByteInputStream(n2)
+        return (Proto.nson_to_value(bis1, ordered) ==
+                    Proto.nson_to_value(bis2, ordered))
 
     @staticmethod
     def get_random_str(mb):

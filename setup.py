@@ -73,7 +73,6 @@ setup(
         'License :: OSI Approved :: Universal Permissive License (UPL)',
 
         # Supported Python versions
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
