@@ -791,7 +791,7 @@ class Stats:
     def __log_client_stats(self):
         handler = self._stats_control.get_stats_handler()
         log = (self._stats_control.get_logger() is not None and
-                   self._stats_control.get_logger().isEnabledFor(INFO))
+               self._stats_control.get_logger().isEnabledFor(INFO))
 
         if handler is not None or log:
             stats = self.__generate_stats()

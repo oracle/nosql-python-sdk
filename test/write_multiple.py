@@ -251,7 +251,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             parent_row['fld_sid'] = 1
             parent_row['fld_id'] = i
             parent_row['fld_str'] = 'str_' + str(i)
-            request =  PutRequest()
+            request = PutRequest()
             request.set_value(parent_row)
             request.set_table_name(table_name)
             request.set_ttl(self.ttl)

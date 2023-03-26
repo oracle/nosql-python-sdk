@@ -142,85 +142,85 @@ class TestStats(unittest.TestCase, TestBase):
                                      len(s.get("requests")) > 0 and
                                      s.get("requests")[0] is not None and
                                      isinstance(s.get("requests")[0], dict)),
-                              self.stats_list)
+                          self.stats_list)
         self.assertTrue(len(list(filtered)) >= 1)
 
         # At least one entry should have a request with everything inside
         filtered = filter(lambda s: (
-            s.get("requests") is not None and
-            isinstance(s.get("requests"), list) and
-            len(s.get("requests")) > 0 and
-            s.get("requests")[0] is not None and
-            isinstance(s.get("requests")[0], dict) and
-            s.get("requests")[0]["httpRequestCount"] is not None and
-            isinstance(s.get("requests")[0]["httpRequestCount"], numbers.Number)
-            and
-            s.get("requests")[0]["name"] is not None and
-            isinstance(s.get("requests")[0]["name"], str) and
-            s.get("requests")[0]["rateLimitDelayMs"] is not None and
-            isinstance(s.get("requests")[0]["rateLimitDelayMs"], numbers.Number)
-            and
-            s.get("requests")[0]["errors"] is not None and
-            isinstance(s.get("requests")[0]["errors"], numbers.Number) and
-            s.get("requests")[0]["requestSize"] is not None and
-            isinstance(s.get("requests")[0]["requestSize"], dict) and
-            s.get("requests")[0]["requestSize"]["min"] is not None and
-            isinstance(s.get("requests")[0]["requestSize"]["min"],
+                s.get("requests") is not None and
+                isinstance(s.get("requests"), list) and
+                len(s.get("requests")) > 0 and
+                s.get("requests")[0] is not None and
+                isinstance(s.get("requests")[0], dict) and
+                s.get("requests")[0]["httpRequestCount"] is not None and
+                isinstance(s.get("requests")[0]["httpRequestCount"], numbers.Number)
+                and
+                s.get("requests")[0]["name"] is not None and
+                isinstance(s.get("requests")[0]["name"], str) and
+                s.get("requests")[0]["rateLimitDelayMs"] is not None and
+                isinstance(s.get("requests")[0]["rateLimitDelayMs"], numbers.Number)
+                and
+                s.get("requests")[0]["errors"] is not None and
+                isinstance(s.get("requests")[0]["errors"], numbers.Number) and
+                s.get("requests")[0]["requestSize"] is not None and
+                isinstance(s.get("requests")[0]["requestSize"], dict) and
+                s.get("requests")[0]["requestSize"]["min"] is not None and
+                isinstance(s.get("requests")[0]["requestSize"]["min"],
                            numbers.Number) and
-            s.get("requests")[0]["requestSize"]["avg"] is not None and
-            isinstance(s.get("requests")[0]["requestSize"]["avg"],
+                s.get("requests")[0]["requestSize"]["avg"] is not None and
+                isinstance(s.get("requests")[0]["requestSize"]["avg"],
                            numbers.Number) and
-            s.get("requests")[0]["requestSize"]["max"] is not None and
-            isinstance(s.get("requests")[0]["requestSize"]["max"],
+                s.get("requests")[0]["requestSize"]["max"] is not None and
+                isinstance(s.get("requests")[0]["requestSize"]["max"],
                            numbers.Number) and
-            s.get("requests")[0]["resultSize"] is not None and
-            isinstance(s.get("requests")[0]["resultSize"], dict) and
-            s.get("requests")[0]["resultSize"]["min"] is not None and
-            isinstance(s.get("requests")[0]["resultSize"]["min"],
+                s.get("requests")[0]["resultSize"] is not None and
+                isinstance(s.get("requests")[0]["resultSize"], dict) and
+                s.get("requests")[0]["resultSize"]["min"] is not None and
+                isinstance(s.get("requests")[0]["resultSize"]["min"],
                            numbers.Number) and
-            s.get("requests")[0]["resultSize"]["avg"] is not None and
-            isinstance(s.get("requests")[0]["resultSize"]["avg"],
+                s.get("requests")[0]["resultSize"]["avg"] is not None and
+                isinstance(s.get("requests")[0]["resultSize"]["avg"],
                            numbers.Number) and
-            s.get("requests")[0]["resultSize"]["max"] is not None and
-            isinstance(s.get("requests")[0]["resultSize"]["max"],
+                s.get("requests")[0]["resultSize"]["max"] is not None and
+                isinstance(s.get("requests")[0]["resultSize"]["max"],
                            numbers.Number) and
-            s.get("requests")[0]["httpRequestLatencyMs"] is not None and
-            isinstance(s.get("requests")[0]["httpRequestLatencyMs"], dict) and
-            s.get("requests")[0]["httpRequestLatencyMs"]["min"] is not None and
-            isinstance(s.get("requests")[0]["httpRequestLatencyMs"]["min"],
+                s.get("requests")[0]["httpRequestLatencyMs"] is not None and
+                isinstance(s.get("requests")[0]["httpRequestLatencyMs"], dict) and
+                s.get("requests")[0]["httpRequestLatencyMs"]["min"] is not None and
+                isinstance(s.get("requests")[0]["httpRequestLatencyMs"]["min"],
                            numbers.Number) and
-            s.get("requests")[0]["httpRequestLatencyMs"]["avg"] is not None and
-            isinstance(s.get("requests")[0]["httpRequestLatencyMs"]["avg"],
+                s.get("requests")[0]["httpRequestLatencyMs"]["avg"] is not None and
+                isinstance(s.get("requests")[0]["httpRequestLatencyMs"]["avg"],
                            numbers.Number) and
-            s.get("requests")[0]["httpRequestLatencyMs"]["max"] is not None and
-            isinstance(s.get("requests")[0]["httpRequestLatencyMs"]["max"],
+                s.get("requests")[0]["httpRequestLatencyMs"]["max"] is not None and
+                isinstance(s.get("requests")[0]["httpRequestLatencyMs"]["max"],
                            numbers.Number) and
-            s.get("requests")[0]["retry"] is not None and
-            isinstance(s.get("requests")[0]["retry"], dict) and
-            s.get("requests")[0]["retry"]["delayMs"] is not None and
-            isinstance(s.get("requests")[0]["retry"]["delayMs"],
+                s.get("requests")[0]["retry"] is not None and
+                isinstance(s.get("requests")[0]["retry"], dict) and
+                s.get("requests")[0]["retry"]["delayMs"] is not None and
+                isinstance(s.get("requests")[0]["retry"]["delayMs"],
                            numbers.Number) and
-            s.get("requests")[0]["retry"]["authCount"] is not None and
-            isinstance(s.get("requests")[0]["retry"]["authCount"],
+                s.get("requests")[0]["retry"]["authCount"] is not None and
+                isinstance(s.get("requests")[0]["retry"]["authCount"],
                            numbers.Number) and
-            s.get("requests")[0]["retry"]["throttleCount"] is not None and
-            isinstance(s.get("requests")[0]["retry"]["throttleCount"],
+                s.get("requests")[0]["retry"]["throttleCount"] is not None and
+                isinstance(s.get("requests")[0]["retry"]["throttleCount"],
                            numbers.Number) and
-            s.get("requests")[0]["retry"]["count"] is not None and
-            isinstance(s.get("requests")[0]["retry"]["count"],
+                s.get("requests")[0]["retry"]["count"] is not None and
+                isinstance(s.get("requests")[0]["retry"]["count"],
                            numbers.Number)),
-            self.stats_list)
+                          self.stats_list)
         self.assertTrue(len(list(filtered)) >= 1)
 
         filtered = filter(lambda s: (
-            s.get("queries") is not None and
-            isinstance(s.get("queries"), list) and
-            len(s.get("queries")) == 1 and
-            s.get("queries")[0] is not None and
-            isinstance(s.get("queries")[0], dict) and
-            s.get("queries")[0]["query"] is not None and
-            s.get("queries")[0]["query"] == query),
-            self.stats_list)
+                s.get("queries") is not None and
+                isinstance(s.get("queries"), list) and
+                len(s.get("queries")) == 1 and
+                s.get("queries")[0] is not None and
+                isinstance(s.get("queries")[0], dict) and
+                s.get("queries")[0]["query"] is not None and
+                s.get("queries")[0]["query"] == query),
+                          self.stats_list)
         self.assertTrue(len(list(filtered)) >= 1)
 
         filtered = filter(lambda s:
@@ -346,10 +346,10 @@ class TestStats(unittest.TestCase, TestBase):
 
         # all entries should not have any requests
         filtered = filter(lambda s: (
-            s.get("requests") is not None and
-            isinstance(s.get("requests"), list) and
-            len(s.get("requests")) == 0),
-                              self.stats_list)
+                s.get("requests") is not None and
+                isinstance(s.get("requests"), list) and
+                len(s.get("requests")) == 0),
+                          self.stats_list)
         self.assertEqual(len(list(filtered)), len(self.stats_list))
 
         # and all entries should not contain any queries
@@ -384,17 +384,17 @@ class TestStats(unittest.TestCase, TestBase):
 
         # All entries should have many requests:
         filtered = filter(lambda s: (
-            s.get("requests") is not None and
-            isinstance(s.get("requests"), list) and
-            len(s.get("requests")) > 0),
-                              self.stats_list)
+                s.get("requests") is not None and
+                isinstance(s.get("requests"), list) and
+                len(s.get("requests")) > 0),
+                          self.stats_list)
         self.assertTrue(len(list(filtered)) > 0)
         #  - and have 1 query
         filtered = filter(lambda s: (
-            s.get("queries") is not None and
-            isinstance(s.get("queries"), list) and
-            len(s.get("queries")) == 1),
-                              self.stats_list)
+                s.get("queries") is not None and
+                isinstance(s.get("queries"), list) and
+                len(s.get("queries")) == 1),
+                          self.stats_list)
         self.assertTrue(len(list(filtered)) > 0)
 
 

@@ -199,14 +199,14 @@ class CheckValue(object):
 
     @staticmethod
     def check_int_ge_zero(data, name):
-        if (not isinstance(data, int) or data < 0):
+        if not isinstance(data, int) or data < 0:
             raise IllegalArgumentException(
                 name + ' must be an integer that is not negative. Got:' +
                 str(data))
 
     @staticmethod
     def check_int_gt_zero(data, name):
-        if (not isinstance(data, int) or data <= 0):
+        if not isinstance(data, int) or data <= 0:
             raise IllegalArgumentException(
                 name + ' must be an positive integer. Got:' + str(data))
 
@@ -251,15 +251,12 @@ class CheckValue(object):
     # returns True if the data is of type int and its value is larger than
     # that of a 32-bit integer and in the range of a 64-bit integer
     #
-    # NOTE: should it be sufficient to just validate that it's an int and
-    # has a larger than 32-bit value? It seems so...
-    # GMF: test this...if not already done
+    # NOTE: It is sufficient to just validate that it's an int and
+    # is out of range for a 32-bit integer value
     @staticmethod
     def is_long_value(data):
         if (isinstance(data, int) and
                 not CheckValue.is_int_value(data)):
-                #not CheckValue.is_int_value(data) and
-                #-pow(2, 63) <= data < pow(2, 63)):
             return True
         return False
 
@@ -1247,7 +1244,7 @@ class PreparedStatement(object):
             not a string or positive integer.
         """
         if (not (CheckValue.is_str(variable) or
-                     CheckValue.is_int_value(variable)) or
+                 CheckValue.is_int_value(variable)) or
                 CheckValue.is_int_value(variable) and variable <= 0):
             raise IllegalArgumentException(
                 'variable must be a string or positive integer.')

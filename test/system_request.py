@@ -150,7 +150,7 @@ class TestSystemRequest(unittest.TestCase, TestBase):
 
         @staticmethod
         def _is_str(data):
-            if (isinstance(data, str) and len(data) != 0):
+            if isinstance(data, str) and len(data) != 0:
                 return True
             return False
 
