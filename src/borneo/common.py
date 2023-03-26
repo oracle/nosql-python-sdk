@@ -10,7 +10,6 @@ from decimal import Decimal
 from functools import wraps
 from logging import Logger
 from struct import pack, unpack
-from sys import version_info
 from threading import Lock
 from time import time
 from warnings import simplefilter, warn
@@ -194,22 +193,20 @@ class CheckValue(object):
 
     @staticmethod
     def check_int(data, name):
-        if not (CheckValue.is_int(data) or CheckValue.is_long(data)):
+        if not isinstance(data, int):
             raise IllegalArgumentException(
                 name + ' must be an integer. Got:' + str(data))
 
     @staticmethod
     def check_int_ge_zero(data, name):
-        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
-                data < 0):
+        if (not isinstance(data, int) or data < 0):
             raise IllegalArgumentException(
                 name + ' must be an integer that is not negative. Got:' +
                 str(data))
 
     @staticmethod
     def check_int_gt_zero(data, name):
-        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
-                data <= 0):
+        if (not isinstance(data, int) or data <= 0):
             raise IllegalArgumentException(
                 name + ' must be an positive integer. Got:' + str(data))
 
@@ -237,42 +234,45 @@ class CheckValue(object):
 
     @staticmethod
     def is_digit(data):
-        if (CheckValue.is_int(data) or CheckValue.is_long(data) or
+        if (isinstance(data, int) or
                 isinstance(data, float) or isinstance(data, Decimal)):
             return True
         return False
 
+    # returns True if the data is of type int and its value is in the
+    # range of a 32-bit integer
     @staticmethod
-    def is_int(data):
-        if ((version_info.major == 2 and isinstance(data, int) or
-             version_info.major == 3 and isinstance(data, int)) and
+    def is_int_value(data):
+        if (isinstance(data, int) and
                 -pow(2, 31) <= data < pow(2, 31)):
             return True
         return False
 
+    # returns True if the data is of type int and its value is larger than
+    # that of a 32-bit integer and in the range of a 64-bit integer
+    #
+    # NOTE: should it be sufficient to just validate that it's an int and
+    # has a larger than 32-bit value? It seems so...
+    # GMF: test this...if not already done
     @staticmethod
-    def is_long(data):
-        if ((version_info.major == 2 and isinstance(data, (int, long)) or
-             version_info.major == 3 and isinstance(data, int)) and
-                not CheckValue.is_int(data) and
-                -pow(2, 63) <= data < pow(2, 63)):
+    def is_long_value(data):
+        if (isinstance(data, int) and
+                not CheckValue.is_int_value(data)):
+                #not CheckValue.is_int_value(data) and
+                #-pow(2, 63) <= data < pow(2, 63)):
             return True
         return False
 
     @staticmethod
     def is_overlong(data):
-        if ((version_info.major == 2 and isinstance(data, long) or
-             version_info.major == 3 and isinstance(data, int)) and
+        if (isinstance(data, int) and
                 (data < -pow(2, 63) or data >= pow(2, 63))):
             return True
         return False
 
     @staticmethod
     def is_str(data):
-        if (version_info.major == 2 and isinstance(data, (str, unicode)) or
-                version_info.major == 3 and isinstance(data, str)):
-            return True
-        return False
+        return isinstance(data, str)
 
 
 class Consistency(object):
@@ -505,7 +505,7 @@ class IndexInfo(object):
     :py:class:`GetIndexesResult`.
     """
 
-    def __init__(self, index_name, field_names, field_types = None):
+    def __init__(self, index_name, field_names, field_types=None):
         self._index_name = index_name
         self._field_names = field_names
         self._field_types = field_types
@@ -541,6 +541,7 @@ class IndexInfo(object):
         :versionadded: 5.4.0
         """
         return self._field_types
+
 
 class JsonNone(object):
     """
@@ -747,7 +748,7 @@ class PackedInteger(object):
         :param offset: the offset in the buffer at which to start writing.
         :type offset: int
         :param value: the long integer to be written.
-        :type value: int for python 3 and long for python 2
+        :type value: int
         :returns: the offset past the bytes written.
         :rtype: int
 
@@ -992,7 +993,7 @@ class PackedInteger(object):
         :param offset: the offset in the buffer at which to start reading.
         :type offset: int
         :returns: the long integer that was read.
-        :rtype: int for python 3 and long for python 2
+        :rtype: int
         """
         # The first byte of the buf stores the length of the value part.
         b1 = buf[offset] & 0xff
@@ -1005,12 +1006,7 @@ class PackedInteger(object):
             byte_len = b1 - 0xf7
             negative = False
         else:
-            # handle Python 2 vs 3 (3 has no long)
-            try:
-                # noinspection PyCompatibility
-                return long(b1 - 127)
-            except NameError:
-                return b1 - 127
+            return b1 - 127
 
         """
         The following bytes on the buf store the value as a big endian integer.
@@ -1052,12 +1048,7 @@ class PackedInteger(object):
             value -= 119
         else:
             value += 121
-        # handle Python 2 vs 3 (no long in 3)
-        try:
-            # noinspection PyCompatibility
-            return long(value)
-        except NameError:
-            return value
+        return value
 
 
 class PreparedStatement(object):
@@ -1255,8 +1246,9 @@ class PreparedStatement(object):
         :raises IllegalArgumentException: raises the exception if variable is
             not a string or positive integer.
         """
-        if (not (CheckValue.is_str(variable) or CheckValue.is_int(variable)) or
-                CheckValue.is_int(variable) and variable <= 0):
+        if (not (CheckValue.is_str(variable) or
+                     CheckValue.is_int_value(variable)) or
+                CheckValue.is_int_value(variable) and variable <= 0):
             raise IllegalArgumentException(
                 'variable must be a string or positive integer.')
         if isinstance(variable, str):
@@ -1718,7 +1710,7 @@ class TableUsage(object):
         self._read_throttle_count = read_throttle_count
         self._write_throttle_count = write_throttle_count
         self._storage_throttle_count = storage_throttle_count
-        self_max_shard_usage_percent = max_shard_usage_percent
+        self._max_shard_usage_percent = max_shard_usage_percent
 
     def __str__(self):
         return ('TableUsage [start_time_ms=' + str(self._start_time_ms) +
@@ -1729,7 +1721,7 @@ class TableUsage(object):
                 str(self._read_throttle_count) + ', write_throttle_count=' +
                 str(self._write_throttle_count) + ', storage_throttle_count=' +
                 str(self._storage_throttle_count) +
-                      ', max_shard_usage_percent=' +
+                ', max_shard_usage_percent=' +
                 str(self._max_shard_usage_percent) + ']')
 
     def get_start_time(self):
@@ -1833,6 +1825,7 @@ class TableUsage(object):
         :versionadded: 5.4.0
         """
         return self._max_shard_usage_percent
+
 
 class TimeUnit(object):
     """

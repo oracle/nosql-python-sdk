@@ -40,6 +40,7 @@ math_value_to_name = {0: ROUND_UP,
                       6: ROUND_HALF_EVEN,
                       8: ROUND_05UP}
 
+
 class BinaryProtocol(object):
     """
     A base class for binary protocol serialization and constant protocol values.
@@ -284,9 +285,9 @@ class BinaryProtocol(object):
                 bos.write_boolean(value)
             elif isinstance(value, float):
                 bos.write_float(value)
-            elif CheckValue.is_int(value):
+            elif CheckValue.is_int_value(value):
                 SerdeUtil.write_packed_int(bos, value)
-            elif CheckValue.is_long(value):
+            elif CheckValue.is_long_value(value):
                 SerdeUtil.write_packed_long(bos, value)
             elif isinstance(value, dict):
                 BinaryProtocol.write_dict(bos, value)
@@ -299,7 +300,6 @@ class BinaryProtocol(object):
             else:
                 raise IllegalStateException(
                     'Unknown value type ' + str(type(value)))
-
 
     @staticmethod
     def write_list(bos, value):
@@ -788,7 +788,7 @@ class TableUsageRequestSerializer(RequestSerializer):
         storage_throttle_count = SerdeUtil.read_packed_int(bis)
         usage = TableUsage(start_time_ms, seconds_in_period, read_units,
                            write_units, storage_gb, read_throttle_count,
-                           write_throttle_count, storage_throttle_count)
+                           write_throttle_count, storage_throttle_count, 0)
         return usage
 
 

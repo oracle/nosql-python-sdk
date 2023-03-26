@@ -5,19 +5,22 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+import json
 #
 from base64 import b64encode
 from collections import OrderedDict
-import json
 
 import borneo.operations
-from .common import (ByteInputStream, ByteOutputStream, Empty, IndexInfo, JsonNone,
-                         PreparedStatement, TableLimits, TableUsage, Version)
+from .common import (
+    ByteInputStream, ByteOutputStream, Empty, IndexInfo, PreparedStatement,
+    TableLimits, TableUsage, Version)
 from .exception import IllegalArgumentException
 from .nson_protocol import *
 from .query import PlanIter, QueryDriver, TopologyInfo
+from .serde import (math_name_to_value)
 from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
-from .serde import (math_name_to_value, math_value_to_name)
+
+
 #
 # Contains methods to serialize and deserialize NSON
 #
@@ -108,7 +111,7 @@ class Nson(object):
     @staticmethod
     def read_boolean(bis):
         Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN)
-        return bis.read_boolean() # turns byte into boolean
+        return bis.read_boolean()  # turns byte into boolean
 
     @staticmethod
     def read_long(bis):
@@ -204,10 +207,10 @@ class Nson(object):
                     return
                 for i in range(0, num_elements):
                     key = SerdeUtil.read_string(bis)
-                    skipfield = handler.start_map_field(key)
+                    skip_field = handler.start_map_field(key)
                     if handler.stop():
                         return
-                    Nson.generate_events_from_nson(bis, handler, skipfield)
+                    Nson.generate_events_from_nson(bis, handler, skip_field)
                     if handler.stop():
                         return
                     handler.end_map_field(key)
@@ -286,12 +289,12 @@ class Nson(object):
             if handler.stop():
                 return
             for key in value:
-                skipfield = handler.start_map_field(key)
+                skip_field = handler.start_map_field(key)
                 if handler.stop():
                     return
                 Nson.generate_events_from_value(value[key],
                                                 handler,
-                                                skipfield)
+                                                skip_field)
                 if handler.stop():
                     return
                 handler.end_map_field(key)
@@ -400,12 +403,12 @@ class NsonSerializer(NsonEventHandler):
 
     def _end_map_or_array(self):
         length_offset = self._offset_stack.pop()
-        num_elems = self._size_stack.pop()
+        num_elements = self._size_stack.pop()
         start = length_offset + 4
         total_bytes = self._bos.get_offset() - start
         # total # bytes followed by number of elements
         SerdeUtil.write_int_at_offset(self._bos, length_offset, total_bytes)
-        SerdeUtil.write_int_at_offset(self._bos, length_offset + 4, num_elems)
+        SerdeUtil.write_int_at_offset(self._bos, length_offset + 4, num_elements)
 
     def start_map_field(self, field_name):
         # no type to write so use SerdeUtil
@@ -493,6 +496,7 @@ class MapWalker(object):
         else:
             raise IllegalArgumentException('Unknown field type: ' + str(t))
 
+
 class JsonSerializer(NsonEventHandler):
     DQUOTE = '"'
     SQUOTE = '\''
@@ -524,7 +528,6 @@ class JsonSerializer(NsonEventHandler):
             self._quote_char = self.SQUOTE
         else:
             self._quote_char = self.DQUOTE
-
 
     def boolean_value(self, value):
         if value:
@@ -627,9 +630,12 @@ class JsonSerializer(NsonEventHandler):
     def __str__(self):
         return "".join(self._builder)
 
+
 #
 # Deserialize NSON into values (e.g. dict)
 #
+
+
 class FieldValueCreator(NsonEventHandler):
 
     def __init__(self, ordered=True):
@@ -687,7 +693,7 @@ class FieldValueCreator(NsonEventHandler):
         self._current_value = value
 
     def json_null_value(self):
-        self._current_value = None # JsonNone() ?
+        self._current_value = None  # JsonNone() ?
 
     def null_value(self):
         self._current_value = None
@@ -742,6 +748,7 @@ class FieldValueCreator(NsonEventHandler):
     def stop(self):
         return False
 
+
 #
 # Here down... request serializers
 #
@@ -756,7 +763,7 @@ class FieldValueCreator(NsonEventHandler):
 # {
 #   "header" : {
 #     "SERIAL_VERSION" : <int>
-#     "TABLE_NAME" : <string>  #optional, present if needed by reques
+#     "TABLE_NAME" : <string>  #optional, present if needed by request
 #     "OPCODE" : <int>
 #     "TIMEOUT" : <int>
 #   }
@@ -811,6 +818,7 @@ class GetTableRequestSerializer(RequestSerializer):
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_table_result(bis)
 
+
 #
 # GetRequest
 #
@@ -843,6 +851,8 @@ class GetTableRequestSerializer(RequestSerializer):
 #   }
 # }
 #
+
+
 class GetRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
@@ -878,6 +888,8 @@ class GetRequestSerializer(RequestSerializer):
                 walker.skip()
 
         return result
+
+
 #
 # PutRequest
 #
@@ -915,6 +927,8 @@ class GetRequestSerializer(RequestSerializer):
 #
 # PutRequest
 #
+
+
 class PutRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
@@ -929,7 +943,7 @@ class PutRequestSerializer(RequestSerializer):
         # payload
         Proto.start_map(ns, PAYLOAD)
         Proto.write_write_request(ns, request)
-        PutRequestSerializer._write_put_request(ns, request)
+        PutRequestSerializer.write_put_request(ns, request)
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
@@ -957,7 +971,7 @@ class PutRequestSerializer(RequestSerializer):
         return result
 
     @staticmethod
-    def _write_put_request(ns, request):
+    def write_put_request(ns, request):
         if request.get_exact_match():
             Proto.write_bool_map_field(ns, EXACT_MATCH, True)
         if request.get_update_ttl():
@@ -967,11 +981,12 @@ class PutRequestSerializer(RequestSerializer):
             Proto.write_string_map_field(ns, TTL, str(request.get_ttl()))
         if request.get_identity_cache_size() != 0:
             Proto.write_int_map_field(ns, IDENTITY_CACHE_SIZE,
-                                          request.get_identity_cache_size())
+                                      request.get_identity_cache_size())
         if request.get_match_version() is not None:
             Proto.write_bin_map_field(
                 ns, ROW_VERSION, request.get_match_version().get_bytes())
         Proto.write_value(ns, request.get_value())
+
 
 #
 # DeleteRequest
@@ -1017,7 +1032,7 @@ class DeleteRequestSerializer(RequestSerializer):
         # payload
         Proto.start_map(ns, PAYLOAD)
         Proto.write_write_request(ns, request)
-        DeleteRequestSerializer._write_delete_request(ns, request)
+        DeleteRequestSerializer.write_delete_request(ns, request)
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
@@ -1042,11 +1057,12 @@ class DeleteRequestSerializer(RequestSerializer):
         return result
 
     @staticmethod
-    def _write_delete_request(ns, request):
+    def write_delete_request(ns, request):
         if request.get_match_version() is not None:
             Proto.write_bin_map_field(
                 ns, ROW_VERSION, request.get_match_version().get_bytes())
         Proto.write_key(ns, request.get_key())
+
 
 #
 # TableRequest
@@ -1077,7 +1093,7 @@ class TableRequestSerializer(RequestSerializer):
         # payload
         Proto.start_map(ns, PAYLOAD)
         Proto.write_string_map_field(ns, STATEMENT,
-          request.get_statement())
+                                     request.get_statement())
         Proto.write_limits(ns, request.get_table_limits())
         Proto.write_tags(ns, request)
         Proto.write_string_map_field(ns, ETAG, request.get_match_etag())
@@ -1087,6 +1103,7 @@ class TableRequestSerializer(RequestSerializer):
 
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_table_result(bis)
+
 
 #
 # TableUsageRequest
@@ -1136,7 +1153,7 @@ class TableUsageRequestSerializer(RequestSerializer):
         Proto.write_string_map_field(ns, END, request.get_end_time_string())
         Proto.write_int_map_field(ns, LIST_MAX_TO_READ, request.get_limit())
         Proto.write_int_map_field(ns, LIST_START_INDEX,
-          request.get_start_index())
+                                  request.get_start_index())
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
@@ -1159,7 +1176,7 @@ class TableUsageRequestSerializer(RequestSerializer):
                     raise IllegalArgumentException(
                         'Bad type in table usage result: ' + str(t) +
                         ' should be ARRAY')
-                SerdeUtil.read_full_int(bis) # consume total bytes
+                SerdeUtil.read_full_int(bis)  # consume total bytes
                 num_elements = SerdeUtil.read_full_int(bis)
                 usage_records = list()
                 for i in range(num_elements):
@@ -1170,7 +1187,8 @@ class TableUsageRequestSerializer(RequestSerializer):
 
         return result
 
-    def _read_usage_record(self, bis):
+    @staticmethod
+    def _read_usage_record(bis):
         walker = MapWalker(bis)
         start_time = 0
         period = 0
@@ -1186,7 +1204,7 @@ class TableUsageRequestSerializer(RequestSerializer):
             walker.next()
             name = walker.get_current_name()
             if name == START:
-                start = SerdeUtil.iso_time_to_ms(Nson.read_string(bis))
+                start_time = SerdeUtil.iso_time_to_ms(Nson.read_string(bis))
             elif name == TABLE_USAGE_PERIOD:
                 period = Nson.read_int(bis)
             elif name == READ_UNITS:
@@ -1206,7 +1224,8 @@ class TableUsageRequestSerializer(RequestSerializer):
             else:
                 walker.skip()
 
-        return TableUsage(start, period, ru, wu, sgb, rtc, wtc, stc, msup)
+        return TableUsage(start_time, period, ru, wu, sgb, rtc, wtc, stc, msup)
+
 
 #
 # ListTablesRequest
@@ -1241,7 +1260,7 @@ class ListTablesRequestSerializer(RequestSerializer):
         Proto.start_map(ns, PAYLOAD)
         Proto.write_int_map_field(ns, LIST_MAX_TO_READ, request.get_limit())
         Proto.write_int_map_field(ns, LIST_START_INDEX,
-          request.get_start_index())
+                                  request.get_start_index())
         Proto.write_string_map_field(ns, NAMESPACE, request.get_namespace())
         Proto.end_map(ns, PAYLOAD)
 
@@ -1264,7 +1283,7 @@ class ListTablesRequestSerializer(RequestSerializer):
                     raise IllegalArgumentException(
                         'Bad type in list tables result: ' + str(t) +
                         ' should be ARRAY')
-                SerdeUtil.read_full_int(bis) # consume total bytes
+                SerdeUtil.read_full_int(bis)  # consume total bytes
                 num_elements = SerdeUtil.read_full_int(bis)
                 for i in range(num_elements):
                     table_list.append(Nson.read_string(bis))
@@ -1274,6 +1293,8 @@ class ListTablesRequestSerializer(RequestSerializer):
         # if no tables, use empty list
         result.set_tables(table_list)
         return result
+
+
 #
 # GetIndexesRequest
 #
@@ -1321,15 +1342,13 @@ class GetIndexesRequestSerializer(RequestSerializer):
             name = walker.get_current_name()
             if name == ERROR_CODE:
                 Proto.handle_error_code(walker)
-            elif name == LAST_INDEX:
-                result.set_last_index_returned(Nson.read_int(bis))
             elif name == INDEXES:
                 t = bis.read_byte()
                 if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
                     raise IllegalArgumentException(
                         'Bad type in get indexes result: ' + str(t) +
                         ' should be ARRAY')
-                SerdeUtil.read_full_int(bis) # consume total bytes
+                SerdeUtil.read_full_int(bis)  # consume total bytes
                 num_elements = SerdeUtil.read_full_int(bis)
                 for i in range(num_elements):
                     index_list.append(self._read_index_info(bis))
@@ -1340,7 +1359,8 @@ class GetIndexesRequestSerializer(RequestSerializer):
         result.set_indexes(index_list)
         return result
 
-    def _read_index_info(self, bis):
+    @staticmethod
+    def _read_index_info(bis):
         walker = MapWalker(bis)
         index_name = None
         fields = list()
@@ -1356,7 +1376,7 @@ class GetIndexesRequestSerializer(RequestSerializer):
                     raise IllegalArgumentException(
                         'Bad type in get indexes result: ' + str(t) +
                         ' should be ARRAY')
-                SerdeUtil.read_full_int(bis) # consume total bytes
+                SerdeUtil.read_full_int(bis)  # consume total bytes
                 num_elements = SerdeUtil.read_full_int(bis)
                 # array of map with PATH, TYPE elements
                 for i in range(num_elements):
@@ -1377,6 +1397,7 @@ class GetIndexesRequestSerializer(RequestSerializer):
             raise IllegalArgumentException('Missing name in index info')
 
         return IndexInfo(index_name, fields, types)
+
 
 #
 # SystemRequest
@@ -1420,6 +1441,7 @@ class SystemRequestSerializer(RequestSerializer):
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_system_result(bis)
 
+
 #
 # SystemStatus
 #
@@ -1447,15 +1469,16 @@ class SystemStatusRequestSerializer(RequestSerializer):
 
         # payload
         Proto.start_map(ns, PAYLOAD)
-        Proto.write_string_map_field(ns, STATEMENT,request.get_statement())
+        Proto.write_string_map_field(ns, STATEMENT, request.get_statement())
         Proto.write_string_map_field(ns, OPERATION_ID,
-          request.get_operation_id())
+                                     request.get_operation_id())
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
 
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_system_result(bis)
+
 
 #
 # MultiDeleteRequest
@@ -1486,7 +1509,6 @@ class SystemStatusRequestSerializer(RequestSerializer):
 class MultiDeleteRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
-        start_off = bos.get_offset()
 
         ns = NsonSerializer(bos)
         ns.start_map()  # top-level object
@@ -1500,7 +1522,7 @@ class MultiDeleteRequestSerializer(RequestSerializer):
         Proto.start_map(ns, PAYLOAD)
         Proto.write_int_map_field(ns, MAX_WRITE_KB, request.get_max_write_kb())
         Proto.write_bin_map_field(ns, CONTINUATION_KEY,
-                                      request.get_continuation_key())
+                                  request.get_continuation_key())
         Proto.write_durability(ns, request)
         self._write_field_range(ns, request.get_range())
         Proto.write_key(ns, request.get_key())
@@ -1528,7 +1550,6 @@ class MultiDeleteRequestSerializer(RequestSerializer):
 
         return result
 
-
     #
     # "range": {
     #   "path": path to field (string)
@@ -1541,7 +1562,8 @@ class MultiDeleteRequestSerializer(RequestSerializer):
     #      "inclusive": bool
     #   }
     #
-    def _write_field_range(self, ns, key_range):
+    @staticmethod
+    def _write_field_range(ns, key_range):
         if key_range is None:
             return
         Proto.start_map(ns, RANGE)
@@ -1550,15 +1572,16 @@ class MultiDeleteRequestSerializer(RequestSerializer):
             Proto.start_map(ns, START)
             Proto.write_value(ns, key_range.get_start())
             Proto.write_bool_map_field(ns, INCLUSIVE,
-                                           key_range.get_start_inclusive())
+                                       key_range.get_start_inclusive())
             Proto.end_map(ns, START)
         if key_range.get_end() is not None:
             Proto.start_map(ns, END)
             Proto.write_value(ns, key_range.get_end())
             Proto.write_bool_map_field(ns, INCLUSIVE,
-                                           key_range.get_end_inclusive())
+                                       key_range.get_end_inclusive())
             Proto.end_map(ns, END)
         Proto.end_map(ns, RANGE)
+
 
 #
 # WriteMultipleRequest
@@ -1598,7 +1621,6 @@ class MultiDeleteRequestSerializer(RequestSerializer):
 class WriteMultipleRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
-        start_off = bos.get_offset()
 
         ns = NsonSerializer(bos)
         ns.start_map()  # top-level object
@@ -1622,10 +1644,10 @@ class WriteMultipleRequestSerializer(RequestSerializer):
         # common to all ops
         Proto.write_durability(ns, request)
         Proto.write_int_map_field(ns, NUM_OPERATIONS,
-                                      request.get_num_operations())
+                                  request.get_num_operations())
         Proto.start_array(ns, OPERATIONS)
         for op in request.get_operations():
-            self._write_multi_op(ns, op, request.is_single_table())
+            _write_multi_op(ns, op, request.is_single_table())
         Proto.end_array(ns, OPERATIONS)
         Proto.end_map(ns, PAYLOAD)
 
@@ -1648,7 +1670,7 @@ class WriteMultipleRequestSerializer(RequestSerializer):
                     raise IllegalArgumentException(
                         'Bad type in write multiple: ' + str(t) +
                         ' should be ARRAY')
-                SerdeUtil.read_full_int(bis) # consume total bytes
+                SerdeUtil.read_full_int(bis)  # consume total bytes
                 num_elements = SerdeUtil.read_full_int(bis)
                 # array of map
                 for i in range(num_elements):
@@ -1672,35 +1694,9 @@ class WriteMultipleRequestSerializer(RequestSerializer):
     #
     # Each op is an anonymous map inside and array of maps
     #
-    def _write_multi_op(self, ns, op, is_single_table):
-        ns.start_array_field()
-        ns.start_map()
-        rq = op.get_request()
-        is_put = isinstance(rq, borneo.operations.PutRequest)
-        if is_put:
-            opcode = SerdeUtil.get_put_op_code(rq)
-        else:
-            match_version = rq.get_match_version()
-            opcode = (SerdeUtil.OP_CODE.DELETE if match_version is None else
-                      SerdeUtil.OP_CODE.DELETE_IF_VERSION)
 
-        # write op first -- important!
-        if not is_single_table:
-            Proto.write_string_map_field(ns, TABLE_NAME, rq.get_table_name())
-        Proto.write_int_map_field(ns, OP_CODE, opcode)
-        if is_put:
-            PutRequestSerializer._write_put_request(ns, rq)
-        else:
-            DeleteRequestSerializer._write_delete_request(ns, rq)
-
-        # common to delete and put
-        Proto.write_bool_map_field(ns, RETURN_ROW, rq.get_return_row())
-        Proto.write_bool_map_field(ns, ABORT_ON_FAIL,
-                                       op.is_abort_if_unsuccessful())
-        ns.end_map()
-        ns.end_array_field()
-
-    def _read_operation_result(self, bis):
+    @staticmethod
+    def _read_operation_result(bis):
         opres = borneo.operations.OperationResult()
         walker = MapWalker(bis)
         while walker.has_next():
@@ -1718,6 +1714,35 @@ class WriteMultipleRequestSerializer(RequestSerializer):
             else:
                 walker.skip()
         return opres
+
+
+def _write_multi_op(ns, op, is_single_table):
+    ns.start_array_field()
+    ns.start_map()
+    rq = op.get_request()
+    is_put = isinstance(rq, borneo.operations.PutRequest)
+    if is_put:
+        opcode = SerdeUtil.get_put_op_code(rq)
+    else:
+        match_version = rq.get_match_version()
+        opcode = (SerdeUtil.OP_CODE.DELETE if match_version is None else
+                  SerdeUtil.OP_CODE.DELETE_IF_VERSION)
+
+    # write op first -- important!
+    if not is_single_table:
+        Proto.write_string_map_field(ns, TABLE_NAME, rq.get_table_name())
+    Proto.write_int_map_field(ns, OP_CODE, opcode)
+    if is_put:
+        PutRequestSerializer.write_put_request(ns, rq)
+    else:
+        DeleteRequestSerializer.write_delete_request(ns, rq)
+
+    # common to delete and put
+    Proto.write_bool_map_field(ns, RETURN_ROW, rq.get_return_row())
+    Proto.write_bool_map_field(ns, ABORT_ON_FAIL,
+                               op.is_abort_if_unsuccessful())
+    ns.end_map()
+    ns.end_array_field()
 
 
 #
@@ -1756,7 +1781,7 @@ class PrepareRequestSerializer(RequestSerializer):
             Proto.write_bool_map_field(ns, GET_QUERY_PLAN, request.get_query_plan())
         if request.get_query_schema():
             Proto.write_bool_map_field(ns, GET_QUERY_SCHEMA,
-                                           request.get_query_schema())
+                                       request.get_query_schema())
 
         Proto.end_map(ns, PAYLOAD)
 
@@ -1764,10 +1789,11 @@ class PrepareRequestSerializer(RequestSerializer):
 
     def deserialize(self, request, bis, serial_version):
         result = borneo.operations.PrepareResult()
-        Proto.deserialize_prepare_or_query(None, None, # query request/result
-                                               request, result,
-                                               bis, serial_version)
+        Proto.deserialize_prepare_or_query(None, None,  # query request/result
+                                           request, result,
+                                           bis)
         return result
+
 
 #
 # QueryRequest
@@ -1848,7 +1874,8 @@ class QueryRequestSerializer(RequestSerializer):
 
         ns.end_map()  # top-level object
 
-    def _write_bind_variables(self, ns, variables):
+    @staticmethod
+    def _write_bind_variables(ns, variables):
         if variables is None or len(variables) == 0:
             return
         Proto.start_array(ns, BIND_VARIABLES)
@@ -1863,22 +1890,24 @@ class QueryRequestSerializer(RequestSerializer):
             ns.end_array_field()
         Proto.end_array(ns, BIND_VARIABLES)
 
-    def _write_math_context(self, ns, context):
+    @staticmethod
+    def _write_math_context(ns, context):
         Proto.write_int_map_field(ns, MATH_CONTEXT_CODE, 5)
         Proto.write_int_map_field(ns, MATH_CONTEXT_PRECISION, context.prec)
         Proto.write_int_map_field(
             ns, MATH_CONTEXT_ROUNDING_MODE,
             math_name_to_value.get(context.rounding))
 
-
     def deserialize(self, request, bis, serial_version):
         result = borneo.operations.QueryResult(request)
         Proto.deserialize_prepare_or_query(
             request, result,
-            None, None, # prepare request/result
-            bis, serial_version)
+            None, None,  # prepare request/result
+            bis)
         return result
 
+
+# noinspection PyArgumentEqualDefault
 class Proto(object):
     #
     # Common methods for serializers
@@ -1965,8 +1994,6 @@ class Proto(object):
             Nson.generate_events_from_value(value, ns)
             ns.end_map_field(VALUE)
 
-
-
     #
     # This writes a field_value by generating NSON events. The ns parameter
     # is a serializer that turns those events into NSON in the output stream
@@ -1980,7 +2007,7 @@ class Proto(object):
     # atomic fields
     # Java uses type-specific overloads to differentiate the atomic values
     # integer, string, boolean, binary
-    # All of the callers know the type, so in Python make it part of the
+    # All the callers know the type, so in Python make it part of the
     # method vs checking types, which is inefficient
     #
     @staticmethod
@@ -2194,7 +2221,7 @@ class Proto(object):
         Deserializes NSON into a value
 
         :param bis: the stream containing NSON
-        :type value: ByteInputStream
+        :type bis: ByteInputStream
         :param ordered: True (default) for using OrderedDict vs dict
         :type ordered: bool
         :returns: object
@@ -2204,13 +2231,13 @@ class Proto(object):
         return fvc.get_current_value()
 
     @staticmethod
-    def nson_to_json(stream, offset = 0, pretty = False):
+    def nson_to_json(stream, offset=0, pretty=False):
         """
         Serializes the NSON to JSON in a non-destructive manner, leaving
         the original stream unmodified
 
         :param stream: the stream containing NSON
-        :type value: ByteInputStream
+        :type stream: ByteInputStream
         :param offset: the offset in the stream to use, defaults to 0
         :type offset: int
         :param pretty: controls pretty printing, defaults to not pretty
@@ -2224,7 +2251,7 @@ class Proto(object):
         return str(js)
 
     @staticmethod
-    def value_to_json(value, pretty = False):
+    def value_to_json(value, pretty=False):
         """
         Serializes the value to JSON
 
@@ -2237,7 +2264,6 @@ class Proto(object):
         js = JsonSerializer(pretty, use_single_quote=True)
         Nson.generate_events_from_value(value, js, False)
         return str(js)
-
 
     @staticmethod
     def value_to_nson(value):
@@ -2253,7 +2279,6 @@ class Proto(object):
         ns = NsonSerializer(bos)
         Nson.generate_events_from_value(value, ns)
         return content
-
 
     #
     # "return_info" : {
@@ -2279,7 +2304,6 @@ class Proto(object):
             else:
                 walker.skip()
 
-
     # Queries are complicated... share code for deserializing Query and Prepare
     # results. Because an initial query request has an implied prepare the
     # deserialization of an unprepared query is a superset of a prepare request
@@ -2288,7 +2312,7 @@ class Proto(object):
     def deserialize_prepare_or_query(
             query_request, query_result,
             prepare_request, prepare_result,
-            bis, serial_version):
+            bis):
 
         # ps is PreparedStatement
         request_was_prepared = False
@@ -2296,11 +2320,9 @@ class Proto(object):
             ps = query_request.get_prepared_statement()
             if ps is not None:
                 request_was_prepared = True
-        else:
-            ps = None
 
         # variables used to construct a PreparedStatement as needed
-        dpi = None # driver plan info
+        dpi = None  # driver plan info
         query_plan = None
         query_schema = None
         table_name = None
@@ -2358,8 +2380,8 @@ class Proto(object):
             else:
                 walker.skip()
 
-        # this is outside of the walker loop to make sure that the continuation
-        # key is cleared if not returned, meaning the query is done
+        # ensure that the continuation key is cleared if not returned,
+        # meaning the query is done
         if query_result is not None:
             query_result.set_continuation_key(cont_key)
             query_request.set_cont_key(query_result.get_continuation_key())
@@ -2395,15 +2417,14 @@ class Proto(object):
                 driver.set_prep_cost(query_result.get_read_kb())
                 query_result.set_computed(False)
 
-
-    # array of int for shard_ids in query topologyinfo
+    # array of int for shard_ids in query topology info
     @staticmethod
     def read_nson_int_array(bis):
         t = bis.read_byte()
         if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
             raise IllegalArgumentException(
                 'NSON read int array: stream must be located at type ARRAY')
-        SerdeUtil.read_full_int(bis) # total length in bytes
+        SerdeUtil.read_full_int(bis)  # total length in bytes
         num_elements = SerdeUtil.read_full_int(bis)
         arr = []
         for i in range(num_elements):
@@ -2421,7 +2442,7 @@ class Proto(object):
         if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
             raise IllegalArgumentException(
                 'NSON query results must be of type ARRAY')
-        SerdeUtil.read_full_int(bis) # total length in bytes
+        SerdeUtil.read_full_int(bis)  # total length in bytes
         num_elements = SerdeUtil.read_full_int(bis)
         results = list()
         for i in range(num_elements):
@@ -2442,9 +2463,6 @@ class Proto(object):
             for i in range(len(pids)):
                 cont_keys.append(SerdeUtil.read_bytearray(bis1, False))
             query_result.set_partition_cont_keys(cont_keys)
-
-
-
 
     #
     # Handle success/failure in a response. Success is a 0 error code.
@@ -2486,6 +2504,7 @@ class Proto(object):
                 walker.skip()
             else:
                 walker.skip()
+
 
 # This code is redundant WRT code in serde.py that does the same thing but
 # it is easier to do this than share. The V3 code will never change but this

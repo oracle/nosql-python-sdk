@@ -719,7 +719,6 @@ class Regions(object):
         return region
 
 
-# python 2.7 ??? class StatsProfile(object):
 class StatsProfile(Enum):
     """
     The following semantics are attached to the StatsProfile values:
@@ -882,19 +881,6 @@ class NoSQLHandleConfig(object):
             self._stats_profile = StatsProfile[profile_property.upper()]
         except KeyError:
             self._stats_profile = StatsProfile.NONE
-        # python2.7 ???
-        # "none" is the value of: self._DEFAULT_STATS_PROFILE.name.lower()
-        # profile_property = getenv(self._STATS_PROFILE_PROPERTY, "none").upper()
-        # if "NONE" == profile_property:
-        #     self._stats_profile = StatsProfile.NONE
-        # elif "REGULAR" == profile_property:
-        #     self._stats_profile = StatsProfile.REGULAR
-        # elif "MORE" == profile_property:
-        #     self._stats_profile = StatsProfile.MORE
-        # elif "ALL" == profile_property:
-        #     self._stats_profile = StatsProfile.ALL
-        # else:
-        #     self._stats_profile = StatsProfile.NONE
 
         self._stats_interval = getenv(self._STATS_INTERVAL_PROPERTY,
                                       self._DEFAULT_STATS_INTERVAL)
@@ -1700,8 +1686,8 @@ class NoSQLHandleConfig(object):
         self._stats_pretty_print = pretty_print
         return self
 
-    def _get_serial_version(self):
+    def get_serial_version(self):
         return self._serial_version
 
-    def _set_serial_version(self, version):
+    def set_serial_version(self, version):
         self._serial_version = version

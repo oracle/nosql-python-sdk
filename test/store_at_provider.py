@@ -24,25 +24,25 @@ except ImportError:
 from borneo import IllegalArgumentException
 from borneo.kv import StoreAccessTokenProvider
 
+LOGIN_PATH = '/V2/nosql/security/login'
+LOGOUT_PATH = '/V2/nosql/security/logout'
+RENEW_PATH = '/V2/nosql/security/renew'
+# basicAuthString matching user name test and password NoSql00__123456
+USER_NAME = 'test'
+PASSWORD = 'NoSql00__123456'
+BASIC_AUTH_STRING = 'Basic dGVzdDpOb1NxbDAwX18xMjM0NTY='
+AUTH_TOKEN_PREFIX = 'Bearer '
+LOGIN_TOKEN = 'LOGIN_TOKEN'
+RENEW_TOKEN = 'RENEW_TOKEN'
+PORT = 0
 
 class TestStoreAccessTokenProvider(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         global LOGIN_PATH, LOGOUT_PATH, RENEW_PATH
-        LOGIN_PATH = '/V2/nosql/security/login'
-        LOGOUT_PATH = '/V2/nosql/security/logout'
-        RENEW_PATH = '/V2/nosql/security/renew'
-        # basicAuthString matching user name test and password NoSql00__123456
         global USER_NAME, PASSWORD, BASIC_AUTH_STRING
-        USER_NAME = 'test'
-        PASSWORD = 'NoSql00__123456'
-        BASIC_AUTH_STRING = 'Basic dGVzdDpOb1NxbDAwX18xMjM0NTY='
-
         global AUTH_TOKEN_PREFIX, LOGIN_TOKEN, RENEW_TOKEN
-        AUTH_TOKEN_PREFIX = 'Bearer '
-        LOGIN_TOKEN = 'LOGIN_TOKEN'
-        RENEW_TOKEN = 'RENEW_TOKEN'
 
         global PORT
         PORT = cls._find_port_start_server(TokenHandler)

@@ -173,13 +173,14 @@ class TestBase(object):
     def tear_down(self):
         self.handle.close()
 
-    def values_equal(self, value1, value2, ordered = False):
+    @staticmethod
+    def values_equal(value1, value2, ordered=False):
         n1 = Proto.value_to_nson(value1)
         n2 = Proto.value_to_nson(value2)
         bis1 = ByteInputStream(n1)
         bis2 = ByteInputStream(n2)
         return (Proto.nson_to_value(bis1, ordered) ==
-                    Proto.nson_to_value(bis2, ordered))
+                Proto.nson_to_value(bis2, ordered))
 
     @staticmethod
     def get_random_str(mb):

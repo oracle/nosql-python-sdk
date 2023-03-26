@@ -529,7 +529,7 @@ class RequestUtils(object):
         :param request: the request executed by the server.
         :type request: Request
         :param content: the content of the response from the server.
-        :type content: bytes for python 3 and str for python 2
+        :type content: bytes
         :param status: the status code of the response from the server.
         :type status: int
         :returns: the programmatic response object.
@@ -554,16 +554,16 @@ class RequestUtils(object):
         :returns: the result of processing the successful request.
         :rtype: Result
         """
-        # TODO: abstract this between v3 and v4
+        #
         # this call gives the Request an opinion on which serial version
         # to use
+        #
         version = request.get_serial_version(self._client.serial_version)
         if version <= 3:
             code = bis.read_byte()
         else:
             code = 0
         if code == 0:
-            # version = request.get_serial_version(self._client.serial_version)
             res = request.create_serializer(version).deserialize(
                 request, bis, version)
             if request.is_query_request():
@@ -616,7 +616,7 @@ class RequestUtils(object):
         action.
 
         :param content: content of the response from the server.
-        :type content: bytes for python 3 and str for python 2
+        :type content: bytes
         :param status: the status code of the response from the server.
         :type status: int
         """

@@ -441,7 +441,6 @@ class SerdeUtil(object):
         # timezone aware
         return parser.parse(SerdeUtil.read_string(bis))
 
-
     @staticmethod
     def read_decimal(bis):
         # Deserialize a decimal value.
@@ -493,7 +492,7 @@ class SerdeUtil(object):
         :param bis: the byte input stream.
         :type bis: ByteInputStream
         :returns: the long that was read.
-        :rtype: int for python 3 and long for python 2
+        :rtype: int
         """
         buf = bytearray(PackedInteger.MAX_LONG_LENGTH)
         bis.read_fully(buf, 0, 1)
@@ -599,16 +598,15 @@ class SerdeUtil(object):
         # Writes a full 4-byte int at the specified offset
         bos.write_int_at_offset(offset, value)
 
-
     # Used by datetime_to_iso to deal with padding ISO 8601 values with '0'
     # in front of numbers to keep the number of digits consistent. E.g.
     # months is always 2 digits, years 4, days 2, etc
     @staticmethod
-    def append_with_pad(str, newstr, num):
+    def append_with_pad(date_str, newstr, num):
         while num > 0 and len(newstr) < num:
             newstr = '0' + newstr
-        if str is not None:
-            return str + newstr
+        if date_str is not None:
+            return date_str + newstr
         return newstr
 
     #
@@ -620,16 +618,16 @@ class SerdeUtil(object):
         daysep = '-'
         timesep = ':'
         val = SerdeUtil.append_with_pad(None, str(date.year), 4)
-        val = val + daysep
+        val += daysep
         val = SerdeUtil.append_with_pad(val, str(date.month), 2)
-        val = val + daysep
+        val += daysep
         val = SerdeUtil.append_with_pad(val, str(date.day), 2)
         # always add time even if it's 0; simpler that way
-        val = val + 'T'
+        val += 'T'
         val = SerdeUtil.append_with_pad(val, str(date.hour), 2)
-        val = val + timesep
+        val += timesep
         val = SerdeUtil.append_with_pad(val, str(date.minute), 2)
-        val = val + timesep
+        val += timesep
         val = SerdeUtil.append_with_pad(val, str(date.second), 2)
         if date.microsecond > 0:
             # usecs need to be 6 digits, so pad to 6 chars but strip
@@ -638,10 +636,10 @@ class SerdeUtil(object):
             # microseconds or milliseconds. E.g. these are the same:
             #  .1, .100, .100000 and they all mean 100ms (100000us)
             # In other words the trailing 0 values are implied
-            val = val + '.'
+            val += '.'
             val = SerdeUtil.append_with_pad(val,
-                                        str(date.microsecond), 6).rstrip('0')
-        val = val + 'Z'
+                                            str(date.microsecond), 6).rstrip('0')
+        val += 'Z'
         return val
 
     @staticmethod
@@ -705,7 +703,7 @@ class SerdeUtil(object):
         :param bos: the byte output stream.
         :type bos: ByteOutputStream
         :param value: the long to be written.
-        :type value: int for python 3 and long for python 2
+        :type value: int
         """
         buf = bytearray(PackedInteger.MAX_LONG_LENGTH)
         offset = PackedInteger.write_sorted_long(buf, 0, value)
@@ -805,9 +803,9 @@ class SerdeUtil(object):
             return SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN
         elif isinstance(value, float):
             return SerdeUtil.FIELD_VALUE_TYPE.DOUBLE
-        elif CheckValue.is_int(value):
+        elif CheckValue.is_int_value(value):
             return SerdeUtil.FIELD_VALUE_TYPE.INTEGER
-        elif CheckValue.is_long(value):
+        elif CheckValue.is_long_value(value):
             return SerdeUtil.FIELD_VALUE_TYPE.LONG
         elif isinstance(value, dict):
             return SerdeUtil.FIELD_VALUE_TYPE.MAP

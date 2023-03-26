@@ -19,6 +19,8 @@ from parameters import (
 from testutils import compare_version, get_handle_config, get_row
 from test_base import TestBase
 
+query_statement = None
+
 
 class TestQuery(unittest.TestCase, TestBase):
 
@@ -27,7 +29,7 @@ class TestQuery(unittest.TestCase, TestBase):
         cls.set_up_class()
         index_name = 'idx_' + table_name
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
+                'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
 fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(6), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
@@ -39,27 +41,27 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         cls.table_request(create_request)
 
         if (version is not None and
-            (is_cloudsim() and compare_version(version, '1.4.0') == -1 or
-             is_onprem() and compare_version(version, '20.2.0') == -1)):
+                (is_cloudsim() and compare_version(version, '1.4.0') == -1 or
+                 is_onprem() and compare_version(version, '20.2.0') == -1)):
             create_idx_request = TableRequest()
             create_idx_statement = (
-                'CREATE INDEX ' + index_name + '1 ON ' + table_name +
-                '(fld_long)')
+                    'CREATE INDEX ' + index_name + '1 ON ' + table_name +
+                    '(fld_long)')
             create_idx_request.set_statement(create_idx_statement)
             cls.table_request(create_idx_request)
             create_idx_statement = (
-                'CREATE INDEX ' + index_name + '2 ON ' + table_name +
-                '(fld_str)')
+                    'CREATE INDEX ' + index_name + '2 ON ' + table_name +
+                    '(fld_str)')
             create_idx_request.set_statement(create_idx_statement)
             cls.table_request(create_idx_request)
             create_idx_statement = (
-                'CREATE INDEX ' + index_name + '3 ON ' + table_name +
-                '(fld_bool)')
+                    'CREATE INDEX ' + index_name + '3 ON ' + table_name +
+                    '(fld_bool)')
             create_idx_request.set_statement(create_idx_statement)
             cls.table_request(create_idx_request)
             create_idx_statement = (
-                'CREATE INDEX ' + index_name + '4 ON ' + table_name +
-                '(fld_json.location as point)')
+                    'CREATE INDEX ' + index_name + '4 ON ' + table_name +
+                    '(fld_json.location as point)')
             create_idx_request.set_statement(create_idx_statement)
             cls.table_request(create_idx_request)
 
@@ -90,8 +92,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 row['fld_id'] = i
                 row['fld_bool'] = False if sk == 0 else True
                 row['fld_str'] = (
-                    '{"name": u' +
-                    str(shardkeys * ids - sk * ids - i - 1).zfill(2) + '}')
+                        '{"name": u' +
+                        str(shardkeys * ids - sk * ids - i - 1).zfill(2) + '}')
                 row['fld_json']['location']['coordinates'] = (
                     [23.549 - sk * 0.5 - i, 35.2908 + sk * 0.5 + i])
                 write_multiple_request.add(
@@ -100,16 +102,16 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             self.handle.write_multiple(write_multiple_request)
             write_multiple_request.clear()
         prepare_statement_update = (
-            'DECLARE $fld_sid INTEGER; $fld_id INTEGER; UPDATE ' + table_name +
-            ' u SET u.fld_long = u.fld_long + 1 WHERE fld_sid = $fld_sid ' +
-            'AND fld_id = $fld_id')
+                'DECLARE $fld_sid INTEGER; $fld_id INTEGER; UPDATE ' + table_name +
+                ' u SET u.fld_long = u.fld_long + 1 WHERE fld_sid = $fld_sid ' +
+                'AND fld_id = $fld_id')
         prepare_request_update = PrepareRequest().set_statement(
             prepare_statement_update)
         self.prepare_result_update = self.handle.prepare(
             prepare_request_update)
         prepare_statement_select = (
-            'DECLARE $fld_long LONG; SELECT fld_sid, fld_id, fld_long FROM ' +
-            table_name + ' WHERE fld_long = $fld_long')
+                'DECLARE $fld_long LONG; SELECT fld_sid, fld_id, fld_long FROM ' +
+                table_name + ' WHERE fld_long = $fld_long')
         prepare_request_select = PrepareRequest().set_statement(
             prepare_statement_select)
         self.prepare_result_select = self.handle.prepare(
@@ -750,7 +752,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.assertEqual(
                         records[idx],
                         {'fld_str': '{"name": u' +
-                         str(num_records - idx - 1).zfill(2) + '}'})
+                                    str(num_records - idx - 1).zfill(2) + '}'})
                 break
             else:
                 self.check_query_result(result, 0, True, records)
@@ -779,8 +781,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         num_get = 8
         # test order by primary index field with offset
         statement = (
-            'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
-            ' ORDER BY fld_sid, fld_id OFFSET $offset')
+                'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
+                ' ORDER BY fld_sid, fld_id OFFSET $offset')
         prepare_request = PrepareRequest().set_statement(statement)
         prepare_result = self.handle.prepare(prepare_request)
         prepared_statement = prepare_result.get_prepared_statement()
@@ -796,7 +798,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                     self.assertEqual(
                         records[idx],
                         {'fld_str': '{"name": u' +
-                         str(num_get - idx - 1).zfill(2) + '}'})
+                                    str(num_get - idx - 1).zfill(2) + '}'})
                 break
             else:
                 self.check_query_result(result, 0, True, records)
@@ -804,8 +806,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # test order by secondary index field with offset
         statement = (
-            'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
-            ' ORDER BY fld_str OFFSET $offset')
+                'DECLARE $offset INTEGER; SELECT fld_str FROM ' + table_name +
+                ' ORDER BY fld_str OFFSET $offset')
         prepare_request = PrepareRequest().set_statement(statement)
         prepare_result = self.handle.prepare(prepare_request)
         prepared_statement = prepare_result.get_prepared_statement()
@@ -820,7 +822,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for idx in range(num_get):
                     self.assertEqual(
                         records[idx], {'fld_str': '{"name": u' +
-                                       str(offset + idx).zfill(2) + '}'})
+                                                  str(offset + idx).zfill(2) + '}'})
                 break
             else:
                 self.check_query_result(result, 0, True, records)
@@ -832,10 +834,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         latitude = 37.291
         # test geo_near function
         statement = (
-            'SELECT tb.fld_json.location FROM ' + table_name +
-            ' tb WHERE geo_near(tb.fld_json.location, ' +
-            '{"type": "point", "coordinates": [' + str(longitude) + ', ' +
-            str(latitude) + ']}, 215000)')
+                'SELECT tb.fld_json.location FROM ' + table_name +
+                ' tb WHERE geo_near(tb.fld_json.location, ' +
+                '{"type": "point", "coordinates": [' + str(longitude) + ', ' +
+                str(latitude) + ']}, 215000)')
         query_request = QueryRequest().set_statement(statement)
         result = self.handle.query(query_request)
         records = self.check_query_result(result, num_get)
@@ -849,10 +851,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # test geo_near function order by primary index field
         statement = (
-            'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
-            'tb.fld_json.location, {"type": "point", "coordinates": [' +
-            str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
-            'ORDER BY fld_sid, fld_id')
+                'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
+                'tb.fld_json.location, {"type": "point", "coordinates": [' +
+                str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
+                'ORDER BY fld_sid, fld_id')
         query_request = QueryRequest().set_statement(statement)
         while True:
             result = self.handle.query(query_request)
@@ -863,7 +865,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for i in range(num_get):
                     self.assertEqual(
                         records[i], {'fld_str': '{"name": u' +
-                                     str(name[i]).zfill(2) + '}'})
+                                                str(name[i]).zfill(2) + '}'})
                 break
             else:
                 self.check_query_result(result, 0, True, records)
@@ -871,10 +873,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # test geo_near function order by secondary index field
         statement = (
-            'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
-            'tb.fld_json.location, {"type": "point", "coordinates": [' +
-            str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
-            'ORDER BY fld_str')
+                'SELECT fld_str FROM ' + table_name + ' tb WHERE geo_near(' +
+                'tb.fld_json.location, {"type": "point", "coordinates": [' +
+                str(longitude) + ', ' + str(latitude) + ']}, 215000) ' +
+                'ORDER BY fld_str')
         query_request = QueryRequest().set_statement(statement)
         while True:
             result = self.handle.query(query_request)
@@ -885,7 +887,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 for i in range(num_get):
                     self.assertEqual(
                         records[i], {'fld_str': '{"name": u' +
-                                     str(name[i]).zfill(2) + '}'})
+                                                str(name[i]).zfill(2) + '}'})
                 break
             else:
                 self.check_query_result(result, 0, True, records)
@@ -893,8 +895,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
     def testQueryIterable(self):
         statement = 'SELECT * FROM ' + table_name
-        query_request = QueryRequest()\
-            .set_statement(statement)\
+        query_request = QueryRequest() \
+            .set_statement(statement) \
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
         res_list = []
@@ -914,9 +916,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # Check with an ORDER BY query that makes use of QueryDriver.
         statement = 'SELECT * FROM ' + table_name + " ORDER BY fld_id, fld_sid"
-        query_request = QueryRequest()\
-            .set_statement(statement)\
-            .set_timeout(10000)\
+        query_request = QueryRequest() \
+            .set_statement(statement) \
+            .set_timeout(10000) \
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
 
@@ -939,8 +941,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
     def testQueryIterableReuse(self):
         statement = 'SELECT * FROM ' + table_name
-        query_request = QueryRequest()\
-            .set_statement(statement)\
+        query_request = QueryRequest() \
+            .set_statement(statement) \
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
 
@@ -962,8 +964,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         # Check with an ORDER BY query that makes use of QueryDriver.
         statement = 'SELECT * FROM ' + table_name + " ORDER BY fld_id, fld_sid"
-        query_request = QueryRequest()\
-            .set_statement(statement)\
+        query_request = QueryRequest() \
+            .set_statement(statement) \
             .set_limit(3)
         result = self.handle.query_iterable(query_request)
 
@@ -976,12 +978,10 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
 
         iter2 = iter(result)
         list2 = []
-        i = 0
         for i in range(number_of_rows):
             r2 = next(iter2)
             list2.append(r2)
             self.assertEqual(list1[i], r2)
-            i += 1
 
         self.assertEqual(number_of_rows, len(list1))
         self.assertEqual(number_of_rows, len(list2))

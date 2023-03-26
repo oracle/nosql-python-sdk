@@ -5,23 +5,22 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
-import json
 import unittest
 from collections import OrderedDict
 from copy import deepcopy
-from parameters import table_prefix
 from time import time
 
 from borneo import (
-    BatchOperationNumberLimitException, DeleteRequest, GetRequest,
+    DeleteRequest, GetRequest,
     IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest,
-    RequestSizeLimitException, TableLimits, TableRequest, TimeToLive, TimeUnit,
+    TableLimits, TableRequest, TimeToLive, TimeUnit,
     WriteMultipleRequest)
-from parameters import is_onprem, table_name, timeout
+from parameters import table_name, timeout
+from parameters import table_prefix
 from test_base import TestBase
 from testutils import get_row
 
-import borneo
+serial_version = 0
 
 
 # noinspection PyUnboundLocalVariable
@@ -48,7 +47,6 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 'CREATE TABLE ' + cls.child_table_name + ' (childid INTEGER, childname STRING, \
                 childdata STRING, \
                 PRIMARY KEY(childid)) USING TTL 1 DAYS')
-        limits = TableLimits(50, 50, 1)
         create_request = TableRequest().set_statement(
             create_child_statement)
         cls.table_request(create_request)
@@ -253,12 +251,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             parent_row['fld_sid'] = 1
             parent_row['fld_id'] = i
             parent_row['fld_str'] = 'str_' + str(i)
-            request = \
-                PutRequest() \
-                    .set_value(parent_row) \
-                    .set_table_name(table_name) \
-                    .set_ttl(self.ttl) \
-                    .set_return_row(True)
+            request =  PutRequest()
+            request.set_value(parent_row)
+            request.set_table_name(table_name)
+            request.set_ttl(self.ttl)
+            request.set_return_row(True)
             wm_req.add(request, True)
 
             child_row = dict()
@@ -268,11 +265,11 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             child_row['childname'] = 'name_' + str(i)
             child_row['childdata'] = 'data_' + str(i)
 
-            request = PutRequest() \
-                .set_value(child_row) \
-                .set_table_name(self.child_table_name) \
-                .set_ttl(self.ttl) \
-                .set_return_row(True)
+            request = PutRequest()
+            request.set_value(child_row)
+            request.set_table_name(self.child_table_name)
+            request.set_ttl(self.ttl)
+            request.set_return_row(True)
             wm_req.add(request, True)
 
         result = self.handle.write_multiple(wm_req)
@@ -285,10 +282,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             parent_row = dict()
             parent_row['fld_sid'] = 1
             parent_row['fld_id'] = i
-            request = \
-                GetRequest() \
-                    .set_key(parent_row) \
-                    .set_table_name(table_name)
+            request = GetRequest()
+            request.set_key(parent_row)
+            request.set_table_name(table_name)
             result = self.handle.get(request)
             self.assertEqual('str_' + str(i), result.get_value()['fld_str'])
 
@@ -296,10 +292,9 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             child_row['fld_sid'] = 1
             child_row['fld_id'] = i
             child_row['childid'] = i
-            request = \
-                GetRequest() \
-                    .set_key(child_row) \
-                    .set_table_name(self.child_table_name)
+            request = GetRequest()
+            request.set_key(child_row)
+            request.set_table_name(self.child_table_name)
             result = self.handle.get(request)
             self.assertEqual('name_' + str(i), result.get_value()['childname'])
             self.assertEqual('data_' + str(i), result.get_value()['childdata'])
@@ -392,7 +387,7 @@ ALWAYS AS IDENTITY, name STRING, PRIMARY KEY(SHARD(sid), id))')
                                existing_version.get_bytes()))
         # check existing value -- use unordered comparison
         self.assertTrue(self.values_equal(op_result.get_existing_value(),
-                                                  existing_value, False))
+                                          existing_value, False))
         return ver, generated
 
     def _check_write_multiple_result(

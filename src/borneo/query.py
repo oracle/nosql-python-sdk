@@ -9,12 +9,8 @@ from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal, setcontext
-from sys import getsizeof, version_info
-
-try:
-    from sys import maxint as maxvalue
-except ImportError:
-    from sys import maxsize as maxvalue
+from sys import getsizeof
+from sys import maxsize as maxvalue
 
 from .common import ByteOutputStream, CheckValue, Empty, JsonNone, enum
 from .exception import (
@@ -554,9 +550,6 @@ class ArithOpIter(PlanIter):
                     res_type = SerdeUtil.FIELD_VALUE_TYPE.DOUBLE
             elif isinstance(arg_val, int):
                 pass
-            elif version_info.major == 2 and CheckValue.is_long(arg_val):
-                if res_type == SerdeUtil.FIELD_VALUE_TYPE.INTEGER:
-                    res_type = SerdeUtil.FIELD_VALUE_TYPE.LONG
             elif isinstance(arg_val, Decimal):
                 res_type = SerdeUtil.FIELD_VALUE_TYPE.NUMBER
             else:
@@ -569,11 +562,7 @@ class ArithOpIter(PlanIter):
         elif res_type == SerdeUtil.FIELD_VALUE_TYPE.INTEGER:
             res = self._init_result
         elif res_type == SerdeUtil.FIELD_VALUE_TYPE.LONG:
-            try:
-                # noinspection PyCompatibility
-                res = long(self._init_result)
-            except NameError:
-                res = self._init_result
+            res = self._init_result
         elif res_type == SerdeUtil.FIELD_VALUE_TYPE.NUMBER:
             res = None
         else:
@@ -1243,7 +1232,7 @@ class GroupIter(PlanIter):
         def add(self, rcb, count_memory, val, ctx):
             setcontext(ctx)
             sz = 0
-            if CheckValue.is_int(val) or CheckValue.is_long(val):
+            if CheckValue.is_int_value(val):
                 self.got_numeric_input = True
                 if CheckValue.is_digit(self.value):
                     self.value += val
@@ -1251,8 +1240,7 @@ class GroupIter(PlanIter):
                     assert False
             elif isinstance(val, float):
                 self.got_numeric_input = True
-                if (CheckValue.is_int(self.value) or
-                        CheckValue.is_long(self.value)):
+                if CheckValue.is_int_value(self.value):
                     if count_memory:
                         sz = PlanIter.sizeof(self.value)
                     self.value += val
@@ -1266,8 +1254,7 @@ class GroupIter(PlanIter):
                     assert False
             elif isinstance(val, Decimal):
                 self.got_numeric_input = True
-                if (CheckValue.is_int(self.value) or
-                        CheckValue.is_long(self.value) or
+                if (CheckValue.is_int_value(self.value) or
                         isinstance(self.value, float)):
                     if count_memory:
                         sz = PlanIter.sizeof(self.value)
@@ -1626,9 +1613,9 @@ class ReceiveIter(PlanIter):
     def _write_value(out, value, i):
         if isinstance(value, float):
             out.write_float(value)
-        elif CheckValue.is_int(value):
+        elif CheckValue.is_int_value(value):
             SerdeUtil.write_packed_int(out, value)
-        elif CheckValue.is_long(value):
+        elif CheckValue.is_long_value(value):
             SerdeUtil.write_packed_long(out, value)
         elif CheckValue.is_str(value):
             SerdeUtil.write_string(out, value)

@@ -79,11 +79,13 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             self.assertRaises(IllegalArgumentException,
                               self.handle.system_status, 'IllegalRequest')
 
+        # noinspection PyBroadException
         def testSystemStatusRequestNormal(self):
             # cleanup -- drop namespace, don't wait
+            # noinspection PyBroadException
             try:
                 self.sys_request.set_statement(self.drop)
-                result = self.handle.system_request(self.sys_request)
+                self.handle.system_request(self.sys_request)
             except:
                 pass
 

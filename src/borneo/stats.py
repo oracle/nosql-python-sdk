@@ -14,14 +14,10 @@ from threading import Timer, Lock
 from time import localtime
 from typing import Any, Dict
 
-try:
-    from collections.abc import Callable
-except ImportError:
-    from collections import Callable
-
+from collections.abc import Callable
 from . import StatsProfile
-from .exception import SecurityInfoNotReadyException, ThrottlingException, \
-    IllegalArgumentException
+from .exception import (SecurityInfoNotReadyException, ThrottlingException,
+                        IllegalArgumentException)
 from .common import LogUtils, synchronized, CheckValue
 from .kv.exception import AuthenticationException
 from .version import __version__
@@ -294,7 +290,8 @@ class StatsControl:
 
         self._enable_collection = False
 
-        self._stats = None   # type: Stats
+        # noinspection PyTypeChecker
+        self._stats = None  # type: Stats
         self._id = str(uuid.uuid4())[:8]
 
         if self._profile is not StatsProfile.NONE:
@@ -562,8 +559,8 @@ class ExtraQueryStats:
     def get_extra_query_stat_entry(self, query_request):
         # type: (borneo.QueryRequest) -> QueryEntryStat
         sql = query_request.get_statement()
-        if sql is None and self._prepared_statement is not None:
-            sql = self._prepared_statement.get_sql_text()
+        if sql is None and query_request.get_prepared_statement() is not None:
+            sql = query_request.get_prepared_statement().get_sql_text()
         q_stat = self._queries.get(sql)
         if q_stat is None:
             q_stat = QueryEntryStat(self._profile, query_request)
@@ -592,7 +589,7 @@ class Percentile:
     """
 
     def __init__(self):
-        self._values = []    # type: [int]
+        self._values = []  # type: [int]
 
     def add_value(self, network_latency):
         # type: (int) -> None
@@ -621,6 +618,7 @@ class Percentile:
         self._values = []
 
 
+# noinspection PyPep8Naming
 class ReqStats:
     """
     Statistics per type of request.
@@ -747,13 +745,14 @@ class ReqStats:
             self._requestLatencyPercentile.clear()
 
 
+# noinspection PyPep8Naming
 class Stats:
     """
     Implements all the statistics.
     """
     _stats_control = None  # type: StatsControl
-    _timer = None         # type: RepeatedTimer
-    _requests = None      # type: Dict[str, ReqStats]
+    _timer = None  # type: RepeatedTimer
+    _requests = None  # type: Dict[str, ReqStats]
 
     _request_names = ["Delete", "Get", "GetIndexes", "GetTable",
                       "ListTables", "MultiDelete", "Prepare", "Put", "Query",
@@ -791,8 +790,8 @@ class Stats:
 
     def __log_client_stats(self):
         handler = self._stats_control.get_stats_handler()
-        log = self._stats_control.get_logger() is not None and \
-                 self._stats_control.get_logger().isEnabledFor(INFO)
+        log = (self._stats_control.get_logger() is not None and
+                   self._stats_control.get_logger().isEnabledFor(INFO))
 
         if handler is not None or log:
             stats = self.__generate_stats()

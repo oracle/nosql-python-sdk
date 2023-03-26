@@ -10,7 +10,7 @@ from decimal import Context, ROUND_HALF_EVEN
 from json import loads
 from time import sleep, time
 
-from dateutil import parser, tz
+from dateutil import tz
 
 from .common import (
     CheckValue, Consistency, Durability, FieldRange, PreparedStatement,
@@ -21,7 +21,7 @@ from .exception import (
 from .http import RateLimiter
 from .serde import (
     DeleteRequestSerializer, GetIndexesRequestSerializer,
-    GetRequestSerializer, GetTableRequestSerializer,ListTablesRequestSerializer,
+    GetRequestSerializer, GetTableRequestSerializer, ListTablesRequestSerializer,
     MultiDeleteRequestSerializer,
     PrepareRequestSerializer, PutRequestSerializer, QueryRequestSerializer,
     SystemRequestSerializer, SystemStatusRequestSerializer,
@@ -2785,7 +2785,7 @@ class QueryRequest(Request):
     @staticmethod
     def get_serial_version(serial_version):
         # until V4 is supported
-        #return SerdeUtil.SERIAL_VERSION_3
+        # return SerdeUtil.SERIAL_VERSION_3
         return serial_version
 
     @staticmethod
@@ -3062,9 +3062,9 @@ class TableRequest(Request):
         super(TableRequest, self).__init__()
         self._statement = None
         self._limits = None
-        self._defined_tags = None # a dict, with str values
+        self._defined_tags = None  # a dict, with str values
         self._match_etag = None
-        self._free_form_tags = None # a dict, wih str values
+        self._free_form_tags = None  # a dict, wih str values
 
     def __str__(self):
         return ('TableRequest: [name=' + str(self.get_table_name()) +
@@ -3505,7 +3505,7 @@ class TableUsageRequest(Request):
         is a negative number.
         :versionadded: 5.4.0
         """
-        CheckValue.check_int_ge_zero(limit, 'limit')
+        CheckValue.check_int_ge_zero(start_index, 'start_index')
         self._start_index = start_index
         return self
 
@@ -3568,8 +3568,7 @@ class TableUsageRequest(Request):
 
     @staticmethod
     def _check_time(dt):
-        if (not (CheckValue.is_int(dt) or CheckValue.is_long(dt) or
-                 CheckValue.is_str(dt)) or
+        if (not (isinstance(dt, int) or CheckValue.is_str(dt)) or
                 not CheckValue.is_str(dt) and dt < 0):
             raise IllegalArgumentException(
                 'dt must be an integer that is not negative or an ISO ' +
@@ -4937,10 +4936,6 @@ class QueryIterator:
             raise StopIteration
         return self._next
 
-    # for python2 compatibility
-    def next(self):
-        return self.__next__()
-
 
 class SystemResult(Result):
     """
@@ -5128,9 +5123,9 @@ class TableResult(Result):
         self._operation_id = None
         self._ocid = None
         self._ddl = None
-        self._defined_tags = None # dict(str, dict(str, object))
-        self._match_etag = None # str
-        self._free_form_tags = None # dict(str, str)
+        self._defined_tags = None  # dict(str, dict(str, object))
+        self._match_etag = None  # str
+        self._free_form_tags = None  # dict(str, str)
 
     def __str__(self):
         return ('table ' + str(self._table_name) + '[' + self._state + '] ' +
@@ -5384,9 +5379,9 @@ class TableUsageResult(Result):
 
     def __init__(self):
         super(TableUsageResult, self).__init__()
+        self._last_index_returned = 0
         self._table_name = None
         self._usage_records = None
-        self._last_index = 0
 
     def __str__(self):
         if self._usage_records is None:
@@ -5439,6 +5434,7 @@ class TableUsageResult(Result):
         :rtype: int
         """
         return self._last_index_returned
+
 
 class WriteMultipleResult(Result):
     """

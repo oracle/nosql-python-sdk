@@ -92,7 +92,7 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
-        self.serial_version = config._get_serial_version()
+        self.serial_version = config.get_serial_version()
         # StoreAccessTokenProvider means onprem
         self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
         if config.get_rate_limiting_enabled() and self._is_cloud:
@@ -487,8 +487,9 @@ class Client(object):
         if self.serial_version > 2:
             self.serial_version -= 1
             msg = ('Unsupported protocol error, decrementing serial ' +
-                       'version to ' + str(self.serial_version) +
-                       ' and retrying')
+                   'version to ' + str(self.serial_version) +
+                   ' and retrying')
+            self._logutils.log_info(msg)
             return True
         return False
 
