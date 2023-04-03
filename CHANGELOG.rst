@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 ====================
+Unreleased
+====================
+
+Added
+_____
+
+* Cloud only: New regions: mx-monterrey-1, eu-frankfurt-2,
+  eu-madrid-2, eu-jovanovac-1, us-dcc-phoenix-4
+
+====================
  5.3.7 - 2022-12-12
 ====================
 
