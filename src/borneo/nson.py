@@ -325,6 +325,10 @@ class Nson(object):
             raise IllegalArgumentException(
                 'Unknown value type code: ' + str(t))
 
+    @staticmethod
+    def iso_time_to_ms(iso_str):
+        return SerdeUtil.iso_time_to_ms(iso_str)
+
 
 class NsonSerializer(NsonEventHandler):
     """

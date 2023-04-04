@@ -491,7 +491,7 @@ class QueryEntryStat:
     Statistics for a certain query.
     """
 
-    def __init__(self, profile, query_request):
+    def __init__(self, profile):
         self._plan = None
         self._does_writes = False
         self._count = 0
@@ -563,7 +563,7 @@ class ExtraQueryStats:
             sql = query_request.get_prepared_statement().get_sql_text()
         q_stat = self._queries.get(sql)
         if q_stat is None:
-            q_stat = QueryEntryStat(self._profile, query_request)
+            q_stat = QueryEntryStat(self._profile)
             self._queries[sql] = q_stat
         if q_stat.get_plan() is None:
             if query_request.get_prepared_statement() is not None:

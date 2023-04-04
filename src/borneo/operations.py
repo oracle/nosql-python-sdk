@@ -2784,8 +2784,6 @@ class QueryRequest(Request):
 
     @staticmethod
     def get_serial_version(serial_version):
-        # until V4 is supported
-        # return SerdeUtil.SERIAL_VERSION_3
         return serial_version
 
     @staticmethod

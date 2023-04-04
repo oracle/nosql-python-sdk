@@ -246,6 +246,8 @@ class Region(object):
     OC14_EP_BASE = 'https://nosql.{0}.oci.oraclecloud14.com'
     OC16_EP_BASE = 'https://nosql.{0}.oci.oraclecloud16.com'
     OC17_EP_BASE = 'https://nosql.{0}.oci.oraclecloud17.com'
+    OC19_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.eu'
+    OC20_EP_BASE = 'https://nosql.{0}.oci.oraclecloud20.com'
 
     def __init__(self, region_id):
         self._region_id = region_id
@@ -282,6 +284,10 @@ class Region(object):
             return str.format(Region.OC16_EP_BASE, self._region_id)
         if self._is_oc17_region():
             return str.format(Region.OC17_EP_BASE, self._region_id)
+        if self._is_oc19_region():
+            return str.format(Region.OC19_EP_BASE, self._region_id)
+        if self._is_oc20_region():
+            return str.format(Region.OC20_EP_BASE, self._region_id)
         raise IllegalArgumentException(
             'Unable to find endpoint for unknown region ' + self._region_id)
 
@@ -339,6 +345,14 @@ class Region(object):
     def _is_oc17_region(self):
         # Internal use only
         return Regions.OC17_REGIONS.get(self._region_id) is not None
+
+    def _is_oc19_region(self):
+        # Internal use only
+        return Regions.OC19_REGIONS.get(self._region_id) is not None
+
+    def _is_oc20_region(self):
+        # Internal use only
+        return Regions.OC20_REGIONS.get(self._region_id) is not None
 
 
 class Regions(object):
@@ -433,6 +447,8 @@ class Regions(object):
 
     MX_QUERETARO_1 = Region('mx-queretaro-1')
     """Region Location: Queretaro, Mexico"""
+    MX_MONTERREY_1 = Region('mx-monterrey-1')
+    """Region Location: Monterrey, Mexico"""
 
     IL_JERUSALEM_1 = Region('il-jerusalem-1')
     """Region Location: Jerusalem, Israel"""
@@ -518,6 +534,18 @@ class Regions(object):
     """Region Location: Phoenix, AZ"""
     US_DCC_PHOENIX_2 = Region('us-dcc-phoenix-2')
     """Region Location: Phoenix, AZ"""
+    US_DCC_PHOENIX_4 = Region('us-dcc-phoenix-4')
+    """Region Location: Phoenix, AZ"""
+
+    # OC19
+    EU_FRANKFURT_2 = Region('eu-frankfurt-2')
+    """Region Location: Frankfurt, Germany"""
+    EU_MADRID_2 = Region('eu-madrid-2')
+    """Region Location: Madrid, Spain"""
+
+    # OC20
+    EU_JOVANOVAC_1 = Region('eu-jovanovac-1')
+    """Region Location: Serbia"""
 
     # OC1
     OC1_REGIONS = dict()
@@ -563,6 +591,7 @@ class Regions(object):
     OC1_REGIONS[US_CHICAGO_1.get_region_id()] = US_CHICAGO_1
     OC1_REGIONS[CA_TORONTO_1.get_region_id()] = CA_TORONTO_1
     OC1_REGIONS[MX_QUERETARO_1.get_region_id()] = MX_QUERETARO_1
+    OC1_REGIONS[MX_MONTERREY_1.get_region_id()] = MX_MONTERREY_1
 
     OC2_REGIONS = dict()
     """A dict containing the OC2 regions."""
@@ -624,6 +653,18 @@ class Regions(object):
     """A dict containing the OC17 regions."""
     OC17_REGIONS[US_DCC_PHOENIX_1.get_region_id()] = US_DCC_PHOENIX_1
     OC17_REGIONS[US_DCC_PHOENIX_2.get_region_id()] = US_DCC_PHOENIX_2
+    OC17_REGIONS[US_DCC_PHOENIX_4.get_region_id()] = US_DCC_PHOENIX_4
+
+    # OC19
+    OC19_REGIONS = dict()
+    """A dict containing the OC19 regions."""
+    OC19_REGIONS[EU_FRANKFURT_2.get_region_id()] = EU_FRANKFURT_2
+    OC19_REGIONS[EU_MADRID_2.get_region_id()] = EU_MADRID_2
+
+    # OC20
+    OC20_REGIONS = dict()
+    """A dict containing the OC20 regions."""
+    OC20_REGIONS[EU_JOVANOVAC_1.get_region_id()] = EU_JOVANOVAC_1
 
     @staticmethod
     def get_oc1_regions():
@@ -681,6 +722,16 @@ class Regions(object):
         return Regions.OC17_REGIONS.values()
 
     @staticmethod
+    def get_oc19_regions():
+        # Internal use only
+        return Regions.OC19_REGIONS.values()
+
+    @staticmethod
+    def get_oc20_regions():
+        # Internal use only
+        return Regions.OC20_REGIONS.values()
+
+    @staticmethod
     def from_region_id(region_id):
         """
         Returns the Region associated with the string value supplied, or None if
@@ -716,6 +767,10 @@ class Regions(object):
             region = Regions.OC16_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC17_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC19_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC20_REGIONS.get(region_id)
         return region
 
 

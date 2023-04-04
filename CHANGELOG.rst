@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 ====================
+
 Unpublished
 ====================
 
@@ -11,6 +12,8 @@ NOTE: will be 5.4.x -- drop Python 2.7 support
 
 Added
 _____
+* Cloud only: New regions: mx-monterrey-1, eu-frankfurt-2,
+  eu-madrid-2, eu-jovanovac-1, us-dcc-phoenix-4
 * Support for new, flexible wire protocol (V4) has been added. The previous protocol
 is still supported for communication with servers that do not yet support V4. The
 version negotation is internal and automatic; however, use of V4 features will fail
