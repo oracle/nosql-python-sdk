@@ -42,7 +42,8 @@ import borneo.nson
 class Request(object):
     """
     A request is a class used as a base for all requests types. Public state and
-    methods are implemented by extending classes.
+    methods are implemented by extending classes. This pattern is used so that
+    fluent construction works properly for the extending classes
     """
 
     def __init__(self):
@@ -55,6 +56,7 @@ class Request(object):
         self._timeout_ms = 0
         self._write_rate_limiter = None
         self._rate_limit_delayed_ms = 0
+        self._namespace = None
 
     def add_retry_delay_ms(self, millis):
         """
@@ -341,6 +343,37 @@ class Request(object):
         """
         CheckValue.check_str(table_name, 'table_name', True)
         self._table_name = table_name
+
+    def set_namespace(self, namespace):
+        """
+        Internal use only
+
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        CheckValue.check_str(namespace, 'namespace', True)
+        self._namespace = namespace
+
+    def get_namespace(self):
+        """
+        On-premises only
+
+        Returns the namespace to use for the operation or None if not
+        set.
+
+        :returns: namespace, or None if not set.
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._namespace
 
     def _set_timeout(self, timeout_ms):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
@@ -918,6 +951,22 @@ class GetRequest(ReadRequest):
         """
         return self._key
 
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(GetRequest, self).set_namespace(namespace)
+        return self
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the operation. This is a required
@@ -1046,6 +1095,22 @@ class GetTableRequest(Request):
 
     def __str__(self):
         return 'GetTableRequest'
+
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(GetTableRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -1379,6 +1444,22 @@ class MultiDeleteRequest(Request):
     def __str__(self):
         return 'MultiDeleteRequest'
 
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(MultiDeleteRequest, self).set_namespace(namespace)
+        return self
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the operation. This is a required
@@ -1633,6 +1714,22 @@ class PrepareRequest(Request):
 
     def __str__(self):
         return 'PrepareRequest'
+
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(PrepareRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -2105,6 +2202,22 @@ class PutRequest(WriteRequest):
         :rtype: int
         """
         return super(PutRequest, self).get_timeout()
+
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(PutRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -3224,6 +3337,22 @@ class TableRequest(Request):
         """
         return self._match_etag
 
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(TableRequest, self).set_namespace(namespace)
+        return self
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the operation. The table name is only
@@ -3335,6 +3464,22 @@ class TableUsageRequest(Request):
         self._end_time = 0
         self._limit = 0
         self._start_index = 0
+
+    def set_namespace(self, namespace):
+        """
+        On-premises only
+
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded: 5.4.0
+        """
+        super(TableUsageRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -5041,6 +5186,9 @@ class SystemResult(Result):
         """
         return self._statement
 
+    def get_state(self):
+        return self._state
+
     def wait_for_completion(self, handle, wait_millis, delay_millis):
         """
         Waits for the operation to be complete. This is a blocking, polling
@@ -5126,9 +5274,20 @@ class TableResult(Result):
         self._free_form_tags = None  # dict(str, str)
 
     def __str__(self):
-        return ('table ' + str(self._table_name) + '[' + self._state + '] ' +
-                str(self._limits) + ' schema [' + str(self._schema) +
-                '] operation_id = ' + str(self._operation_id))
+        tres = ('table name=' + str(self._table_name) + ', state=' +
+                self._state)
+        if self._limits is not None:
+            tres += ', limits=' + str(self._limits)
+
+        # only print one of DDL or schema, preferring DDL
+        if self._ddl is not None:
+            tres += ', ddl=' + str(self._ddl)
+        elif self._schema is not None:
+            tres += ', schema=[' + str(self._schema) + ']'
+
+        if self._ocid is not None:
+            tres += ', ocid=' + str(self._ocid)
+        return tres
 
     def set_compartment_id(self, compartment_id):
         # Internal use only.

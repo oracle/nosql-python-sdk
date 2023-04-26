@@ -31,15 +31,11 @@ from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
 
 
 #
-# GMF todo:
+# TODO:
 #
 #  add tests for new fields (see Java)
-#  add default namespace and per-request namespace to API
-#  add new requests (tags, etc)
-#
 #  MR operations?
 #
-
 
 class Nson(object):
 
@@ -328,7 +324,6 @@ class Nson(object):
     @staticmethod
     def iso_time_to_ms(iso_str):
         return SerdeUtil.iso_time_to_ms(iso_str)
-
 
 class NsonSerializer(NsonEventHandler):
     """

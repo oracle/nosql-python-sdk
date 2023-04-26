@@ -51,6 +51,8 @@ class Client(object):
         self._proxy_port = config.get_proxy_port()
         self._proxy_username = config.get_proxy_username()
         self._proxy_password = config.get_proxy_password()
+        self._proxy_version = None
+        self._kv_version = None
         self._retry_handler = config.get_retry_handler()
         if self._retry_handler is None:
             self._retry_handler = DefaultRetryHandler()
@@ -224,6 +226,13 @@ class Client(object):
         # set the session cookie if available
         if self._session_cookie is not None:
             headers['Cookie'] = self._session_cookie
+
+        # set namespace if configured
+        namespace = request.get_namespace()
+        if namespace is None:
+            namespace = self._config.get_default_namespace()
+        if namespace is not None:
+            headers[HttpConstants.REQUEST_NAMESPACE_HEADER] = namespace
 
         content = self.serialize_request(request, headers)
         content_len = len(content)
@@ -531,3 +540,17 @@ class Client(object):
 
     def get_stats_control(self):
         return self._stats_control
+
+    def get_proxy_version(self):
+        return self._proxy_version
+
+    def get_kv_version(self):
+        return self._kv_version
+
+    def set_proxy_info(self, proxy_header):
+        if self._proxy_version is None and proxy_header is not None:
+            versions = proxy_header.split()
+            # bail if not of correct format
+            if len(versions) == 2:
+                self._proxy_version = versions[0].split('=')[1]
+                self._kv_version = versions[1].split('=')[1]

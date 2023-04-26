@@ -15,6 +15,7 @@ from borneo import (
     IllegalArgumentException, MultiDeleteRequest, PutOption, PutRequest,
     TableLimits, TableRequest, TimeToLive, TimeUnit,
     WriteMultipleRequest)
+from borneo.exception import UnsupportedProtocolException
 from parameters import table_name, timeout
 from parameters import table_prefix
 from test_base import TestBase
@@ -272,32 +273,38 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             request.set_return_row(True)
             wm_req.add(request, True)
 
-        result = self.handle.write_multiple(wm_req)
+        # put this test in try/except to handle versions of the server
+        # that cannot handle multiple table names. Technically the
+        # change happened mid-V3 so the check for serial_version < 4 isn't
+        # perfect, but it's good enough
+        try:
+            result = self.handle.write_multiple(wm_req)
+            op_results = self._check_write_multiple_result(result, num_operations * 2)
+            for idx in range(result.size()):
+                self._check_operation_result(op_results[idx], True, True)
 
-        op_results = self._check_write_multiple_result(result, num_operations * 2)
-        for idx in range(result.size()):
-            self._check_operation_result(op_results[idx], True, True)
+            for i in range(num_operations):
+                parent_row = dict()
+                parent_row['fld_sid'] = 1
+                parent_row['fld_id'] = i
+                request = GetRequest()
+                request.set_key(parent_row)
+                request.set_table_name(table_name)
+                result = self.handle.get(request)
+                self.assertEqual('str_' + str(i), result.get_value()['fld_str'])
 
-        for i in range(num_operations):
-            parent_row = dict()
-            parent_row['fld_sid'] = 1
-            parent_row['fld_id'] = i
-            request = GetRequest()
-            request.set_key(parent_row)
-            request.set_table_name(table_name)
-            result = self.handle.get(request)
-            self.assertEqual('str_' + str(i), result.get_value()['fld_str'])
-
-            child_row = dict()
-            child_row['fld_sid'] = 1
-            child_row['fld_id'] = i
-            child_row['childid'] = i
-            request = GetRequest()
-            request.set_key(child_row)
-            request.set_table_name(self.child_table_name)
-            result = self.handle.get(request)
-            self.assertEqual('name_' + str(i), result.get_value()['childname'])
-            self.assertEqual('data_' + str(i), result.get_value()['childdata'])
+                child_row = dict()
+                child_row['fld_sid'] = 1
+                child_row['fld_id'] = i
+                child_row['childid'] = i
+                request = GetRequest()
+                request.set_key(child_row)
+                request.set_table_name(self.child_table_name)
+                result = self.handle.get(request)
+                self.assertEqual('name_' + str(i), result.get_value()['childname'])
+                self.assertEqual('data_' + str(i), result.get_value()['childdata'])
+        except UnsupportedProtocolException:
+            self.assertTrue(serial_version < 4)
 
     def testWriteMultipleAbortIfUnsuccessful(self):
         failed_idx = 1

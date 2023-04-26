@@ -94,7 +94,7 @@ class TestStats(unittest.TestCase, TestBase):
     def doQuery(self, query):
         results = []
         query_req = QueryRequest().set_statement(query)
-        query_res = self.handle.query(query_req)
+        self.handle.query(query_req)
         while not query_req.is_done():
             query_res = self.handle.query(query_req)
             results.append(query_res.get_results())

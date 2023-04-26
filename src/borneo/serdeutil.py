@@ -822,3 +822,16 @@ class SerdeUtil(object):
         else:
             raise IllegalStateException(
                 'Unknown value type ' + str(type(value)))
+
+    #
+    # If the stream isn't pointing at an NSON Map there's a problem in the
+    # message. The caller will handle it if a non-zero value is returned
+    #
+    @staticmethod
+    def check_for_map(bis):
+        offset = bis.get_offset()
+        code = bis.read_byte()
+        if code == SerdeUtil.FIELD_VALUE_TYPE.MAP:
+            bis.set_offset(offset)
+            return 0
+        return code

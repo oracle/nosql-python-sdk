@@ -29,6 +29,9 @@ field
      * PrepareRequest.set_get_query_schema
      * PreparedStatement.get_query_schema
  * Cloud only: added use of ETags, DefinedTags and FreeFormTags in TableRequest and TableResult
+* On-premises only. Added support for default namespace and per-request namespace
+  specification
+
 
 Changed
 _______

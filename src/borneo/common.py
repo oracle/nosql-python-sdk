@@ -480,6 +480,12 @@ class HttpConstants(object):
     # The name of the (request-target) header.
     REQUEST_TARGET = '(request-target)'
 
+    # Default namespace header
+    REQUEST_NAMESPACE_HEADER = 'x-nosql-default-ns'
+
+    # Proxy version info
+    RESPONSE_PROXY_INFO = 'x-nosql-version'
+
     # Creates a URI path from the arguments
     def _make_path(*args):
         path = args[0]

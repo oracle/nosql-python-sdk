@@ -13,7 +13,7 @@ from time import sleep, time
 
 from requests import ConnectionError, Timeout, codes
 
-from .common import ByteInputStream, CheckValue, synchronized
+from .common import ByteInputStream, CheckValue, HttpConstants, synchronized
 from .exception import (
     IllegalStateException, NoSQLException,
     ReadThrottlingException, RequestTimeoutException, RetryableException,
@@ -290,6 +290,8 @@ class RequestUtils(object):
                         'Response: ' + self._request.__class__.__name__ +
                         ', status: ' + str(response.status_code))
                 if self._request is not None:
+                    self._client.set_proxy_info(
+                        response.headers.get(HttpConstants.RESPONSE_PROXY_INFO))
                     res = self._process_response(
                         self._request, response.content, response.status_code)
                     if (isinstance(res, operations.TableResult) and
@@ -560,9 +562,13 @@ class RequestUtils(object):
         #
         version = request.get_serial_version(self._client.serial_version)
         if version <= 3:
+            # V3 and earlier protocols start with an error byte (0 is no error)
             code = bis.read_byte()
         else:
-            code = 0
+            # V4 starts with an NSON MAP. If the type is correct then treat it
+            # as a V4 response. If it's not correct then it's a V3
+            # error code from a V3 proxy. If it's a V4 map, code will be 0
+            code = SerdeUtil.check_for_map(bis)
         if code == 0:
             res = request.create_serializer(version).deserialize(
                 request, bis, version)
@@ -599,8 +605,8 @@ class RequestUtils(object):
         """
         if code != SerdeUtil.USER_ERROR.TABLE_NOT_FOUND or \
                 wm_request.is_single_table() or \
-                err.index(",") < 0 or \
-                err.index("[") >= 0:
+                err.find(",") < 0 or \
+                err.find("[") >= 0:
             raise SerdeUtil.map_exception(code, err)
         raise UnsupportedProtocolException(
             "WriteMultiple requests " +

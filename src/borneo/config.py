@@ -929,6 +929,7 @@ class NoSQLHandleConfig(object):
         self._logger = None
         self._is_default_logger = True
         self._serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
+        self._default_namespace = None
 
         profile_property = getenv(self._STATS_PROFILE_PROPERTY,
                                   self._DEFAULT_STATS_PROFILE.name.lower())
@@ -1746,3 +1747,30 @@ class NoSQLHandleConfig(object):
 
     def set_serial_version(self, version):
         self._serial_version = version
+
+    def set_default_namespace(self, namespace):
+        """
+        On-premises only.
+
+        Sets the default namespace to use for requests that use a table
+        name
+
+        :param namespace: the default namespace.
+        :type namespace: str
+        :returns: self
+        :versionadded: 5.4.0
+        """
+        self._default_namespace = namespace
+        return self
+
+    def get_default_namespace(self):
+        """
+        On-premises only.
+
+        Returns the default namespace or None if not set.
+
+        :returns: the default namespace or None.
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._default_namespace
