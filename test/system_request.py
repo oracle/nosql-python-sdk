@@ -6,7 +6,6 @@
 #
 
 import unittest
-from sys import version_info
 
 from borneo import (
     IllegalArgumentException, SystemRequest, SystemState, UserInfo)
@@ -151,9 +150,7 @@ class TestSystemRequest(unittest.TestCase, TestBase):
 
         @staticmethod
         def _is_str(data):
-            if ((version_info.major == 2 and isinstance(data, (str, unicode)) or
-                    version_info.major == 3 and isinstance(data, str)) and
-                    len(data) != 0):
+            if isinstance(data, str) and len(data) != 0:
                 return True
             return False
 

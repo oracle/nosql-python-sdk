@@ -13,13 +13,12 @@ from time import sleep, time
 
 from requests import ConnectionError, Timeout, codes
 
-from .common import ByteInputStream, CheckValue, synchronized
+from .common import ByteInputStream, CheckValue, HttpConstants, synchronized
 from .exception import (
     IllegalStateException, NoSQLException,
     ReadThrottlingException, RequestTimeoutException, RetryableException,
     SecurityInfoNotReadyException, UnsupportedProtocolException,
     WriteThrottlingException)
-
 from .serdeutil import SerdeUtil
 
 try:
@@ -143,6 +142,7 @@ class RequestUtils(object):
         :type payload: bytearray
         :param timeout_ms: request timeout in milliseconds.
         :type timeout_ms: int
+        :param stats_config: configuration for stats usage
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
@@ -290,6 +290,8 @@ class RequestUtils(object):
                         'Response: ' + self._request.__class__.__name__ +
                         ', status: ' + str(response.status_code))
                 if self._request is not None:
+                    self._client.set_proxy_info(
+                        response.headers.get(HttpConstants.RESPONSE_PROXY_INFO))
                     res = self._process_response(
                         self._request, response.content, response.status_code)
                     if (isinstance(res, operations.TableResult) and
@@ -408,7 +410,8 @@ class RequestUtils(object):
                         payload = self._client.serialize_request(self._request,
                                                                  headers)
                     self._request.increment_retries()
-                    exception = upe
+                    # don't set exception for this case -- it is misleading
+                    # exception = upe
                     continue
                 self._logutils.log_error(
                     'Client execution UnsupportedProtocolException: ' + str(upe))
@@ -528,7 +531,7 @@ class RequestUtils(object):
         :param request: the request executed by the server.
         :type request: Request
         :param content: the content of the response from the server.
-        :type content: bytes for python 3 and str for python 2
+        :type content: bytes
         :param status: the status code of the response from the server.
         :type status: int
         :returns: the programmatic response object.
@@ -553,10 +556,22 @@ class RequestUtils(object):
         :returns: the result of processing the successful request.
         :rtype: Result
         """
-        code = bis.read_byte()
+        #
+        # this call gives the Request an opinion on which serial version
+        # to use
+        #
+        version = request.get_serial_version(self._client.serial_version)
+        if version <= 3:
+            # V3 and earlier protocols start with an error byte (0 is no error)
+            code = bis.read_byte()
+        else:
+            # V4 starts with an NSON MAP. If the type is correct then treat it
+            # as a V4 response. If it's not correct then it's a V3
+            # error code from a V3 proxy. If it's a V4 map, code will be 0
+            code = SerdeUtil.check_for_map(bis)
         if code == 0:
-            res = request.create_serializer().deserialize(
-                request, bis, self._client.serial_version)
+            res = request.create_serializer(version).deserialize(
+                request, bis, version)
             if request.is_query_request():
                 if not request.is_simple_query():
                     request.get_driver().set_client(self._client)
@@ -590,8 +605,8 @@ class RequestUtils(object):
         """
         if code != SerdeUtil.USER_ERROR.TABLE_NOT_FOUND or \
                 wm_request.is_single_table() or \
-                err.index(",") < 0 or \
-                err.index("[") >= 0:
+                err.find(",") < 0 or \
+                err.find("[") >= 0:
             raise SerdeUtil.map_exception(code, err)
         raise UnsupportedProtocolException(
             "WriteMultiple requests " +
@@ -607,7 +622,7 @@ class RequestUtils(object):
         action.
 
         :param content: content of the response from the server.
-        :type content: bytes for python 3 and str for python 2
+        :type content: bytes
         :param status: the status code of the response from the server.
         :type status: int
         """

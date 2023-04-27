@@ -15,15 +15,17 @@ from test_base import TestBase
 from testutils import get_row
 from time import time
 
+table_ttl = TimeToLive.of_days(2)
+serial_version = 0
 
+
+# noinspection PyArgumentEqualDefault
 class TestDelete(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
-        global table_ttl
-        table_ttl = TimeToLive.of_days(2)
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
+                'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
 fld_bin BINARY, fld_time TIMESTAMP(6), fld_num NUMBER, fld_json JSON, \
 fld_arr ARRAY(STRING), fld_map MAP(STRING), \

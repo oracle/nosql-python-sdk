@@ -24,6 +24,7 @@ import borneo
 # -- Project information -----------------------------------------------------
 
 project = u'NoSQL Database Python SDK'
+# noinspection PyShadowingBuiltins
 copyright = u'2018, 2023 Oracle'
 author = u'Oracle'
 

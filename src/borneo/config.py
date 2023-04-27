@@ -7,11 +7,12 @@
 
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from enum import Enum
 from os import getenv
 from random import random
 from ssl import SSLContext
 from time import sleep, time
+
+from enum import Enum
 from typing import Callable
 
 try:
@@ -26,6 +27,7 @@ from .common import CheckValue, Consistency
 from .exception import (
     IllegalArgumentException, OperationThrottlingException, RetryableException)
 from .operations import Request
+from .serdeutil import SerdeUtil
 
 try:
     from . import iam
@@ -772,7 +774,6 @@ class Regions(object):
         return region
 
 
-# python 2.7 ??? class StatsProfile(object):
 class StatsProfile(Enum):
     """
     The following semantics are attached to the StatsProfile values:
@@ -927,35 +928,24 @@ class NoSQLHandleConfig(object):
         self._ssl_protocol = None
         self._logger = None
         self._is_default_logger = True
+        self._serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
+        self._default_namespace = None
 
         profile_property = getenv(self._STATS_PROFILE_PROPERTY,
-            self._DEFAULT_STATS_PROFILE.name.lower())
+                                  self._DEFAULT_STATS_PROFILE.name.lower())
         try:
             self._stats_profile = StatsProfile[profile_property.upper()]
         except KeyError:
             self._stats_profile = StatsProfile.NONE
-        # python2.7 ???
-        # "none" is the value of: self._DEFAULT_STATS_PROFILE.name.lower()
-        # profile_property = getenv(self._STATS_PROFILE_PROPERTY, "none").upper()
-        # if "NONE" == profile_property:
-        #     self._stats_profile = StatsProfile.NONE
-        # elif "REGULAR" == profile_property:
-        #     self._stats_profile = StatsProfile.REGULAR
-        # elif "MORE" == profile_property:
-        #     self._stats_profile = StatsProfile.MORE
-        # elif "ALL" == profile_property:
-        #     self._stats_profile = StatsProfile.ALL
-        # else:
-        #     self._stats_profile = StatsProfile.NONE
-
 
         self._stats_interval = getenv(self._STATS_INTERVAL_PROPERTY,
-            self._DEFAULT_STATS_INTERVAL)
+                                      self._DEFAULT_STATS_INTERVAL)
         self._stats_interval = int(self._stats_interval)
 
         self._stats_pretty_print = getenv(self._STATS_PRETTY_PRINT_PROPERTY,
-            self._DEFAULT_STATS_PRETTY_PRINT)
+                                          self._DEFAULT_STATS_PRETTY_PRINT)
         self._stats_pretty_print = bool(self._stats_pretty_print)
+        # noinspection PyTypeChecker
         self._stats_handler = None  # type: Callable
 
     def get_service_url(self):
@@ -1686,7 +1676,7 @@ class NoSQLHandleConfig(object):
         """
         if not isinstance(stats_handler, Callable):
             raise IllegalArgumentException(
-                'stats_hadler must be of Callable type')
+                'stats_handler must be of Callable type')
         self._stats_handler = stats_handler
         return self
 
@@ -1751,3 +1741,36 @@ class NoSQLHandleConfig(object):
         CheckValue.check_boolean(pretty_print, "pretty_print")
         self._stats_pretty_print = pretty_print
         return self
+
+    def get_serial_version(self):
+        return self._serial_version
+
+    def set_serial_version(self, version):
+        self._serial_version = version
+
+    def set_default_namespace(self, namespace):
+        """
+        On-premises only.
+
+        Sets the default namespace to use for requests that use a table
+        name
+
+        :param namespace: the default namespace.
+        :type namespace: str
+        :returns: self
+        :versionadded: 5.4.0
+        """
+        self._default_namespace = namespace
+        return self
+
+    def get_default_namespace(self):
+        """
+        On-premises only.
+
+        Returns the default namespace or None if not set.
+
+        :returns: the default namespace or None.
+        :rtype: str
+        :versionadded: 5.4.0
+        """
+        return self._default_namespace

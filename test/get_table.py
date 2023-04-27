@@ -13,6 +13,8 @@ from borneo import (
 from parameters import is_minicloud, is_pod, table_name, timeout, wait_timeout
 from test_base import TestBase
 
+table_limits = TableLimits(100, 100, 1)
+
 
 class TestGetTable(unittest.TestCase, TestBase):
 
@@ -20,14 +22,13 @@ class TestGetTable(unittest.TestCase, TestBase):
     def setUpClass(cls):
         cls.set_up_class()
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
+                'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
 fld_bin BINARY, fld_time TIMESTAMP(1), fld_num NUMBER, fld_json JSON, \
 fld_arr ARRAY(STRING), fld_map MAP(STRING), \
 fld_rec RECORD(fld_id LONG, fld_bool BOOLEAN, fld_str STRING), \
 PRIMARY KEY(fld_id)) USING TTL 30 DAYS')
         global table_limits
-        table_limits = TableLimits(100, 100, 1)
         create_request = TableRequest().set_statement(
             create_statement).set_table_limits(table_limits)
         cls.table_request(create_request)

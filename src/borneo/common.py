@@ -10,7 +10,6 @@ from decimal import Decimal
 from functools import wraps
 from logging import Logger
 from struct import pack, unpack
-from sys import version_info
 from threading import Lock
 from time import time
 from warnings import simplefilter, warn
@@ -54,6 +53,9 @@ class ByteInputStream(object):
     def __init__(self, content):
         self._content = content
         self._offset = 0
+
+    def get_content(self):
+        return self._content
 
     def get_offset(self):
         return self._offset
@@ -104,6 +106,9 @@ class ByteInputStream(object):
     def set_offset(self, offset):
         self._offset = offset
 
+    def skip(self, length):
+        self._offset += length
+
 
 class ByteOutputStream(object):
     """
@@ -113,6 +118,9 @@ class ByteOutputStream(object):
 
     def __init__(self, content):
         self._content = content
+
+    def get_content(self):
+        return self._content
 
     def get_offset(self):
         return len(self._content)
@@ -126,6 +134,11 @@ class ByteOutputStream(object):
         self.write_value(val_s)
 
     def write_bytearray(self, value, start=0, end=None):
+        # optimize (?) full concatenate
+        if start == 0 and end is None:
+            self._content.extend(value)
+            return
+
         if end is None:
             end = len(value)
         for index in range(start, end):
@@ -151,7 +164,13 @@ class ByteOutputStream(object):
 
     def write_value(self, value):
         val_b = bytearray(value)
-        self.write_bytearray(val_b)
+        self._content.extend(val_b)
+
+    def get_byte_at(self, index):
+        return self._content[index]
+
+    def get_last_byte(self):
+        return self._content[-1]
 
 
 class CheckValue(object):
@@ -174,22 +193,20 @@ class CheckValue(object):
 
     @staticmethod
     def check_int(data, name):
-        if not (CheckValue.is_int(data) or CheckValue.is_long(data)):
+        if not isinstance(data, int):
             raise IllegalArgumentException(
                 name + ' must be an integer. Got:' + str(data))
 
     @staticmethod
     def check_int_ge_zero(data, name):
-        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
-                data < 0):
+        if not isinstance(data, int) or data < 0:
             raise IllegalArgumentException(
                 name + ' must be an integer that is not negative. Got:' +
                 str(data))
 
     @staticmethod
     def check_int_gt_zero(data, name):
-        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
-                data <= 0):
+        if not isinstance(data, int) or data <= 0:
             raise IllegalArgumentException(
                 name + ' must be an positive integer. Got:' + str(data))
 
@@ -217,42 +234,42 @@ class CheckValue(object):
 
     @staticmethod
     def is_digit(data):
-        if (CheckValue.is_int(data) or CheckValue.is_long(data) or
+        if (isinstance(data, int) or
                 isinstance(data, float) or isinstance(data, Decimal)):
             return True
         return False
 
+    # returns True if the data is of type int and its value is in the
+    # range of a 32-bit integer
     @staticmethod
-    def is_int(data):
-        if ((version_info.major == 2 and isinstance(data, int) or
-             version_info.major == 3 and isinstance(data, int)) and
+    def is_int_value(data):
+        if (isinstance(data, int) and
                 -pow(2, 31) <= data < pow(2, 31)):
             return True
         return False
 
+    # returns True if the data is of type int and its value is larger than
+    # that of a 32-bit integer and in the range of a 64-bit integer
+    #
+    # NOTE: It is sufficient to just validate that it's an int and
+    # is out of range for a 32-bit integer value
     @staticmethod
-    def is_long(data):
-        if ((version_info.major == 2 and isinstance(data, (int, long)) or
-             version_info.major == 3 and isinstance(data, int)) and
-                not CheckValue.is_int(data) and
-                -pow(2, 63) <= data < pow(2, 63)):
+    def is_long_value(data):
+        if (isinstance(data, int) and
+                not CheckValue.is_int_value(data)):
             return True
         return False
 
     @staticmethod
     def is_overlong(data):
-        if ((version_info.major == 2 and isinstance(data, long) or
-             version_info.major == 3 and isinstance(data, int)) and
+        if (isinstance(data, int) and
                 (data < -pow(2, 63) or data >= pow(2, 63))):
             return True
         return False
 
     @staticmethod
     def is_str(data):
-        if (version_info.major == 2 and isinstance(data, (str, unicode)) or
-                version_info.major == 3 and isinstance(data, str)):
-            return True
-        return False
+        return isinstance(data, str)
 
 
 class Consistency(object):
@@ -463,6 +480,12 @@ class HttpConstants(object):
     # The name of the (request-target) header.
     REQUEST_TARGET = '(request-target)'
 
+    # Default namespace header
+    REQUEST_NAMESPACE_HEADER = 'x-nosql-default-ns'
+
+    # Proxy version info
+    RESPONSE_PROXY_INFO = 'x-nosql-version'
+
     # Creates a URI path from the arguments
     def _make_path(*args):
         path = args[0]
@@ -480,14 +503,15 @@ class HttpConstants(object):
 
 class IndexInfo(object):
     """
-    IndexInfo represents the information about a single index including its name
-    and field names. Instances of this class are returned in
+    IndexInfo represents the information about a single index including its
+    name, field names and field types. Instances of this class are returned in
     :py:class:`GetIndexesResult`.
     """
 
-    def __init__(self, index_name, field_names):
+    def __init__(self, index_name, field_names, field_types=None):
         self._index_name = index_name
         self._field_names = field_names
+        self._field_types = field_types
 
     def __str__(self):
         return ('IndexInfo [indexName=' + self._index_name + ', fields=[' +
@@ -510,6 +534,16 @@ class IndexInfo(object):
         :rtype: list(str)
         """
         return self._field_names
+
+    def get_field_types(self):
+        """
+        Returns the list of types of fields that define the index.
+
+        :returns: the field types.
+        :rtype: list(str)
+        :versionadded: 5.4.0
+        """
+        return self._field_types
 
 
 class JsonNone(object):
@@ -717,7 +751,7 @@ class PackedInteger(object):
         :param offset: the offset in the buffer at which to start writing.
         :type offset: int
         :param value: the long integer to be written.
-        :type value: int for python 3 and long for python 2
+        :type value: int
         :returns: the offset past the bytes written.
         :rtype: int
 
@@ -962,7 +996,7 @@ class PackedInteger(object):
         :param offset: the offset in the buffer at which to start reading.
         :type offset: int
         :returns: the long integer that was read.
-        :rtype: int for python 3 and long for python 2
+        :rtype: int
         """
         # The first byte of the buf stores the length of the value part.
         b1 = buf[offset] & 0xff
@@ -975,10 +1009,7 @@ class PackedInteger(object):
             byte_len = b1 - 0xf7
             negative = False
         else:
-            try:
-                return long(b1 - 127)
-            except NameError:
-                return b1 - 127
+            return b1 - 127
 
         """
         The following bytes on the buf store the value as a big endian integer.
@@ -1020,10 +1051,7 @@ class PackedInteger(object):
             value -= 119
         else:
             value += 121
-        try:
-            return long(value)
-        except NameError:
-            return value
+        return value
 
 
 class PreparedStatement(object):
@@ -1044,9 +1072,9 @@ class PreparedStatement(object):
     """
     OPCODE_SELECT = 5
 
-    def __init__(self, sql_text, query_plan, topology_info, proxy_statement,
-                 driver_plan, num_iterators, num_registers, external_vars,
-                 namespace, table_name, operation):
+    def __init__(self, sql_text, query_plan, query_schema, topology_info,
+                 proxy_statement, driver_plan, num_iterators, num_registers,
+                 external_vars, namespace, table_name, operation):
         """
         Constructs a PreparedStatement. Construction is hidden to eliminate
         application access to the underlying statement, reducing the chance of
@@ -1059,6 +1087,7 @@ class PreparedStatement(object):
 
         self._sql_text = sql_text
         self._query_plan = query_plan
+        self._query_schema = query_schema
         # Applicable to advanced queries only.
         self._topology_info = topology_info
         # The serialized PreparedStatement created at the backend store. It is
@@ -1108,7 +1137,7 @@ class PreparedStatement(object):
         :rtype: PreparedStatement
         """
         return PreparedStatement(
-            self._sql_text, self._query_plan, self._topology_info,
+            self._sql_text, self._query_plan, self._query_schema, self._topology_info,
             self._proxy_statement, self._driver_query_plan, self._num_iterators,
             self._num_registers, self._variables, self._namespace,
             self._table_name, self._operation)
@@ -1133,6 +1162,17 @@ class PreparedStatement(object):
         :rtype: bool
         """
         return self._query_plan
+
+    def get_query_schema(self):
+        """
+        Returns a string representation of the query schema if it was
+        requested in the :py:class:`PrepareRequest`; None otherwise.
+
+        :returns: the string representation of the query schema.
+        :rtype: bool
+        :versionadded: 5.4.0
+        """
+        return self._query_schema
 
     def get_sql_text(self):
         """
@@ -1209,8 +1249,9 @@ class PreparedStatement(object):
         :raises IllegalArgumentException: raises the exception if variable is
             not a string or positive integer.
         """
-        if (not (CheckValue.is_str(variable) or CheckValue.is_int(variable)) or
-                CheckValue.is_int(variable) and variable <= 0):
+        if (not (CheckValue.is_str(variable) or
+                 CheckValue.is_int_value(variable)) or
+                CheckValue.is_int_value(variable) and variable <= 0):
             raise IllegalArgumentException(
                 'variable must be a string or positive integer.')
         if isinstance(variable, str):
@@ -1661,7 +1702,8 @@ class TableUsage(object):
 
     def __init__(self, start_time_ms, seconds_in_period, read_units,
                  write_units, storage_gb, read_throttle_count,
-                 write_throttle_count, storage_throttle_count):
+                 write_throttle_count, storage_throttle_count,
+                 max_shard_usage_percent):
         # Internal use only.
         self._start_time_ms = start_time_ms
         self._seconds_in_period = seconds_in_period
@@ -1671,6 +1713,7 @@ class TableUsage(object):
         self._read_throttle_count = read_throttle_count
         self._write_throttle_count = write_throttle_count
         self._storage_throttle_count = storage_throttle_count
+        self._max_shard_usage_percent = max_shard_usage_percent
 
     def __str__(self):
         return ('TableUsage [start_time_ms=' + str(self._start_time_ms) +
@@ -1680,7 +1723,9 @@ class TableUsage(object):
                 str(self._storage_gb) + ', read_throttle_count=' +
                 str(self._read_throttle_count) + ', write_throttle_count=' +
                 str(self._write_throttle_count) + ', storage_throttle_count=' +
-                str(self._storage_throttle_count) + ']')
+                str(self._storage_throttle_count) +
+                ', max_shard_usage_percent=' +
+                str(self._max_shard_usage_percent) + ']')
 
     def get_start_time(self):
         """
@@ -1772,6 +1817,17 @@ class TableUsage(object):
         :rtype: int
         """
         return self._storage_throttle_count
+
+    def get_max_shard_usage_percent(self):
+        """
+        Returns the percentage of allowed storage usage for the shard with the
+        highest usage percentage across all table shards. This can be used as a
+        gauge of toal storage available as well as a hint for key distribution.
+        :returns: the percentage
+        :rtype: int
+        :versionadded: 5.4.0
+        """
+        return self._max_shard_usage_percent
 
 
 class TimeUnit(object):

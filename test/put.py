@@ -20,6 +20,9 @@ from parameters import is_onprem, table_name, tenant_id, timeout
 from test_base import TestBase
 from testutils import get_row
 
+table_ttl = TimeToLive.of_days(30)
+serial_version = 0
+
 
 class TestPut(unittest.TestCase, TestBase):
 
@@ -27,7 +30,6 @@ class TestPut(unittest.TestCase, TestBase):
     def setUpClass(cls):
         cls.set_up_class()
         global table_ttl
-        table_ttl = TimeToLive.of_days(30)
         create_statement = (
                 'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \

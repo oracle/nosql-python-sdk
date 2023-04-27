@@ -5,7 +5,7 @@ Oracle NoSQL Database Python SDK
 About
 =====
 
-This is the Python SDK for Oracle NoSQL Database. Python 2.7+ and 3.5+ are
+This is the Python SDK for Oracle NoSQL Database. Python versions 3.5+ are
 supported. The SDK provides interfaces, documentation, and examples to help
 develop Python applications that connect to the Oracle NoSQL Database Cloud
 Service, Oracle NoSQL Database and to the Oracle NoSQL Cloud Simulator (which
@@ -130,7 +130,7 @@ that the *borneo* package has been installed.
     # which has a number of additional operations.
     #
     # Requirements:
-    #  1. Python 2.7 or 3.5+
+    #  1. Python 3.5+
     #  2. Python dependencies (install using pip or other mechanism):
     #   o requests
     #   o oci (only if running against the Cloud Service)

@@ -5,19 +5,28 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
-OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=True
+OCI_PYTHON_SDK_NO_SERVICE_IMPORTS = True
 
 from os import path
-from requests import Request
 from threading import Lock, Timer
 from time import sleep, time
+
+from requests import Request
+
 try:
+    # noinspection PyUnresolvedReferences
     from oci.signer import Signer
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import SecurityTokenSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import EphemeralResourcePrincipalSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import InstancePrincipalsSecurityTokenSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import get_resource_principals_signer
+    # noinspection PyUnresolvedReferences
     from oci.config import from_file
+
     oci = 'yes'
 except ImportError:
     oci = None
@@ -144,8 +153,8 @@ class SignatureProvider(AuthorizationProvider):
         self._region = None
         if provider is not None:
             if not isinstance(
-                provider,
-                (Signer, SecurityTokenSigner)):
+                    provider,
+                    (Signer, SecurityTokenSigner)):
                 raise IllegalArgumentException(
                     'provider should be an instance of oci.signer.Signer or ' +
                     'oci.auth.signers.SecurityTokenSigner.')
@@ -405,18 +414,18 @@ class SignatureProvider(AuthorizationProvider):
             return self._provider.api_key.split('/')[0]
 
     def _refresh_task(self):
-        timeout =  self._refresh_ahead
+        timeout = self._refresh_ahead
         start_ms = int(round(time() * 1000))
         error_logged = False
         while True:
             try:
                 # refresh security token before create new signature
                 if (isinstance(
-                    self._provider,
-                    InstancePrincipalsSecurityTokenSigner) or
-                    isinstance(
-                    self._provider,
-                    EphemeralResourcePrincipalSigner)):
+                        self._provider,
+                        InstancePrincipalsSecurityTokenSigner) or
+                        isinstance(
+                            self._provider,
+                            EphemeralResourcePrincipalSigner)):
                     self._provider.refresh_security_token()
 
                 self.get_signature_details_internal()
@@ -434,7 +443,7 @@ class SignatureProvider(AuthorizationProvider):
                     error_logged = True
 
             # check for timeout in the loop
-            if (int(round(time() * 1000)) - start_ms >= timeout):
+            if int(round(time() * 1000)) - start_ms >= timeout:
                 self._logutils.log_error(
                     'Request signature refresh timed out after ' + str(timeout))
                 break

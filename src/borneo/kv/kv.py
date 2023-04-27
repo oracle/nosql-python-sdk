@@ -7,10 +7,12 @@
 
 from base64 import b64encode
 from json import loads
-from requests import ConnectionError, Session, codes
 from threading import Lock, Timer
 from time import time
 from traceback import format_exc
+
+from requests import ConnectionError, Session, codes
+
 try:
     # noinspection PyCompatibility
     from urlparse import urlparse

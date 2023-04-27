@@ -22,7 +22,7 @@ class TestMultiDelete(unittest.TestCase, TestBase):
     def setUpClass(cls):
         cls.set_up_class()
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
+                'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
 fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(8), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \
@@ -106,6 +106,7 @@ PRIMARY KEY(SHARD(fld_sid), fld_id)) USING TTL 1 HOURS')
                           self.multi_delete_request)
         self.multi_delete_request.set_range(
             FieldRange('fld_sid').set_start(2, True))
+
         self.assertRaises(IllegalArgumentException, self.handle.multi_delete,
                           self.multi_delete_request)
         self.multi_delete_request.set_range(

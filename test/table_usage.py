@@ -19,6 +19,7 @@ from test_base import TestBase
 from testutils import get_row
 
 
+# noinspection PyUnresolvedReferences
 class TestTableUsage(unittest.TestCase, TestBase):
 
     @classmethod

@@ -43,9 +43,9 @@ setup(
 
     # Version should match the system release, but may vary as patches
     # are created.
-    version=version,
+    version=str(version),
     description='Oracle NoSQL Database Python SDK',
-    long_description=readme,
+    long_description=str(readme),
     long_description_content_type='text/x-rst',
 
     author='Oracle',
@@ -73,7 +73,6 @@ setup(
         'License :: OSI Approved :: Universal Permissive License (UPL)',
 
         # Supported Python versions
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',

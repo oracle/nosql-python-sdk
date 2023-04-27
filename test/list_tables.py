@@ -17,6 +17,8 @@ from test_base import TestBase
 from testutils import (
     add_tenant, add_tier, delete_tenant, delete_tier, get_handle, namespace)
 
+table_names = list()
+
 
 class TestListTables(unittest.TestCase, TestBase):
     handles = None
@@ -26,7 +28,6 @@ class TestListTables(unittest.TestCase, TestBase):
         add_tier()
         cls.handles = list()
         global table_names
-        table_names = list()
         num_tables = 3
         #
         # In pod env create 1 handle, otherwise create 2 handles for additional
@@ -50,7 +51,7 @@ class TestListTables(unittest.TestCase, TestBase):
                     'DROP TABLE IF EXISTS ' + tb_name)
                 cls.table_request(drop_request, cls.handles[handle])
                 create_statement = (
-                    'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
+                        'CREATE TABLE ' + tb_name + '(fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
 fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(2), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \

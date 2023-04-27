@@ -9,7 +9,8 @@
 # when importing from the OCI SDK. It can greatly speed up
 # program startup
 import os
-os.environ['OCI_PYTHON_SDK_NO_SERVICE_IMPORTS']='1'
+
+os.environ['OCI_PYTHON_SDK_NO_SERVICE_IMPORTS'] = '1'
 
 from . import iam
 from . import kv

@@ -5,17 +5,17 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from dateutil import parser, tz
 from decimal import (
-    Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
+    Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
     ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP)
 from sys import version_info
+from time import mktime
 
 from .common import (
-    CheckValue, Empty, IndexInfo, JsonNone, PackedInteger, PreparedStatement,
-    PutOption, State, SystemState, TableLimits, TableUsage, TimeUnit, Version,
-    enum)
+    CheckValue, Empty, JsonNone, PackedInteger, PutOption, State, SystemState, enum)
 from .exception import (
     BatchOperationNumberLimitException, DeploymentException,
     EvolutionLimitException, IllegalArgumentException, IllegalStateException,
@@ -29,6 +29,121 @@ from .exception import (
     UnauthorizedException, UnsupportedProtocolException,
     WriteThrottlingException)
 
+from .kv.exception import AuthenticationException
+
+
+#
+# Abstract classes/interfaces related to serialization
+#
+
+class RequestSerializer(object):
+    """
+    Base class of different kinds of RequestSerializer.
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def serialize(self, request, bos, serial_version):
+        """
+        Method used to serialize the request.
+        """
+        pass
+
+    @abstractmethod
+    def deserialize(self, request, bis, serial_version):
+        """
+        Method used to deserialize the request.
+        """
+        pass
+
+
+class NsonEventHandler:
+    """
+    Base class of NsonEvent
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def boolean_value(self, value):
+        pass
+
+    @abstractmethod
+    def binary_value(self, value):
+        pass
+
+    @abstractmethod
+    def string_value(self, value):
+        pass
+
+    @abstractmethod
+    def integer_value(self, value):
+        pass
+
+    @abstractmethod
+    def long_value(self, value):
+        pass
+
+    @abstractmethod
+    def double_value(self, value):
+        pass
+
+    @abstractmethod
+    def number_value(self, value):
+        pass
+
+    @abstractmethod
+    def timestamp_value(self, value):
+        pass
+
+    @abstractmethod
+    def json_null_value(self):
+        pass
+
+    @abstractmethod
+    def null_value(self):
+        pass
+
+    @abstractmethod
+    def empty_value(self):
+        pass
+
+    @abstractmethod
+    def start_map(self, size=None):
+        pass
+
+    @abstractmethod
+    def start_array(self, size=None):
+        pass
+
+    @abstractmethod
+    def end_map(self, size=None):
+        pass
+
+    @abstractmethod
+    def end_array(self, size=None):
+        pass
+
+    @abstractmethod
+    def start_map_field(self, key):
+        pass
+
+    @abstractmethod
+    def end_map_field(self, key=None):
+        pass
+
+    @abstractmethod
+    def start_array_field(self, index=None):
+        pass
+
+    @abstractmethod
+    def end_array_field(self, index=None):
+        pass
+
+    @abstractmethod
+    def stop(self):
+        pass
+
+
 class SerdeUtil(object):
     """
     A class to encapsulte static methods used by serialization and
@@ -38,8 +153,10 @@ class SerdeUtil(object):
     """
     TRACE_LEVEL = 0
 
-    # Serial version of the protocol.
-    DEFAULT_SERIAL_VERSION = 3
+    # protocol serial versions
+    SERIAL_VERSION_3 = 3
+    SERIAL_VERSION_4 = 4
+    DEFAULT_SERIAL_VERSION = SERIAL_VERSION_4
 
     # Field value type.
     FIELD_VALUE_TYPE = enum(ARRAY=0,
@@ -171,7 +288,6 @@ class SerdeUtil(object):
             return None
         return value
 
-
     @staticmethod
     def get_operation_state(state):
         if state == SerdeUtil.SYSTEM_STATE.COMPLETE:
@@ -183,7 +299,7 @@ class SerdeUtil(object):
                 'Unknown system operation state ' + str(state))
 
     @staticmethod
-    def _get_op_code(request):
+    def get_put_op_code(request):
         """
         Assumes that the request has been validated and only one of the if
         options is set, if any.
@@ -286,7 +402,7 @@ class SerdeUtil(object):
         :param bis: the byte input stream.
         :type bis: ByteInputStream
         :param skip: True if skipping vs reading
-        :type bis: boolean
+        :type skip: boolean
         :returns: the array or None.
         :rtype: bytearray
         """
@@ -376,7 +492,7 @@ class SerdeUtil(object):
         :param bis: the byte input stream.
         :type bis: ByteInputStream
         :returns: the long that was read.
-        :rtype: int for python 3 and long for python 2
+        :rtype: int
         """
         buf = bytearray(PackedInteger.MAX_LONG_LENGTH)
         bis.read_fully(buf, 0, 1)
@@ -482,18 +598,68 @@ class SerdeUtil(object):
         # Writes a full 4-byte int at the specified offset
         bos.write_int_at_offset(offset, value)
 
+    # Used by datetime_to_iso to deal with padding ISO 8601 values with '0'
+    # in front of numbers to keep the number of digits consistent. E.g.
+    # months is always 2 digits, years 4, days 2, etc
+    @staticmethod
+    def append_with_pad(date_str, newstr, num):
+        while num > 0 and len(newstr) < num:
+            newstr = '0' + newstr
+        if date_str is not None:
+            return date_str + newstr
+        return newstr
+
+    #
+    # For consistency with ISO 8601 and other SDKs there is a custom writer
+    # for datetime. Format is YYYY-MM-DD[THH:MM:SS.usecZ]
+    #
+    @staticmethod
+    def datetime_to_iso(date):
+        daysep = '-'
+        timesep = ':'
+        val = SerdeUtil.append_with_pad(None, str(date.year), 4)
+        val += daysep
+        val = SerdeUtil.append_with_pad(val, str(date.month), 2)
+        val += daysep
+        val = SerdeUtil.append_with_pad(val, str(date.day), 2)
+        # always add time even if it's 0; simpler that way
+        val += 'T'
+        val = SerdeUtil.append_with_pad(val, str(date.hour), 2)
+        val += timesep
+        val = SerdeUtil.append_with_pad(val, str(date.minute), 2)
+        val += timesep
+        val = SerdeUtil.append_with_pad(val, str(date.second), 2)
+        if date.microsecond > 0:
+            # usecs need to be 6 digits, so pad to 6 chars but strip
+            # trailing 0. The strip isn't strictly necessary but plays
+            # better with Java. Anything after the "." is effectively
+            # microseconds or milliseconds. E.g. these are the same:
+            #  .1, .100, .100000 and they all mean 100ms (100000us)
+            # In other words the trailing 0 values are implied
+            val += '.'
+            val = SerdeUtil.append_with_pad(val,
+                                            str(date.microsecond), 6).rstrip('0')
+        val += 'Z'
+        return val
+
     @staticmethod
     def write_datetime(bos, value):
         # Serialize a datetime value.
         if value.tzinfo is not None:
             value = value.astimezone(tz.UTC)
-        SerdeUtil.write_string(bos, value.isoformat())
+        SerdeUtil.write_string(bos, SerdeUtil.datetime_to_iso(value))
+
+    @staticmethod
+    def iso_time_to_ms(iso_string):
+        dt = parser.parse(iso_string)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(tz.UTC)
+        return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
     @staticmethod
     def write_decimal(bos, value):
         # Serialize a decimal value.
         SerdeUtil.write_string(bos, str(value))
-
 
     @staticmethod
     def write_math_context(bos, math_context):
@@ -537,7 +703,7 @@ class SerdeUtil(object):
         :param bos: the byte output stream.
         :type bos: ByteOutputStream
         :param value: the long to be written.
-        :type value: int for python 3 and long for python 2
+        :type value: int
         """
         buf = bytearray(PackedInteger.MAX_LONG_LENGTH)
         offset = PackedInteger.write_sorted_long(buf, 0, value)
@@ -613,7 +779,7 @@ class SerdeUtil(object):
         return int_len + length
 
     @staticmethod
-    def _get_table_state(state):
+    def get_table_state(state):
         if state == SerdeUtil.TABLE_STATE.ACTIVE:
             return State.ACTIVE
         elif state == SerdeUtil.TABLE_STATE.CREATING:
@@ -628,7 +794,7 @@ class SerdeUtil(object):
             raise IllegalStateException('Unknown table state ' + str(state))
 
     @staticmethod
-    def _get_type(value):
+    def get_type(value):
         if isinstance(value, list):
             return SerdeUtil.FIELD_VALUE_TYPE.ARRAY
         elif isinstance(value, bytearray):
@@ -637,9 +803,9 @@ class SerdeUtil(object):
             return SerdeUtil.FIELD_VALUE_TYPE.BOOLEAN
         elif isinstance(value, float):
             return SerdeUtil.FIELD_VALUE_TYPE.DOUBLE
-        elif CheckValue.is_int(value):
+        elif CheckValue.is_int_value(value):
             return SerdeUtil.FIELD_VALUE_TYPE.INTEGER
-        elif CheckValue.is_long(value):
+        elif CheckValue.is_long_value(value):
             return SerdeUtil.FIELD_VALUE_TYPE.LONG
         elif isinstance(value, dict):
             return SerdeUtil.FIELD_VALUE_TYPE.MAP
@@ -651,6 +817,21 @@ class SerdeUtil(object):
             return SerdeUtil.FIELD_VALUE_TYPE.NUMBER
         elif value is None:
             return SerdeUtil.FIELD_VALUE_TYPE.NULL
+        elif isinstance(value, Empty):
+            return SerdeUtil.FIELD_VALUE_TYPE.EMPTY
         else:
             raise IllegalStateException(
                 'Unknown value type ' + str(type(value)))
+
+    #
+    # If the stream isn't pointing at an NSON Map there's a problem in the
+    # message. The caller will handle it if a non-zero value is returned
+    #
+    @staticmethod
+    def check_for_map(bis):
+        offset = bis.get_offset()
+        code = bis.read_byte()
+        if code == SerdeUtil.FIELD_VALUE_TYPE.MAP:
+            bis.set_offset(offset)
+            return 0
+        return code

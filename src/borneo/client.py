@@ -8,10 +8,11 @@
 from logging import DEBUG
 from multiprocessing import pool
 from platform import python_version
-from requests import Session
 from sys import version_info
 from threading import Lock
 from time import time
+
+from requests import Session
 
 from .common import (
     ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter,
@@ -24,8 +25,8 @@ from .kv import StoreAccessTokenProvider
 from .operations import GetTableRequest, QueryResult, TableRequest, WriteRequest
 from .query import QueryDriver
 from .serdeutil import SerdeUtil
-from .version import __version__
 from .stats import StatsControl
+from .version import __version__
 
 
 class Client(object):
@@ -50,6 +51,8 @@ class Client(object):
         self._proxy_port = config.get_proxy_port()
         self._proxy_username = config.get_proxy_username()
         self._proxy_password = config.get_proxy_password()
+        self._proxy_version = None
+        self._kv_version = None
         self._retry_handler = config.get_retry_handler()
         if self._retry_handler is None:
             self._retry_handler = DefaultRetryHandler()
@@ -91,7 +94,7 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
-        self.serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
+        self.serial_version = config.get_serial_version()
         # StoreAccessTokenProvider means onprem
         self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
         if config.get_rate_limiting_enabled() and self._is_cloud:
@@ -224,6 +227,13 @@ class Client(object):
         if self._session_cookie is not None:
             headers['Cookie'] = self._session_cookie
 
+        # set namespace if configured
+        namespace = request.get_namespace()
+        if namespace is None:
+            namespace = self._config.get_default_namespace()
+        if namespace is not None:
+            headers[HttpConstants.REQUEST_NAMESPACE_HEADER] = namespace
+
         content = self.serialize_request(request, headers)
         content_len = len(content)
         # If on-premise the auth_provider will always be a
@@ -247,7 +257,8 @@ class Client(object):
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
         return request_utils.do_post_request(self._request_uri, headers,
-            content, timeout_ms, self._stats_control)
+                                             content, timeout_ms,
+                                             self._stats_control)
 
     # set the session cookie if in return headers (see RequestUtils in http.py)
     @synchronized
@@ -484,6 +495,10 @@ class Client(object):
         """
         if self.serial_version > 2:
             self.serial_version -= 1
+            msg = ('Unsupported protocol error, decrementing serial ' +
+                   'version to ' + str(self.serial_version) +
+                   ' and retrying')
+            self._logutils.log_info(msg)
             return True
         return False
 
@@ -498,9 +513,13 @@ class Client(object):
         """
         content = bytearray()
         bos = ByteOutputStream(content)
-        SerdeUtil.write_serial_version(bos, self.serial_version)
-        request.create_serializer().serialize(
-            request, bos, self.serial_version)
+
+        # serial version used is up to the Request, in order to
+        # (1) support multiple protocol versions and
+        # (2) support the version on a per-Request basis
+        version = request.get_serial_version(self.serial_version)
+        SerdeUtil.write_serial_version(bos, version)
+        request.create_serializer(version).serialize(request, bos, version)
         return content
 
     def serialize_request(self, request, headers):
@@ -521,3 +540,17 @@ class Client(object):
 
     def get_stats_control(self):
         return self._stats_control
+
+    def get_proxy_version(self):
+        return self._proxy_version
+
+    def get_kv_version(self):
+        return self._kv_version
+
+    def set_proxy_info(self, proxy_header):
+        if self._proxy_version is None and proxy_header is not None:
+            versions = proxy_header.split()
+            # bail if not of correct format
+            if len(versions) == 2:
+                self._proxy_version = versions[0].split('=')[1]
+                self._kv_version = versions[1].split('=')[1]
