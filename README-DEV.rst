@@ -6,12 +6,15 @@ This document is for developers of the Python SDK for the Oracle NoSQL Database.
 Developers are those who need to modify source and examples, build and run tests
 and examples, and build documentation.
 
+Use of "python" below may be "python3" depending on your machine
+configuration. Python 3 is required.
+
 ===============
 Getting Started
 ===============
 Clone the repository and Install dependencies.
 
-1. Make sure that Python is installed on your system, at least version 2.7.
+1. Make sure that Python is installed on your system, at least version 3.5.
 2. Install pip if it is not installed, follow the `pip installation instructions
    <https://pip.pypa.io/en/stable/installing>`_.
 3. Clone the repository and install development dependencies::
