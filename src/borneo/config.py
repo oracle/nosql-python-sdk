@@ -290,6 +290,10 @@ class Region(object):
             return str.format(Region.OC19_EP_BASE, self._region_id)
         if self._is_oc20_region():
             return str.format(Region.OC20_EP_BASE, self._region_id)
+        if self._is_oc22_region():
+            return str.format(Region.OC22_EP_BASE, self._region_id)
+        if self._is_oc24_region():
+            return str.format(Region.OC24_EP_BASE, self._region_id)
         raise IllegalArgumentException(
             'Unable to find endpoint for unknown region ' + self._region_id)
 
@@ -355,6 +359,14 @@ class Region(object):
     def _is_oc20_region(self):
         # Internal use only
         return Regions.OC20_REGIONS.get(self._region_id) is not None
+
+    def _is_oc22_region(self):
+        # Internal use only
+        return Regions.OC22_REGIONS.get(self._region_id) is not None
+
+    def _is_oc24_region(self):
+        # Internal use only
+        return Regions.OC24_REGIONS.get(self._region_id) is not None
 
 
 class Regions(object):
