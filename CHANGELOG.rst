@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 ====================
 
-Unpublished
+====================
+ 5.4.1 - 2023-08-01
 ====================
 
 IMPORTANT: This release drops support for Python 2 and supports only Python
