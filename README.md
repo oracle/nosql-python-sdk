@@ -1,9 +1,6 @@
-Oracle NoSQL Database Python SDK
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Oracle NoSQL Database Python SDK
 
-=====
-About
-=====
+## About 
 
 This is the Python SDK for Oracle NoSQL Database. Python versions 3.5+ are
 supported. The SDK provides interfaces, documentation, and examples to help
@@ -31,9 +28,7 @@ This project is open source and maintained by Oracle Corp. The home page for the
 project is `here <https://nosql-python-sdk.readthedocs.io/en/stable/index.
 html>`_.
 
-============
-Installation
-============
+## Installation
 
 The SDK can be installed using pip. If using Python 3 the command may be pip3::
 
@@ -48,9 +43,7 @@ See `the installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
 installation.html>`_ for additional requirements and and alternative install
 methods.
 
-========
-Examples
-========
+## Examples
 
 Examples can be found `on GitHub <https://github.com/oracle/nosql-python-sdk/
 tree/master/examples>`_.
@@ -58,24 +51,18 @@ tree/master/examples>`_.
 Examples include simple, standalone programs. They include comments about how
 they can be configured and run in the different supported environments.
 
-=============
-Documentation
-=============
+## Documentation
 
 The `documentation <https://nosql-python-sdk.readthedocs.io/en/stable>`_ has
 information on using the SDK as well as an `API reference <https://nosql-python-
 sdk.readthedocs.io/en/stable/api.html>`_ describing the classes.
 
-=======
-Changes
-=======
+## Changes
 
 See the `Changelog <https://github.com/oracle/nosql-python-sdk/blob/master/
 CHANGELOG.rst>`_.
 
-====
-Help
-====
+## Help
 
  * Open an issue in the `Issues <https://github.com/oracle/nosql-python-sdk/
    issues>`_ page.
@@ -86,9 +73,7 @@ Help
 When requesting help please be sure to include as much detail as possible,
 including version of the SDK and **simple**, standalone example code as needed.
 
-==========
-Quickstart
-==========
+## Quickstart
 
 The following is a quick start tutorial to run a simple program in the supported
 environments. The same template source code is used for all environments. The
@@ -356,11 +341,9 @@ that the *borneo* package has been installed.
     if __name__ == '__main__':
         main()
 
-Running Quickstart
-==================
+## Running Quickstart
 
-Run Against the Oracle NoSQL Database Cloud Service
-===================================================
+### Run Against the Oracle NoSQL Database Cloud Service
 
 Running against the Cloud Service requires an Oracle Cloud account. See
 `Configure for the Cloud Service <https://nosql-python-sdk.readthedocs.io/en/
@@ -406,8 +389,7 @@ getting an account and acquiring required credentials.
 
     python quickstart.py cloud
 
-Run Against the Oracle NoSQL Cloud Simulator
-============================================
+### Run Against the Oracle NoSQL Cloud Simulator
 
 Running against the Oracle NoSQL Cloud Simulator requires a running Cloud
 Simulator instance. See `Configure for the Cloud Simulator <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-cloud-simulator>`_ for information on how to
@@ -425,8 +407,7 @@ download and start the Cloud Simulator.
 
     python quickstart.py cloudsim
 
-Run Against Oracle NoSQL on-premise
-===================================
+### Run Against Oracle NoSQL on-premise
 
 Running against the Oracle NoSQL Database on-premise requires a running Oracle
 NoSQL Database instance as well as a running NoSQL Proxy server instance. The
@@ -450,23 +431,17 @@ complex configuration.
 
     python quickstart.py kvstore
 
-=======
-License
-=======
+## Contributing
 
-Copyright (C) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md)
 
-This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
-<./LICENSE.txt>`_ for details.
+## Security
 
-============
-Contributing
-============
+Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process
 
-See `CONTRIBUTING <./CONTRIBUTING.rst>`_
+## License
 
-========
-Security
-========
+Copyright (c) 2018, 2023 Oracle and/or its affiliates.
 
-See `SECURITY <./SECURITY.rst>`_
+Released under the Universal Permissive License v1.0 as shown at
+<https://oss.oracle.com/licenses/upl/>.
