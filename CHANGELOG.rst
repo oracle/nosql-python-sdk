@@ -6,6 +6,18 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_.
 ====================
 
 ====================
+Unreleased
+====================
+
+Added
+_____
+* Cloud only: new regions: sa-bogota-1, us-dcc-swjordan-1, us-dcc-swjordan-2
+
+Changed
+_______
+* Cloud only: changed domain for OC22/NAP/eu-dcc-rome-1
+
+====================
  5.4.1 - 2023-08-01
 ====================
 
