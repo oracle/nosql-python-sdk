@@ -51,7 +51,7 @@ information on using the SDK as well as an [API reference](https://nosql-python-
 
 ## Changes
 
-See the [Changelog](https://github.com/oracle/nosql-python-sdk/blob/master/CHANGELOG.rst)
+See the [Changelog](https://github.com/oracle/nosql-python-sdk/blob/master/CHANGELOG.md)
 
 ## Help
 
