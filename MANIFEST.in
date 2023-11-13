@@ -1,5 +1,5 @@
-include README.rst
-include CHANGELOG.rst
+include README.md
+include CHANGELOG.md
 include LICENSE.txt
 include THIRD_PARTY_LICENSES.txt
 prune test

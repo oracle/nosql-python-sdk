@@ -1,9 +1,6 @@
-Oracle NoSQL Database Python SDK
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Oracle NoSQL Database Python SDK
 
-=====
-About
-=====
+## About
 
 This is the Python SDK for Oracle NoSQL Database. Python versions 3.5+ are
 supported. The SDK provides interfaces, documentation, and examples to help
@@ -15,25 +12,18 @@ In order to run the Oracle NoSQL Cloud Simulator, a separate download is
 necessary from the Oracle NoSQL OTN download page. Throughout the documentation,
 the Oracle NoSQL Database Cloud Service and Cloud Simulator are referred to as
 the "cloud service" while the Oracle NoSQL Database is referred to as
-"on-premise." In the `API reference <https://nosql-python-sdk.readthedocs.io/en/
-stable/api.html>`_ classes and interfaces are noted if they are only relevant to
+"on-premise." In the [API reference](https://nosql-python-sdk.readthedocs.io/en/stable/api.html) classes and interfaces are noted if they are only relevant to
 a specific environment.
 
 The on-premise configuration requires a running instance of the Oracle NoSQL
-database. In addition a running proxy service is required. See `Oracle NoSQL
-Database Downloads <https://www.oracle.com/database/technologies/nosql-database-
-server-downloads.html>`_ for downloads, and see `Information about the proxy
-<https://docs.oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-
-database/22.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
+database. In addition a running proxy service is required. See [Oracle NoSQL
+Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see [Information about the proxy](https://docs.oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-database/22.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72)  for
 proxy configuration information.
 
 This project is open source and maintained by Oracle Corp. The home page for the
-project is `here <https://nosql-python-sdk.readthedocs.io/en/stable/index.
-html>`_.
+project is [here](https://nosql-python-sdk.readthedocs.io/en/stable/index.html).
 
-============
-Installation
-============
+## Installation
 
 The SDK can be installed using pip. If using Python 3 the command may be pip3::
 
@@ -44,51 +34,35 @@ install the oci package::
 
     pip install oci
 
-See `the installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
-installation.html>`_ for additional requirements and and alternative install
+See [the installation guide](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html) for additional requirements and and alternative install
 methods.
 
-========
-Examples
-========
+## Examples
 
-Examples can be found `on GitHub <https://github.com/oracle/nosql-python-sdk/
-tree/master/examples>`_.
+Examples can be found [on GitHub](https://github.com/oracle/nosql-python-sdk/tree/master/examples)
 
 Examples include simple, standalone programs. They include comments about how
 they can be configured and run in the different supported environments.
 
-=============
-Documentation
-=============
+## Documentation
 
-The `documentation <https://nosql-python-sdk.readthedocs.io/en/stable>`_ has
-information on using the SDK as well as an `API reference <https://nosql-python-
-sdk.readthedocs.io/en/stable/api.html>`_ describing the classes.
+The [documentation](https://nosql-python-sdk.readthedocs.io/en/stable) has
+information on using the SDK as well as an [API reference](https://nosql-python-sdk.readthedocs.io/en/stable/api.html) describing the classes.
 
-=======
-Changes
-=======
+## Changes
 
-See the `Changelog <https://github.com/oracle/nosql-python-sdk/blob/master/
-CHANGELOG.rst>`_.
+See the [Changelog](https://github.com/oracle/nosql-python-sdk/blob/master/CHANGELOG.md)
 
-====
-Help
-====
+## Help
 
- * Open an issue in the `Issues <https://github.com/oracle/nosql-python-sdk/
-   issues>`_ page.
+ * Open an issue in the [Issues](https://github.com/oracle/nosql-python-sdk/issues) page.
  * Email to nosql_sdk_help_grp@oracle.com.
- * `Oracle NoSQL Developer Forum <https://community.oracle.com/community/
-   groundbreakers/database/nosql_database>`_.
+ * [Oracle NoSQL Developer Forum](https://community.oracle.com/community/groundbreakers/database/nosql_database).
 
 When requesting help please be sure to include as much detail as possible,
 including version of the SDK and **simple**, standalone example code as needed.
 
-==========
-Quickstart
-==========
+## Quickstart
 
 The following is a quick start tutorial to run a simple program in the supported
 environments. The same template source code is used for all environments. The
@@ -356,15 +330,12 @@ that the *borneo* package has been installed.
     if __name__ == '__main__':
         main()
 
-Running Quickstart
-==================
+## Running Quickstart
 
-Run Against the Oracle NoSQL Database Cloud Service
-===================================================
+### Run Against the Oracle NoSQL Database Cloud Service
 
 Running against the Cloud Service requires an Oracle Cloud account. See
-`Configure for the Cloud Service <https://nosql-python-sdk.readthedocs.io/en/
-stable/installation.html#configure-for-the-cloud-service>`_ for information on
+[Configure for the Cloud Service](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html#configure-for-the-cloud-service) for information on
 getting an account and acquiring required credentials.
 
 1. Collect the following information:
@@ -383,9 +354,7 @@ getting an account and acquiring required credentials.
      *private_key*, *fingerprint*, and *pass_phrase*, setting them to the
      corresponding information you've collected.
    * Using a configuration file. In this case the information you've collected
-     goes into a file, ~/.oci/config. `Configure for the Cloud Service <https://
-     nosql-python-sdk.readthedocs.io/en/stable/installation.html#configure-for-
-     the-cloud-service>`_ describes the contents of the file. It will look like
+     goes into a file, ~/.oci/config. [Configure for the Cloud Service](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html#configure-for-the-cloud-service) describes the contents of the file. It will look like
      this::
 
       [DEFAULT]
@@ -396,8 +365,7 @@ getting an account and acquiring required credentials.
       pass_phrase=<optional-pass-phrase-for-key-file>
 
 3. Decide which region you want to use and modify the *cloud_region* variable to
-   the desired region. See `Regions documentation <https://nosql-python-sdk.
-   readthedocs.io/en/stable/api/borneo.Regions.html>`_ for possible regions. Not
+   the desired region. See [Regions documentation](https://nosql-python-sdk.readthedocs.io/en/stable/api/borneo.Regions.html) for possible regions. Not
    all support the Oracle NoSQL Database Cloud Service.
 
 4. Run the program:
@@ -406,11 +374,10 @@ getting an account and acquiring required credentials.
 
     python quickstart.py cloud
 
-Run Against the Oracle NoSQL Cloud Simulator
-============================================
+### Run Against the Oracle NoSQL Cloud Simulator
 
 Running against the Oracle NoSQL Cloud Simulator requires a running Cloud
-Simulator instance. See `Configure for the Cloud Simulator <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-cloud-simulator>`_ for information on how to
+Simulator instance. See [Configure for the Cloud Simulator](https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-cloud-simulator) for information on how to
 download and start the Cloud Simulator.
 
 1. Start the Cloud Simulator based on instructions above. Note the HTTP port
@@ -425,14 +392,13 @@ download and start the Cloud Simulator.
 
     python quickstart.py cloudsim
 
-Run Against Oracle NoSQL on-premise
-===================================
+### Run Against Oracle NoSQL on-premise
 
 Running against the Oracle NoSQL Database on-premise requires a running Oracle
 NoSQL Database instance as well as a running NoSQL Proxy server instance. The
 program will connect to the proxy server.
 
-See `Configure for On-Premise Oracle NoSQL Database <https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-on-premise-oracle-nosql-database>`_ for information on how to
+See [Configure for On-Premise Oracle NoSQL Database](https://nosql-python-sdk.readthedocs.io/en/latest/installation.html#configure-for-the-on-premise-oracle-nosql-database) for information on how to
 download and start the database instance and proxy server. The database and
 proxy should be started without security enabled for this quickstart program to
 operate correctly. A secure configuration requires a secure proxy and more
@@ -450,23 +416,17 @@ complex configuration.
 
     python quickstart.py kvstore
 
-=======
-License
-=======
+## Contributing
 
-Copyright (C) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md)
 
-This SDK is licensed under the Universal Permissive License 1.0. See `LICENSE
-<./LICENSE.txt>`_ for details.
+## Security
 
-============
-Contributing
-============
+Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process
 
-See `CONTRIBUTING <./CONTRIBUTING.rst>`_
+## License
 
-========
-Security
-========
+Copyright (c) 2018, 2023 Oracle and/or its affiliates.
 
-See `SECURITY <./SECURITY.rst>`_
+Released under the Universal Permissive License v1.0 as shown at
+<https://oss.oracle.com/licenses/upl/>.
