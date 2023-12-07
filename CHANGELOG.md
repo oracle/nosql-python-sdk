@@ -12,7 +12,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Added
 
 -   Cloud only: new regions: sa-bogota-1, us-dcc-swjordan-1,
-    us-dcc-swjordan-2, ap-dcc-tokyo-1, me-abudhabi-3
+    us-dcc-swjordan-2, ap-dcc-tokyo-1, me-abudhabi-3,
+    ap-dcc-gazipur-1, me-dcc-doha-1
+
 
 ## Changed
 

@@ -244,10 +244,12 @@ class Region(object):
     OC9_EP_BASE = 'https://nosql.{0}.oci.oraclecloud9.com'
     OC10_EP_BASE = 'https://nosql.{0}.oci.oraclecloud10.com'
     OC14_EP_BASE = 'https://nosql.{0}.oci.oraclecloud14.com'
+    OC15_EP_BASE = 'https://nosql.{0}.oci.oraclecloud15.com'
     OC16_EP_BASE = 'https://nosql.{0}.oci.oraclecloud16.com'
     OC17_EP_BASE = 'https://nosql.{0}.oci.oraclecloud17.com'
     OC19_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.eu'
     OC20_EP_BASE = 'https://nosql.{0}.oci.oraclecloud20.com'
+    OC21_EP_BASE = 'https://nosql.{0}.oci.oraclecloud21.com'
     OC22_EP_BASE = 'https://nosql.{0}.oci.psn-pco.it'
     OC24_EP_BASE = 'https://nosql.{0}.oci.oraclecloud24.com'
     OC25_EP_BASE = 'https://nosql.{0}.oci.nricloud.jp'
@@ -286,6 +288,8 @@ class Region(object):
             return str.format(Region.OC10_EP_BASE, self._region_id)
         if self._is_oc14_region():
             return str.format(Region.OC14_EP_BASE, self._region_id)
+        if self._is_oc15_region():
+            return str.format(Region.OC15_EP_BASE, self._region_id)
         if self._is_oc16_region():
             return str.format(Region.OC16_EP_BASE, self._region_id)
         if self._is_oc17_region():
@@ -294,6 +298,8 @@ class Region(object):
             return str.format(Region.OC19_EP_BASE, self._region_id)
         if self._is_oc20_region():
             return str.format(Region.OC20_EP_BASE, self._region_id)
+        if self._is_oc21_region():
+            return str.format(Region.OC21_EP_BASE, self._region_id)
         if self._is_oc22_region():
             return str.format(Region.OC22_EP_BASE, self._region_id)
         if self._is_oc24_region():
@@ -352,6 +358,10 @@ class Region(object):
         # Internal use only
         return Regions.OC10_REGIONS.get(self._region_id) is not None
 
+    def _is_oc15_region(self):
+        # Internal use only
+        return Regions.OC15_REGIONS.get(self._region_id) is not None
+
     def _is_oc14_region(self):
         # Internal use only
         return Regions.OC14_REGIONS.get(self._region_id) is not None
@@ -371,6 +381,10 @@ class Region(object):
     def _is_oc20_region(self):
         # Internal use only
         return Regions.OC20_REGIONS.get(self._region_id) is not None
+
+    def _is_oc21_region(self):
+        # Internal use only
+        return Regions.OC21_REGIONS.get(self._region_id) is not None
 
     def _is_oc22_region(self):
         # Internal use only
@@ -573,6 +587,10 @@ class Regions(object):
     EU_DCC_RATING_2 = Region('eu-dcc-rating-2')
     """Region Location: Germany"""
 
+    # OC15
+    AP_DCC_GAZIPUR_1 = Region('ap-dcc-gazipur-1')
+    """Region Location: Bangladesh"""
+
     # OC16
     US_WESTJORDAN_1 = Region('us-westjordan-1')
     """Region Location: Utah"""
@@ -594,6 +612,10 @@ class Regions(object):
     # OC20
     EU_JOVANOVAC_1 = Region('eu-jovanovac-1')
     """Region Location: Serbia"""
+
+    # OC20
+    ME_DCC_DOHA_1 = Region('me-dcc-doha-1')
+    """Region Location: Qatar"""
 
     # OC22
     EU_DCC_ROME_1 = Region('eu-dcc-rome-1')
@@ -718,6 +740,11 @@ class Regions(object):
     OC14_REGIONS[EU_DCC_RATING_1.get_region_id()] = EU_DCC_RATING_1
     OC14_REGIONS[EU_DCC_RATING_2.get_region_id()] = EU_DCC_RATING_2
 
+    # OC15
+    OC15_REGIONS = dict()
+    """A dict containing the OC15 regions."""
+    OC15_REGIONS[AP_DCC_GAZIPUR_1.get_region_id()] = AP_DCC_GAZIPUR_1
+
     # OC16
     OC16_REGIONS = dict()
     """A dict containing the OC16 regions."""
@@ -740,6 +767,11 @@ class Regions(object):
     OC20_REGIONS = dict()
     """A dict containing the OC20 regions."""
     OC20_REGIONS[EU_JOVANOVAC_1.get_region_id()] = EU_JOVANOVAC_1
+
+    # OC21
+    OC21_REGIONS = dict()
+    """A dict containing the OC21 regions."""
+    OC21_REGIONS[ME_DCC_DOHA_1.get_region_id()] = ME_DCC_DOHA_1
 
     # OC22
     OC22_REGIONS = dict()
@@ -817,6 +849,11 @@ class Regions(object):
         return Regions.OC14_REGIONS.values()
 
     @staticmethod
+    def get_oc15_regions():
+        # Internal use only
+        return Regions.OC15_REGIONS.values()
+
+    @staticmethod
     def get_oc16_regions():
         # Internal use only
         return Regions.OC16_REGIONS.values()
@@ -835,6 +872,11 @@ class Regions(object):
     def get_oc20_regions():
         # Internal use only
         return Regions.OC20_REGIONS.values()
+
+    @staticmethod
+    def get_oc21_regions():
+        # Internal use only
+        return Regions.OC21_REGIONS.values()
 
     @staticmethod
     def get_oc22_regions():
@@ -899,6 +941,8 @@ class Regions(object):
         if region is None:
             region = Regions.OC14_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC15_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC16_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC17_REGIONS.get(region_id)
@@ -906,6 +950,8 @@ class Regions(object):
             region = Regions.OC19_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC20_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC21_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC22_REGIONS.get(region_id)
         if region is None:
