@@ -250,6 +250,8 @@ class Region(object):
     OC20_EP_BASE = 'https://nosql.{0}.oci.oraclecloud20.com'
     OC22_EP_BASE = 'https://nosql.{0}.oci.psn-pco.it'
     OC24_EP_BASE = 'https://nosql.{0}.oci.oraclecloud24.com'
+    OC25_EP_BASE = 'https://nosql.{0}.oci.nricloud.jp'
+    OC26_EP_BASE = 'https://nosql.{0}.oci.oraclecloud26.com'
     OC27_EP_BASE = 'https://nosql.{0}.oci.oraclecloud27.com'
     OC28_EP_BASE = 'https://nosql.{0}.oci.oraclecloud28.com'
 
@@ -296,6 +298,10 @@ class Region(object):
             return str.format(Region.OC22_EP_BASE, self._region_id)
         if self._is_oc24_region():
             return str.format(Region.OC24_EP_BASE, self._region_id)
+        if self._is_oc25_region():
+            return str.format(Region.OC25_EP_BASE, self._region_id)
+        if self._is_oc26_region():
+            return str.format(Region.OC26_EP_BASE, self._region_id)
         if self._is_oc27_region():
             return str.format(Region.OC27_EP_BASE, self._region_id)
         if self._is_oc28_region():
@@ -373,6 +379,14 @@ class Region(object):
     def _is_oc24_region(self):
         # Internal use only
         return Regions.OC24_REGIONS.get(self._region_id) is not None
+
+    def _is_oc25_region(self):
+        # Internal use only
+        return Regions.OC25_REGIONS.get(self._region_id) is not None
+
+    def _is_oc26_region(self):
+        # Internal use only
+        return Regions.OC26_REGIONS.get(self._region_id) is not None
 
     def _is_oc27_region(self):
         # Internal use only
@@ -589,6 +603,14 @@ class Regions(object):
     EU_DCC_ZURICH_1 = Region('eu-dcc-zurich-1')
     """Region Location: Zurich, Switzerland"""
 
+    # OC25
+    AP_DCC_TOKYO_1 = Region('ap-dcc-tokyo-1')
+    """Region Location: Tokyo, Japan"""
+
+    # OC26
+    ME_ABUDHABI_3 = Region('me-abudhabi-3')
+    """Region Location: Abudabhi"""
+
     # OC27
     US_DCC_SWJORDAN_1 = Region('us-dcc-swjordan-1')
     """Region Location: Utah, USA"""
@@ -729,6 +751,16 @@ class Regions(object):
     """A dict containing the OC24 regions."""
     OC24_REGIONS[EU_DCC_ZURICH_1.get_region_id()] = EU_DCC_ZURICH_1
 
+    # OC25
+    OC25_REGIONS = dict()
+    """A dict containing the OC25 regions."""
+    OC25_REGIONS[AP_DCC_TOKYO_1.get_region_id()] = AP_DCC_TOKYO_1
+
+    # OC26
+    OC26_REGIONS = dict()
+    """A dict containing the OC26 regions."""
+    OC26_REGIONS[ME_ABUDHABI_3.get_region_id()] = ME_ABUDHABI_3
+
     # OC27
     OC27_REGIONS = dict()
     """A dict containing the OC27 regions."""
@@ -815,6 +847,16 @@ class Regions(object):
         return Regions.OC24_REGIONS.values()
 
     @staticmethod
+    def get_oc25_regions():
+        # Internal use only
+        return Regions.OC25_REGIONS.values()
+
+    @staticmethod
+    def get_oc26_regions():
+        # Internal use only
+        return Regions.OC26_REGIONS.values()
+
+    @staticmethod
     def get_oc27_regions():
         # Internal use only
         return Regions.OC27_REGIONS.values()
@@ -868,6 +910,10 @@ class Regions(object):
             region = Regions.OC22_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC24_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC25_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC26_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC27_REGIONS.get(region_id)
         if region is None:
