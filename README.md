@@ -78,7 +78,7 @@ See `Running Quickstart`_ to
 run the quickstart program in different environments. The instructions assume
 that the *borneo* package has been installed.
 
-.. code-block:: pycon
+``` python
 
     #
     # Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
@@ -329,7 +329,7 @@ that the *borneo* package has been installed.
 
     if __name__ == '__main__':
         main()
-
+```
 ## Running Quickstart
 
 ### Run Against the Oracle NoSQL Database Cloud Service
