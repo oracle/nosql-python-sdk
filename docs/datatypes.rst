@@ -46,7 +46,7 @@ managed in UTC.
 Database Type             Python Type
 =============    ==============================
 Integer                      int
-Long             int (Python 3), long (Python2)
+Long             int
 Float            float
 Double           float
 Number           decimal.Decimal

@@ -154,7 +154,7 @@ class ByteOutputStream(object):
 
     def write_int_at_offset(self, offset, value):
         val_s = pack('>i', value)
-        val_b = bytearray(val_s)
+        val_b = bytes(val_s)
         for index in range(len(val_b)):
             self._content[offset + index] = val_b[index]
 
@@ -163,7 +163,7 @@ class ByteOutputStream(object):
         self.write_value(val_s)
 
     def write_value(self, value):
-        val_b = bytearray(value)
+        val_b = bytes(value)
         self._content.extend(val_b)
 
     def get_byte_at(self, index):

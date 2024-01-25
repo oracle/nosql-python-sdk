@@ -276,6 +276,8 @@ class SerdeUtil(object):
     CAPACITY_MODE = enum(PROVISIONED=1,
                          ON_DEMAND=2)
 
+    # this method always copies. consider a more efficient mechanism
+    # for cases where no conversion is required
     @staticmethod
     def convert_value_to_none(value):
         if isinstance(value, dict):

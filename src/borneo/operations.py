@@ -2395,6 +2395,8 @@ class QueryRequest(Request):
         # An "internal" request is one created and submitted for execution by
         # the ReceiveIter.
         self.is_internal = False
+        # test mode used for query testing
+        self._in_test_mode = False
 
     def __str__(self):
         return 'QueryRequest'
@@ -2510,6 +2512,12 @@ class QueryRequest(Request):
 
     def get_trace_level(self):
         return self._trace_level
+
+    def set_in_test_mode(self, value):
+        self._in_test_mode = value
+
+    def get_in_test_mode(self):
+        return self._in_test_mode
 
     def set_limit(self, limit):
         """
