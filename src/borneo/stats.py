@@ -62,7 +62,7 @@ class StatsControl:
     :py:meth:`StatsControl.set_profile`. At runtime stats collection can be
     enabled selectively by using :py:meth:`StatsControl.start` ond
     :py:meth:`StatsControl.stop`. The following example shows how to use a stats
-    handler and how to control the stas at runtime::
+    handler and how to control the stats at runtime::
 
         def stats_handler(stats):
             # type: (Dict) -> None

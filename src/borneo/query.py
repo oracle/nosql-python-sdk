@@ -25,6 +25,7 @@ try:
 except ImportError:
     import serde
 
+
 class PlanIterState(object):
     STATE = enum(OPEN=0,
                  RUNNING=1,
@@ -126,7 +127,7 @@ class PlanIter(object):
     the result set of each iterator is a sequence of zero or more items.
 
     The root iterator will always produce dict values, but other iterators may
-    produces different kinds of values.
+    produce different kinds of values.
 
     Iterator state and registers:
 
@@ -655,6 +656,7 @@ class ArithOpIter(PlanIter):
         state = rcb.get_state(self.state_pos)
         state.reset()
 
+
 class ConstIter(PlanIter):
     """
     ConstIter represents a reference to a constant value in the query. Such a
@@ -832,6 +834,7 @@ class FieldStepIter(PlanIter):
             rcb.set_reg_val(self.result_reg, result)
             return True
 
+
 class FuncCollectIter(PlanIter):
     """
     array_collect()
@@ -905,7 +908,6 @@ class FuncCollectIter(PlanIter):
     def get_aggr_value(self, rcb, reset):
         state = rcb.get_state(self.state_pos)
 
-        res = None
         if self._is_distinct:
             res = list()
             for item in state._values:
@@ -921,7 +923,7 @@ class FuncCollectIter(PlanIter):
         # sort result arrays (ascending)
         #
         if rcb.get_request().get_in_test_mode():
-            res.sort(key=cmp_to_key(lambda v1,v2 : Compare.compare_total_order(
+            res.sort(key=cmp_to_key(lambda v1, v2: Compare.compare_total_order(
                 rcb, v1, v2, SortSpec())))
 
         if rcb.get_trace_level() >= 3:
@@ -1077,14 +1079,13 @@ class FuncSizeIter(PlanIter):
             state.done()
             return False
 
-        size = 0
         val = rcb.get_reg_val(self._input_iter.get_result_reg())
         if val is None:
             rcb.set_reg_val(self.result_reg, None)
             state.done()
             return True
         if not isinstance(val, dict) and not isinstance(val, list) \
-          and not isinstance(val, set):
+                and not isinstance(val, set):
             raise QueryException(
                 'Invalid type for input to size() function, it must be \n' +
                 'complex. Actual type is: ' + str(type(val)))
@@ -1115,7 +1116,7 @@ class FuncSumIter(PlanIter):
 
     Note: The next() method does not actually return a value; it just adds a new
     value (if it is of a numeric type) to the running sum kept in the state.
-    Also the reset() method resets the input iter (so that the next input value
+    Also, the reset() method resets the input iter (so that the next input value
     can be computed), but does not reset the FuncSumState. The state is reset,
     and the current sum value is returned, by the get_aggr_value() method.
     """
@@ -1190,6 +1191,7 @@ class FuncSumIter(PlanIter):
         if CheckValue.is_digit(val):
             state.count += 1
             state.sum += val
+
 
 class GroupIter(PlanIter):
 
@@ -1391,7 +1393,7 @@ class GroupIter(PlanIter):
                 aggr_value.value = val
                 return
             comp = Compare.compare_atomics_total_order(rcb, aggr_value.value,
-                                                           val)
+                                                       val)
             if rcb.get_trace_level() >= 3:
                 rcb.trace('Compared values: \n' + str(aggr_value.value) + '\n' +
                           str(val) + '\ncomp res = ' + str(comp))
@@ -1425,8 +1427,8 @@ class GroupIter(PlanIter):
         if aggr_kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT:
             if rcb.get_request().get_in_test_mode():
                 # QTF wants sorted results
-                aggr_value.value.sort(key=cmp_to_key(lambda v1,v2 :
-                    Compare.compare_total_order(rcb, v1, v2, SortSpec())))
+                aggr_value.value.sort(key=cmp_to_key(lambda v1, v2:
+                                                     Compare.compare_total_order(rcb, v1, v2, SortSpec())))
 
             return aggr_value.value
 
@@ -1438,8 +1440,8 @@ class GroupIter(PlanIter):
                 newlist.append(elem._value)
             if rcb.get_request().get_in_test_mode():
                 # QTF wants sorted results
-                newlist.sort(key=cmp_to_key(lambda v1,v2 :
-                    Compare.compare_total_order(rcb, v1, v2, SortSpec())))
+                newlist.sort(key=cmp_to_key(lambda v1, v2:
+                                            Compare.compare_total_order(rcb, v1, v2, SortSpec())))
             return newlist
 
         return aggr_value.value
@@ -1468,9 +1470,9 @@ class GroupIter(PlanIter):
                   kind == PlanIter.FUNC_CODE.FN_MIN):
                 self.value = None
             elif kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT:
-                  self.value = list()
+                self.value = list()
             elif kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT_DISTINCT:
-                  self.value = set()
+                self.value = set()
             else:
                 assert False
 
@@ -1529,10 +1531,9 @@ class GroupIter(PlanIter):
                         rcb.inc_memory_consumption(self.sizeof(elem))
             else:
                 collect_array = self.value
-                collect_array.extend(val)
+                collect_array.add(val)
                 if count_memory:
                     rcb.inc_memory_consumption(self.sizeof(val))
-
 
     class GroupIterState(PlanIterState):
 
@@ -1576,6 +1577,7 @@ class GroupIter(PlanIter):
             for val in self.values:
                 code += 31 * code + Compare.hashcode(val)
             return code
+
 
 class ReceiveIter(PlanIter):
     """
@@ -1733,7 +1735,7 @@ class ReceiveIter(PlanIter):
         for j in range(len(curr_shards)):
             if curr_shards[j] == -1:
                 continue
-            # This shard does not exist any more
+            # This shard does not exist anymore
             for scanner in state.sorted_scanners:
                 if scanner.shard_or_part_id == curr_shards[j]:
                     state.sorted_scanners.remove(scanner)
@@ -1869,9 +1871,9 @@ class ReceiveIter(PlanIter):
                         'partition/shard ' + str(scanner.shard_or_part_id))
             self._handle_topology_change(rcb, state)
             # For simplicity, we don't want to allow the possibility of another
-            # remote fetch during the same batch, so whether or not the batch
-            # limit was reached during the above fetch, we set limit flag to
-            # True and return False, thus terminating the current batch.
+            # remote fetch during the same batch. Regardless of whether
+            # the batch limit was reached during the above fetch, we set limit
+            # flag to True and return False, thus terminating the current batch.
             rcb.set_reached_limit(True)
             return False
 
@@ -2517,8 +2519,8 @@ class SortIter(PlanIter):
             # does an in-place sort. Not in-place would use sorted().
             # Performance seems to be similar for both
             state.results.sort(
-                    key=cmp_to_key(lambda v1,v2 : Compare.sort_results(
-                        rcb, v1, v2, self._sort_fields, self._sort_specs)))
+                key=cmp_to_key(lambda v1, v2: Compare.sort_results(
+                    rcb, v1, v2, self._sort_fields, self._sort_specs)))
             state.set_state(PlanIterState.STATE.RUNNING)
         if state.curr_result < len(state.results):
             val = SerdeUtil.convert_value_to_none(
@@ -2640,13 +2642,13 @@ class Hashable(object):
 
     def __eq__(self, other):
         return (isinstance(other, type(self)) and
-                    self._value == other._value)
+                self._value == other._value)
 
 
 class Compare(object):
 
     @staticmethod
-    def compare_atomics_total_order(rcb, v0, v1, sort_spec = None):
+    def compare_atomics_total_order(rcb, v0, v1, sort_spec=None):
         """
         Implements a total order among atomic values. The following order is
         used among values that are not normally comparable with each other:
@@ -2674,7 +2676,7 @@ class Compare(object):
                 return_value = 0
             else:
                 return_value = (-1 if v1 is None or isinstance(v1, JsonNone)
-                    else 1)
+                                else 1)
         elif isinstance(v0, bool):
             if isinstance(v1, bool):
                 return_value = (-1 if v0 < v1 else (0 if v0 == v1 else 1))
@@ -2706,14 +2708,14 @@ class Compare(object):
             if sort_spec.is_desc:
                 return_value = -return_value
             if not sort_spec.is_desc and sort_spec.nones_first:
-                if is_special_value(v0) and not is_special_value(v1):
+                if Compare.is_special_value(v0) and not Compare.is_special_value(v1):
                     return_value = -1
-                if not is_special_value(v0) and is_special_value(v1):
+                if not Compare.is_special_value(v0) and Compare.is_special_value(v1):
                     return_value = 1
             elif sort_spec.is_desc and not sort_spec.nones_first:
-                if is_special_value(v0) and not is_special_value(v1):
+                if Compare.is_special_value(v0) and not Compare.is_special_value(v1):
                     return_value = 1
-                if not is_special_value(v0) and is_special_value(v1):
+                if not Compare.is_special_value(v0) and Compare.is_special_value(v1):
                     return_value = -1
 
         return return_value
@@ -2750,7 +2752,6 @@ class Compare(object):
         # need to iterate over both dicts with keys sorted
         v0_iter = iter(sorted(v0))
         v1_iter = iter(sorted(v1))
-        comp = 0
 
         v0_key = next(v0_iter, None)
         v1_key = next(v1_iter, None)
@@ -2764,7 +2765,7 @@ class Compare(object):
 
             # deep compare of values
             comp = Compare.compare_total_order(rcb, v0.get(v0_key),
-                                        v1.get(v1_key), inner_spec)
+                                               v1.get(v1_key), inner_spec)
 
             # values don't match
             if comp != 0:
@@ -2792,7 +2793,6 @@ class Compare(object):
         # iterate over both lists
         v0_iter = iter(v0)
         v1_iter = iter(v1)
-        comp = 0
 
         v0_val = next(v0_iter, None)
         v1_val = next(v1_iter, None)
@@ -2821,14 +2821,14 @@ class Compare(object):
     @staticmethod
     def is_special_value(value):
         if value is None or isinstance(value, JsonNone) or \
-            isinstance(value, Empty):
+                isinstance(value, Empty):
             return True
         return False
 
     @staticmethod
     def compare_to(this, that):
         # same as Java compareTo
-        return ((this > that) - (this < that))
+        return (this > that) - (this < that)
 
     @staticmethod
     def hashcode(value):
@@ -3225,8 +3225,9 @@ class SortSpec(object):
             self.is_desc = bis.read_boolean()
             self.nones_first = bis.read_boolean()
         else:
-            self.is_desc = False;
-            self.nones_first = False;
+            self.is_desc = False
+            self.nones_first = False
+
 
 class TopologyInfo(object):
 

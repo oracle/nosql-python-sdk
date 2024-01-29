@@ -156,6 +156,7 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
         for t in threads:
             t.join()
 
+    # noinspection PyDeprecation
     @classmethod
     def _find_port_start_server(cls, token_handler):
         port = 9000

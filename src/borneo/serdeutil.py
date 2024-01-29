@@ -144,6 +144,7 @@ class NsonEventHandler:
         pass
 
 
+# noinspection PyTypeChecker
 class SerdeUtil(object):
     """
     A class to encapsulte static methods used by serialization and
