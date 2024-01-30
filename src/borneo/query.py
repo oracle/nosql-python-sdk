@@ -1524,14 +1524,16 @@ class GroupIter(PlanIter):
                 return
             is_distinct = isinstance(self.value, set)
             if is_distinct:
+                # value is a set
                 collect_set = self.value
                 for elem in val:
                     collect_set.add(Hashable(elem))
                     if count_memory:
                         rcb.inc_memory_consumption(self.sizeof(elem))
             else:
+                # value is a list
                 collect_array = self.value
-                collect_array.add(val)
+                collect_array.extend(val)
                 if count_memory:
                     rcb.inc_memory_consumption(self.sizeof(val))
 
