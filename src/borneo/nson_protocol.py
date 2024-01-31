@@ -62,6 +62,7 @@ RANGE = 'rg'
 RANGE_PATH = 'rp'
 READ_THROTTLE_COUNT = 'rt'
 RETURN_ROW = 'rr'
+SERVER_MEMORY_CONSUMPTION = 'sm'  # not yet used
 SHARD_ID = 'si'
 START = 'sr'
 STATEMENT = 'st'

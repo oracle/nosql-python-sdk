@@ -274,6 +274,7 @@ class TestSignatureProvider(unittest.TestCase):
                 self._count = count
                 self._lock = Condition()
 
+            # noinspection PyDeprecation
             def count_down(self):
                 self._lock.acquire()
                 self._count -= 1

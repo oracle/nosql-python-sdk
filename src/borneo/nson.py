@@ -325,6 +325,7 @@ class Nson(object):
     def iso_time_to_ms(iso_str):
         return SerdeUtil.iso_time_to_ms(iso_str)
 
+
 class NsonSerializer(NsonEventHandler):
     """
     This class serializes an NSON "document." It maintains state for nested
