@@ -25,8 +25,8 @@ from .exception import (
     ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
     ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
     SecurityInfoNotReadyException, SystemException, TableExistsException,
-    TableLimitException, TableNotFoundException, TableSizeException,
-    UnauthorizedException, UnsupportedProtocolException,
+    TableLimitException, TableNotFoundException, TableNotReadyException,
+    TableSizeException, UnauthorizedException, UnsupportedProtocolException,
     WriteThrottlingException)
 
 from .kv.exception import AuthenticationException
@@ -200,7 +200,11 @@ class SerdeUtil(object):
                    DROP_INDEX=22,
                    # added in V2.
                    SYSTEM_REQUEST=23,
-                   SYSTEM_STATUS_REQUEST=24)
+                   SYSTEM_STATUS_REQUEST=24,
+                   # skip some as unused
+                   ADD_REPLICA=33,
+                   DROP_REPLICA=34,
+                   GET_REPLICA_STATS=35)
 
     # System Operation state.
     SYSTEM_STATE = enum(COMPLETE=0,
@@ -243,7 +247,10 @@ class SerdeUtil(object):
                       ETAG_MISMATCH=22,
                       CANNOT_CANCEL_WORK_REQUEST=23,
                       # added in V3
-                      UNSUPPORTED_PROTOCOL=24)
+                      UNSUPPORTED_PROTOCOL=24,
+                      # added in V4
+                      TABLE_NOT_READY=26,
+                      UNSUPPORTED_QUERY_VERSION=27)
 
     # Error codes for user throttling, range from 50 to 100(exclusive).
     THROTTLING_ERROR = enum(READ_LIMIT_EXCEEDED=50,
@@ -392,6 +399,12 @@ class SerdeUtil(object):
             return DeploymentException(msg)
         elif code == SerdeUtil.USER_ERROR.UNSUPPORTED_PROTOCOL:
             return UnsupportedProtocolException(msg)
+        elif code == SerdeUtil.USER_ERROR.UNSUPPORTED_QUERY_VERSION:
+            return UnsupportedQueryVersionException(msg)
+        elif code == SerdeUtil.USER_ERROR.TABLE_NOT_READY:
+            return TableNotReadyException(msg)
+        elif code == SerdeUtil.USER_ERROR.ETAG_MISMATCH:
+            return IllegalArgumentException(msg)
         else:
             return NoSQLException(
                 'Unknown error code ' + str(code) + ': ' + msg)

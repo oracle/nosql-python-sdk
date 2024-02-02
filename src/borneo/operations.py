@@ -3975,6 +3975,542 @@ class WriteMultipleRequest(Request):
         return "WriteMultiple"
 
 
+class AddReplicaRequest(Request):
+    """
+    Cloud service only
+
+    AddReplicaRequest is used to add a new replica (region) to a table
+    :versionadded: 5.4.2
+    """
+
+    def __init__(self):
+        super(AddReplicaRequest, self).__init__()
+        self._replica_name = None
+        self._read_units = 0
+        self._write_units = 0
+        self._match_etag = None
+
+    def __str__(self):
+        return ('AddReplicaRequest: [name=' + str(self.get_table_name()) +
+                ', replica_name=' + str(self._replica_name) + ', read_units=' +
+                str(self._read_units) + ', write_units=' +
+                str(self._write_units) +
+                ', match_etag=' + str(self._match_etag) + ']')
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name to replicate.
+
+        :param table_name: the name of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(AddReplicaRequest, self).set_table_name(table_name)
+        return self
+
+    def set_replica_name(self, replica_name):
+        """
+        Sets the replica name(region) to be added.
+
+        :param replica_name: the name of the replica.
+        :type replica_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if replica_name
+            is not a string.
+        """
+        CheckValue.check_str(replica_name, 'statement')
+        self._replica_name = replica_name
+        return self
+
+    def get_replica_name(self):
+        """
+        Returns the replica name.
+
+        :returns: the replica name, or None if not set.
+        :returns: str
+        """
+        return self._replica_name
+
+    def set_read_units(self, read_units):
+        """
+        Sets the read units for the replica table. This defaults to the units
+        set on the existing table.
+
+        :param read_units: the read units to use, in read units.
+        :type read_units: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if read_units is
+            not a integer.
+        """
+        CheckValue.check_int(read_units, 'read_units')
+        self._read_units = read_units
+        return self
+
+    def get_read_units(self):
+        """
+        Returns the read units to use for the replica table. 0 if not set
+
+        :returns: the read units.
+        :rtype: int
+        """
+        return self._read_units
+
+    def set_write_units(self, write_units):
+        """
+        Sets the write units for the replica table. This defaults to the units
+        set on the existing table.
+
+        :param write_units: the write units to use, in write units.
+        :type write_units: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if write_units is
+            not a integer.
+        """
+        CheckValue.check_int(write_units, 'write_units')
+        self._write_units = write_units
+        return self
+
+    def get_write_units(self):
+        """
+        Returns the write units to use on the replica table. 0 if not set.
+
+        :returns: the write units.
+        :rtype: int
+        """
+        return self._write_units
+
+    def set_match_etag(self, etag):
+        """
+        Sets a ETag to match for the operation to proceed. The ETag must be
+        non-null and have been previously returned in :py:class:`TableResult`.
+        The ETag is a form of optimistic concurrency control allowing an
+        application to ensure no unexpected modifications have been made to the
+        table.
+
+        :param etag the tag
+        :type etag: str
+        """
+        self._match_etag = etag
+
+    def get_match_etag(self):
+        """
+        :returns: the match etag or None if not set
+        :rtype: str
+        """
+        return self._match_etag
+
+    def set_compartment(self, compartment):
+        """
+        Sets the name or id of a compartment to be used for this operation.
+
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
+        :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
+        """
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        self._set_timeout(timeout_ms)
+        return self
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self.get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
+        return self
+
+    def validate(self):
+        if self.get_table_name() is None or self._replica_name is None:
+            raise IllegalArgumentException(
+                'AddReplicaRequest requires a table name and replica name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "AddReplica"
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.AddReplicaRequestSerializer()
+        pass
+
+class DropReplicaRequest(Request):
+    """
+    Cloud service only
+
+    DropReplicaRequest is used to drop a replica (region) from a table
+    :versionadded: 5.4.2
+    """
+
+    def __init__(self):
+        super(DropReplicaRequest, self).__init__()
+        self._replica_name = None
+        self._match_etag = None
+
+    def __str__(self):
+        return ('DropReplicaRequest: [name=' + str(self.get_table_name()) +
+                ', replica_name=' + str(self._replica_name) +
+                ', match_etag=' + str(self._match_etag) + ']')
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name to use for the operation.
+
+        :param table_name: the name of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(DropReplicaRequest, self).set_table_name(table_name)
+        return self
+
+    def set_replica_name(self, replica_name):
+        """
+        Sets the replica name(region) to be dropped.
+
+        :param replica_name: the name of the replica.
+        :type replica_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if replica_name
+            is not a string.
+        """
+        CheckValue.check_str(replica_name, 'statement')
+        self._replica_name = replica_name
+        return self
+
+    def get_replica_name(self):
+        """
+        Returns the replica name.
+
+        :returns: the replica name, or None if not set.
+        :returns: str
+        """
+        return self._replica_name
+
+    def set_match_etag(self, etag):
+        """
+        Sets a ETag to match for the operation to proceed. The ETag must be
+        non-null and have been previously returned in :py:class:`TableResult`.
+        The ETag is a form of optimistic concurrency control allowing an
+        application to ensure no unexpected modifications have been made to the
+        table.
+
+        :param etag the tag
+        :type etag: str
+        :returns: self
+        """
+        self._match_etag = etag
+        return self
+
+    def get_match_etag(self):
+        """
+        :returns: the match etag or None if not set
+        :rtype: str
+        """
+        return self._match_etag
+
+    def set_compartment(self, compartment):
+        """
+        Sets the name or id of a compartment to be used for this operation.
+
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
+        :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
+        """
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        self._set_timeout(timeout_ms)
+        return self
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self.get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
+        return self
+
+    def validate(self):
+        if self.get_table_name() is None or self._replica_name is None:
+            raise IllegalArgumentException(
+                'DropReplicaRequest requires a table name and replica name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "DropReplica"
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.DropReplicaRequestSerializer()
+        pass
+
+class ReplicaStatsRequest(Request):
+    """
+    Cloud service only
+
+    Represents the argument of a :py:meth:`NoSQLHandle.get_replica_stats`.
+    operation which returns stats information for one, or all replicas of
+    a replicated table, returned in :py:class:`ReplicaStatsResult`.
+    This information includes a time series of replica stats, as found in
+    :py:class:`ReplicaStatsResult.ReplicaStats`.
+
+    It is possible to return a range of stats records or, by default, only the
+    most recent stats records if start_time is not specified. Replica stats
+    records are created on a regular basis and maintained for a period of time.
+    Only records for time periods that have completed are returned so that a
+    user never sees changing data for a specific range.
+    :versionadded: 5.4.2
+    """
+
+    def __init__(self):
+        super(ReplicaStatsRequest, self).__init__()
+        self._replica_name = None
+        self._start_time = 0
+        self._limit = 0
+
+    def __str__(self):
+        return ('ReplicaStatsRequest: [name=' + str(self.get_table_name()) +
+                ', replica_name=' + str(self._replica_name) +
+                ', start_time=' + str(self._start_time) +
+                ', limit=' + str(self._limit) + ']')
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name to use for the operation.
+
+        :param table_name: the name of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(ReplicaStatsRequest, self).set_table_name(table_name)
+        return self
+
+    def set_replica_name(self, replica_name):
+        """
+        Sets the replica name(region) to be used to query for stats
+        information. If not set information for all replicas is returned.
+
+        :param replica_name: the name of the replica.
+        :type replica_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if replica_name
+            is not a string.
+        """
+        CheckValue.check_str(replica_name, 'statement')
+        self._replica_name = replica_name
+        return self
+
+    def get_replica_name(self):
+        """
+        Returns the replica name.
+
+        :returns: the replica name, or None if not set.
+        :returns: str
+        """
+        return self._replica_name
+
+    def set_start_time(self, start_time):
+        """
+        Sets the start time to use for the request in milliseconds since the
+        Epoch in UTC time. If no start time is set for this request the most
+        recent complete stats records are returned, the number of records is
+        up to limit set by :py:meth:`ReplicaStatsRequest.set_limit`
+
+        :param start_time the start_time
+        :type start_time: int
+        :returns: self.
+        """
+        self._start_time = start_time
+        return self
+
+    def set_start_time_str(self, start_time):
+        """
+        Sets the start time to use for the request from an ISO 8601 formatted
+        string. If timzone is not specified UTC is used.
+
+        :param start_time the start_time
+        :type start_time: str
+        :returns: self
+        :raises IllegalArgumentException: raises the exception if the
+            start_time string is not a valid format.
+        """
+        self._check_time(start_time)
+        self._start_time = SerdeUtil.iso_time_to_ms(start_time)
+        return self
+
+    def get_start_time(self):
+        """
+        Get the start time to use for the request in milliseconds since
+        the epoch in UTC time
+
+        :returns: the start_time
+        :rtype: int
+        """
+        return self._start_time
+
+    def get_start_time_str(self):
+        """
+        Get the start time to use for the request as an ISO 8601 formatted
+        string. If the start_time is not set, None is returned
+
+        :returns: the start_time or None
+        :rtype: str
+        """
+        if self._start_time == 0:
+            return None
+        return datetime.fromtimestamp(
+            float(self._start_time) / 1000).replace(tzinfo=tz.UTC).isoformat()
+
+    def set_limit(self, limit):
+        """
+        Sets the limit to the number of replica stats records returned per
+        replica (region). The default value is 1000.
+
+        :param: limit the limit
+        :type start_time: int
+        :returns: self
+        """
+        CheckValue.check_int_ge_zero(limit, 'limit')
+        self._limit = limit
+        return self
+
+    def get_limit(self):
+        """
+        Gets the limit to the number of replica stats records returned per
+        replica (region). Returns 0 if not set.
+
+        :returns: the limit
+        :rtype: int
+        """
+        return self._limit
+
+    def set_compartment(self, compartment):
+        """
+        Sets the name or id of a compartment to be used for this operation.
+
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
+        :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
+        """
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        self._set_timeout(timeout_ms)
+        return self
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self.get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
+        return self
+
+    def validate(self):
+        if self.get_table_name() is None:
+            raise IllegalArgumentException(
+                'ReplicaStatsRequest requires a table name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "ReplicaStatsRequest"
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.ReplicaStatsRequestSerializer()
+        pass
+
 class Result(object):
     """
     Result is a base class for result classes for all supported operations.
@@ -5579,8 +6115,8 @@ class TableUsageResult(Result):
 
     def get_usage_records(self):
         """
-        Returns a list of usage records based on the parameters of the
-        :py:class:`TableUsageRequest` used.
+        Returns a list of :py:class:`TableUsage` records based on the
+        parameters of the :py:class:`TableUsageRequest` used.
 
         :returns: an list of usage records.
         :type: list(TableUsage)
@@ -5826,6 +6362,141 @@ class OperationResult(WriteResult):
         """
         return self._get_existing_modification_time()
 
+
+class ReplicaStatsResult(Result):
+    """
+    Cloud service only
+
+    ReplicaStatsResult is returned from
+    :py:meth:`NoSQLHandle.get_replicat_stats`. It contains replica statistics
+    for the requested table
+    :versionadded: 5.4.2
+    """
+    def __init__(self):
+        super(ReplicaStatsResult, self).__init__()
+        self._table_name = None
+        self._next_start_time = 0
+        self._stats_record = None # dict<string, ReplicaStats array>
+
+    def get_table_name(self):
+        """
+        Returns the table name used by the operation
+
+        :returns the table name
+        :rtype: str
+        """
+        return self._table_name
+
+    def get_next_start_time(self):
+        """
+        Returns the next start time. This can be provided to a
+        :py:class:`ReplicaStatsRequest` to be used as a starting point for
+        listing stats records
+
+        :returns the next start time
+        :rtype: in
+        """
+        return self._next_start_time
+
+    def get_stats_record(self):
+        """
+        Returns replica statistics information based on the arguments of
+        the :py:class:`ReplicaStatsRequest` used for the request.
+        It contains stats for either one replica or all replicas.
+
+        The stats format is a dict where the key is a replica name and the
+        value is a list of :py:class:`ReplicaStats` objects
+
+        :returns: the stats
+        :rtype: dict
+        """
+        return self._stats_record
+
+    def set_table_name(self, table_name):
+        self._table_name = table_name
+        return self
+
+    def set_next_start_time(self, next_start_time):
+        self._next_start_time = next_start_time
+        return self
+
+    def set_stats_records(self, records):
+        self._stats_record = records
+        return self
+
+    def __str__(self):
+        # consider a prettier output format, JSON or pythonic
+        if self._stats_record is None:
+            records_str = 'None'
+        else:
+            records_str = 'ReplicaStatsResult [table=' + self._table_name + '] '
+            for rep_name, stats in self._stats_record.items():
+                records_str += '[Replica [name=' + rep_name + '['
+                for i in range(0, len(stats)):
+                    stat = stats[i]
+                    records_str += str(stat)
+                    if i < len(stats)-1:
+                        records_str += ','
+                records_str += ']]'
+        return records_str
+
+    class ReplicaStats(object):
+        """
+        ReplicaStats contains information about replica lag for a specific
+        replica.
+
+        Replica lag is a measure of how current this table is relative to
+        the remote replica and indicates that this table has not yet received
+        updates that happened within the lag period.
+
+        For example, if the replica lag is 5,000 milliseconds(5 seconds),
+        then this table will have all updates that occurred at the remote
+        replica that are more than 5 seconds old.
+
+        Replica lag is calculated based on how long it took for the latest
+        operation from the table at the remote replica to be replayed at this
+        table. If there have been no application writes for the table at the
+        remote replica, the service uses other mechanisms to calculate an
+        approximation of the lag, and the lag statistic will still be available.
+        """
+        def __init__(self):
+            self._collection_time_millis = 0
+            self._replica_lag = 0
+
+        def get_collection_time(self):
+            """
+            Returns the time the replica lag collection was performed. The value
+            is a time stamp in milliseconds since the Epoch
+
+            :returns: the time
+            :rtype: int
+            """
+            return self._collection_time_millis
+
+        def get_collection_time_str(self):
+            """
+            Returns the collection time as an ISO 8601 formatted string
+
+            :returns: the time
+            :rtype: str
+            """
+            return datetime.fromtimestamp(
+            float(self._collection_time_millis) / 1000). \
+                    replace(tzinfo=tz.UTC).isoformat()
+
+        def get_replica_lag(self):
+            """
+            Returns the replica lag collected at the specified time in
+            milliseconds
+
+            :returns: the lag
+            :rtype: int
+            """
+            return self._replica_lag
+
+        def __str__(self):
+            return '[time=' + self.get_collection_time_str() + ',' \
+                'lag=' + str(self._replica_lag) + ']'
 
 class RetryStats(object):
     """

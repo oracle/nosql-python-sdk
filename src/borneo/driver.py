@@ -684,6 +684,72 @@ class NoSQLHandle(object):
             results.append(UserInfo(user['id'], user['name']))
         return results
 
+    def add_replica(self, request):
+        """
+        Cloud service only.
+
+        Adds a replica to a table
+
+        This operation is implicitly asynchronous. The caller must poll using
+        methods on :py:class:`TableResult` to determine when it has completed.
+
+        :param request: the input parameters for the operation.
+        :type request: AddReplicaRequest
+        :returns: the result of the operation.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded: 5.4.2
+        """
+        return self._execute(request)
+
+    def drop_replica(self, request):
+        """
+        Cloud service only.
+
+        Drops a replica from a table
+
+        This operation is implicitly asynchronous. The caller must poll using
+        methods on :py:class:`TableResult` to determine when it has completed.
+
+        :param request: the input parameters for the operation.
+        :type request: DropReplicaRequest
+        :returns: the result of the operation.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded: 5.4.2
+        """
+        return self._execute(request)
+
+    def get_replica_stats(self, request):
+        """
+        Cloud service only.
+
+        Gets replica statistics information
+
+        :param request: the input parameters for the operation.
+        :type request: ReplicaStatsRequest
+        :returns: the result of the operation.
+        :rtype: ReplicaStatsResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises TableNotFoundException: raises the exception if the specified
+            table does not exist.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded: 5.4.2
+        """
+        return self._execute(request)
+
     def get_client(self):
         # For testing use
         return self._client

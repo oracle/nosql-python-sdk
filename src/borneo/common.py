@@ -486,6 +486,9 @@ class HttpConstants(object):
     # Proxy version info
     RESPONSE_PROXY_INFO = 'x-nosql-version'
 
+    # For OCI content signing
+    X_CONTENT_SHA256 = 'x-content-sha256'
+
     # Creates a URI path from the arguments
     def _make_path(*args):
         path = args[0]

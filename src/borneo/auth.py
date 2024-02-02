@@ -82,7 +82,8 @@ class AuthorizationProvider(object):
             raise IllegalArgumentException(
                 'Configured AuthorizationProvider requires a non-none string.')
 
-    def set_required_headers(self, request, auth_string, headers):
+    def set_required_headers(self, request, auth_string, headers,
+                                 content = None):
         """
         Internal use only.
 
