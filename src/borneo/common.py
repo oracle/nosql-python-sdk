@@ -534,7 +534,7 @@ class IndexInfo(object):
         Returns the list of field names that define the index.
 
         :returns: the field names.
-        :rtype: list(str)
+        :rtype: list[str]
         """
         return self._field_names
 
@@ -543,7 +543,7 @@ class IndexInfo(object):
         Returns the list of types of fields that define the index.
 
         :returns: the field types.
-        :rtype: list(str)
+        :rtype: list[str]
         :versionadded:: 5.4.0
         """
         return self._field_types
@@ -1162,7 +1162,7 @@ class PreparedStatement(object):
         requested in the :py:class:`PrepareRequest`; None otherwise.
 
         :returns: the string representation of the query execution plan.
-        :rtype: bool
+        :rtype: str
         """
         return self._query_plan
 
@@ -1172,7 +1172,7 @@ class PreparedStatement(object):
         requested in the :py:class:`PrepareRequest`; None otherwise.
 
         :returns: the string representation of the query schema.
-        :rtype: bool
+        :rtype: str
         :versionadded:: 5.4.0
         """
         return self._query_schema

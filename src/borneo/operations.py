@@ -3280,7 +3280,7 @@ class TableRequest(Request):
         Sets defined tags
 
         :param tags the tags
-        :type tags: dict(str, dict(str, object))
+        :type tags: dict[str, dict[str, object]]
         :versionadded:: 5.4.0
         """
         self._defined_tags = tags
@@ -3292,7 +3292,7 @@ class TableRequest(Request):
         Returns the defined tags or None if not set
 
         :returns: the defined tags.
-        :rtype: dict(str, dict(str, object))
+        :rtype: dict[str, dict[str, object]]
         :versionadded:: 5.4.0
         """
         return self._defined_tags
@@ -3304,7 +3304,7 @@ class TableRequest(Request):
         Sets free_form tags
 
         :param tags the tags
-        :type tags: dict(str, str)
+        :type tags: dict[str, str]
         :versionadded:: 5.4.0
         """
         self._free_form_tags = tags
@@ -3314,7 +3314,7 @@ class TableRequest(Request):
         Returns the free_form tags or None if not set
 
         :returns: the free_form tags.
-        :rtype: dict(str, str)
+        :rtype: dict[str, str]
         :versionadded:: 5.4.0
         """
         return self._free_form_tags
@@ -6044,7 +6044,7 @@ class TableResult(Result):
         Cloud service only.
 
         :returns: the tags
-        :rtype: dict(str, dict(str, object))
+        :rtype: dict[str, dict[str, object]]
         :versionadded:: 5.4.0
         """
         return self._defined_tags
@@ -6054,7 +6054,7 @@ class TableResult(Result):
         Cloud service only.
 
         :returns: the tags
-        :rtype: dict(str, str)
+        :rtype: dict[str, str]
         :versionadded:: 5.4.0
         """
         return self._free_form_tags
