@@ -14,8 +14,8 @@ from dateutil import tz
 
 from .common import (
     CheckValue, Consistency, Durability, FieldRange, PreparedStatement,
-    PutOption, State, SystemState, TableLimits, TimeToLive, Version,
-    deprecated)
+    PutOption, ReplicaStats, State, SystemState, TableLimits, TableUsage,
+    TimeToLive, Version, deprecated)
 from .exception import (
     IllegalArgumentException, RequestTimeoutException)
 from .http import RateLimiter
@@ -357,7 +357,7 @@ class Request(object):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         CheckValue.check_str(namespace, 'namespace', True)
         self._namespace = namespace
@@ -371,7 +371,7 @@ class Request(object):
 
         :returns: namespace, or None if not set.
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._namespace
 
@@ -729,7 +729,7 @@ class DeleteRequest(WriteRequest):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         self._set_durability(durability)
         return self
@@ -739,7 +739,7 @@ class DeleteRequest(WriteRequest):
         On-premise only. Gets the durability to use for the operation or
         None if not set
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_durability()
 
@@ -962,7 +962,7 @@ class GetRequest(ReadRequest):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(GetRequest, self).set_namespace(namespace)
         return self
@@ -1107,7 +1107,7 @@ class GetTableRequest(Request):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(GetTableRequest, self).set_namespace(namespace)
         return self
@@ -1455,7 +1455,7 @@ class MultiDeleteRequest(Request):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(MultiDeleteRequest, self).set_namespace(namespace)
         return self
@@ -1640,7 +1640,7 @@ class MultiDeleteRequest(Request):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         if durability is None:
             self._durability = None
@@ -1657,7 +1657,7 @@ class MultiDeleteRequest(Request):
         On-premise only. Gets the durability to use for the operation or
         None if not set
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._durability
 
@@ -1726,7 +1726,7 @@ class PrepareRequest(Request):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(PrepareRequest, self).set_namespace(namespace)
         return self
@@ -1833,7 +1833,7 @@ class PrepareRequest(Request):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if get_query_schema
             is not a boolean.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         CheckValue.check_boolean(get_query_schema, 'get_query_schema')
         self._get_query_schema = get_query_schema
@@ -1847,7 +1847,7 @@ class PrepareRequest(Request):
         :returns: True if a JSON representation of the schema
         of the query should be included in the :py:class:`PreparedStatement`.
         :rtype: bool
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._get_query_schema
 
@@ -2214,7 +2214,7 @@ class PutRequest(WriteRequest):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(PutRequest, self).set_namespace(namespace)
         return self
@@ -2270,7 +2270,7 @@ class PutRequest(WriteRequest):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         self._set_durability(durability)
         return self
@@ -2280,7 +2280,7 @@ class PutRequest(WriteRequest):
         On-premise only. Gets the durability to use for the operation or
         None if not set
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_durability()
 
@@ -2425,7 +2425,7 @@ class QueryRequest(Request):
         """
         Copies the query request to start query results from the beginning.
 
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         copy = QueryRequest()
         copy._compartment = self.get_compartment()
@@ -2702,7 +2702,7 @@ class QueryRequest(Request):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         self._durability = durability
         return self
@@ -2712,7 +2712,7 @@ class QueryRequest(Request):
         On-premise only. Gets the durability to use for the operation or
         None if not set
         :returns: the Durability
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._durability
 
@@ -3281,7 +3281,7 @@ class TableRequest(Request):
 
         :param tags the tags
         :type tags: dict(str, dict(str, object))
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         self._defined_tags = tags
 
@@ -3293,7 +3293,7 @@ class TableRequest(Request):
 
         :returns: the defined tags.
         :rtype: dict(str, dict(str, object))
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._defined_tags
 
@@ -3305,7 +3305,7 @@ class TableRequest(Request):
 
         :param tags the tags
         :type tags: dict(str, str)
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         self._free_form_tags = tags
 
@@ -3315,7 +3315,7 @@ class TableRequest(Request):
 
         :returns: the free_form tags.
         :rtype: dict(str, str)
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._free_form_tags
 
@@ -3331,7 +3331,7 @@ class TableRequest(Request):
 
         :param etag the tag
         :type etag: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         self._match_etag = etag
 
@@ -3341,7 +3341,7 @@ class TableRequest(Request):
 
         :returns: the match etag or None if not set
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._match_etag
 
@@ -3356,7 +3356,7 @@ class TableRequest(Request):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(TableRequest, self).set_namespace(namespace)
         return self
@@ -3484,7 +3484,7 @@ class TableUsageRequest(Request):
         :type namespace: str
         :raises IllegalArgumentException: raises the exception if namespace is
             not a string.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         super(TableUsageRequest, self).set_namespace(namespace)
         return self
@@ -3654,7 +3654,7 @@ class TableUsageRequest(Request):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if start_index
         is a negative number.
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         CheckValue.check_int_ge_zero(start_index, 'start_index')
         self._start_index = start_index
@@ -3666,7 +3666,7 @@ class TableUsageRequest(Request):
 
         :returns: the numeric start_index.
         :rtype: int
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._start_index
 
@@ -3788,9 +3788,9 @@ class WriteMultipleRequest(Request):
         if table_name is None:
             self.set_table_name(request.get_table_name())
         else:
-            if WriteMultipleRequest.get_top_table_name(
-                    request.get_table_name().lower()) \
-                    != table_name.lower():
+            if (WriteMultipleRequest.get_top_table_name(
+                    request.get_table_name().lower())
+                    != table_name.lower()):
                 raise IllegalArgumentException(
                     'The parent table_name used for the operation is '
                     'different from that of others: ' + table_name)
@@ -3911,7 +3911,7 @@ class WriteMultipleRequest(Request):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         if durability is None:
             self._durability = None
@@ -3928,7 +3928,7 @@ class WriteMultipleRequest(Request):
         On-premise only. Gets the durability to use for the operation or
         None if not set
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._durability
 
@@ -3980,7 +3980,6 @@ class AddReplicaRequest(Request):
     Cloud service only
 
     AddReplicaRequest is used to add a new replica (region) to a table
-    :versionadded: 5.4.2
     """
 
     def __init__(self):
@@ -4170,7 +4169,6 @@ class DropReplicaRequest(Request):
     Cloud service only
 
     DropReplicaRequest is used to drop a replica (region) from a table
-    :versionadded: 5.4.2
     """
 
     def __init__(self):
@@ -4320,7 +4318,6 @@ class ReplicaStatsRequest(Request):
     records are created on a regular basis and maintained for a period of time.
     Only records for time periods that have completed are returned so that a
     user never sees changing data for a specific range.
-    :versionadded: 5.4.2
     """
 
     def __init__(self):
@@ -4700,7 +4697,7 @@ class DeleteResult(WriteResult):
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
 
@@ -4946,7 +4943,7 @@ class ListTablesResult(Result):
 
         :returns: the index.
         :rtype: int
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._last_index_returned
 
@@ -5190,7 +5187,7 @@ class PutResult(WriteResult):
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
 
@@ -5480,7 +5477,7 @@ class QueryIterableResult(Result):
     with no RETURNING clause return a dictionary indicating the number of rows
     deleted, for example {'numRowsDeleted': 2}.
 
-    :versionadded: 5.3.6
+    :versionadded:: 5.3.6
     """
 
     def __init__(self, request, handle):
@@ -5542,7 +5539,7 @@ class QueryIterator:
     """
     QueryIterator iterates over all results of a query.
 
-    :versionadded: 5.3.6
+    :versionadded:: 5.3.6
     """
 
     def __init__(self, iterable):
@@ -5558,8 +5555,8 @@ class QueryIterator:
         if self._closed:
             return
         if self._partialResultList is None:
-            self._internal_result = \
-                self._iterable.handle.query(self._internalRequest)
+            self._internal_result = (
+                self._iterable.handle.query(self._internalRequest))
             self._partialResultList = self._internal_result.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
             try:
@@ -5576,8 +5573,8 @@ class QueryIterator:
                 has_next = False
 
         while not has_next and not self._internalRequest.is_done():
-            self._internal_result = \
-                self._iterable.handle.query(self._internalRequest)
+            self._internal_result = (
+                self._iterable.handle.query(self._internalRequest))
             self._partialResultList = self._internal_result.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
             has_next = True
@@ -5816,6 +5813,9 @@ class TableResult(Result):
         self._defined_tags = None  # dict(str, dict(str, object))
         self._match_etag = None  # str
         self._free_form_tags = None  # dict(str, str)
+        self._schema_frozen = False
+        self._local_replica_initialized = False
+        self._replicas = None
 
     def __str__(self):
         tres = ('table name=' + str(self._table_name) + ', state=' +
@@ -5831,6 +5831,8 @@ class TableResult(Result):
 
         if self._ocid is not None:
             tres += ', ocid=' + str(self._ocid)
+
+        # TODO: add tags and GAT state
         return tres
 
     def set_compartment_id(self, compartment_id):
@@ -5843,6 +5845,21 @@ class TableResult(Result):
         self._compartment_or_namespace = namespace
         return self
 
+    def set_schema_frozen(self, frozen):
+        # Internal use only.
+        self._schema_frozen = frozen
+        return self
+
+    def set_local_replica_initialized(self, replica_initialized):
+        # Internal use only.
+        self._local_replica_initialized = replica_initialized
+        return self
+
+    def set_replicas(self, replicas):
+        # Internal use only.
+        self._replicas = replicas
+        return self
+
     def get_compartment_id(self):
         """
         Cloud service only.
@@ -5853,6 +5870,56 @@ class TableResult(Result):
         :rtype: str
         """
         return self._compartment_or_namespace
+
+    def is_schema_frozen(self):
+        """
+        Cloud service only.
+
+        Returns True if the schema for this table is frozen.
+
+        :returns: frozen state
+        :rtype: bool
+        :versionadded:: 5.4.2
+        """
+        return self._schema_frozen
+
+    def is_local_replica_initialized(self):
+        """
+        Cloud service only.
+
+        Returns True if the table is a replica and its initialization
+        process has been completed, otherwise False
+
+        :returns: True if is an initialized replica
+        :rtype: bool
+        :versionadded:: 5.4.2
+        """
+        return self._local_replica_initialized
+
+    def is_replicated(self):
+        """
+        Cloud service only.
+
+        Returns True if the table is replicated
+
+        :returns: True if table is replicated
+        :rtype: bool
+        :versionadded:: 5.4.2
+        """
+        return self._replicas is not None
+
+    def get_replicas(self):
+        """
+        Cloud service only.
+
+        Returns a list of :py:class:`Replica` if the table is replicated,
+        otherwise None
+
+        :returns: list of replicas or None
+        :rtype: list[:py:class:`Replica`]
+        :versionadded:: 5.4.2
+        """
+        return self._replicas
 
     def get_namespace(self):
         """
@@ -5946,7 +6013,7 @@ class TableResult(Result):
 
         :returns: the ddl statement used to create the table
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._ddl
 
@@ -5958,7 +6025,7 @@ class TableResult(Result):
 
         :returns: the table OCID
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._ocid
 
@@ -5968,7 +6035,7 @@ class TableResult(Result):
 
         :returns: the tag
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._match_etag
 
@@ -5978,7 +6045,7 @@ class TableResult(Result):
 
         :returns: the tags
         :rtype: dict(str, dict(str, object))
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._defined_tags
 
@@ -5988,7 +6055,7 @@ class TableResult(Result):
 
         :returns: the tags
         :rtype: dict(str, str)
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._free_form_tags
 
@@ -6063,9 +6130,13 @@ class TableResult(Result):
             res = handle.get_table(get_table)
             # partial "copy" of possibly modified state. Don't modify
             # operationId as that is what we are waiting to complete.
+            # what about? tags, match etags?
             self._state = res.get_state()
             self._limits = res.get_table_limits()
             self._schema = res.get_schema()
+            self._schema_frozen = res.is_schema_frozen()
+            self._local_replica_initialized = res.is_local_replica_initialized()
+            self._replicas = res.get_replicas()
             if self._state in terminal:
                 break
 
@@ -6358,7 +6429,7 @@ class OperationResult(WriteResult):
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
 
@@ -6370,7 +6441,6 @@ class ReplicaStatsResult(Result):
     ReplicaStatsResult is returned from
     :py:meth:`NoSQLHandle.get_replicat_stats`. It contains replica statistics
     for the requested table
-    :versionadded: 5.4.2
     """
     def __init__(self):
         super(ReplicaStatsResult, self).__init__()
@@ -6440,63 +6510,6 @@ class ReplicaStatsResult(Result):
                 records_str += ']]'
         return records_str
 
-    class ReplicaStats(object):
-        """
-        ReplicaStats contains information about replica lag for a specific
-        replica.
-
-        Replica lag is a measure of how current this table is relative to
-        the remote replica and indicates that this table has not yet received
-        updates that happened within the lag period.
-
-        For example, if the replica lag is 5,000 milliseconds(5 seconds),
-        then this table will have all updates that occurred at the remote
-        replica that are more than 5 seconds old.
-
-        Replica lag is calculated based on how long it took for the latest
-        operation from the table at the remote replica to be replayed at this
-        table. If there have been no application writes for the table at the
-        remote replica, the service uses other mechanisms to calculate an
-        approximation of the lag, and the lag statistic will still be available.
-        """
-        def __init__(self):
-            self._collection_time_millis = 0
-            self._replica_lag = 0
-
-        def get_collection_time(self):
-            """
-            Returns the time the replica lag collection was performed. The value
-            is a time stamp in milliseconds since the Epoch
-
-            :returns: the time
-            :rtype: int
-            """
-            return self._collection_time_millis
-
-        def get_collection_time_str(self):
-            """
-            Returns the collection time as an ISO 8601 formatted string
-
-            :returns: the time
-            :rtype: str
-            """
-            return datetime.fromtimestamp(
-            float(self._collection_time_millis) / 1000). \
-                    replace(tzinfo=tz.UTC).isoformat()
-
-        def get_replica_lag(self):
-            """
-            Returns the replica lag collected at the specified time in
-            milliseconds
-
-            :returns: the lag
-            :rtype: int
-            """
-            return self._replica_lag
-
-        def __str__(self):
-            return '[time=' + self.get_collection_time_str() + ',' \
-                'lag=' + str(self._replica_lag) + ']'
 
 class RetryStats(object):
     """
@@ -6549,7 +6562,7 @@ class RetryStats(object):
 
         Returns the map of exceptions.
 
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         return self._exception_map
 
@@ -6564,7 +6577,7 @@ class RetryStats(object):
 
         :param ex_map: the exceptions map.
         :type ex_map: dict[Exception, int]
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         for k in ex_map.keys():
             num = self.get_num_exceptions(k) + ex_map[k]

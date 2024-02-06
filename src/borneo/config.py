@@ -1951,7 +1951,7 @@ class NoSQLHandleConfig(object):
         :param namespace: the default namespace.
         :type namespace: str
         :returns: self
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         self._default_namespace = namespace
         return self
@@ -1964,6 +1964,6 @@ class NoSQLHandleConfig(object):
 
         :returns: the default namespace or None.
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._default_namespace

@@ -16,9 +16,9 @@ from . import iam
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
-    Consistency, Durability, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
-    SystemState, TableLimits, TimeToLive, TimeUnit, UserInfo, Version,
-    IndexInfo, PreparedStatement)
+    Consistency, Durability, FieldRange, PutOption, Replica, ReplicaStats,
+    ResourcePrincipalClaimKeys, State, SystemState, TableLimits, TableUsage,
+    TimeToLive, TimeUnit, UserInfo, Version, IndexInfo, PreparedStatement)
 from .config import (
     DefaultRetryHandler, NoSQLHandleConfig, Region, Regions, RetryHandler,
     StatsProfile)
@@ -89,6 +89,8 @@ __all__ = ['AddReplicaRequest',
            'ReadThrottlingException',
            'Region',
            'Regions',
+           'Replica',
+           'ReplicaStats',
            'ReplicaStatsRequest',
            'ReplicaStatsResult',
            'Request',
@@ -115,13 +117,14 @@ __all__ = ['AddReplicaRequest',
            'TableNotReadyException',
            'TableRequest',
            'TableResult',
+           'TableUsage',
            'TableUsageRequest',
            'TableUsageResult',
            'ThrottlingException',
            'TimeToLive',
            'TimeUnit',
-           'UserInfo',
            'UnsupportedQueryVersionException',
+           'UserInfo',
            'Version',
            'WriteMultipleRequest',
            'WriteMultipleResult',

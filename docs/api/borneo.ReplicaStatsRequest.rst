@@ -6,6 +6,8 @@ ReplicaStatsRequest
 .. autoclass:: ReplicaStatsRequest
    :show-inheritance:
 
+   .. versionadded:: 5.4.2
+
    .. rubric:: Methods Summary
 
    .. autosummary::

@@ -297,7 +297,7 @@ class UnsupportedQueryVersionException(NoSQLException):
     """
     The exception is thrown if the server does not support the current
     query protocol version
-    :versionadded: 5.4.2
+    :versionadded:: 5.4.2
     """
 
     def __init__(self, message):
@@ -545,7 +545,7 @@ class TableNotReadyException(RetryableException):
 
     An exception that is thrown when an operation is attemped on a replicated
     table that is not yet fully initialized
-    :versionadded: 5.4.2
+    :versionadded:: 5.4.2
     """
 
     def __init__(self, message):

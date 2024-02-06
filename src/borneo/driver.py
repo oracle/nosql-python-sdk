@@ -420,7 +420,7 @@ class NoSQLHandle(object):
             an instance of :py:class:`QueryRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         if not isinstance(request, QueryRequest):
             raise IllegalArgumentException(
@@ -703,7 +703,7 @@ class NoSQLHandle(object):
             times out.
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
-        :versionadded: 5.4.2
+        :versionadded:: 5.4.2
         """
         return self._execute(request)
 
@@ -726,7 +726,7 @@ class NoSQLHandle(object):
             times out.
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
-        :versionadded: 5.4.2
+        :versionadded:: 5.4.2
         """
         return self._execute(request)
 
@@ -746,7 +746,7 @@ class NoSQLHandle(object):
             table does not exist.
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
-        :versionadded: 5.4.2
+        :versionadded:: 5.4.2
         """
         return self._execute(request)
 
