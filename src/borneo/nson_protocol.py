@@ -61,6 +61,7 @@ QUERY_VERSION = 'qv'
 RANGE = 'rg'
 RANGE_PATH = 'rp'
 READ_THROTTLE_COUNT = 'rt'
+REGION = 'rn'
 RETURN_ROW = 'rr'
 SERVER_MEMORY_CONSUMPTION = 'sm'  # not yet used
 SHARD_ID = 'si'
@@ -98,6 +99,9 @@ WM_SUCCESS = 'ws'
 #
 # table metadata
 #
+INITIALIZED = 'it'
+REPLICAS = 'rc'
+SCHEMA_FROZEN = 'sf'
 TABLE_SCHEMA = 'ac'
 TABLE_STATE = 'as'
 #
@@ -150,3 +154,9 @@ SHARD_IDS = 'sa'
 SORT_PHASE1_RESULTS = 'p1'
 TABLE_ACCESS_INFO = 'ai'
 TOPOLOGY_INFO = 'tp'
+
+# replica stats response fields
+NEXT_START_TIME = 'ni'
+REPLICA_STATS = 'ra'
+REPLICA_LAG = 'rl'
+TIME = 'tm'

@@ -32,7 +32,7 @@ class NoSQLHandle(object):
     default values and other configuration information to be used by the handle.
 
     The same interface is available to both users of the Oracle NoSQL Database
-    Cloud Service and the on-premise Oracle NoSQL Database; however, some
+    Cloud Service and the on-premises Oracle NoSQL Database; however, some
     methods and/or parameters are specific to each environment. The
     documentation has notes about whether a class, method, or parameter is
     environment-specific. Unless otherwise noted they are applicable to both
@@ -189,7 +189,7 @@ class NoSQLHandle(object):
         provisioned throughput and capacity and schema. Dynamic information such
         as usage is obtained using :py:meth:`get_table_usage`. Throughput,
         capacity and usage information is only available when using the Cloud
-        Service and will be None or not defined on-premise.
+        Service and will be None or not defined on-premises.
 
         :param request: the input parameters for the operation.
         :type request: GetTableRequest
@@ -213,12 +213,12 @@ class NoSQLHandle(object):
 
     def get_table_usage(self, request):
         """
-        Cloud service only.
-
         Gets dynamic information about the specified table such as the current
         throughput usage. Usage information is collected in time slices and
         returned in individual usage records. It is possible to specify a
         time-based range of usage records using input parameters.
+
+        Cloud service only.
 
         :param request: the input parameters for the operation.
         :type request: TableUsageRequest
@@ -420,7 +420,7 @@ class NoSQLHandle(object):
             an instance of :py:class:`QueryRequest`.
         :raises NoSQLException: raises the exception if the operation cannot be
             performed for any other reason.
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         if not isinstance(request, QueryRequest):
             raise IllegalArgumentException(
@@ -429,8 +429,6 @@ class NoSQLHandle(object):
 
     def system_request(self, request):
         """
-        On-premise only.
-
         Performs a system operation on the system, such as administrative
         operations that don't affect a specific table. For table-specific
         operations use :py:meth:`table_request` or :py:meth:`do_table_request`.
@@ -445,6 +443,8 @@ class NoSQLHandle(object):
 
         This operation is implicitly asynchronous. The caller must poll using
         methods on :py:class:`SystemResult` to determine when it has completed.
+
+        On-premises only.
 
         :param request: the input parameters for the operation.
         :type request: SystemRequest
@@ -462,10 +462,10 @@ class NoSQLHandle(object):
 
     def system_status(self, request):
         """
-        On-premise only.
-
         Checks the status of an operation previously performed using
         :py:meth:`system_request`.
+
+        On-premises only.
 
         :param request: the input parameters for the operation.
         :type request: SystemStatusRequest
@@ -549,10 +549,11 @@ class NoSQLHandle(object):
     def do_system_request(self, statement, timeout_ms=30000,
                           poll_interval_ms=1000):
         """
-        On-premise only.
-
         A convenience method that performs a SystemRequest and waits for
         completion of the operation. This is the same as calling
+
+        On-premises only.
+
         :py:meth:`system_request` then calling
         :py:meth:`SystemResult.wait_for_completion`. If the operation fails an
         exception is thrown.
@@ -620,9 +621,9 @@ class NoSQLHandle(object):
 
     def list_namespaces(self):
         """
-        On-premise only.
-
         Returns the namespaces in a store as a list of string.
+
+        On-premises only.
 
         :returns: the namespaces, or None if none are found.
         :rtype: list(str)
@@ -642,9 +643,9 @@ class NoSQLHandle(object):
 
     def list_roles(self):
         """
-        On-premise only.
-
         Returns the roles in a store as a list of string.
+
+        On-premises only.
 
         :returns: the list of roles, or None if none are found.
         :rtype: list(str)
@@ -664,9 +665,9 @@ class NoSQLHandle(object):
 
     def list_users(self):
         """
-        On-premise only.
-
         Returns the users in a store as a list of :py:class:`UserInfo`.
+
+        On-premises only.
 
         :returns: the list of users, or None if none are found.
         :rtype: list(UserInfo)
@@ -683,6 +684,72 @@ class NoSQLHandle(object):
         for user in users:
             results.append(UserInfo(user['id'], user['name']))
         return results
+
+    def add_replica(self, request):
+        """
+        Adds a replica to a table
+
+        This operation is implicitly asynchronous. The caller must poll using
+        methods on :py:class:`TableResult` to determine when it has completed.
+
+        Cloud service only.
+
+        :param request: the input parameters for the operation.
+        :type request: AddReplicaRequest
+        :returns: the result of the operation.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded:: 5.4.2
+        """
+        return self._execute(request)
+
+    def drop_replica(self, request):
+        """
+        Drops a replica from a table
+
+        This operation is implicitly asynchronous. The caller must poll using
+        methods on :py:class:`TableResult` to determine when it has completed.
+
+        Cloud service only.
+
+        :param request: the input parameters for the operation.
+        :type request: DropReplicaRequest
+        :returns: the result of the operation.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded:: 5.4.2
+        """
+        return self._execute(request)
+
+    def get_replica_stats(self, request):
+        """
+        Gets replica statistics information
+
+        Cloud service only.
+
+        :param request: the input parameters for the operation.
+        :type request: ReplicaStatsRequest
+        :returns: the result of the operation.
+        :rtype: ReplicaStatsResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises TableNotFoundException: raises the exception if the specified
+            table does not exist.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        :versionadded:: 5.4.2
+        """
+        return self._execute(request)
 
     def get_client(self):
         # For testing use

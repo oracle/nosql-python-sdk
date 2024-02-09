@@ -16,6 +16,7 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.get_consistency
       ~NoSQLHandleConfig.get_default_compartment
       ~NoSQLHandleConfig.get_default_consistency
+      ~NoSQLHandleConfig.get_default_namespace
       ~NoSQLHandleConfig.get_default_table_request_timeout
       ~NoSQLHandleConfig.get_default_timeout
       ~NoSQLHandleConfig.get_logger
@@ -33,6 +34,7 @@ NoSQLHandleConfig
       ~NoSQLHandleConfig.set_authorization_provider
       ~NoSQLHandleConfig.set_consistency
       ~NoSQLHandleConfig.set_default_compartment
+      ~NoSQLHandleConfig.set_default_namespace
       ~NoSQLHandleConfig.set_default_rate_limiting_percentage
       ~NoSQLHandleConfig.set_logger
       ~NoSQLHandleConfig.set_max_content_length
