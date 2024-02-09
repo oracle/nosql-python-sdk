@@ -995,7 +995,7 @@ class NoSQLHandleConfig(object):
     overridden in individual operations.
 
     The service endpoint is used to connect to the Oracle NoSQL Database Cloud
-    Service or, if on-premise, the Oracle NoSQL Database proxy server. It should
+    Service or if on-premises, the Oracle NoSQL Database proxy server. It should
     be a string or a :py:class:`Region`.
 
     If a string is provided to endpoint argument, there is flexibility in how
@@ -1152,9 +1152,9 @@ class NoSQLHandleConfig(object):
 
     def get_region(self):
         """
-        Cloud service only.
-
         Returns the region will be accessed by the NoSQLHandle.
+
+        Cloud service only.
 
         :returns: the region.
         :rtype: Region
@@ -1190,8 +1190,6 @@ class NoSQLHandleConfig(object):
 
     def set_default_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the default compartment to use for requests sent using the handle.
         Setting the default is optional and if set it is overridden by any
         compartment specified in a request or table name. If no compartment is
@@ -1204,6 +1202,8 @@ class NoSQLHandleConfig(object):
           :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`
           ) the compartment id (OCID) must be specified by either using this
           method or in each Request object. If not an exception is thrown.
+
+        Cloud service only.
 
         :param compartment: may be either the name of a compartment or the id
             (OCID) of a compartment.
@@ -1218,11 +1218,11 @@ class NoSQLHandleConfig(object):
 
     def get_default_compartment(self):
         """
-        Cloud service only.
-
         Returns the default compartment to use for requests or None if not set.
         The value may be a compartment name or id, as set by
         :py:meth:`set_default_compartment`.
+
+        Cloud service only.
 
         :returns: the compartment, or None.
         :rtype: str or None
@@ -1408,9 +1408,11 @@ class NoSQLHandleConfig(object):
 
     def set_max_content_length(self, max_content_length):
         """
-        Sets the maximum size in bytes of request payloads. On-premise only.
+        Sets the maximum size in bytes of request payloads.
         This setting is ignored for cloud operations. If not set, or set to
         zero, the default value of 32MB is used.
+
+        On-premises only.
 
         :param max_content_length: the maximum bytes allowed in requests. Pass
             zero to use the default.
@@ -1426,7 +1428,9 @@ class NoSQLHandleConfig(object):
     def get_max_content_length(self):
         """
         Returns the maximum size, in bytes, of a request operation payload.
-        On-premise only. This value is ignored for cloud operations.
+        This value is ignored for cloud operations.
+
+        On-premises only.
 
         :returns: the size.
         :rtype: int
@@ -1490,9 +1494,9 @@ class NoSQLHandleConfig(object):
 
     def set_rate_limiting_enabled(self, enable):
         """
-        Cloud service only.
-
         Enables internal rate limiting.
+
+        Cloud service only.
 
         :param enable: If True, enable internal rate limiting, otherwise disable
             internal rate limiting.
@@ -1507,9 +1511,9 @@ class NoSQLHandleConfig(object):
 
     def get_rate_limiting_enabled(self):
         """
-        Internal use only.
-
         Returns whether the rate limiting is enabled.
+
+        Internal use only.
 
         :returns: True if rate limiting is enabled, otherwise False.
         :rtype: bool
@@ -1518,14 +1522,14 @@ class NoSQLHandleConfig(object):
 
     def set_default_rate_limiting_percentage(self, percent):
         """
-        Cloud service only.
-
         Sets a default percentage of table limits to use. This may be useful for
         cases where a client should only use a portion of full table limits.
         This only applies if rate limiting is enabled using
         :py:meth:`set_rate_limiting_enabled`.
 
         The default for this value is 100.0 (full table limits).
+
+        Cloud service only.
 
         :param percent: the percentage of table limits to use. This value must
             be positive.
@@ -1540,9 +1544,9 @@ class NoSQLHandleConfig(object):
 
     def get_default_rate_limiting_percentage(self):
         """
-        Internal use only.
-
         Returns the default percentage.
+
+        Internal use only.
 
         :returns: the default percentage.
         :rtype: float
@@ -1653,13 +1657,13 @@ class NoSQLHandleConfig(object):
 
     def set_ssl_ca_certs(self, ssl_ca_certs):
         """
-        On-premise only.
-
-        When running against on-premise Oracle NoSQL Database with security
+        When running against on-premises Oracle NoSQL Database with security
         enabled, certificates should be specified using this method. Otherwise
         environment variable REQUESTS_CA_BUNDLE should be configured. See `the
         installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
         installation.html>`_ for the configuration of REQUESTS_CA_BUNDLE.
+
+        On-premises only.
 
         :param ssl_ca_certs: ssl ca certificates.
         :type ssl_ca_certs: str
@@ -1943,10 +1947,10 @@ class NoSQLHandleConfig(object):
 
     def set_default_namespace(self, namespace):
         """
-        On-premises only.
-
         Sets the default namespace to use for requests that use a table
         name
+
+        On-premises only.
 
         :param namespace: the default namespace.
         :type namespace: str
@@ -1958,9 +1962,9 @@ class NoSQLHandleConfig(object):
 
     def get_default_namespace(self):
         """
-        On-premises only.
-
         Returns the default namespace or None if not set.
+
+        On-premises only.
 
         :returns: the default namespace or None.
         :rtype: str

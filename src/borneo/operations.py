@@ -106,9 +106,9 @@ class Request(object):
 
     def get_compartment(self):
         """
-        Cloud service only.
-
         Get the compartment id or name if set for the request.
+
+        Cloud service only.
 
         :returns: compartment id or name if set for the request, otherwise None
             if not set.
@@ -129,8 +129,6 @@ class Request(object):
 
     def get_read_rate_limiter(self):
         """
-        Cloud service only.
-
         Returns the read rate limiter instance used during this request.
 
         This will be the value supplied via :py:meth:`set_read_rate_limiter`, or
@@ -139,6 +137,8 @@ class Request(object):
 
         This is supplied for stats and tracing/debugging only. The returned
         limiter should be treated as read-only.
+
+        Cloud service only.
 
         :returns: the rate limiter instance used for read operations, or None if
             no limiter was used.
@@ -188,12 +188,17 @@ class Request(object):
         return self._table_name
 
     def get_timeout(self):
+        """
+        Returns the timeout to use for the operation, in milliseconds. A value
+        of 0 indicates that the timeout has not been set.
+
+        :returns: the timeout value.
+        :rtype: int
+        """
         return self._timeout_ms
 
     def get_write_rate_limiter(self):
         """
-        Cloud service only.
-
         Returns the write rate limiter instance used during this request.
 
         This will be the value supplied via :py:meth:`set_write_rate_limiter`,
@@ -202,6 +207,8 @@ class Request(object):
 
         This is supplied for stats and tracing/debugging only. The returned
         limiter should be treated as read-only.
+
+        Cloud service only.
 
         :returns: the rate limiter instance used for write operations, or None
             if no limiter was used.
@@ -256,13 +263,13 @@ class Request(object):
 
     def set_read_rate_limiter(self, rate_limiter):
         """
-        Cloud service only.
-
         Sets a read rate limiter to use for this request.
 
         This will override any internal rate limiter that may have otherwise
         been used during request processing, and it will be used regardless of
         any rate limiter config.
+
+        Cloud service only.
 
         :param rate_limiter: the rate limiter instance to use for read
             operations.
@@ -307,13 +314,13 @@ class Request(object):
 
     def set_write_rate_limiter(self, rate_limiter):
         """
-        Cloud service only.
-
         Sets a write rate limiter to use for this request.
 
         This will override any internal rate limiter that may have otherwise
         been used during request processing, and it will be used regardless of
         any rate limiter config.
+
+        Cloud service only.
 
         :param rate_limiter: the rate limiter instance to use for write
             operations.
@@ -346,12 +353,12 @@ class Request(object):
 
     def set_namespace(self, namespace):
         """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
         Internal use only
 
         On-premises only
-
-        Sets the namespace to use for the operation. This will override
-        any configured default value.
 
         :param namespace: the namespace
         :type namespace: str
@@ -364,10 +371,10 @@ class Request(object):
 
     def get_namespace(self):
         """
-        On-premises only
-
         Returns the namespace to use for the operation or None if not
         set.
+
+        On-premises only
 
         :returns: namespace, or None if not set.
         :rtype: str
@@ -600,8 +607,6 @@ class DeleteRequest(WriteRequest):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -611,6 +616,8 @@ class DeleteRequest(WriteRequest):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -722,7 +729,9 @@ class DeleteRequest(WriteRequest):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
@@ -736,8 +745,10 @@ class DeleteRequest(WriteRequest):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or
+        None if not set.
+
+        On-premises only
         :returns: the Durability
         :versionadded:: 5.3.0
         """
@@ -799,8 +810,6 @@ class GetIndexesRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -810,6 +819,8 @@ class GetIndexesRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -953,10 +964,10 @@ class GetRequest(ReadRequest):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -983,8 +994,6 @@ class GetRequest(ReadRequest):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -994,6 +1003,8 @@ class GetRequest(ReadRequest):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1098,10 +1109,10 @@ class GetTableRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -1127,8 +1138,6 @@ class GetTableRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1138,6 +1147,8 @@ class GetTableRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1253,8 +1264,6 @@ class ListTablesRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1264,6 +1273,8 @@ class ListTablesRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1333,11 +1344,11 @@ class ListTablesRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premise only.
-
         Sets the namespace to use for the list. If not set, all tables
         accessible to the user will be returned. If set, only tables in the
         namespace provided are returned.
+
+        On-premise only.
 
         :param namespace: the namespace to use.
         :type namespace: str
@@ -1351,9 +1362,9 @@ class ListTablesRequest(Request):
 
     def get_namespace(self):
         """
-        On-premise only.
-
         Returns the namespace to use for the list or None if not set.
+
+        On-premise only.
 
         :returns: the namespace.
         :rtype: str
@@ -1446,10 +1457,10 @@ class MultiDeleteRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -1500,8 +1511,6 @@ class MultiDeleteRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1511,6 +1520,8 @@ class MultiDeleteRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1633,7 +1644,9 @@ class MultiDeleteRequest(Request):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
@@ -1654,8 +1667,10 @@ class MultiDeleteRequest(Request):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
         :versionadded:: 5.3.0
         """
@@ -1717,10 +1732,10 @@ class PrepareRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -1770,8 +1785,6 @@ class PrepareRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1781,6 +1794,8 @@ class PrepareRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1980,8 +1995,6 @@ class PutRequest(WriteRequest):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1991,6 +2004,8 @@ class PutRequest(WriteRequest):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -2205,10 +2220,10 @@ class PutRequest(WriteRequest):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -2263,7 +2278,9 @@ class PutRequest(WriteRequest):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
@@ -2277,8 +2294,10 @@ class PutRequest(WriteRequest):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
         :versionadded:: 5.3.0
         """
@@ -2479,8 +2498,6 @@ class QueryRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -2490,6 +2507,8 @@ class QueryRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -2694,8 +2713,10 @@ class QueryRequest(Request):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation. Only
+        Sets the durability to use for the operation. Only
         used for queries that do writes or deletes.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
@@ -2709,8 +2730,10 @@ class QueryRequest(Request):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
         :versionadded:: 5.4.0
         """
@@ -2920,9 +2943,9 @@ class QueryRequest(Request):
 
 class SystemRequest(Request):
     """
-    On-premise only.
+    On-premises only.
 
-    SystemRequest is an on-premise-only request used to perform any
+    SystemRequest is an on-premises only request used to perform any
     table-independent administrative operation such as create/drop of namespaces
     and security-relevant operations (create/drop users and roles). These
     operations are asynchronous and completion needs to be checked.
@@ -3027,9 +3050,9 @@ class SystemRequest(Request):
 
 class SystemStatusRequest(Request):
     """
-    On-premise only.
+    On-premises only.
 
-    SystemStatusRequest is an on-premise-only request used to check the status
+    SystemStatusRequest is an on-premises only request used to check the status
     of an operation started using a :py:class:`SystemRequest`.
     """
 
@@ -3217,8 +3240,6 @@ class TableRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -3228,6 +3249,8 @@ class TableRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -3243,13 +3266,13 @@ class TableRequest(Request):
 
     def set_table_limits(self, table_limits):
         """
-        Cloud service only.
-
         Sets the table limits to use for the operation. Limits are used in only
         2 cases -- table creation statements and limits modification operations.
         It is not used for other DDL operations.
 
-        If limits are set for an on-premise service they are silently ignored.
+        If limits are set for an on-premises service they are silently ignored.
+
+        Cloud service only.
 
         :param table_limits: the limits.
         :type table_limits: TableLimits
@@ -3275,9 +3298,9 @@ class TableRequest(Request):
 
     def set_defined_tags(self, tags):
         """
-        Cloud service only.
-
         Sets defined tags
+
+        Cloud service only.
 
         :param tags the tags
         :type tags: dict[str, dict[str, object]]
@@ -3287,9 +3310,9 @@ class TableRequest(Request):
 
     def get_defined_tags(self):
         """
-        Cloud service only.
-
         Returns the defined tags or None if not set
+
+        Cloud service only.
 
         :returns: the defined tags.
         :rtype: dict[str, dict[str, object]]
@@ -3299,9 +3322,9 @@ class TableRequest(Request):
 
     def set_free_form_tags(self, tags):
         """
-        Cloud service only.
-
         Sets free_form tags
+
+        Cloud service only.
 
         :param tags the tags
         :type tags: dict[str, str]
@@ -3321,13 +3344,13 @@ class TableRequest(Request):
 
     def set_match_etag(self, etag):
         """
-        Cloud service only.
-
         Sets a ETag to match for the operation to proceed. The ETag must be
         non-null and have been previously returned in :py:class:`TableResult`.
         The ETag is a form of optimistic concurrency control allowing an
         application to ensure no unexpected modifications have been made to the
         table.
+
+        Cloud service only.
 
         :param etag the tag
         :type etag: str
@@ -3337,6 +3360,8 @@ class TableRequest(Request):
 
     def get_match_etag(self):
         """
+        Returns the match etag or None if not set
+
         Cloud service only.
 
         :returns: the match etag or None if not set
@@ -3347,10 +3372,10 @@ class TableRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -3475,10 +3500,10 @@ class TableUsageRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premises only
-
         Sets the namespace to use for the operation. This will override
         any configured default value.
+
+        On-premises only
 
         :param namespace: the namespace
         :type namespace: str
@@ -3505,8 +3530,6 @@ class TableUsageRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -3516,6 +3539,8 @@ class TableUsageRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -3816,8 +3841,6 @@ class WriteMultipleRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -3827,6 +3850,8 @@ class WriteMultipleRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -3904,7 +3929,9 @@ class WriteMultipleRequest(Request):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
@@ -3925,8 +3952,10 @@ class WriteMultipleRequest(Request):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
         :versionadded:: 5.3.0
         """
@@ -4095,6 +4124,8 @@ class AddReplicaRequest(Request):
 
     def get_match_etag(self):
         """
+        Gets the match etag or None if not set
+
         :returns: the match etag or None if not set
         :rtype: str
         """
@@ -4234,6 +4265,8 @@ class DropReplicaRequest(Request):
 
     def get_match_etag(self):
         """
+        Gets the match etag or None if not set
+
         :returns: the match etag or None if not set
         :rtype: str
         """
@@ -5860,11 +5893,22 @@ class TableResult(Result):
         self._replicas = replicas
         return self
 
-    def get_compartment_id(self):
+    def get_compartment(self):
         """
+        Returns compartment id of the target table.
+
         Cloud service only.
 
+        :returns: compartment id.
+        :rtype: str
+        """
+        return self._compartment_or_namespace
+
+    def get_compartment_id(self):
+        """
         Returns compartment id of the target table.
+
+        Cloud service only.
 
         :returns: compartment id.
         :rtype: str
@@ -5873,9 +5917,9 @@ class TableResult(Result):
 
     def is_schema_frozen(self):
         """
-        Cloud service only.
-
         Returns True if the schema for this table is frozen.
+
+        Cloud service only.
 
         :returns: frozen state
         :rtype: bool
@@ -5885,10 +5929,10 @@ class TableResult(Result):
 
     def is_local_replica_initialized(self):
         """
-        Cloud service only.
-
         Returns True if the table is a replica and its initialization
         process has been completed, otherwise False
+
+        Cloud service only.
 
         :returns: True if is an initialized replica
         :rtype: bool
@@ -5898,9 +5942,9 @@ class TableResult(Result):
 
     def is_replicated(self):
         """
-        Cloud service only.
-
         Returns True if the table is replicated
+
+        Cloud service only.
 
         :returns: True if table is replicated
         :rtype: bool
@@ -5910,10 +5954,10 @@ class TableResult(Result):
 
     def get_replicas(self):
         """
-        Cloud service only.
-
         Returns a list of :py:class:`Replica` if the table is replicated,
         otherwise None
+
+        Cloud service only.
 
         :returns: list of replicas or None
         :rtype: list[:py:class:`Replica`]
@@ -5923,9 +5967,9 @@ class TableResult(Result):
 
     def get_namespace(self):
         """
-        On-premise service only.
-
         Returns the namespace of the table or null if it is not in a namespace.
+
+        On-premises only.
 
         :returns: namespace
         :rtype: str
@@ -5966,7 +6010,7 @@ class TableResult(Result):
     def get_table_limits(self):
         """
         Returns the throughput and capacity limits for the table. Limits from an
-        on-premise service will always be None.
+        on-premises service will always be None.
 
         :returns: the limits.
         :rtype: TableLimits
@@ -6019,9 +6063,10 @@ class TableResult(Result):
 
     def get_table_id(self):
         """
-        Cloud service only.
         Returns the OCID of the table. This value will be null if used with the
-        on-premise service.
+        on-premises service.
+
+        Cloud service only.
 
         :returns: the table OCID
         :rtype: str
@@ -6031,6 +6076,8 @@ class TableResult(Result):
 
     def get_match_etag(self):
         """
+        Returns the match etag
+
         Cloud service only.
 
         :returns: the tag
@@ -6041,6 +6088,8 @@ class TableResult(Result):
 
     def get_defined_tags(self):
         """
+        Returns defined tags
+
         Cloud service only.
 
         :returns: the tags
@@ -6051,6 +6100,8 @@ class TableResult(Result):
 
     def get_free_form_tags(self):
         """
+        Returns free form tags
+
         Cloud service only.
 
         :returns: the tags

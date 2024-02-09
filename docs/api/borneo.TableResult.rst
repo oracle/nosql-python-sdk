@@ -10,6 +10,7 @@ TableResult
 
    .. autosummary::
 
+      ~TableResult.get_compartment
       ~TableResult.get_compartment_id
       ~TableResult.get_ddl
       ~TableResult.get_defined_tags
@@ -30,6 +31,7 @@ TableResult
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: get_compartment
    .. automethod:: get_compartment_id
    .. automethod:: get_ddl
    .. automethod:: get_defined_tags

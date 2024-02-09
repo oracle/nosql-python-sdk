@@ -496,7 +496,7 @@ class HttpConstants(object):
             path += '/' + args[index]
         return path
 
-    # The base path to the on-premise security services. All users need a
+    # The base path to the on-premises security services. All users need a
     # leading "/" so add it here.
     KV_SECURITY_PATH = _make_path('/' + NOSQL_VERSION, 'nosql/security')
 
@@ -1490,7 +1490,7 @@ class State(object):
 
 class SystemState(object):
     """
-    On-premise only.
+    On-premises only.
 
     The current state of the system request.
     """
@@ -1508,7 +1508,7 @@ class Durability(object):
     Durability defines the durability characteristics associated with a standalone write
     (put or update) operation.
 
-    This is currently only supported in On-Prem installations. It is ignored
+    This is currently only supported in on-premises installations. It is ignored
     in the cloud service.
 
     The overall durability is a function of the SYNC_POLICY and
@@ -2112,7 +2112,7 @@ class TimeToLive(object):
 
 class UserInfo(object):
     """
-    On-premise only.
+    On-premises only.
 
     A class that encapsulates the information associated with a user including
     the user id and name in the system.
