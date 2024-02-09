@@ -1303,7 +1303,7 @@ class Replica(object):
     Cloud service only
 
     Information representing a single replica. One or more of these
-    is returned in :py:class:`TableResults` for tables that have
+    is returned in :py:class:`TableResult` for tables that have
     replicas
     """
     def __init__(self):
