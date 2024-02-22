@@ -835,6 +835,8 @@ class SerdeUtil(object):
             return SerdeUtil.FIELD_VALUE_TYPE.NULL
         elif isinstance(value, Empty):
             return SerdeUtil.FIELD_VALUE_TYPE.EMPTY
+        elif isinstance(value, JsonNone):
+            return SerdeUtil.FIELD_VALUE_TYPE.JSON_NULL
         else:
             raise IllegalStateException(
                 'Unknown value type ' + str(type(value)))
