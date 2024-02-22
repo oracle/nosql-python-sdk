@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -93,6 +93,8 @@ def compare_version(specified, internal):
     If the user specified version is newer than internal check version return 1,
     older return -1, same return 0.
     """
+    #if version is a snapshot, strip that portion
+    specified = specified.strip('-SNAPSHOT')
     specified_check = match('\d+(\.\d+){0,2}', specified)
     internal_check = match('\d+(\.\d+){0,2}', internal)
     if (specified_check is None or internal_check is None or

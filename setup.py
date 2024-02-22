@@ -27,7 +27,7 @@ with open_relative('src', 'borneo', 'version.py') as fd:
     if not version:
         raise RuntimeError('Cannot find version information')
 
-with open_relative('README.rst') as f:
+with open_relative('README.md') as f:
     readme = f.read()
 
 requires = [

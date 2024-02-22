@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -278,14 +278,22 @@ class SignatureProvider(AuthorizationProvider):
         self._logutils = LogUtils(logger)
         return self
 
-    def set_required_headers(self, request, auth_string, headers):
-        sig_details = self._get_signature_details()
+    def set_required_headers(self, request, auth_string, headers,
+                                 content = None):
+        sig_details = self._get_signature_details(content, headers)
         if sig_details is None:
             return
+        # choose headers from signature:
+        #   authorization, date
+        #   optionally: opc-obo-token, x-content-sha256
+
         headers[HttpConstants.AUTHORIZATION] = sig_details['authorization']
         headers[HttpConstants.DATE] = sig_details['date']
         if sig_details.get(HttpConstants.OPC_OBO_TOKEN) is not None:
             headers[HttpConstants.OPC_OBO_TOKEN] = sig_details['opc-obo-token']
+        if content is not None:
+            headers[HttpConstants.X_CONTENT_SHA256] = \
+                       sig_details['x-content-sha256']
         compartment = request.get_compartment()
         if compartment is None:
             # If request doesn't has compartment, set the tenant id as the
@@ -300,6 +308,7 @@ class SignatureProvider(AuthorizationProvider):
                 'Compartment is None. When authenticating using an Instance ' +
                 'Principal the compartment for the operation must be specified.'
             )
+
 
     def set_service_url(self, config):
         service_url = config.get_service_url()
@@ -383,13 +392,22 @@ class SignatureProvider(AuthorizationProvider):
                 signature_provider.set_logger(logger))
 
     @synchronized
-    def get_signature_details_internal(self):
-        # Visible for testing.
-        request = Request(method='post', url=self._service_url)
-        request = self._provider.without_content_headers(request.prepare())
+    def get_signature_details_internal(self, content=None, headers=None):
+        # Visible for testing
+        # the OCI signing code uses a Request instance even though that
+        # is not what we send (see caller in http.py). The signing ends
+        # up putting the required signature in the headers
+        # NOTE: Signer in OCI is callable object
+        request = Request(method='post', url=self._service_url, data=content, headers=headers)
+        if content is None:
+            request = self._provider.without_content_headers(request.prepare())
+        else:
+            request = self._provider(request.prepare())
         sig_details = request.headers
-        self._signature_cache.set(SignatureProvider.CACHE_KEY, sig_details)
-        self._schedule_refresh()
+        # don't cache content-signed requests (TableRequest, Add/Drop Replica)
+        if content is None:
+            self._signature_cache.set(SignatureProvider.CACHE_KEY, sig_details)
+            self._schedule_refresh()
         return sig_details
 
     @staticmethod
@@ -397,11 +415,13 @@ class SignatureProvider(AuthorizationProvider):
         if oci is None:
             raise ImportError('Package "oci" is required; please install.')
 
-    def _get_signature_details(self):
-        sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
-        if sig_details is not None:
-            return sig_details
-        return self.get_signature_details_internal()
+    def _get_signature_details(self, content=None, headers=None):
+        # don't use cache if signing content
+        if content is None:
+            sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
+            if sig_details is not None:
+                return sig_details
+        return self.get_signature_details_internal(content, headers)
 
     def _get_tenant_ocid(self):
         """

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -154,7 +154,7 @@ class ByteOutputStream(object):
 
     def write_int_at_offset(self, offset, value):
         val_s = pack('>i', value)
-        val_b = bytearray(val_s)
+        val_b = bytes(val_s)
         for index in range(len(val_b)):
             self._content[offset + index] = val_b[index]
 
@@ -163,7 +163,7 @@ class ByteOutputStream(object):
         self.write_value(val_s)
 
     def write_value(self, value):
-        val_b = bytearray(value)
+        val_b = bytes(value)
         self._content.extend(val_b)
 
     def get_byte_at(self, index):
@@ -486,6 +486,9 @@ class HttpConstants(object):
     # Proxy version info
     RESPONSE_PROXY_INFO = 'x-nosql-version'
 
+    # For OCI content signing
+    X_CONTENT_SHA256 = 'x-content-sha256'
+
     # Creates a URI path from the arguments
     def _make_path(*args):
         path = args[0]
@@ -493,7 +496,7 @@ class HttpConstants(object):
             path += '/' + args[index]
         return path
 
-    # The base path to the on-premise security services. All users need a
+    # The base path to the on-premises security services. All users need a
     # leading "/" so add it here.
     KV_SECURITY_PATH = _make_path('/' + NOSQL_VERSION, 'nosql/security')
 
@@ -531,7 +534,7 @@ class IndexInfo(object):
         Returns the list of field names that define the index.
 
         :returns: the field names.
-        :rtype: list(str)
+        :rtype: list[str]
         """
         return self._field_names
 
@@ -540,8 +543,8 @@ class IndexInfo(object):
         Returns the list of types of fields that define the index.
 
         :returns: the field types.
-        :rtype: list(str)
-        :versionadded: 5.4.0
+        :rtype: list[str]
+        :versionadded:: 5.4.0
         """
         return self._field_types
 
@@ -1159,7 +1162,7 @@ class PreparedStatement(object):
         requested in the :py:class:`PrepareRequest`; None otherwise.
 
         :returns: the string representation of the query execution plan.
-        :rtype: bool
+        :rtype: str
         """
         return self._query_plan
 
@@ -1169,8 +1172,8 @@ class PreparedStatement(object):
         requested in the :py:class:`PrepareRequest`; None otherwise.
 
         :returns: the string representation of the query schema.
-        :rtype: bool
-        :versionadded: 5.4.0
+        :rtype: str
+        :versionadded:: 5.4.0
         """
         return self._query_schema
 
@@ -1295,6 +1298,136 @@ class PutOption(object):
     """Set PutOption.IF_VERSION to perform put if version operation."""
 
 
+class Replica(object):
+    """
+    Cloud service only
+
+    Information representing a single replica. One or more of these
+    is returned in :py:class:`TableResult` for tables that have
+    replicas
+    """
+    def __init__(self):
+        self._replica_name = None
+        self._replica_ocid = None
+        self._write_units = 0
+        self._replica_state = None
+        self._capacity_mode = 0
+
+    def get_state(self):
+        """
+        Returns the state of the replica
+
+        :returns: the state
+        :rtype: State
+        """
+        return self._replica_state
+
+    def get_name(self):
+        """
+        Returns the name of the replica
+
+        :returns: the name
+        :rtype: str
+        """
+        return self._replica_name
+
+    def get_ocid(self):
+        """
+        Returns the OCID of the replica table
+
+        :returns: the OCID
+        :rtype: str
+        """
+        return self._replica_ocid
+
+    def get_write_units(self):
+        """
+        Returns the value of write units for the replica table
+
+        :returns: the units
+        :rtype: int
+        """
+        return self._write_units
+
+    def get_capacity_mode(self):
+        """
+        Returns the :py:class:`TableLimits.CAPACITY_MODE`
+        of the replica table
+
+        :returns: the mode
+        :rtype: :py:class:`TableLimits.CAPACITY_MODE`
+        """
+        if self._capacity_mode == 1:
+            return TableLimits.CAPACITY_MODE.PROVISIONED
+        return TableLimits.CAPACITY_MODE.ON_DEMAND
+
+    def __str__(self):
+        return 'Replica [name=' + str(self.get_name()) + ', ocid=' + \
+          str(self.get_ocid()) + ',state=' + \
+          str(self.get_state()) \
+          + ',mode=' + str(self.get_capacity_mode()) + ',write_units=' + \
+          str(self.get_write_units()) + ']'
+
+
+class ReplicaStats(object):
+    """
+    ReplicaStats contains information about replica lag for a specific
+    replica.
+
+    Replica lag is a measure of how current this table is relative to
+    the remote replica and indicates that this table has not yet received
+    updates that happened within the lag period.
+
+    For example, if the replica lag is 5,000 milliseconds(5 seconds),
+    then this table will have all updates that occurred at the remote
+    replica that are more than 5 seconds old.
+
+    Replica lag is calculated based on how long it took for the latest
+    operation from the table at the remote replica to be replayed at this
+    table. If there have been no application writes for the table at the
+    remote replica, the service uses other mechanisms to calculate an
+    approximation of the lag, and the lag statistic will still be available.
+    """
+    def __init__(self):
+        self._collection_time_millis = 0
+        self._replica_lag = 0
+
+    def get_collection_time(self):
+        """
+        Returns the time the replica lag collection was performed. The value
+        is a time stamp in milliseconds since the Epoch
+
+        :returns: the time
+        :rtype: int
+        """
+        return self._collection_time_millis
+
+    def get_collection_time_str(self):
+        """
+        Returns the collection time as an ISO 8601 formatted string
+
+        :returns: the time
+        :rtype: str
+        """
+        return datetime.fromtimestamp(
+            float(self._collection_time_millis) / 1000). \
+                replace(tzinfo=tz.UTC).isoformat()
+
+    def get_replica_lag(self):
+        """
+        Returns the replica lag collected at the specified time in
+        milliseconds
+
+        :returns: the lag
+        :rtype: int
+        """
+        return self._replica_lag
+
+    def __str__(self):
+        return '[time=' + self.get_collection_time_str() + ',' \
+          'lag=' + str(self._replica_lag) + ']'
+
+
 class ResourcePrincipalClaimKeys(object):
     """
     Claim keys in the resource principal session token(RPST).
@@ -1357,7 +1490,7 @@ class State(object):
 
 class SystemState(object):
     """
-    On-premise only.
+    On-premises only.
 
     The current state of the system request.
     """
@@ -1375,7 +1508,7 @@ class Durability(object):
     Durability defines the durability characteristics associated with a standalone write
     (put or update) operation.
 
-    This is currently only supported in On-Prem installations. It is ignored
+    This is currently only supported in on-premises installations. It is ignored
     in the cloud service.
 
     The overall durability is a function of the SYNC_POLICY and
@@ -1537,7 +1670,7 @@ class TableLimits(object):
     """
     TableLimits includes an optional mode
 
-    :versionadded: 5.3.0
+    :versionadded:: 5.3.0
     """
     CAPACITY_MODE = enum(PROVISIONED=1,
                          ON_DEMAND=2)
@@ -1664,7 +1797,7 @@ class TableLimits(object):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if mode is
             invalid.
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         if (mode != TableLimits.CAPACITY_MODE.PROVISIONED and
                 mode != TableLimits.CAPACITY_MODE.ON_DEMAND):
@@ -1677,7 +1810,7 @@ class TableLimits(object):
         Returns the capacity mode of the table.
 
         :returns: mode: PROVISIONED or ON_DEMAND
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._mode
 
@@ -1825,7 +1958,7 @@ class TableUsage(object):
         gauge of toal storage available as well as a hint for key distribution.
         :returns: the percentage
         :rtype: int
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._max_shard_usage_percent
 
@@ -1979,7 +2112,7 @@ class TimeToLive(object):
 
 class UserInfo(object):
     """
-    On-premise only.
+    On-premises only.
 
     A class that encapsulates the information associated with a user including
     the user id and name in the system.

@@ -12,7 +12,29 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Added
 
 -   Cloud only: new regions: sa-bogota-1, us-dcc-swjordan-1,
-    us-dcc-swjordan-2
+    us-dcc-swjordan-2, ap-dcc-tokyo-1, me-abudhabi-3,
+    ap-dcc-gazipur-1, me-dcc-doha-1
+-   added support for array_collect() and count(distinct) in queries. These
+    require server side support which is only available in Oracle NoSQL releases
+    23.3 and higher and will not be immediately available in the cloud service
+-   Cloud only:  added support for Cloud feature Global Active Tables. This
+    includes new requests and classes:
+    
+    - AddReplicaRequest
+    - DropReplicaRequest
+    - ReplicaStatsRequest/Result
+    - ReplicaStats
+    - Replica
+
+    as well as additional replica-related information
+    and interfaces in TableResult
+
+
+## Fixed
+
+-   Improved performance of sorted queries, especially generalized sorting, which
+    does not rely on indexes
+-   Documentation updates for methods added in release 5.4.0 and 5.4.1
 
 ## Changed
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -244,12 +244,16 @@ class Region(object):
     OC9_EP_BASE = 'https://nosql.{0}.oci.oraclecloud9.com'
     OC10_EP_BASE = 'https://nosql.{0}.oci.oraclecloud10.com'
     OC14_EP_BASE = 'https://nosql.{0}.oci.oraclecloud14.com'
+    OC15_EP_BASE = 'https://nosql.{0}.oci.oraclecloud15.com'
     OC16_EP_BASE = 'https://nosql.{0}.oci.oraclecloud16.com'
     OC17_EP_BASE = 'https://nosql.{0}.oci.oraclecloud17.com'
     OC19_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.eu'
     OC20_EP_BASE = 'https://nosql.{0}.oci.oraclecloud20.com'
+    OC21_EP_BASE = 'https://nosql.{0}.oci.oraclecloud21.com'
     OC22_EP_BASE = 'https://nosql.{0}.oci.psn-pco.it'
     OC24_EP_BASE = 'https://nosql.{0}.oci.oraclecloud24.com'
+    OC25_EP_BASE = 'https://nosql.{0}.oci.nricloud.jp'
+    OC26_EP_BASE = 'https://nosql.{0}.oci.oraclecloud26.com'
     OC27_EP_BASE = 'https://nosql.{0}.oci.oraclecloud27.com'
     OC28_EP_BASE = 'https://nosql.{0}.oci.oraclecloud28.com'
 
@@ -284,6 +288,8 @@ class Region(object):
             return str.format(Region.OC10_EP_BASE, self._region_id)
         if self._is_oc14_region():
             return str.format(Region.OC14_EP_BASE, self._region_id)
+        if self._is_oc15_region():
+            return str.format(Region.OC15_EP_BASE, self._region_id)
         if self._is_oc16_region():
             return str.format(Region.OC16_EP_BASE, self._region_id)
         if self._is_oc17_region():
@@ -292,10 +298,16 @@ class Region(object):
             return str.format(Region.OC19_EP_BASE, self._region_id)
         if self._is_oc20_region():
             return str.format(Region.OC20_EP_BASE, self._region_id)
+        if self._is_oc21_region():
+            return str.format(Region.OC21_EP_BASE, self._region_id)
         if self._is_oc22_region():
             return str.format(Region.OC22_EP_BASE, self._region_id)
         if self._is_oc24_region():
             return str.format(Region.OC24_EP_BASE, self._region_id)
+        if self._is_oc25_region():
+            return str.format(Region.OC25_EP_BASE, self._region_id)
+        if self._is_oc26_region():
+            return str.format(Region.OC26_EP_BASE, self._region_id)
         if self._is_oc27_region():
             return str.format(Region.OC27_EP_BASE, self._region_id)
         if self._is_oc28_region():
@@ -346,6 +358,10 @@ class Region(object):
         # Internal use only
         return Regions.OC10_REGIONS.get(self._region_id) is not None
 
+    def _is_oc15_region(self):
+        # Internal use only
+        return Regions.OC15_REGIONS.get(self._region_id) is not None
+
     def _is_oc14_region(self):
         # Internal use only
         return Regions.OC14_REGIONS.get(self._region_id) is not None
@@ -366,6 +382,10 @@ class Region(object):
         # Internal use only
         return Regions.OC20_REGIONS.get(self._region_id) is not None
 
+    def _is_oc21_region(self):
+        # Internal use only
+        return Regions.OC21_REGIONS.get(self._region_id) is not None
+
     def _is_oc22_region(self):
         # Internal use only
         return Regions.OC22_REGIONS.get(self._region_id) is not None
@@ -373,6 +393,14 @@ class Region(object):
     def _is_oc24_region(self):
         # Internal use only
         return Regions.OC24_REGIONS.get(self._region_id) is not None
+
+    def _is_oc25_region(self):
+        # Internal use only
+        return Regions.OC25_REGIONS.get(self._region_id) is not None
+
+    def _is_oc26_region(self):
+        # Internal use only
+        return Regions.OC26_REGIONS.get(self._region_id) is not None
 
     def _is_oc27_region(self):
         # Internal use only
@@ -559,6 +587,10 @@ class Regions(object):
     EU_DCC_RATING_2 = Region('eu-dcc-rating-2')
     """Region Location: Germany"""
 
+    # OC15
+    AP_DCC_GAZIPUR_1 = Region('ap-dcc-gazipur-1')
+    """Region Location: Bangladesh"""
+
     # OC16
     US_WESTJORDAN_1 = Region('us-westjordan-1')
     """Region Location: Utah"""
@@ -581,6 +613,10 @@ class Regions(object):
     EU_JOVANOVAC_1 = Region('eu-jovanovac-1')
     """Region Location: Serbia"""
 
+    # OC20
+    ME_DCC_DOHA_1 = Region('me-dcc-doha-1')
+    """Region Location: Qatar"""
+
     # OC22
     EU_DCC_ROME_1 = Region('eu-dcc-rome-1')
     """Region Location: Rome, Italy"""
@@ -588,6 +624,14 @@ class Regions(object):
     # OC24
     EU_DCC_ZURICH_1 = Region('eu-dcc-zurich-1')
     """Region Location: Zurich, Switzerland"""
+
+    # OC25
+    AP_DCC_TOKYO_1 = Region('ap-dcc-tokyo-1')
+    """Region Location: Tokyo, Japan"""
+
+    # OC26
+    ME_ABUDHABI_3 = Region('me-abudhabi-3')
+    """Region Location: Abudabhi"""
 
     # OC27
     US_DCC_SWJORDAN_1 = Region('us-dcc-swjordan-1')
@@ -696,6 +740,11 @@ class Regions(object):
     OC14_REGIONS[EU_DCC_RATING_1.get_region_id()] = EU_DCC_RATING_1
     OC14_REGIONS[EU_DCC_RATING_2.get_region_id()] = EU_DCC_RATING_2
 
+    # OC15
+    OC15_REGIONS = dict()
+    """A dict containing the OC15 regions."""
+    OC15_REGIONS[AP_DCC_GAZIPUR_1.get_region_id()] = AP_DCC_GAZIPUR_1
+
     # OC16
     OC16_REGIONS = dict()
     """A dict containing the OC16 regions."""
@@ -719,6 +768,11 @@ class Regions(object):
     """A dict containing the OC20 regions."""
     OC20_REGIONS[EU_JOVANOVAC_1.get_region_id()] = EU_JOVANOVAC_1
 
+    # OC21
+    OC21_REGIONS = dict()
+    """A dict containing the OC21 regions."""
+    OC21_REGIONS[ME_DCC_DOHA_1.get_region_id()] = ME_DCC_DOHA_1
+
     # OC22
     OC22_REGIONS = dict()
     """A dict containing the OC22 regions."""
@@ -728,6 +782,16 @@ class Regions(object):
     OC24_REGIONS = dict()
     """A dict containing the OC24 regions."""
     OC24_REGIONS[EU_DCC_ZURICH_1.get_region_id()] = EU_DCC_ZURICH_1
+
+    # OC25
+    OC25_REGIONS = dict()
+    """A dict containing the OC25 regions."""
+    OC25_REGIONS[AP_DCC_TOKYO_1.get_region_id()] = AP_DCC_TOKYO_1
+
+    # OC26
+    OC26_REGIONS = dict()
+    """A dict containing the OC26 regions."""
+    OC26_REGIONS[ME_ABUDHABI_3.get_region_id()] = ME_ABUDHABI_3
 
     # OC27
     OC27_REGIONS = dict()
@@ -785,6 +849,11 @@ class Regions(object):
         return Regions.OC14_REGIONS.values()
 
     @staticmethod
+    def get_oc15_regions():
+        # Internal use only
+        return Regions.OC15_REGIONS.values()
+
+    @staticmethod
     def get_oc16_regions():
         # Internal use only
         return Regions.OC16_REGIONS.values()
@@ -805,6 +874,11 @@ class Regions(object):
         return Regions.OC20_REGIONS.values()
 
     @staticmethod
+    def get_oc21_regions():
+        # Internal use only
+        return Regions.OC21_REGIONS.values()
+
+    @staticmethod
     def get_oc22_regions():
         # Internal use only
         return Regions.OC22_REGIONS.values()
@@ -813,6 +887,16 @@ class Regions(object):
     def get_oc24_regions():
         # Internal use only
         return Regions.OC24_REGIONS.values()
+
+    @staticmethod
+    def get_oc25_regions():
+        # Internal use only
+        return Regions.OC25_REGIONS.values()
+
+    @staticmethod
+    def get_oc26_regions():
+        # Internal use only
+        return Regions.OC26_REGIONS.values()
 
     @staticmethod
     def get_oc27_regions():
@@ -857,6 +941,8 @@ class Regions(object):
         if region is None:
             region = Regions.OC14_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC15_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC16_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC17_REGIONS.get(region_id)
@@ -865,9 +951,15 @@ class Regions(object):
         if region is None:
             region = Regions.OC20_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC21_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC22_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC24_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC25_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC26_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC27_REGIONS.get(region_id)
         if region is None:
@@ -903,7 +995,7 @@ class NoSQLHandleConfig(object):
     overridden in individual operations.
 
     The service endpoint is used to connect to the Oracle NoSQL Database Cloud
-    Service or, if on-premise, the Oracle NoSQL Database proxy server. It should
+    Service or if on-premises, the Oracle NoSQL Database proxy server. It should
     be a string or a :py:class:`Region`.
 
     If a string is provided to endpoint argument, there is flexibility in how
@@ -1060,9 +1152,9 @@ class NoSQLHandleConfig(object):
 
     def get_region(self):
         """
-        Cloud service only.
-
         Returns the region will be accessed by the NoSQLHandle.
+
+        Cloud service only.
 
         :returns: the region.
         :rtype: Region
@@ -1098,8 +1190,6 @@ class NoSQLHandleConfig(object):
 
     def set_default_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the default compartment to use for requests sent using the handle.
         Setting the default is optional and if set it is overridden by any
         compartment specified in a request or table name. If no compartment is
@@ -1112,6 +1202,8 @@ class NoSQLHandleConfig(object):
           :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`
           ) the compartment id (OCID) must be specified by either using this
           method or in each Request object. If not an exception is thrown.
+
+        Cloud service only.
 
         :param compartment: may be either the name of a compartment or the id
             (OCID) of a compartment.
@@ -1126,11 +1218,11 @@ class NoSQLHandleConfig(object):
 
     def get_default_compartment(self):
         """
-        Cloud service only.
-
         Returns the default compartment to use for requests or None if not set.
         The value may be a compartment name or id, as set by
         :py:meth:`set_default_compartment`.
+
+        Cloud service only.
 
         :returns: the compartment, or None.
         :rtype: str or None
@@ -1316,9 +1408,11 @@ class NoSQLHandleConfig(object):
 
     def set_max_content_length(self, max_content_length):
         """
-        Sets the maximum size in bytes of request payloads. On-premise only.
+        Sets the maximum size in bytes of request payloads.
         This setting is ignored for cloud operations. If not set, or set to
         zero, the default value of 32MB is used.
+
+        On-premises only.
 
         :param max_content_length: the maximum bytes allowed in requests. Pass
             zero to use the default.
@@ -1334,7 +1428,9 @@ class NoSQLHandleConfig(object):
     def get_max_content_length(self):
         """
         Returns the maximum size, in bytes, of a request operation payload.
-        On-premise only. This value is ignored for cloud operations.
+        This value is ignored for cloud operations.
+
+        On-premises only.
 
         :returns: the size.
         :rtype: int
@@ -1398,9 +1494,9 @@ class NoSQLHandleConfig(object):
 
     def set_rate_limiting_enabled(self, enable):
         """
-        Cloud service only.
-
         Enables internal rate limiting.
+
+        Cloud service only.
 
         :param enable: If True, enable internal rate limiting, otherwise disable
             internal rate limiting.
@@ -1415,9 +1511,9 @@ class NoSQLHandleConfig(object):
 
     def get_rate_limiting_enabled(self):
         """
-        Internal use only.
-
         Returns whether the rate limiting is enabled.
+
+        Internal use only.
 
         :returns: True if rate limiting is enabled, otherwise False.
         :rtype: bool
@@ -1426,14 +1522,14 @@ class NoSQLHandleConfig(object):
 
     def set_default_rate_limiting_percentage(self, percent):
         """
-        Cloud service only.
-
         Sets a default percentage of table limits to use. This may be useful for
         cases where a client should only use a portion of full table limits.
         This only applies if rate limiting is enabled using
         :py:meth:`set_rate_limiting_enabled`.
 
         The default for this value is 100.0 (full table limits).
+
+        Cloud service only.
 
         :param percent: the percentage of table limits to use. This value must
             be positive.
@@ -1448,9 +1544,9 @@ class NoSQLHandleConfig(object):
 
     def get_default_rate_limiting_percentage(self):
         """
-        Internal use only.
-
         Returns the default percentage.
+
+        Internal use only.
 
         :returns: the default percentage.
         :rtype: float
@@ -1561,13 +1657,13 @@ class NoSQLHandleConfig(object):
 
     def set_ssl_ca_certs(self, ssl_ca_certs):
         """
-        On-premise only.
-
-        When running against on-premise Oracle NoSQL Database with security
+        When running against on-premises Oracle NoSQL Database with security
         enabled, certificates should be specified using this method. Otherwise
         environment variable REQUESTS_CA_BUNDLE should be configured. See `the
         installation guide <https://nosql-python-sdk.readthedocs.io/en/stable/
         installation.html>`_ for the configuration of REQUESTS_CA_BUNDLE.
+
+        On-premises only.
 
         :param ssl_ca_certs: ssl ca certificates.
         :type ssl_ca_certs: str
@@ -1851,27 +1947,27 @@ class NoSQLHandleConfig(object):
 
     def set_default_namespace(self, namespace):
         """
-        On-premises only.
-
         Sets the default namespace to use for requests that use a table
         name
+
+        On-premises only.
 
         :param namespace: the default namespace.
         :type namespace: str
         :returns: self
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         self._default_namespace = namespace
         return self
 
     def get_default_namespace(self):
         """
-        On-premises only.
-
         Returns the default namespace or None if not set.
+
+        On-premises only.
 
         :returns: the default namespace or None.
         :rtype: str
-        :versionadded: 5.4.0
+        :versionadded:: 5.4.0
         """
         return self._default_namespace

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -250,11 +250,12 @@ class RequestUtils(object):
                 if self._timeout_request(start_ms, timeout_ms):
                     break
                 if self._auth_provider is not None:
+                    content = payload if self.require_content_signed() else None
                     auth_string = self._auth_provider.get_authorization_string(
                         self._request)
                     self._auth_provider.validate_auth_string(auth_string)
                     self._auth_provider.set_required_headers(
-                        self._request, auth_string, headers)
+                        self._request, auth_string, headers, content)
                 num_retried = self._request.get_num_retries()
             if num_retried > 0:
                 self._log_retried(num_retried, exception)
@@ -456,6 +457,16 @@ class RequestUtils(object):
             'Request timed out after ' + str(num_retried) +
             (' retry.' if num_retried == 0 or num_retried == 1
              else ' retries. ') + str(retry_stats), timeout_ms, exception)
+
+    def require_content_signed(self):
+        """
+        This is only needed for the cloud for cross-region request for
+        Global Active Tables that may need an OBO token. The requests
+        include add/drop replica as well as some DDL requests (indexes)
+        """
+        return isinstance(self._request, operations.AddReplicaRequest) or \
+            isinstance(self._request, operations.DropReplicaRequest) or \
+            isinstance(self._request, operations.TableRequest)
 
     @staticmethod
     def _consume_limiter_units(rl, units, timeout_ms):

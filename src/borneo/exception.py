@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -293,6 +293,17 @@ class UnauthorizedException(NoSQLException):
         super(UnauthorizedException, self).__init__(message)
 
 
+class UnsupportedQueryVersionException(NoSQLException):
+    """
+    The exception is thrown if the server does not support the current
+    query protocol version
+    :versionadded:: 5.4.2
+    """
+
+    def __init__(self, message):
+        super(UnauthorizedException, self).__init__(message)
+
+
 class IndexExistsException(ResourceExistsException):
     """
     The operation attempted to create an index for a table but the named index
@@ -526,3 +537,16 @@ class WriteThrottlingException(ThrottlingException):
 
     def __init__(self, message):
         super(WriteThrottlingException, self).__init__(message)
+
+
+class TableNotReadyException(RetryableException):
+    """
+    Cloud service only
+
+    An exception that is thrown when an operation is attemped on a replicated
+    table that is not yet fully initialized
+    :versionadded:: 5.4.2
+    """
+
+    def __init__(self, message):
+        super(TableNotReadyException, self).__init__(message)

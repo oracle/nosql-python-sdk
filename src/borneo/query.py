@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -9,6 +9,7 @@ from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from datetime import datetime
 from decimal import Decimal, setcontext
+from functools import cmp_to_key
 from sys import getsizeof
 from sys import maxsize as maxvalue
 
@@ -126,7 +127,7 @@ class PlanIter(object):
     the result set of each iterator is a sequence of zero or more items.
 
     The root iterator will always produce dict values, but other iterators may
-    produces different kinds of values.
+    produce different kinds of values.
 
     Iterator state and registers:
 
@@ -270,8 +271,12 @@ class PlanIter(object):
             op_iter = ExternalVarRefIter(bis)
         elif kind == PlanIter.PlanIterKind.FIELD_STEP:
             op_iter = FieldStepIter(bis)
+        elif kind == PlanIter.PlanIterKind.FN_COLLECT:
+            op_iter = FuncCollectIter(bis)
         elif kind == PlanIter.PlanIterKind.FN_MIN_MAX:
             op_iter = FuncMinMaxIter(bis)
+        elif kind == PlanIter.PlanIterKind.FN_SIZE:
+            op_iter = FuncSizeIter(bis)
         elif kind == PlanIter.PlanIterKind.FN_SUM:
             op_iter = FuncSumIter(bis)
         elif kind == PlanIter.PlanIterKind.GROUP:
@@ -399,12 +404,14 @@ class PlanIter(object):
         ARITH_OP = 8
         FIELD_STEP = 11
         SFW = 14
+        FN_SIZE = 15
         RECV = 17
         FN_SUM = 39
         FN_MIN_MAX = 41
         SORT = 47
         GROUP = 65
         SORT2 = 66
+        FN_COLLECT = 78
 
         VALUES_TO_NAMES = {0: 'CONST',
                            1: 'VAR_REF',
@@ -412,12 +419,14 @@ class PlanIter(object):
                            8: 'ARITH_OP',
                            11: 'FIELD_STEP',
                            14: 'SFW',
+                           15: 'FN_SIZE',
                            17: 'RECV',
                            39: 'FN_SUM',
                            41: 'FN_MIN_MAX',
                            47: 'SORT',
                            65: 'GROUP',
-                           66: 'SORT2'}
+                           66: 'SORT2',
+                           78: 'FN_COLLECT'}
 
         @staticmethod
         def value_of(kvcode):
@@ -436,7 +445,9 @@ class PlanIter(object):
                      FN_COUNT_NUMBERS=44,
                      FN_SUM=45,
                      FN_MIN=47,
-                     FN_MAX=48)
+                     FN_MAX=48,
+                     FN_ARRAY_COLLECT=91,
+                     FN_ARRAY_COLLECT_DISTINCT=92)
 
 
 class ArithOpIter(PlanIter):
@@ -824,6 +835,132 @@ class FieldStepIter(PlanIter):
             return True
 
 
+class FuncCollectIter(PlanIter):
+    """
+    array_collect()
+
+    Implements the array_collect() function.
+    """
+
+    def __init__(self, bis):
+        super(FuncCollectIter, self).__init__(bis)
+        self._is_distinct = bis.read_boolean()
+        self._input_iter = self.deserialize_iter(bis)
+
+    def get_kind(self):
+        return PlanIter.PlanIterKind.value_of(
+            ArithOpIter.PlanIterKind.FN_COLLECT)
+
+    def get_input_iter(self):
+        return self._input_iter
+
+    def open(self, rcb):
+        rcb.set_state(self.state_pos, FuncCollectIter.CollectIterState(rcb))
+        self._input_iter.open(rcb)
+
+    def reset(self, rcb):
+        # don't reset state. It is reset in get_aggr_value
+        self._input_iter.reset(rcb)
+
+    def close(self, rcb):
+        state = rcb.get_state(self.state_pos)
+        if state is None:
+            return
+        self._input_iter.close(rcb)
+        state.close()
+
+    def display_content(self, output, formatter):
+        return self._input_iter.display(output, formatter)
+
+    def next(self, rcb):
+        state = rcb.get_state(self.state_pos)
+        if state.is_done():
+            return False
+        while True:
+            more = self._input_iter.next(rcb)
+            if not more:
+                return True
+            val = rcb.get_reg_val(self._input_iter.get_result_reg())
+            if rcb.get_trace_level() >= 2:
+                rcb.trace('Collecting value ' + str(val))
+            if val is None:
+                continue
+            self.aggregate(rcb, val)
+
+    def aggregate(self, rcb, val):
+        state = rcb.get_state(self.state_pos)
+        if self._is_distinct:
+            size = len(val)
+            for i in range(size):
+                state._values.add(Hashable(val[i]))
+                sz = self.sizeof(val[i])
+                rcb.inc_memory_consumption(sz)
+                state._memory_consumption += sz
+        else:
+            # add all values from val to state._array
+            sz = 0
+            for item in val:
+                state._array.append(item)
+                sz += self.sizeof(item)
+            rcb.inc_memory_consumption(sz)
+            state._memory_consumption += sz
+
+    def get_aggr_value(self, rcb, reset):
+        state = rcb.get_state(self.state_pos)
+
+        if self._is_distinct:
+            res = list()
+            for item in state._values:
+                res.append(item._value)
+
+        else:
+            # not a copy, the array must stay valid
+            res = state._array
+
+        #
+        # QTF issue -- qtf wants to compare expected values. While array_collect
+        # doesn't define an ordering, it is handy for QTF comparisons, so
+        # sort result arrays (ascending)
+        #
+        if rcb.get_request().get_in_test_mode():
+            res.sort(key=cmp_to_key(lambda v1, v2: Compare.compare_total_order(
+                rcb, v1, v2, SortSpec())))
+
+        if rcb.get_trace_level() >= 3:
+            rcb.trace('Collected values = ' + str(res))
+
+        if reset:
+            state.reset()
+
+        return res
+
+    class CollectIterState(PlanIterState):
+
+        def __init__(self, rcb):
+            super(FuncCollectIter.CollectIterState, self).__init__()
+            self._rcb = rcb
+            self._array = list()
+            self._values = set()
+            self._memory_consumption = 0
+
+        def close(self):
+            super(FuncCollectIter.CollectIterState, self).close()
+            self._array = None
+            self._values = None
+
+        def done(self):
+            super(FuncCollectIter.CollectIterState, self).done()
+            self._array = None
+            self._values = None
+
+        def reset(self):
+            super(FuncCollectIter.CollectIterState, self).reset()
+            self._values = set()
+            self._array = list()
+            self._rcb.dec_memory_consumption(self._memory_consumption)
+            self._memory_consumption = 0
+
+
 class FuncMinMaxIter(PlanIter):
     """
     any_atomic min(any*)
@@ -896,7 +1033,7 @@ class FuncMinMaxIter(PlanIter):
         if state.min_max is None:
             state.min_max = val
             return
-        comp = Compare.compare_atomics(rcb, state.min_max, val, True)
+        comp = Compare.compare_atomics_total_order(rcb, state.min_max, val)
         if rcb.get_trace_level() >= 3:
             rcb.trace('Compared values: \n' + str(state.min_max) + '\n' +
                       str(val) + '\ncomp res = ' + str(comp))
@@ -911,6 +1048,65 @@ class FuncMinMaxIter(PlanIter):
         state.min_max = val
 
 
+class FuncSizeIter(PlanIter):
+    """
+    """
+
+    def __init__(self, bis):
+        super(FuncSizeIter, self).__init__(bis)
+        self._input_iter = self.deserialize_iter(bis)
+
+    def close(self, rcb):
+        state = rcb.get_state(self.state_pos)
+        if state is not None:
+            self._input_iter.close(rcb)
+            state.close()
+
+    def display_content(self, output, formatter):
+        return self._input_iter.display(output, formatter)
+
+    def get_kind(self):
+        return PlanIter.PlanIterKind.value_of(
+            ArithOpIter.PlanIterKind.FN_SIZE)
+
+    def next(self, rcb):
+        state = rcb.get_state(self.state_pos)
+        if state is None or state.is_done():
+            return False
+
+        more = self._input_iter.next(rcb)
+        if not more:
+            state.done()
+            return False
+
+        val = rcb.get_reg_val(self._input_iter.get_result_reg())
+        if val is None:
+            rcb.set_reg_val(self.result_reg, None)
+            state.done()
+            return True
+        if not isinstance(val, dict) and not isinstance(val, list) \
+                and not isinstance(val, set):
+            raise QueryException(
+                'Invalid type for input to size() function, it must be \n' +
+                'complex. Actual type is: ' + str(type(val)))
+
+        rcb.set_reg_val(self.result_reg, len(val))
+        return True
+
+    def get_input_iter(self):
+        return self._input_iter
+
+    def open(self, rcb):
+        rcb.set_state(self.state_pos, AggrIterState())
+        self._input_iter.open(rcb)
+
+    def reset(self, rcb):
+        self._input_iter.reset(rcb)
+        state = rcb.get_state(self.state_pos)
+        if state is not None:
+            state.reset()
+
+
 class FuncSumIter(PlanIter):
     """
     any_atomic sum(any*)
@@ -920,7 +1116,7 @@ class FuncSumIter(PlanIter):
 
     Note: The next() method does not actually return a value; it just adds a new
     value (if it is of a numeric type) to the running sum kept in the state.
-    Also the reset() method resets the input iter (so that the next input value
+    Also, the reset() method resets the input iter (so that the next input value
     can be computed), but does not reset the FuncSumState. The state is reset,
     and the current sum value is returned, by the get_aggr_value() method.
     """
@@ -1049,6 +1245,9 @@ class GroupIter(PlanIter):
             return False
         while True:
             if state.results_copy is not None:
+                #
+                # pull results off of the available results in memory
+                #
                 try:
                     (gb_tuple, aggr_tuple) = (
                         state.results_copy.popitem(last=False))
@@ -1058,10 +1257,13 @@ class GroupIter(PlanIter):
                         res[self._column_names[i]] = gb_tuple.values[i]
                         i += 1
                     for i in range(i, len(self._column_names)):
-                        aggr = self._get_aggr_value(aggr_tuple, i)
+                        aggr = self._get_aggr_value(rcb, aggr_tuple, i)
                         res[self._column_names[i]] = aggr
+                    # NOTE: this method always copies
                     res = SerdeUtil.convert_value_to_none(res)
                     rcb.set_reg_val(self.result_reg, res)
+                    # popitem() above removed it from the copy, now remove it
+                    # from the actual results dict
                     if self._remove_produced_result:
                         state.results.pop(gb_tuple)
                     return True
@@ -1069,6 +1271,8 @@ class GroupIter(PlanIter):
                     # Dictionary is empty.
                     state.done()
                     return False
+
+            # look for additional results from the input iterator
             more = self._input.next(rcb)
             if not more:
                 if rcb.reached_limit():
@@ -1076,8 +1280,12 @@ class GroupIter(PlanIter):
                 if self.num_gb_columns == len(self._column_names):
                     state.done()
                     return False
+                # NOTE: Python does a copy of the OrderedDict that is
+                # state.results. Java and other SDKs just create an
+                # iterator. Consider the latter for efficiency
                 state.results_copy = state.results.copy()
                 continue
+
             in_tuple = rcb.get_reg_val(self._input.get_result_reg())
             i = 0
             while i < self.num_gb_columns:
@@ -1089,8 +1297,11 @@ class GroupIter(PlanIter):
                         break
                 state.gb_tuple.values[i] = col_value
                 i += 1
+
             if i < self.num_gb_columns:
+                # keep acquiring more results for the grouping
                 continue
+
             aggr_tuple = state.results.get(state.gb_tuple)
             if aggr_tuple is None:
                 num_aggr_columns = (
@@ -1103,20 +1314,27 @@ class GroupIter(PlanIter):
                     aggr_tuple.append(val)
                     if self._count_memory:
                         aggr_tuple_size += self.sizeof(val)
+
                 i = 0
                 while i < self.num_gb_columns:
                     gb_tuple.values[i] = state.gb_tuple.values[i]
                     i += 1
+
                 if self._count_memory:
+                    # NOTE: hash/dict overhead is not added
                     sz = self.sizeof(gb_tuple) + aggr_tuple_size
                     rcb.inc_memory_consumption(sz)
+
                 for i in range(i, len(self._column_names)):
                     self._aggregate(rcb, aggr_tuple, i,
                                     in_tuple.get(self._column_names[i]))
+
                 state.results[gb_tuple] = aggr_tuple
+
                 if rcb.get_trace_level() >= 3:
                     rcb.trace('Started new group:\n' +
                               GroupIter._print_result(gb_tuple, aggr_tuple))
+
                 if self.num_gb_columns == len(self._column_names):
                     res = dict()
                     for i in range(self.num_gb_columns):
@@ -1174,7 +1392,8 @@ class GroupIter(PlanIter):
                         self.sizeof(val) - self.sizeof(aggr_value.value))
                 aggr_value.value = val
                 return
-            comp = Compare.compare_atomics(rcb, aggr_value.value, val, True)
+            comp = Compare.compare_atomics_total_order(rcb, aggr_value.value,
+                                                       val)
             if rcb.get_trace_level() >= 3:
                 rcb.trace('Compared values: \n' + str(aggr_value.value) + '\n' +
                           str(val) + '\ncomp res = ' + str(comp))
@@ -1191,16 +1410,40 @@ class GroupIter(PlanIter):
                 rcb.inc_memory_consumption(
                     self.sizeof(val) - self.sizeof(aggr_value.value))
             aggr_value.value = val
+        elif (aggr_kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT or
+              aggr_kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT_DISTINCT):
+            aggr_value.collect(rcb, val, self._count_memory)
         else:
             raise QueryStateException(
                 'Method not implemented for iterator ' + str(aggr_kind))
 
-    def _get_aggr_value(self, aggr_tuple, column):
+    def _get_aggr_value(self, rcb, aggr_tuple, column):
         aggr_value = aggr_tuple[column - self.num_gb_columns]
         aggr_kind = self._aggr_funcs[column - self.num_gb_columns]
         if (aggr_kind == PlanIter.FUNC_CODE.FN_SUM and
                 not aggr_value.got_numeric_input):
             return None
+
+        if aggr_kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT:
+            if rcb.get_request().get_in_test_mode():
+                # QTF wants sorted results
+                aggr_value.value.sort(key=cmp_to_key(lambda v1, v2:
+                                                     Compare.compare_total_order(rcb, v1, v2, SortSpec())))
+
+            return aggr_value.value
+
+        if aggr_kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT_DISTINCT:
+            # the value is a set of wrapped objects, unwrap and optionally
+            # sort them
+            newlist = list()
+            for elem in aggr_value.value:
+                newlist.append(elem._value)
+            if rcb.get_request().get_in_test_mode():
+                # QTF wants sorted results
+                newlist.sort(key=cmp_to_key(lambda v1, v2:
+                                            Compare.compare_total_order(rcb, v1, v2, SortSpec())))
+            return newlist
+
         return aggr_value.value
 
     @staticmethod
@@ -1226,6 +1469,10 @@ class GroupIter(PlanIter):
             elif (kind == PlanIter.FUNC_CODE.FN_MAX or
                   kind == PlanIter.FUNC_CODE.FN_MIN):
                 self.value = None
+            elif kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT:
+                self.value = list()
+            elif kind == PlanIter.FUNC_CODE.FN_ARRAY_COLLECT_DISTINCT:
+                self.value = set()
             else:
                 assert False
 
@@ -1269,11 +1516,33 @@ class GroupIter(PlanIter):
             else:
                 assert False
 
+        def sizeof(self, val):
+            return PlanIter.sizeof(val)
+
+        def collect(self, rcb, val, count_memory):
+            if val is None or isinstance(val, Empty):
+                return
+            is_distinct = isinstance(self.value, set)
+            if is_distinct:
+                # value is a set
+                collect_set = self.value
+                for elem in val:
+                    collect_set.add(Hashable(elem))
+                    if count_memory:
+                        rcb.inc_memory_consumption(self.sizeof(elem))
+            else:
+                # value is a list
+                collect_array = self.value
+                collect_array.extend(val)
+                if count_memory:
+                    rcb.inc_memory_consumption(self.sizeof(val))
+
     class GroupIterState(PlanIterState):
 
         def __init__(self, op_iter):
             super(GroupIter.GroupIterState, self).__init__()
             self.gb_tuple = GroupIter.GroupTuple(op_iter.num_gb_columns)
+            # FUTURE: consider dict() which is now ordered
             self.results = OrderedDict()
             self.results_copy = None
 
@@ -1427,7 +1696,7 @@ class ReceiveIter(PlanIter):
                     'ReceiveIter._check_duplicate() : result was duplicate')
             return True
         else:
-            state.prim_keys_set.append(bin_prim_key)
+            state.prim_keys_set.add(bin_prim_key)
         sz = self.sizeof(bin_prim_key)
         state.memory_consumption += sz
         state.dup_elim_memory += sz
@@ -1440,7 +1709,8 @@ class ReceiveIter(PlanIter):
         for i in range(len(self._prim_key_fields)):
             fval = result.get(self._prim_key_fields[i])
             self._write_value(out, fval, i)
-        return binary_primkey
+        # convert to immutable bytes so that it can be hashed into a set
+        return bytes(binary_primkey)
 
     def _handle_topology_change(self, rcb, state):
         new_topo_info = rcb.get_topology_info()
@@ -1467,7 +1737,7 @@ class ReceiveIter(PlanIter):
         for j in range(len(curr_shards)):
             if curr_shards[j] == -1:
                 continue
-            # This shard does not exist any more
+            # This shard does not exist anymore
             for scanner in state.sorted_scanners:
                 if scanner.shard_or_part_id == curr_shards[j]:
                     state.sorted_scanners.remove(scanner)
@@ -1603,9 +1873,9 @@ class ReceiveIter(PlanIter):
                         'partition/shard ' + str(scanner.shard_or_part_id))
             self._handle_topology_change(rcb, state)
             # For simplicity, we don't want to allow the possibility of another
-            # remote fetch during the same batch, so whether or not the batch
-            # limit was reached during the above fetch, we set limit flag to
-            # True and return False, thus terminating the current batch.
+            # remote fetch during the same batch. Regardless of whether
+            # the batch limit was reached during the above fetch, we set limit
+            # flag to True and return False, thus terminating the current batch.
             rcb.set_reached_limit(True)
             return False
 
@@ -1651,7 +1921,9 @@ class ReceiveIter(PlanIter):
             # The remote scanners used for sorting queries. For all-shard
             # queries there is one RemoteScanner per shard. For all-partition
             # queries a RemoteScanner is created for each partition that has at
-            # least one result.
+            # least one result. Sorted scanners are always kept in order of
+            # the first element in each scanner. This means they have to be
+            # re-sorted each time a result is consumed
             self.sorted_scanners = None
             # total_results_size and total_num_results store the total size and
             # number of results fetched by this ReceiveIter so far. They are
@@ -1667,12 +1939,15 @@ class ReceiveIter(PlanIter):
             # It stores the primary keys (in binary format) of all the results
             # seen so far.
             if op_iter.does_dup_elim():
-                self.prim_keys_set = list()
+                self.prim_keys_set = set()
             else:
                 self.prim_keys_set = None
             if (op_iter.does_sort() and
                     (op_iter.distribution_kind ==
                      ReceiveIter.DISTRIBUTION_KIND.ALL_PARTITIONS)):
+                # TODO: turn this into a sorted set or list to avoid
+                # re-sorting when the first element is removed and the
+                # scanner re-added
                 self.sorted_scanners = list()
             elif (op_iter.does_sort() and
                   (op_iter.distribution_kind ==
@@ -1691,9 +1966,9 @@ class ReceiveIter(PlanIter):
 
         def clear(self):
             if self.prim_keys_set is not None:
-                del self.prim_keys_set[:]
+                self.prim_keys_set.clear()
             if self.sorted_scanners is not None:
-                del self.sorted_scanners[:]
+                self.sorted_scanners.clear()
 
         def close(self):
             super(ReceiveIter.ReceiveIterState, self).close()
@@ -2012,7 +2287,7 @@ class SFWIter(PlanIter):
                     if rcb.get_trace_level() >= 3:
                         rcb.trace(
                             'SFW: Value for SFW column ' + str(i) + ' = ' +
-                            str(rcb.ge_reg_val(column_iter.get_result_reg())))
+                            str(rcb.get_reg_val(column_iter.get_result_reg())))
                 column_iter.reset(rcb)
             if done:
                 continue
@@ -2153,7 +2428,10 @@ class SFWIter(PlanIter):
 
     def _trace_current_group(self, rcb, state):
         for i in range(self._num_gb_columns):
-            rcb.trace('SFW: Val ' + str(i) + ' = ' + state.gb_tuple[i])
+            v = state.gb_tuple[i]
+            if v is None:
+                v = 'None'
+            rcb.trace('SFW: Val ' + str(i) + ' = ' + str(v))
         for i in range(self._num_gb_columns, len(self.column_iters)):
             rcb.trace('SFW: Val ' + str(i) + ' = ' +
                       str(self.column_iters[i].get_aggr_value(rcb, False)))
@@ -2230,12 +2508,21 @@ class SortIter(PlanIter):
                         raise QueryException(
                             'Sort expression does not return a single atomic ' +
                             ' value', self.location)
-                self._add_result(state.results, val, rcb)
+                state.results.append(val)
                 if self._count_memory:
                     rcb.inc_memory_consumption(self.sizeof(val))
                 more = self._input.next(rcb)
             if rcb.reached_limit():
                 return False
+            # sort the results using our custom comparator.
+            # See Python doc on sorting and use of funcutils.cmp_to_key
+            # Ideally we might try to use a key function directly
+            # but how to do that is not obvious if even possible. list.sort()
+            # does an in-place sort. Not in-place would use sorted().
+            # Performance seems to be similar for both
+            state.results.sort(
+                key=cmp_to_key(lambda v1, v2: Compare.sort_results(
+                    rcb, v1, v2, self._sort_fields, self._sort_specs)))
             state.set_state(PlanIterState.STATE.RUNNING)
         if state.curr_result < len(state.results):
             val = SerdeUtil.convert_value_to_none(
@@ -2256,20 +2543,6 @@ class SortIter(PlanIter):
         self._input.reset(rcb)
         state = rcb.get_state(self.state_pos)
         state.reset()
-
-    def _add_result(self, sorted_results, result, rcb):
-        inserted = False
-        len_sorted_results = len(sorted_results)
-        if len_sorted_results > 0:
-            for index in range(len_sorted_results):
-                if Compare.sort_results(
-                        rcb, result, sorted_results[index], self._sort_fields,
-                        self._sort_specs) == -1:
-                    sorted_results.insert(index, result)
-                    inserted = True
-                    break
-        if not inserted:
-            sorted_results.append(result)
 
     class SortIterState(PlanIterState):
 
@@ -2358,80 +2631,206 @@ class VarRefIter(PlanIter):
         state.reset()
 
 
+class Hashable(object):
+    """
+    Wraps an object, usually a dict, to make it hashable for sets
+    """
+
+    def __init__(self, val):
+        self._value = val
+
+    def __hash__(self):
+        return Compare.hashcode(self._value)
+
+    def __eq__(self, other):
+        return (isinstance(other, type(self)) and
+                self._value == other._value)
+
+
 class Compare(object):
 
     @staticmethod
-    def compare_atomics(rcb, v0, v1, for_sort=False):
+    def compare_atomics_total_order(rcb, v0, v1, sort_spec=None):
         """
-        Compare 2 atomic values.
+        Implements a total order among atomic values. The following order is
+        used among values that are not normally comparable with each other:
 
-        The method throws an exception if either of the 2 values is non-atomic
-        or the values are not comparable. Otherwise, it returns 0 if v0 == v1,
-        1 if v0 > v1, or -1 if v0 < v1.
-
-        Whether the 2 values are comparable depends on the "forSort" parameter.
-        If True, then values that would otherwise be considered non-comparable
-        are assumed to have the following order:
-
-        numerics < timestamps < strings < booleans < empty < JsonNone < None
+        numerics < timestamps < strings < booleans < binaries < empty
+         < json null < null
         """
         if rcb.get_trace_level() >= 4:
             rcb.trace('Comparing values: \n' + str(v0) + '\n' + str(v1))
+
+        return_value = -1
+
         if v0 is None:
             if v1 is None:
-                return 0
-            if for_sort:
-                return 1
+                return_value = 0
+            else:
+                return_value = 1
         elif isinstance(v0, JsonNone):
             if isinstance(v1, JsonNone):
-                return 0
-            if for_sort:
-                return -1 if v1 is None else 1
+                return_value = 0
+            else:
+                return_value = (-1 if v1 is None else 1)
         elif isinstance(v0, Empty):
             if isinstance(v1, Empty):
-                return 0
-            if for_sort:
-                return -1 if v1 is None or isinstance(v1, JsonNone) else 1
+                return_value = 0
+            else:
+                return_value = (-1 if v1 is None or isinstance(v1, JsonNone)
+                                else 1)
         elif isinstance(v0, bool):
             if isinstance(v1, bool):
-                return -1 if v0 < v1 else (0 if v0 == v1 else 1)
-            if for_sort:
+                return_value = (-1 if v0 < v1 else (0 if v0 == v1 else 1))
+            else:
                 if (CheckValue.is_digit(v1) or isinstance(v1, datetime) or
                         isinstance(v1, str)):
-                    return 1
-                if (v1 is None or isinstance(v1, JsonNone) or
-                        isinstance(v1, Empty)):
-                    return -1
+                    return_value = 1
         elif CheckValue.is_str(v0):
             if CheckValue.is_str(v1):
-                return -1 if v0 < v1 else (0 if v0 == v1 else 1)
-            if for_sort:
+                return_value = (-1 if v0 < v1 else (0 if v0 == v1 else 1))
+            else:
                 if CheckValue.is_digit(v1) or isinstance(v1, datetime):
-                    return 1
-                if (v1 is None or isinstance(v1, JsonNone) or
-                        isinstance(v1, Empty) or isinstance(v1, bool)):
-                    return -1
+                    return_value = 1
         elif isinstance(v0, datetime):
             if isinstance(v1, datetime):
-                return -1 if v0 < v1 else (0 if v0 == v1 else 1)
-            if for_sort:
+                return_value = (-1 if v0 < v1 else (0 if v0 == v1 else 1))
+            else:
                 if CheckValue.is_digit(v1):
-                    return 1
-                if (v1 is None or isinstance(v1, JsonNone) or
-                        isinstance(v1, Empty) or isinstance(v1, bool) or
-                        isinstance(v1, str)):
-                    return -1
+                    return_value = 1
         elif CheckValue.is_digit(v0):
             if CheckValue.is_digit(v1):
-                return -1 if v0 < v1 else (0 if v0 == v1 else 1)
-            if (for_sort and
-                    (v1 is None or isinstance(v1, JsonNone) or isinstance(v1, Empty)
-                     or isinstance(v1, bool) or isinstance(v1, str) or
-                     isinstance(v1, datetime))):
-                return -1
-        raise QueryStateException(
-            'Cannot compare value of type ' + str(type(v0)) +
-            ' with value of type ' + str(type(v1)))
+                return_value = (-1 if v0 < v1 else (0 if v0 == v1 else 1))
+        else:
+            raise QueryStateException(
+                'Cannot compare value of type ' + str(type(v0)) +
+                ' with value of type ' + str(type(v1)))
+
+        if sort_spec is not None:
+            if sort_spec.is_desc:
+                return_value = -return_value
+            if not sort_spec.is_desc and sort_spec.nones_first:
+                if Compare.is_special_value(v0) and not Compare.is_special_value(v1):
+                    return_value = -1
+                if not Compare.is_special_value(v0) and Compare.is_special_value(v1):
+                    return_value = 1
+            elif sort_spec.is_desc and not sort_spec.nones_first:
+                if Compare.is_special_value(v0) and not Compare.is_special_value(v1):
+                    return_value = 1
+                if not Compare.is_special_value(v0) and Compare.is_special_value(v1):
+                    return_value = -1
+
+        return return_value
+
+    @staticmethod
+    def compare_total_order(rcb, v0, v1, sort_spec):
+
+        if isinstance(v0, dict):
+            if isinstance(v1, dict):
+                return Compare.compare_dicts(rcb, v0, v1, sort_spec)
+            elif isinstance(v1, list):
+                return 1 if sort_spec.is_desc else -1
+            else:
+                return -1 if sort_spec.is_desc else 1
+
+        elif isinstance(v0, list):
+            if isinstance(v1, list):
+                return Compare.compare_lists(rcb, v0, v1, sort_spec)
+            else:
+                return -1 if sort_spec.is_desc else 1
+        else:
+            if isinstance(v1, dict) or isinstance(v1, list):
+                return 1 if sort_spec.is_desc else -1
+            else:
+                return Compare.compare_atomics_total_order(rcb, v0,
+                                                           v1, sort_spec)
+
+    @staticmethod
+    def compare_dicts(rcb, v0, v1, sort_spec):
+        inner_spec = sort_spec
+        if sort_spec.is_desc or sort_spec.nones_first:
+            inner_spec = SortSpec()
+
+        # need to iterate over both dicts with keys sorted
+        v0_iter = iter(sorted(v0))
+        v1_iter = iter(sorted(v1))
+
+        v0_key = next(v0_iter, None)
+        v1_key = next(v1_iter, None)
+
+        while v0_key is not None and v1_key is not None:
+            comp = Compare.compare_to(v0_key, v1_key)
+
+            # keys don't match, done
+            if comp != 0:
+                return -comp if sort_spec.is_desc else comp
+
+            # deep compare of values
+            comp = Compare.compare_total_order(rcb, v0.get(v0_key),
+                                               v1.get(v1_key), inner_spec)
+
+            # values don't match
+            if comp != 0:
+                return -comp if sort_spec.is_desc else comp
+
+            v0_key = next(v0_iter, None)
+            v1_key = next(v1_iter, None)
+
+        # all items match so far, if lengths as the same they are equal
+        if len(v0) == len(v1):
+            return 0
+
+        if next(v1_iter, None) is not None:
+            # v1 has more items than v0
+            return 1 if sort_spec.is_desc else -1
+        # v0 has more items than v1
+        return -1 if sort_spec.is_desc else 1
+
+    @staticmethod
+    def compare_lists(rcb, v0, v1, sort_spec):
+        inner_spec = sort_spec
+        if sort_spec.is_desc or sort_spec.nones_first:
+            inner_spec = SortSpec()
+
+        # iterate over both lists
+        v0_iter = iter(v0)
+        v1_iter = iter(v1)
+
+        v0_val = next(v0_iter, None)
+        v1_val = next(v1_iter, None)
+
+        while v0_val is not None and v1_val is not None:
+            # deep compare of values
+            comp = Compare.compare_total_order(rcb, v0_val, v1_val, inner_spec)
+
+            # values don't match
+            if comp != 0:
+                return -comp if sort_spec.is_desc else comp
+
+            v0_val = next(v0_iter, None)
+            v1_val = next(v1_iter, None)
+
+        # all items match so far, if lengths as the same they are equal
+        if len(v0) == len(v1):
+            return 0
+
+        if v1_val is not None:
+            # v1 has more items than v0
+            return 1 if sort_spec.is_desc else -1
+        # v0 has more items than v1
+        return -1 if sort_spec.is_desc else 1
+
+    @staticmethod
+    def is_special_value(value):
+        if value is None or isinstance(value, JsonNone) or \
+                isinstance(value, Empty):
+            return True
+        return False
+
+    @staticmethod
+    def compare_to(this, that):
+        # same as Java compareTo
+        return (this > that) - (this < that)
 
     @staticmethod
     def hashcode(value):
@@ -2481,7 +2880,7 @@ class Compare(object):
             return -1 if sort_specs[sort_pos].nones_first else 1
         if isinstance(v1, JsonNone):
             return 1 if sort_specs[sort_pos].nones_first else -1
-        comp = Compare.compare_atomics(rcb, v0, v1, True)
+        comp = Compare.compare_atomics_total_order(rcb, v0, v1)
         return -comp if sort_specs[sort_pos].is_desc else comp
 
     @staticmethod
@@ -2823,9 +3222,13 @@ class SortSpec(object):
     The SortSpec class stores these two pieces of information.
     """
 
-    def __init__(self, bis):
-        self.is_desc = bis.read_boolean()
-        self.nones_first = bis.read_boolean()
+    def __init__(self, bis=None):
+        if bis is not None:
+            self.is_desc = bis.read_boolean()
+            self.nones_first = bis.read_boolean()
+        else:
+            self.is_desc = False
+            self.nones_first = False
 
 
 class TopologyInfo(object):

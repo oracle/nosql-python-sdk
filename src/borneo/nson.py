@@ -13,13 +13,12 @@ from collections import OrderedDict
 import borneo.operations
 from .common import (
     ByteInputStream, ByteOutputStream, Empty, IndexInfo, PreparedStatement,
-    TableLimits, TableUsage, Version)
+    Replica, ReplicaStats, TableLimits, TableUsage, Version)
 from .exception import IllegalArgumentException
 from .nson_protocol import *
 from .query import PlanIter, QueryDriver, TopologyInfo
 from .serde import (math_name_to_value)
 from .serdeutil import (SerdeUtil, RequestSerializer, NsonEventHandler)
-
 
 #
 # Contains methods to serialize and deserialize NSON
@@ -97,7 +96,8 @@ class Nson(object):
         t = bis.read_byte()
         if t != expected_type:
             raise IllegalArgumentException(
-                'Expected type ' + str(expected_type) + ', received type ' + t)
+                'Expected type ' + str(expected_type) +
+                ', received type ' + str(t))
 
     @staticmethod
     def read_int(bis):
@@ -324,6 +324,7 @@ class Nson(object):
     @staticmethod
     def iso_time_to_ms(iso_str):
         return SerdeUtil.iso_time_to_ms(iso_str)
+
 
 class NsonSerializer(NsonEventHandler):
     """
@@ -1906,6 +1907,190 @@ class QueryRequestSerializer(RequestSerializer):
         return result
 
 
+#
+# AddReplicaRequest
+#
+# Header:
+#  Normal header table name required
+#
+# Payload:
+# {
+#   "payload" : {
+#      region: str, required
+#      if not 0 or None, read units, write units, match_etag
+#   }
+# }
+#
+# Non-error response:
+#  TableResult
+#
+class AddReplicaRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.ADD_REPLICA, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, REGION, request.get_replica_name())
+        Proto.write_int_map_field_not_zero(ns, READ_UNITS,
+                                               request.get_read_units())
+        Proto.write_int_map_field_not_zero(ns, WRITE_UNITS,
+                                               request.get_write_units())
+        Proto.write_string_map_field(ns, ETAG, request.get_match_etag())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        return Proto.deserialize_table_result(bis)
+
+#
+# DropReplicaRequest
+#
+# Header:
+#  Normal header table name required
+#
+# Payload:
+# {
+#   "payload" : {
+#      region: str, required
+#      if not None,  match_etag
+#   }
+# }
+#
+# Non-error response:
+#  TableResult
+#
+class DropReplicaRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.DROP_REPLICA, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, REGION, request.get_replica_name())
+        Proto.write_string_map_field(ns, ETAG, request.get_match_etag())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        return Proto.deserialize_table_result(bis)
+
+#
+# ReplicaStatsRequest
+#
+# Header:
+#  Normal header table name required
+#
+# Payload:
+# {
+#   "payload" : {
+#      region: str, required
+#      optional start_time str
+#      optional limit int
+#   }
+# }
+#
+# Non-error response:
+#  GetReplicaStatsResult:
+#
+#   table_name (string)
+#   next_start_time (int)
+#   replica_stats (Map<string, Array<ReplicaStats>>)
+#       key - region (string)
+#       value - array of ReplicaStats
+#       ReplicaStats:
+#         time (int)
+#         replica_lag (int)
+#
+class ReplicaStatsRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.GET_REPLICA_STATS, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_string_map_field(ns, REGION, request.get_replica_name())
+        Proto.write_string_map_field(ns, START, request.get_start_time_str())
+        Proto.write_int_map_field_not_zero(ns, LIST_MAX_TO_READ,
+                                               request.get_limit())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.ReplicaStatsResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == TABLE_NAME:
+                result.set_table_name(Nson.read_string(bis))
+            elif name == NEXT_START_TIME:
+                result.set_next_start_time(Nson.read_long(bis))
+            elif name == REPLICA_STATS:
+                ReplicaStatsRequestSerializer.read_replica_stats(bis, result)
+            else:
+                walker.skip()
+
+        return result
+
+    #
+    # Map, key is string, value is ReplicaStats
+    #  key - region (str)
+    #  value -- array of ReplicaStats
+    #      time (long)
+    #      lag (int)
+    #
+    @staticmethod
+    def read_replica_stats(bis, result):
+        records_map = dict()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            replica_name = walker.get_current_name()
+            # value is array of stats
+            t = bis.read_byte()
+            if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+                raise IllegalArgumentException(
+                    'Bad type in GetReplicaStats: ' + str(t) +
+                    ' should be ARRAY')
+            # consume total size of array
+            SerdeUtil.read_full_int(bis)  # total length in bytes
+            num_elements = SerdeUtil.read_full_int(bis)
+            records = list()
+            for i in range(0,num_elements):
+                stats = ReplicaStats()
+                swalker = MapWalker(bis)
+                while swalker.has_next():
+                    swalker.next()
+                    name = swalker.get_current_name()
+                    if name == TIME:
+                        stats._collection_time_millis = Nson.read_long(bis)
+                    elif name == REPLICA_LAG:
+                        stats._replica_lag = Nson.read_int(bis)
+                    else:
+                        swalker.skip()
+
+                records.append(stats);
+            records_map[replica_name] = records
+        result.set_stats_records(records_map)
+
 # noinspection PyArgumentEqualDefault
 class Proto(object):
     #
@@ -2125,6 +2310,12 @@ class Proto(object):
                 result.set_defined_tags(json.loads(Nson.read_string(bis)))
             elif name == ETAG:
                 result.set_match_etag(Nson.read_string(bis))
+            elif name == SCHEMA_FROZEN:
+                result.set_schema_frozen(Nson.read_boolean(bis))
+            elif name == INITIALIZED:
+                result.set_local_replica_initialized(Nson.read_boolean(bis))
+            elif name == REPLICAS:
+                Proto.read_replicas(bis, result)
             elif name == LIMITS:
                 lw = MapWalker(bis)
                 ru = 0
@@ -2148,6 +2339,45 @@ class Proto(object):
             else:
                 walker.skip()
         return result
+
+    @staticmethod
+    def read_replicas(bis, result):
+        # array of replicas
+        t = bis.read_byte()
+        if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+            raise IllegalArgumentException(
+                'Bad type in ReadReplicas in TableResult: ' + str(t) +
+                ' should be ARRAY')
+        SerdeUtil.read_full_int(bis)  # total length in bytes
+        num_elements = SerdeUtil.read_full_int(bis)
+        replicas = list()
+        for i in range(0,num_elements):
+            replica = Replica()
+            Proto.read_replica(bis, replica)
+            replicas.append(replica)
+        result.set_replicas(replicas)
+
+
+    @staticmethod
+    def read_replica(bis, replica):
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == REGION:
+                replica._replica_name = Nson.read_string(bis)
+            elif name == TABLE_OCID:
+                replica._replica_ocid = Nson.read_string(bis)
+            elif name == WRITE_UNITS:
+                replica._write_units = Nson.read_int(bis)
+            elif name == LIMITS_MODE:
+                replica._capacity_mode = Nson.read_int(bis)
+            elif name == TABLE_STATE:
+                replica._replica_state = (
+                    SerdeUtil.get_table_state(Nson.read_int(bis)))
+            else:
+                walker.skip()
+
 
     # {
     #   SYSOP_STATE: <int>

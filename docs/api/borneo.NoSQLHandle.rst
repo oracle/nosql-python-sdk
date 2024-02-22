@@ -10,13 +10,16 @@ NoSQLHandle
 
    .. autosummary::
 
+      ~NoSQLHandle.add_replica
       ~NoSQLHandle.close
       ~NoSQLHandle.delete
+      ~NoSQLHandle.drop_replica
       ~NoSQLHandle.do_system_request
       ~NoSQLHandle.do_table_request
       ~NoSQLHandle.get
       ~NoSQLHandle.get_client
       ~NoSQLHandle.get_indexes
+      ~NoSQLHandle.get_replica_stats
       ~NoSQLHandle.get_stats_control
       ~NoSQLHandle.get_table
       ~NoSQLHandle.get_table_usage
@@ -36,14 +39,17 @@ NoSQLHandle
 
    .. rubric:: Methods Documentation
 
+   .. automethod:: add_replica
    .. automethod:: close
    .. automethod:: delete
    .. automethod:: do_system_request
    .. automethod:: do_table_request
+   .. automethod:: drop_replica
    .. automethod:: get
    .. automethod:: get_client
    .. automethod:: get_indexes
    .. automethod:: get_stats_control
+   .. automethod:: get_replica_stats
    .. automethod:: get_table
    .. automethod:: get_table_usage
    .. automethod:: list_namespaces

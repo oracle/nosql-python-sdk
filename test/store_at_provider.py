@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -156,6 +156,7 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
         for t in threads:
             t.join()
 
+    # noinspection PyDeprecation
     @classmethod
     def _find_port_start_server(cls, token_handler):
         port = 9000

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2023 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -25,8 +25,8 @@ from .exception import (
     ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
     ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
     SecurityInfoNotReadyException, SystemException, TableExistsException,
-    TableLimitException, TableNotFoundException, TableSizeException,
-    UnauthorizedException, UnsupportedProtocolException,
+    TableLimitException, TableNotFoundException, TableNotReadyException,
+    TableSizeException, UnauthorizedException, UnsupportedProtocolException,
     WriteThrottlingException)
 
 from .kv.exception import AuthenticationException
@@ -144,6 +144,7 @@ class NsonEventHandler:
         pass
 
 
+# noinspection PyTypeChecker
 class SerdeUtil(object):
     """
     A class to encapsulte static methods used by serialization and
@@ -199,7 +200,11 @@ class SerdeUtil(object):
                    DROP_INDEX=22,
                    # added in V2.
                    SYSTEM_REQUEST=23,
-                   SYSTEM_STATUS_REQUEST=24)
+                   SYSTEM_STATUS_REQUEST=24,
+                   # skip some as unused
+                   ADD_REPLICA=33,
+                   DROP_REPLICA=34,
+                   GET_REPLICA_STATS=35)
 
     # System Operation state.
     SYSTEM_STATE = enum(COMPLETE=0,
@@ -242,7 +247,10 @@ class SerdeUtil(object):
                       ETAG_MISMATCH=22,
                       CANNOT_CANCEL_WORK_REQUEST=23,
                       # added in V3
-                      UNSUPPORTED_PROTOCOL=24)
+                      UNSUPPORTED_PROTOCOL=24,
+                      # added in V4
+                      TABLE_NOT_READY=26,
+                      UNSUPPORTED_QUERY_VERSION=27)
 
     # Error codes for user throttling, range from 50 to 100(exclusive).
     THROTTLING_ERROR = enum(READ_LIMIT_EXCEEDED=50,
@@ -276,6 +284,8 @@ class SerdeUtil(object):
     CAPACITY_MODE = enum(PROVISIONED=1,
                          ON_DEMAND=2)
 
+    # this method always copies. consider a more efficient mechanism
+    # for cases where no conversion is required
     @staticmethod
     def convert_value_to_none(value):
         if isinstance(value, dict):
@@ -389,6 +399,12 @@ class SerdeUtil(object):
             return DeploymentException(msg)
         elif code == SerdeUtil.USER_ERROR.UNSUPPORTED_PROTOCOL:
             return UnsupportedProtocolException(msg)
+        elif code == SerdeUtil.USER_ERROR.UNSUPPORTED_QUERY_VERSION:
+            return UnsupportedQueryVersionException(msg)
+        elif code == SerdeUtil.USER_ERROR.TABLE_NOT_READY:
+            return TableNotReadyException(msg)
+        elif code == SerdeUtil.USER_ERROR.ETAG_MISMATCH:
+            return IllegalArgumentException(msg)
         else:
             return NoSQLException(
                 'Unknown error code ' + str(code) + ': ' + msg)
@@ -819,6 +835,8 @@ class SerdeUtil(object):
             return SerdeUtil.FIELD_VALUE_TYPE.NULL
         elif isinstance(value, Empty):
             return SerdeUtil.FIELD_VALUE_TYPE.EMPTY
+        elif isinstance(value, JsonNone):
+            return SerdeUtil.FIELD_VALUE_TYPE.JSON_NULL
         else:
             raise IllegalStateException(
                 'Unknown value type ' + str(type(value)))

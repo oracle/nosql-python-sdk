@@ -13,6 +13,7 @@ PreparedStatement
       ~PreparedStatement.clear_variables
       ~PreparedStatement.copy_statement
       ~PreparedStatement.get_query_plan
+      ~PreparedStatement.get_query_schema
       ~PreparedStatement.get_sql_text
       ~PreparedStatement.get_variables
       ~PreparedStatement.set_variable
@@ -22,6 +23,7 @@ PreparedStatement
    .. automethod:: clear_variables
    .. automethod:: copy_statement
    .. automethod:: get_query_plan
+   .. automethod:: get_query_schema
    .. automethod:: get_sql_text
    .. automethod:: get_variables
    .. automethod:: set_variable
