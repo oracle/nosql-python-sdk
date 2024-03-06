@@ -256,6 +256,7 @@ class Region(object):
     OC26_EP_BASE = 'https://nosql.{0}.oci.oraclecloud26.com'
     OC27_EP_BASE = 'https://nosql.{0}.oci.oraclecloud27.com'
     OC28_EP_BASE = 'https://nosql.{0}.oci.oraclecloud28.com'
+    OC31_EP_BASE = 'https://nosql.{0}.oci.sovereigncloud.nz'
 
     def __init__(self, region_id):
         self._region_id = region_id
@@ -312,6 +313,8 @@ class Region(object):
             return str.format(Region.OC27_EP_BASE, self._region_id)
         if self._is_oc28_region():
             return str.format(Region.OC28_EP_BASE, self._region_id)
+        if self._is_oc31_region():
+            return str.format(Region.OC31_EP_BASE, self._region_id)
         raise IllegalArgumentException(
             'Unable to find endpoint for unknown region ' + self._region_id)
 
@@ -409,6 +412,10 @@ class Region(object):
     def _is_oc28_region(self):
         # Internal use only
         return Regions.OC28_REGIONS.get(self._region_id) is not None
+
+    def _is_oc31_region(self):
+        # Internal use only
+        return Regions.OC31_REGIONS.get(self._region_id) is not None
 
 
 class Regions(object):
@@ -641,6 +648,10 @@ class Regions(object):
     US_DCC_SWJORDAN_2 = Region('us-dcc-swjordan-2')
     """Region Location: Utah, USA"""
 
+    # OC31
+    AP_HOBSONVILLE_1 = Region('ap-hobsonville-1')
+    """Region Location: New Zealand"""
+
     # OC1
     OC1_REGIONS = dict()
     """A dict containing the OC1 regions."""
@@ -803,6 +814,11 @@ class Regions(object):
     """A dict containing the OC28 regions."""
     OC28_REGIONS[US_DCC_SWJORDAN_2.get_region_id()] = US_DCC_SWJORDAN_2
 
+    # OC31
+    OC31_REGIONS = dict()
+    """A dict containing the OC31 regions."""
+    OC31_REGIONS[AP_HOBSONVILLE_1.get_region_id()] = AP_HOBSONVILLE_1
+
     @staticmethod
     def get_oc1_regions():
         # Internal use only
@@ -909,6 +925,11 @@ class Regions(object):
         return Regions.OC28_REGIONS.values()
 
     @staticmethod
+    def get_oc31_regions():
+        # Internal use only
+        return Regions.OC31_REGIONS.values()
+
+    @staticmethod
     def from_region_id(region_id):
         """
         Returns the Region associated with the string value supplied, or None if
@@ -964,6 +985,8 @@ class Regions(object):
             region = Regions.OC27_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC28_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC31_REGIONS.get(region_id)
         return region
 
 
