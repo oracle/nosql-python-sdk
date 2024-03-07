@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 -   Cloud only: new regions: sa-bogota-1, us-dcc-swjordan-1,
     us-dcc-swjordan-2, ap-dcc-tokyo-1, me-abudhabi-3,
-    ap-dcc-gazipur-1, me-dcc-doha-1
+    ap-dcc-gazipur-1, me-dcc-doha-1, ap-hobsonville-1
 -   added support for array_collect() and count(distinct) in queries. These
     require server side support which is only available in Oracle NoSQL releases
     23.3 and higher and will not be immediately available in the cloud service
