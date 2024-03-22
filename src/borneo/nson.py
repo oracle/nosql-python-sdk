@@ -884,6 +884,8 @@ class GetRequestSerializer(RequestSerializer):
                 Proto.read_consumed_capacity(bis, result)
             elif name == ROW:
                 Proto.read_row(bis, result)
+            elif name == TOPOLOGY_INFO:
+                Proto.read_topology_info(bis, result);
             else:
                 walker.skip()
 
@@ -965,6 +967,8 @@ class PutRequestSerializer(RequestSerializer):
                 Proto.read_return_info(bis, result)
             elif name == GENERATED:
                 result.set_generated_value(Proto.nson_to_value(bis))
+            elif name == TOPOLOGY_INFO:
+                Proto.read_topology_info(bis, result);
             else:
                 walker.skip()
 
@@ -1051,6 +1055,8 @@ class DeleteRequestSerializer(RequestSerializer):
                 result.set_success(Nson.read_boolean(bis))
             elif name == RETURN_INFO:
                 Proto.read_return_info(bis, result)
+            elif name == TOPOLOGY_INFO:
+                Proto.read_topology_info(bis, result);
             else:
                 walker.skip()
 
@@ -1545,6 +1551,8 @@ class MultiDeleteRequestSerializer(RequestSerializer):
                 result.set_num_deletions(Nson.read_int(bis))
             elif name == CONTINUATION_KEY:
                 result.set_continuation_key(Nson.read_binary(bis))
+            elif name == TOPOLOGY_INFO:
+                Proto.read_topology_info(bis, result);
             else:
                 walker.skip()
 
@@ -1687,6 +1695,8 @@ class WriteMultipleRequestSerializer(RequestSerializer):
                         result.add_result(self._read_operation_result(bis))
                     else:
                         fwalker.skip()
+            elif name == TOPOLOGY_INFO:
+                Proto.read_topology_info(bis, result);
             else:
                 walker.skip()
         return result
@@ -1775,7 +1785,7 @@ class PrepareRequestSerializer(RequestSerializer):
         Proto.end_map(ns, HEADER)
 
         Proto.start_map(ns, PAYLOAD)
-        Proto.write_int_map_field(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION)
+        Proto.write_int_map_field(ns, QUERY_VERSION, request._query_version)
         Proto.write_string_map_field(ns, STATEMENT, request.get_statement())
         if request.get_query_plan():
             Proto.write_bool_map_field(ns, GET_QUERY_PLAN, request.get_query_plan())
@@ -1836,7 +1846,7 @@ class QueryRequestSerializer(RequestSerializer):
         Proto.end_map(ns, HEADER)
 
         Proto.start_map(ns, PAYLOAD)
-        Proto.write_int_map_field(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION)
+        Proto.write_int_map_field(ns, QUERY_VERSION, request._query_version)
         Proto.write_int_map_field_not_zero(
             ns, MAX_READ_KB, request.get_max_read_kb())
         Proto.write_int_map_field_not_zero(
@@ -1845,6 +1855,10 @@ class QueryRequestSerializer(RequestSerializer):
             ns, NUMBER_LIMIT, request.get_limit())
         Proto.write_int_map_field_not_zero(
             ns, TRACE_LEVEL, request.get_trace_level())
+        if request.get_trace_level() > 0:
+            Proto.write_bool_map_field(ns, TRACE_TO_LOG_FILES,
+                                       request._log_file_tracing)
+            Proto.write_int_map_field(ns, BATCH_COUNTER, request._batch_counter)
         Proto.write_consistency(ns, request.get_consistency())
         Proto.write_consistency(ns, request.get_consistency())
         Proto.write_durability(ns, request)
@@ -1862,13 +1876,22 @@ class QueryRequestSerializer(RequestSerializer):
         if request.get_cont_key() is not None:
             Proto.write_bin_map_field(
                 ns, CONTINUATION_KEY, request.get_cont_key())
+        #
+        # server memory consumption is purposely left out as not necessary
+        # at this time (see Java)
+        #
+
         if request.get_math_context() is not None:
             self._write_math_context(ns, request.get_math_context())
         if request.get_shard_id() != -1:
             Proto.write_int_map_field(ns, SHARD_ID, request.get_shard_id())
-        if request.topology_seq_num() != -1:
-            Proto.write_int_map_field(
-                ns, TOPO_SEQ_NUM, request.topology_seq_num())
+
+        if request._query_version >= QueryDriver.QUERY_V4:
+            if request._query_name is not None:
+                Proto.write_string_map_field(ns, QUERY_NAME,
+                                             request._query_name)
+            if request._virtual_scan is not None:
+                Proto.write_virtual_scan(ns, request._virtual_scan)
 
         Proto.end_map(ns, PAYLOAD)
 
@@ -2108,6 +2131,7 @@ class Proto(object):
             Proto.write_string_map_field(ns, TABLE_NAME,
                                          request.get_table_name())
         Proto.write_int_map_field(ns, OP_CODE, op)
+        Proto.write_int_map_field(ns, TOPO_SEQ_NUM, request._topo_seq_num)
         Proto.write_int_map_field(ns, TIMEOUT, request.get_timeout())
 
     @staticmethod
@@ -2228,6 +2252,16 @@ class Proto(object):
             ns.binary_value(value)
             ns.end_map_field(name)
 
+    @staticmethod
+    def write_int_array_map_field(ns, name, value):
+        if value is not None:
+            Proto.start_array(ns, name)
+            for v in values:
+                ns.start_array_field()
+                ns.integer_value(v)
+                ns.end_array_field()
+            Proto.end_array(ns, name)
+
     #
     # start/end complex types
     #
@@ -2250,6 +2284,37 @@ class Proto(object):
     def end_array(ns, name):
         ns.end_array()
         ns.end_map_field(name)
+
+    #
+    #
+    #
+    @staticmethod
+    def write_virtual_scan(ns, vs):
+        start_map(ns, VIRTUAL_SCAN)
+        Proto.write_int_map_field(ns, VIRTUAL_SCAN_SID, vs[VIRTUAL_SCAN_SID])
+        Proto.write_int_map_field(ns, VIRTUAL_SCAN_PID, vs[VIRTUAL_SCAN_PID])
+        info_sent = vs['info_sent']
+        if not info_sent:
+            Proto.write_bin_map_field(ns, VIRTUAL_SCAN_PRIM_KEY,
+                                          vs[VIRTUAL_SCAN_PRIM_KEY])
+            Proto.write_bin_map_field(ns, VIRTUAL_SCAN_SEC_KEY,
+                                          vs[VIRTUAL_SCAN_SEC_KEY])
+            Proto.write_bool_map_field(ns, VIRTUAL_SCAN_MOVE_AFTER,
+                                           vs[VIRTUAL_SCAN_MOVE_AFTER])
+            Proto.write_bin_map_field(ns, VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY,
+                                          vs[VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY])
+            Proto.write_int_array_map_field(ns,
+                                            VIRTUAL_SCAN_JOIN_PATH_TABLES,
+                                            vs[VIRTUAL_SCAN_JOIN_PATH_TABLES])
+            Proto.write_bin_map_field(ns, VIRTUAL_SCAN_JOIN_PATH_KEY,
+                                          vs[VIRTUAL_SCAN_JOIN_PATH_KEY])
+            Proto.write_bin_map_field(ns, VIRTUAL_SCAN_JOIN_PATH_SEC_KEY,
+                                          vs[VIRTUAL_SCAN_JOIN_PATH_SEC_KEY])
+            Proto.write_bool_map_field(ns, VIRTUAL_SCAN_JOIN_PATH_MATCHED,
+                                           vs[VIRTUAL_SCAN_JOIN_PATH_MATCHED])
+
+        end_map(ns, VIRTUAL_SCAN)
+
 
     #
     # Deserialization/read methods
@@ -2557,10 +2622,12 @@ class Proto(object):
         table_name = None
         namespace = None
         operation = None
-        proxy_topo_seqnum = None
+        proxy_topo_seqnum = -1 # V3 and earlier
+        shard_ids = None # V3 and earlier
         proxy_prepared_query = None
-        shard_ids = None
         cont_key = None
+        virtual_scans = None # array of dict
+        query_traces = None  # dict
 
         walker = MapWalker(bis)
         while walker.has_next():
@@ -2588,11 +2655,6 @@ class Proto(object):
                 namespace = Nson.read_string(bis)
             elif name == QUERY_OPERATION:
                 operation = Nson.read_int(bis)
-            elif name == PROXY_TOPO_SEQNUM:
-                proxy_topo_seqnum = Nson.read_int(bis)
-            elif name == SHARD_IDS:
-                # array of int
-                shard_ids = Proto.read_nson_int_array(bis)
             elif name == QUERY_RESULTS:
                 # query only
                 Proto.read_query_results(query_result, bis)
@@ -2606,28 +2668,57 @@ class Proto(object):
                 # query only
                 if query_result is not None:
                     query_result.set_reached_limit(Nson.read_boolean(bis))
+            elif name == TOPOLOGY_INFO:
+                Proto.read_topology_info(bis,
+                  query_result if query_result is not None else prepare_result);
+            # QUERY_V3 and earlier return topo differently
+            elif name == PROXY_TOPO_SEQNUM:
+                proxy_topo_seqnum = Nson.read_int(bis)
+            elif name == SHARD_IDS:
+                shard_ids = Proto.read_nson_int_array(bis)
+            # new in QUERY_V4
+            elif name == VIRTUAL_SCANS:
+                Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.ARRAY)
+                SerdeUtil.read_full_int(bis) # array size in bytes
+                num_scans = SerdeUtil.read_full_int(bis)
+                virtual_scans = list()
+                for i in range(num_scans):
+                    virtual_scans.append(Proto.read_virtual_scan(bis))
+            elif name == QUERY_BATCH_TRACES:
+                Nson.read_type(bis, SerdeUtil.FIELD_VALUE_TYPE.ARRAY)
+                SerdeUtil.read_full_int(bis) # array size in bytes
+                # divide by 2 because each trace is 2 strings
+                num_traces = SerdeUtil.read_full_int(bis) / 2
+                query_traces = dict()
+                for i in range(num_traces):
+                    name = Nson.read_string(bis)
+                    trace = Nson.read_string(bis)
+                    query_traces[name] = trace
             else:
                 walker.skip()
+
+        # QUERY_V3 and earlier return topo differently
+        res = query_result if query_result is not None else prepare_result
+        if res.get_topology_info() is None and proxy_topo_seqnum >= 0:
+            res.set_topology_info(proxy_topo_seqnum, shard_ids)
 
         # ensure that the continuation key is cleared if not returned,
         # meaning the query is done
         if query_result is not None:
             query_result.set_continuation_key(cont_key)
             query_request.set_cont_key(query_result.get_continuation_key())
+            query_result._set_virtual_scans(virtual_scans)
+            query_result._set_query_traces(query_traces)
 
         # if this was already prepared and is from a query, we are done
         if request_was_prepared:
             return
-        if proxy_topo_seqnum is not None:
-            ti = TopologyInfo(proxy_topo_seqnum, shard_ids)
-        else:
-            ti = None
         if query_request is not None:
             statement = query_request.get_statement()
         else:
             statement = prepare_request.get_statement()
         prepared_statement = PreparedStatement(
-            statement, query_plan, query_schema, ti,
+            statement, query_plan, query_schema,
             proxy_prepared_query,
             None if dpi is None else dpi.get_plan(),
             None if dpi is None else dpi.get_num_iters(),
@@ -2642,9 +2733,51 @@ class Proto(object):
             query_request.set_prepared_statement(prepared_statement)
             if not prepared_statement.is_simple_query():
                 driver = QueryDriver(query_request)
-                driver.set_topology_info(prepared_statement.topology_info())
                 driver.set_prep_cost(query_result.get_read_kb())
                 query_result.set_computed(False)
+
+    @staticmethod
+    def read_virtual_scan(bis):
+        vs = dict()
+        vs[VIRTUAL_SCAN_SID] = -1
+        vs[VIRTUAL_SCAN_PID] = -1
+        vs[VIRTUAL_SCAN_PRIM_KEY] = None
+        vs[VIRTUAL_SCAN_SEC_KEY] = None
+        vs[VIRTUAL_SCAN_MOVE_AFTER] = True
+        vs[VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY] = None
+        vs[VIRTUAL_SCAN_JOIN_PATH_TABLES] = None
+        vs[VIRTUAL_SCAN_JOIN_PATH_KEY] = None
+        vs[VIRTUAL_SCAN_JOIN_PATH_SEC_KEY] = None
+        vs[VIRTUAL_SCAN_JOIN_PATH_MATCHED] = False
+
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == VIRTUAL_SCAN_SID:
+                vs[VIRTUAL_SCAN_SID] = Nson.read_int(bis)
+            if name == VIRTUAL_SCAN_PID:
+                vs[VIRTUAL_SCAN_PID] = Nson.read_int(bis)
+            if name == VIRTUAL_SCAN_PRIM_KEY:
+                vs[VIRTUAL_SCAN_PRIM_KEY] = Nson.read_binary(bis)
+            if name == VIRTUAL_SCAN_SEC_KEY:
+                vs[VIRTUAL_SCAN_SEC_KEY] = Nson.read_binary(bis)
+            if name == VIRTUAL_SCAN_MOVE_AFTER:
+                vs[VIRTUAL_SCAN_MOVE_AFTER] = Nson.read_boolean(bis)
+            if name == VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY:
+                vs[VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY] = Nson.read_binary(bis)
+            if name == VIRTUAL_SCAN_JOIN_PATH_KEY:
+                vs[VIRTUAL_SCAN_JOIN_PATH_KEY] = Nson.read_binary(bis)
+            if name == VIRTUAL_SCAN_JOIN_PATH_SEC_KEY:
+                vs[VIRTUAL_SCAN_JOIN_PATH_SEC_KEY] = Nson.read_binary(bis)
+            if name == VIRTUAL_SCAN_JOIN_PATH_TABLES:
+                vs[VIRTUAL_SCAN_JOIN_PATH_TABLES] = Nson.read_nson_int_array(bis)
+            if name == VIRTUAL_SCAN_JOIN_PATH_MATCHED:
+                vs[VIRTUAL_SCAN_JOIN_PATH_MATCHED] = Nson.read_boolean(bis)
+            else:
+                walker.skip()
+        return vs
+
 
     # array of int for shard_ids in query topology info
     @staticmethod
@@ -2692,6 +2825,31 @@ class Proto(object):
             for i in range(len(pids)):
                 cont_keys.append(SerdeUtil.read_bytearray(bis1, False))
             query_result.set_partition_cont_keys(cont_keys)
+
+    #
+    # {
+    #   PROXY_TOPO_SEQNUM : int
+    #   SHARD_IDS : [int, ...]
+    # }
+    #
+    @staticmethod
+    def read_topology_info(bis, result):
+        proxy_topo_seqnum = -1
+        shard_ids = None
+
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == PROXY_TOPO_SEQNUM:
+                proxy_topo_seqnum = Nson.read_int(bis)
+            elif name == SHARD_IDS:
+                 # int array
+                 shard_ids = Proto.read_nson_int_array(bis)
+            else:
+                walker.skip()
+        if proxy_topo_seqnum >= 0:
+            result.set_topology_info(proxy_topo_seqnum, shard_ids)
 
     #
     # Handle success/failure in a response. Success is a 0 error code.

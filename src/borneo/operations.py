@@ -27,6 +27,7 @@ from .serde import (
     SystemRequestSerializer, SystemStatusRequestSerializer,
     TableRequestSerializer, TableUsageRequestSerializer,
     WriteMultipleRequestSerializer)
+from .query import TopologyInfo
 from .serdeutil import SerdeUtil
 
 try:
@@ -57,6 +58,7 @@ class Request(object):
         self._write_rate_limiter = None
         self._rate_limit_delayed_ms = 0
         self._namespace = None
+        self._topo_seq_num = -1
 
     def add_retry_delay_ms(self, millis):
         """
@@ -426,6 +428,18 @@ class Request(object):
     def get_request_name(self):
         # type () -> str
         pass
+
+    @abstractmethod
+    def _set_query_version(self, version):
+        pass
+
+    def _set_topo_seq_num(self, num):
+        if self._topo_seq_num < 0:
+            self._topo_seq_num = num;
+        return self
+
+    def _get_topo_seq_num(self):
+        return self._topo_seq_num
 
 
 class WriteRequest(Request):
@@ -1726,9 +1740,16 @@ class PrepareRequest(Request):
         self._statement = None
         self._get_query_plan = False
         self._get_query_schema = False
+        self._query_version = 0
 
     def __str__(self):
         return 'PrepareRequest'
+
+    def _set_query_version(self, version):
+        self._query_version = version
+
+    def _get_query_version(self):
+        return self._query_version
 
     def set_namespace(self, namespace):
         """
@@ -2416,6 +2437,14 @@ class QueryRequest(Request):
         self.is_internal = False
         # test mode used for query testing
         self._in_test_mode = False
+        # new with elasticity changes
+        self._query_version = 0
+        self._query_name = None
+        self._virtual_scan = None # a dict if set
+        self._log_file_tracing = False
+        self._driver_query_trace = None
+        self._server_query_traces = None # dict if set
+        self._batch_counter = 0
 
     def __str__(self):
         return 'QueryRequest'
@@ -2426,18 +2455,27 @@ class QueryRequest(Request):
         internal_req = QueryRequest()
         internal_req.set_compartment(self.get_compartment())
         internal_req.set_table_name(self.get_table_name())
-        internal_req.set_timeout(self.get_timeout())
+        # avoid check on timeout value
+        internal_req._timeout_ms = self._timeout_ms
         internal_req.set_trace_level(self._trace_level)
         internal_req.set_limit(self._limit)
         internal_req.set_max_read_kb(self._max_read_kb)
         internal_req.set_max_write_kb(self._max_write_kb)
         internal_req.set_max_memory_consumption(self._max_memory_consumption)
         internal_req.set_math_context(self._math_context)
-        internal_req.set_consistency(self._consistency)
+        internal_req._consistency = self._consistency
         internal_req.set_durability(self._durability)
-        internal_req.set_prepared_statement(self._prepared_statement)
+        internal_req._prepared_statement = self._prepared_statement
+        internal_req._set_query_version(self._query_version)
         internal_req.driver = self.driver
         internal_req.is_internal = True
+        # new with elasticity
+        internal_req._log_file_tracing = self._log_file_tracing
+        internal_req._query_name = self._query_name
+        internal_req._batch_counter = self._batch_counter
+        internal_req._driver_query_trace = self._driver_query_trace
+        internal_req._topo_seq_num = self._topo_seq_num
+        internal_req._in_test_mode = self._in_test_mode
         return internal_req
 
     def copy(self):
@@ -2446,30 +2484,13 @@ class QueryRequest(Request):
 
         :versionadded:: 5.3.6
         """
-        copy = QueryRequest()
-        copy._compartment = self.get_compartment()
-        copy._prepared_statement = self.get_table_name()
-        timeout = self.get_timeout()
-        if timeout > 0:
-            copy.set_timeout(timeout)
-        copy.set_trace_level(self._trace_level)
-        copy.set_limit(self._limit)
-        copy.set_max_read_kb(self._max_read_kb)
-        copy.set_max_write_kb(self._max_write_kb)
-        copy.set_max_memory_consumption(self._max_memory_consumption)
-        copy.set_math_context(self._math_context)
-        if self._consistency is not None:
-            copy.set_consistency(self._consistency)
-        if self._durability is not None:
-            copy.set_durability(self._durability)
-        if self._prepared_statement is not None:
-            copy.set_prepared_statement(self._prepared_statement)
+        copy = self.copy_internal()
         copy._statement = self._statement
-        # leave continuationKey null to start from the beginning
-        # copy._continuation_key = self._continuation_key
-        self.is_internal = False
-        self._shard_id = -1
-        self.driver = None
+        copy.is_internal = False
+        copy.driver = None
+        copy.shard_id = -1
+        self._driver_query_trace = None
+        self._batch_counter = 0
 
         return copy
 
@@ -2491,10 +2512,44 @@ class QueryRequest(Request):
         """
         return self._continuation_key is None
 
+    def _incr_batch_counter(self):
+        self._batch_counter += 1
+
+    def _get_batch_counter(self):
+        return self._batch_counter
+
+    def _set_query_version(self, version):
+        self._query_version = version
+        return self
+
+    def _get_query_version(self):
+        return self._query_version
+
+    def _set_virtual_scan(self, vs):
+        self._virtual_scan = vs
+        return self
+
+    def _get_virtual_scan(self):
+        self._virtual_scan
+
     def get_table_name(self):
         if self._prepared_statement is None:
             return None
         return self._prepared_statement.get_table_name()
+
+    def _set_query_traces(self, traces):
+        self._server_query_traces = traces
+        return self
+
+    def _get_query_traces(self):
+        return self._server_query_traces
+
+    def _set_log_file_tracing(self, value):
+        self._log_file_tracing = value
+        return self
+
+    def _get_log_file_tracing(self):
+        return self._log_file_tracing
 
     def set_compartment(self, compartment):
         """
@@ -2916,10 +2971,6 @@ class QueryRequest(Request):
     def topology_info(self):
         return (None if self._prepared_statement is None else
                 self._prepared_statement.topology_info())
-
-    def topology_seq_num(self):
-        return (-1 if self._prepared_statement is None else
-                self._prepared_statement.topology_seq_num())
 
     def validate(self):
         if self._statement is None and self._prepared_statement is None:
@@ -4558,6 +4609,7 @@ class Result(object):
         self._retry_stats = None
         self._write_kb = 0
         self._write_units = 0
+        self._topology_info = None
 
     def get_rate_limit_delayed_ms(self):
         """
@@ -4583,6 +4635,9 @@ class Result(object):
             were performed.
         """
         return self._retry_stats
+
+    def get_topology_info(self):
+        return self._topology_info
 
     def get_write_units(self):
         # Internal use only.
@@ -4613,6 +4668,12 @@ class Result(object):
         :type retry_stats: RetryStats
         """
         self._retry_stats = retry_stats
+
+    def set_topology_info(self, proxy_topo_seqnum, shard_ids):
+        self._topology_info = TopologyInfo(proxy_topo_seqnum, shard_ids)
+
+    def set_topology_info_object(self, info):
+        self._topology_info = info
 
     def set_write_kb(self, write_kb):
         self._write_kb = write_kb
@@ -5327,6 +5388,8 @@ class QueryResult(Result):
         self._num_results_per_pid = None
         self._continuation_keys = None
         self._pids = None
+        self._virtual_scans = None
+        self._query_traces = None
 
     def __str__(self):
         self._compute()
@@ -5340,6 +5403,18 @@ class QueryResult(Result):
     def set_results(self, results):
         self._results = results
         return self
+
+    def _get_virtual_scans(self):
+        return self._virtual_scans
+
+    def _set_virtual_scans(self, vscans):
+        self._virtual_scans = vscans
+
+    def _get_query_traces(self):
+        return self._query_traces
+
+    def _set_query_traces(self, traces):
+        self._query_traces = traces
 
     def get_results(self):
         """

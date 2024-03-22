@@ -512,19 +512,18 @@ class PrepareRequestSerializer(RequestSerializer):
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.PREPARE)
         BinaryProtocol.serialize_request(request, bos)
         SerdeUtil.write_string(bos, request.get_statement())
-        bos.write_short_int(QueryDriver.QUERY_VERSION)
+        bos.write_short_int(request._get_query_version())
         bos.write_boolean(request.get_query_plan())
 
     def deserialize(self, request, bis, serial_version):
         result = operations.PrepareResult()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         prep_stmt = PrepareRequestSerializer.deserialize_internal(
-            request.get_statement(), request.get_query_plan(), bis)
-        result.set_prepared_statement(prep_stmt)
+            request.get_statement(), request.get_query_plan(), result, bis)
         return result
 
     @staticmethod
-    def deserialize_internal(sql_text, get_query_plan, bis):
+    def deserialize_internal(sql_text, get_query_plan, prep_result, bis):
         """
         Extract the table name and namespace from the prepared query. This dips
         into the portion of the prepared query that is normally opaque.
@@ -565,10 +564,15 @@ class PrepareRequestSerializer(RequestSerializer):
                     var_id = bis.read_int()
                     external_vars[var_name] = var_id
             topology_info = BinaryProtocol.read_topology_info(bis)
-        return PreparedStatement(
-            sql_text, query_plan, None, topology_info, proxy_statement,
+        prep = PreparedStatement(
+            sql_text, query_plan, None, proxy_statement,
             driver_plan, num_iterators, num_registers, external_vars,
             namespace, table_name, operation)
+        # NOTE: topo info is no longer in the PreparedStatement, it's in
+        # the result
+        prep_result.set_topology_info_object(topology_info)
+        prep_result.set_prepared_statement(prep)
+        return prep
 
 
 class PutRequestSerializer(RequestSerializer):
@@ -614,6 +618,10 @@ class PutRequestSerializer(RequestSerializer):
 class QueryRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
+        if request._get_query_version() >= QueryDriver.QUERY_V4:
+            raise UnsupportedQueryVersionException(
+                'Query version ' + str(request._get_query_version()) +
+                ' is not supported by the V3 protocol')
         # write unconditional state first.
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.QUERY)
         BinaryProtocol.serialize_request(request, bos)
@@ -623,11 +631,11 @@ class QueryRequestSerializer(RequestSerializer):
         SerdeUtil.write_bytearray(bos, request.get_cont_key())
         bos.write_boolean(request.is_prepared())
         # The following 7 fields were added in V2.
-        bos.write_short_int(QueryDriver.QUERY_VERSION)
+        bos.write_short_int(request._get_query_version())
         bos.write_byte(request.get_trace_level())
         SerdeUtil.write_packed_int(bos, request.get_max_write_kb())
         BinaryProtocol.write_math_context(bos, request.get_math_context())
-        SerdeUtil.write_packed_int(bos, request.topology_seq_num())
+        SerdeUtil.write_packed_int(bos, request._get_topo_seq_num())
         SerdeUtil.write_packed_int(bos, request.get_shard_id())
         bos.write_boolean(request.is_prepared() and request.is_simple_query())
         if request.is_prepared():
@@ -673,25 +681,24 @@ class QueryRequestSerializer(RequestSerializer):
         # statement created at the proxy is returned back along with the query
         # results, so that the preparation does not need to be done during each
         # query batch.
+        prep_result = None
         if not is_prepared:
+            prep_result = operations.PrepareResult()
             prep = PrepareRequestSerializer.deserialize_internal(
-                request.get_statement(), False, bis)
+                request.get_statement(), False, prep_result, bis)
             request.set_prepared_statement(prep)
         if prep is not None and not prep.is_simple_query():
             if not is_prepared:
                 assert num_rows == 0
                 driver = QueryDriver(request)
-                driver.set_topology_info(prep.topology_info())
                 driver.set_prep_cost(result.get_read_kb())
                 result.set_computed(False)
+                result.set_topology_info_object(prep_result.get_topology_info())
             else:
                 # In this case, the QueryRequest is an "internal" one.
                 result.set_reached_limit(bis.read_boolean())
                 topology_info = BinaryProtocol.read_topology_info(bis)
-                driver = request.get_driver()
-                if topology_info is not None:
-                    prep.set_topology_info(topology_info)
-                    driver.set_topology_info(topology_info)
+                result.set_topology_info_object(topology_info)
         else:
             results = SerdeUtil.convert_value_to_none(results)
         result.set_results(results)

@@ -1712,37 +1712,22 @@ class ReceiveIter(PlanIter):
         # convert to immutable bytes so that it can be hashed into a set
         return bytes(binary_primkey)
 
-    def _handle_topology_change(self, rcb, state):
-        new_topo_info = rcb.get_topology_info()
+    def _handle_virtual_scans(self, rcb, state, scanner):
         if ((self.distribution_kind ==
              ReceiveIter.DISTRIBUTION_KIND.ALL_PARTITIONS) or
-                new_topo_info == state.topo_info):
+                scanner.get_virtual_scans() is None):
             return
-        new_shards = new_topo_info.get_shard_ids()
-        curr_shards = state.topo_info.get_shard_ids()
-        for i in range(len(new_shards)):
-            equal = False
-            for j in range(len(curr_shards)):
-                if new_shards[i] == curr_shards[j]:
-                    curr_shards[j] = -1
-                    equal = True
-                    break
-            if equal:
-                continue
-            # We have a new shard
-            ReceiveIter.add_scanner(
-                state.sorted_scanners,
-                ReceiveIter.RemoteScanner(
-                    self, rcb, state, True, new_shards[i]))
-        for j in range(len(curr_shards)):
-            if curr_shards[j] == -1:
-                continue
-            # This shard does not exist anymore
-            for scanner in state.sorted_scanners:
-                if scanner.shard_or_part_id == curr_shards[j]:
-                    state.sorted_scanners.remove(scanner)
-                    break
-        state.topo_info = new_topo_info
+
+        for vs in scanner.get_virtual_scans():
+            vsid = state.base_VSID
+            ++state.base_VSID
+            new_scanner = ReceiveIter.RemoteScanner(
+                    self, rcb, state, True, vsid, vs)
+            ReceiveIter.add_scanner(state.sorted_scanners, new_scanner)
+            if rcb.get_trace_level() >= 1:
+                rcb.trace('ReceiveIter: added scanner for virtual scan:\n' + vs)
+
+        scanner._virtual_scans = None
 
     def _init_partition_sort(self, rcb, state):
         """
@@ -1856,6 +1841,7 @@ class ReceiveIter(PlanIter):
             if not scanner.is_done():
                 try:
                     scanner.fetch()
+                    self._handle_virtual_scans(rcb, state, scanner)
                 except RetryableException as e:
                     ReceiveIter.add_scanner(state.sorted_scanners, scanner)
                     raise e
@@ -1871,7 +1857,6 @@ class ReceiveIter(PlanIter):
                     rcb.trace(
                         'ReceiveIter._sorting_next() : done with ' +
                         'partition/shard ' + str(scanner.shard_or_part_id))
-            self._handle_topology_change(rcb, state)
             # For simplicity, we don't want to allow the possibility of another
             # remote fetch during the same batch. Regardless of whether
             # the batch limit was reached during the above fetch, we set limit
@@ -1932,9 +1917,8 @@ class ReceiveIter(PlanIter):
             # a sort-phase-2 request for a sorting, all-partition query.
             self.total_num_results = 0
             self.total_results_size = 0
-            # It stores the set of shard ids. Needed for sorting all-shard
-            # queries only.
-            self.topo_info = rcb.get_topology_info()
+            # virtual scans
+            self.base_VSID = -1
             # The prim_keys_set is the hash set used for duplicate elimination.
             # It stores the primary keys (in binary format) of all the results
             # seen so far.
@@ -1952,14 +1936,16 @@ class ReceiveIter(PlanIter):
             elif (op_iter.does_sort() and
                   (op_iter.distribution_kind ==
                    ReceiveIter.DISTRIBUTION_KIND.ALL_SHARDS)):
-                num_shards = self.topo_info.num_shards()
+                base_topo = rcb.get_base_topo()
+                num_shards = base_topo.num_shards()
                 self.sorted_scanners = list()
                 for i in range(num_shards):
                     ReceiveIter.add_scanner(
                         self.sorted_scanners,
                         ReceiveIter.RemoteScanner(
                             out, rcb, self, True,
-                            self.topo_info.get_shard_id(i)))
+                            base_topo.get_shard_id(i)))
+                self.base_VSID = base_topo.get_last_shard_id() + 1
             else:
                 self.scanner = ReceiveIter.RemoteScanner(
                     out, rcb, self, False, -1)
@@ -1996,7 +1982,7 @@ class ReceiveIter(PlanIter):
         than one shard/partition).
         """
 
-        def __init__(self, out, rcb, state, is_for_shard, spid):
+        def __init__(self, out, rcb, state, is_for_shard, spid, vs = None):
             self._out = out
             self.rcb = rcb
             self.state = state
@@ -2007,6 +1993,8 @@ class ReceiveIter(PlanIter):
             self.next_result_pos = 0
             self.continuation_key = None
             self.more_remote_results = True
+            self.virtual_scan = vs # virtual scan
+            self.virtual_scans = None # virtual scan list
 
         def add_results(self, results, cont_key):
             self.results = results
@@ -2031,8 +2019,13 @@ class ReceiveIter(PlanIter):
                         else 1)
             return comp
 
+        def get_virtual_scans(self):
+            return self.virtual_scans
+
         def fetch(self):
-            req = self.rcb.get_request().copy_internal()
+            orig_request = self.rcb.get_request()
+            orig_request._incr_batch_counter()
+            req = orig_request.copy_internal()
             req.set_cont_key(self.continuation_key)
             req.set_shard_id(
                 self.shard_or_part_id if self.is_for_shard else -1)
@@ -2048,11 +2041,21 @@ class ReceiveIter(PlanIter):
                     num_results = 2048
                 req.set_limit(int(num_results))
             if self.rcb.get_trace_level() >= 1:
-                self.rcb.trace('RemoteScanner : executing remote request. '
-                               'spid = ' + str(self.shard_or_part_id))
+                self.rcb.trace('RemoteScanner : executing remote batch. ' +
+                                orig_request._get_batch_counter() +
+                               ', spid = ' + str(self.shard_or_part_id))
+                if self.virtual_scan is not None:
+                    self.rcb.trace(
+                        'RemoteScanner: request is for virtual scan:\n' +
+                        str(self.virtual_scan))
                 assert req.has_driver()
+            if self.virtual_scan is not None:
+                req._set_virtual_scan(self.virtual_scan)
             result = self.rcb.get_client().execute(req)
+            if self.virtual_scan is not None:
+                self.virtual_scan['info_sent'] = True
             self.results = result.get_results_internal()
+            self.virtual_scans = result._get_virtual_scans()
             self.continuation_key = result.get_continuation_key()
             self.next_result_pos = 0
             self.more_remote_results = self.continuation_key is not None
@@ -2060,6 +2063,7 @@ class ReceiveIter(PlanIter):
             self.rcb.tally_read_units(result.get_read_units())
             self.rcb.tally_write_kb(result.get_write_kb())
             assert result.reached_limit() or not self.more_remote_results
+            orig_request._set_query_traces(result._get_query_traces())
             # For simplicity, if the query is a sorting one, we consider the
             # current batch done as soon as we get the response back from the
             # proxy, even if the batch limit was not reached there.
@@ -2068,16 +2072,20 @@ class ReceiveIter(PlanIter):
             if self._out.does_sort() and not self.is_for_shard:
                 self._add_memory_consumption()
             if self.rcb.get_trace_level() >= 1:
-                self.rcb.trace(
-                    'RemoteScanner : got ' + str(len(self.results)) +
-                    ' remote results. More remote results = ' +
-                    str(self.more_remote_results) +
-                    ' reached limit = ' + str(result.reached_limit()) +
-                    ' read KB = ' + str(result.get_read_kb()) +
-                    ' read Units = ' + str(result.get_read_units()) +
-                    ' write KB = ' + str(result.get_write_kb()) +
-                    ' memory consumption = ' +
-                    str(self.state.memory_consumption))
+                msg = ('RemoteScanner : got ' + str(len(self.results)) +
+                           ' remote results. More remote results = ' +
+                           str(self.more_remote_results) +
+                           ' reached limit = ' + str(result.reached_limit()) +
+                           ' read KB = ' + str(result.get_read_kb()) +
+                           ' read Units = ' + str(result.get_read_units()) +
+                           ' write KB = ' + str(result.get_write_kb()) +
+                           ' memory consumption = ' +
+                           str(self.state.memory_consumption))
+                if self.virtual_scans is not None:
+                    # TODO: append vs info to trace msg
+                    pass
+
+                self.rcb.trace(msg)
 
         def has_local_results(self):
             return (self.results is not None and
@@ -2919,7 +2927,9 @@ class QueryDriver(object):
     """
     QUERY_V2 = 2
     QUERY_V3 = 3
-    QUERY_VERSION = QUERY_V3
+    # query name added in V4
+    QUERY_V4 = 4
+    QUERY_VERSION = QUERY_V4
     BATCH_SIZE = 100
     DUMMY_CONT_KEY = bytearray()
 
@@ -2928,7 +2938,6 @@ class QueryDriver(object):
         self._request = request
         request.set_driver(self)
         self._continuation_key = None
-        self._topology_info = None
         self._prep_cost = 0
         self._rcb = None
         # The max number of results the app will receive per NoSQLHandle.query()
@@ -3016,23 +3025,11 @@ class QueryDriver(object):
     def get_request(self):
         return self._request
 
-    def get_shard_id(self, i):
-        return self._topology_info.get_shard_id(i)
-
-    def get_topology_info(self):
-        return self._topology_info
-
-    def num_shards(self):
-        return self._topology_info.num_shards()
-
     def set_client(self, client):
         self._client = client
 
     def set_prep_cost(self, prep_cost):
         self._prep_cost = prep_cost
-
-    def set_topology_info(self, topology_info):
-        self._topology_info = topology_info
 
     def _set_query_result(self, result):
         result.set_results(self._results)
@@ -3046,7 +3043,6 @@ class QueryDriver(object):
     def copy(self, query_request):
         copy = QueryDriver(query_request)
         copy._client = self._client
-        copy._topology_info = self._topology_info
         copy._prep_cost = self._prep_cost
         copy._results = self._results
         copy._error = self._error
@@ -3110,12 +3106,16 @@ class RuntimeControlBlock(object):
         self._read_units = 0
         self._write_kb = 0
         self._memory_consumption = 0
+        self._base_topo = driver.get_client().get_topology()
         self._math_context = driver.get_request().get_math_context()
         setcontext(self._math_context)
 
     def dec_memory_consumption(self, v):
         self._memory_consumption -= v
         assert self._memory_consumption >= 0
+
+    def get_base_topo(self):
+        return self._base_topo
 
     def get_client(self):
         return self._query_driver.get_client()
@@ -3209,6 +3209,8 @@ class RuntimeControlBlock(object):
 
     @staticmethod
     def trace(msg):
+        # TODO: use request setting of log_file_trace or not, do better
+        # tracing (see Java SDK)
         print('D-QUERY: ' + msg)
 
 
@@ -3245,6 +3247,9 @@ class TopologyInfo(object):
 
     def get_shard_ids(self):
         return self._shard_ids
+
+    def get_last_shard_id(self):
+        return self._shard_ids[self.num_shards()-1]
 
     def hash_code(self):
         return self._seq_num
