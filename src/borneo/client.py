@@ -22,7 +22,8 @@ from .exception import (IllegalArgumentException,
                         OperationNotSupportedException, RequestSizeLimitException)
 from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
-from .operations import GetTableRequest, QueryResult, TableRequest, WriteRequest
+from .operations import (
+    GetTableRequest, QueryRequest, QueryResult, TableRequest, WriteRequest)
 from .query import QueryDriver
 from .serdeutil import SerdeUtil
 from .stats import StatsControl
@@ -94,6 +95,8 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
+        self.query_version = QueryDriver.QUERY_VERSION
+        self._topology_info = None
         self.serial_version = config.get_serial_version()
         # StoreAccessTokenProvider means onprem
         self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
@@ -202,7 +205,6 @@ class Client(object):
                     'QueryRequest has no QueryDriver, but is prepared', 2)
                 driver = QueryDriver(request)
                 driver.set_client(self)
-                driver.set_topology_info(request.topology_info())
                 return QueryResult(request, False)
             """
             If we are here, then this is either (a) a simple query or (b) an
@@ -216,7 +218,11 @@ class Client(object):
             """
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
+            request.incr_batch_counter()
+
         timeout_ms = request.get_timeout()
+        if request is QueryRequest or request.is_query_request():
+            request.set_topo_seq_num(self.get_topo_seq_num())
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
@@ -256,9 +262,27 @@ class Client(object):
         request_utils = RequestUtils(
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
-        return request_utils.do_post_request(self._request_uri, headers,
-                                             content, timeout_ms,
-                                             self._stats_control)
+        res = request_utils.do_post_request(self._request_uri, headers,
+                                            content, timeout_ms,
+                                            self._stats_control)
+        self._set_topology_info(res.get_topology_info())
+        if res is QueryResult and request.is_query_request():
+            request.set_query_traces(res.get_query_traces())
+        return res
+
+    @synchronized
+    def _set_topology_info(self, topo):
+        if topo is None:
+            return
+        if self.get_topo_seq_num() < topo.get_seq_num():
+            self._topology_info = topo
+
+    def get_topo_seq_num(self):
+        return -1 if self._topology_info is None else \
+          self._topology_info.get_seq_num()
+
+    def get_topology(self):
+        return self._topology_info
 
     # set the session cookie if in return headers (see RequestUtils in http.py)
     @synchronized
@@ -484,6 +508,24 @@ class Client(object):
                 'Background thread added limiters for table "' + table_name +
                 '"')
 
+    def decrement_query_version(self):
+        """
+        Decrements the query version, if it is greater than the minimum.
+        For internal use only.
+
+        The current minimum value is V3.
+        :returns: true if the version was decremented, false otherwise.
+        :rtype: bool
+        """
+        if self.query_version > QueryDriver.QUERY_V3:
+            self.query_version -= 1
+            msg = ('Unsupported query version error, decrementing ' +
+                   'version to ' + str(self.query_version) +
+                   ' and retrying')
+            self._logutils.log_info(msg)
+            return True
+        return False
+
     def decrement_serial_version(self):
         """
         Decrements the serial version, if it is greater than the minimum.
@@ -534,6 +576,8 @@ class Client(object):
         :returns: the bytearray that contains the content.
         :rtype: bytearray
         """
+        # in case it's a query or prepare
+        request.set_query_version(self.query_version)
         content = self._write_content(request)
         headers.update({'Content-Length': str(len(content))})
         return content

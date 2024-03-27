@@ -17,8 +17,8 @@ from .common import ByteInputStream, CheckValue, HttpConstants, synchronized
 from .exception import (
     IllegalStateException, NoSQLException,
     ReadThrottlingException, RequestTimeoutException, RetryableException,
-    SecurityInfoNotReadyException, UnsupportedProtocolException,
-    WriteThrottlingException)
+    SecurityInfoNotReadyException, UnsupportedQueryVersionException,
+    UnsupportedProtocolException, WriteThrottlingException)
 from .serdeutil import SerdeUtil
 
 try:
@@ -323,7 +323,6 @@ class RequestUtils(object):
                         stats_config.observe(self._request, req_size,
                                              len(response.content),
                                              network_time)
-
                     # check for a Set-Cookie header
                     cookie = response.headers.get('Set-Cookie', None)
                     if cookie is not None and cookie.startswith('session='):
@@ -405,6 +404,19 @@ class RequestUtils(object):
                 self._request.increment_retries()
                 exception = re
                 continue
+            except UnsupportedQueryVersionException as uqve:
+                if self._client.decrement_query_version():
+                    if self._request is not None:
+                        payload = self._client.serialize_request(self._request,
+                                                                 headers)
+                    self._request.increment_retries()
+                    # don't set exception for this case -- it is misleading
+                    # exception = uqve
+                    continue
+                self._logutils.log_error(
+                    'Client execution UnsupportedQueryVersionException: ' +
+                    str(uqve))
+                raise uqve
             except UnsupportedProtocolException as upe:
                 if self._client.decrement_serial_version():
                     if self._request is not None:

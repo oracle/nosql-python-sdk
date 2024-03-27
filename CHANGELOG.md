@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
     23.3 and higher and will not be immediately available in the cloud service
 -   Cloud only:  added support for Cloud feature Global Active Tables. This
     includes new requests and classes:
-    
+
     - AddReplicaRequest
     - DropReplicaRequest
     - ReplicaStatsRequest/Result
@@ -29,6 +29,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
     as well as additional replica-related information
     and interfaces in TableResult
 
+## Changed
+
+- Modified internal query processing to better support elasticity operations
 
 ## Fixed
 
