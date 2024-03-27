@@ -512,7 +512,7 @@ class PrepareRequestSerializer(RequestSerializer):
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.PREPARE)
         BinaryProtocol.serialize_request(request, bos)
         SerdeUtil.write_string(bos, request.get_statement())
-        bos.write_short_int(request._get_query_version())
+        bos.write_short_int(request.get_query_version())
         bos.write_boolean(request.get_query_plan())
 
     def deserialize(self, request, bis, serial_version):
@@ -618,9 +618,9 @@ class PutRequestSerializer(RequestSerializer):
 class QueryRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
-        if request._get_query_version() >= QueryDriver.QUERY_V4:
+        if request.get_query_version() >= QueryDriver.QUERY_V4:
             raise UnsupportedQueryVersionException(
-                'Query version ' + str(request._get_query_version()) +
+                'Query version ' + str(request.get_query_version()) +
                 ' is not supported by the V3 protocol')
         # write unconditional state first.
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.QUERY)
@@ -631,11 +631,11 @@ class QueryRequestSerializer(RequestSerializer):
         SerdeUtil.write_bytearray(bos, request.get_cont_key())
         bos.write_boolean(request.is_prepared())
         # The following 7 fields were added in V2.
-        bos.write_short_int(request._get_query_version())
+        bos.write_short_int(request.get_query_version())
         bos.write_byte(request.get_trace_level())
         SerdeUtil.write_packed_int(bos, request.get_max_write_kb())
         BinaryProtocol.write_math_context(bos, request.get_math_context())
-        SerdeUtil.write_packed_int(bos, request._get_topo_seq_num())
+        SerdeUtil.write_packed_int(bos, request.get_topo_seq_num())
         SerdeUtil.write_packed_int(bos, request.get_shard_id())
         bos.write_boolean(request.is_prepared() and request.is_simple_query())
         if request.is_prepared():

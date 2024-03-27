@@ -1785,7 +1785,7 @@ class PrepareRequestSerializer(RequestSerializer):
         Proto.end_map(ns, HEADER)
 
         Proto.start_map(ns, PAYLOAD)
-        Proto.write_int_map_field(ns, QUERY_VERSION, request._query_version)
+        Proto.write_int_map_field(ns, QUERY_VERSION, request.get_query_version())
         Proto.write_string_map_field(ns, STATEMENT, request.get_statement())
         if request.get_query_plan():
             Proto.write_bool_map_field(ns, GET_QUERY_PLAN, request.get_query_plan())
@@ -1846,7 +1846,7 @@ class QueryRequestSerializer(RequestSerializer):
         Proto.end_map(ns, HEADER)
 
         Proto.start_map(ns, PAYLOAD)
-        Proto.write_int_map_field(ns, QUERY_VERSION, request._query_version)
+        Proto.write_int_map_field(ns, QUERY_VERSION, request.get_query_version())
         Proto.write_int_map_field_not_zero(
             ns, MAX_READ_KB, request.get_max_read_kb())
         Proto.write_int_map_field_not_zero(
@@ -1857,8 +1857,8 @@ class QueryRequestSerializer(RequestSerializer):
             ns, TRACE_LEVEL, request.get_trace_level())
         if request.get_trace_level() > 0:
             Proto.write_bool_map_field(ns, TRACE_TO_LOG_FILES,
-                                       request._log_file_tracing)
-            Proto.write_int_map_field(ns, BATCH_COUNTER, request._batch_counter)
+                                       request.get_log_file_tracing())
+            Proto.write_int_map_field(ns, BATCH_COUNTER, request.get_batch_counter())
         Proto.write_consistency(ns, request.get_consistency())
         Proto.write_consistency(ns, request.get_consistency())
         Proto.write_durability(ns, request)
@@ -1886,12 +1886,12 @@ class QueryRequestSerializer(RequestSerializer):
         if request.get_shard_id() != -1:
             Proto.write_int_map_field(ns, SHARD_ID, request.get_shard_id())
 
-        if request._query_version >= QueryDriver.QUERY_V4:
-            if request._query_name is not None:
+        if request.get_query_version() >= QueryDriver.QUERY_V4:
+            if request.get_query_name() is not None:
                 Proto.write_string_map_field(ns, QUERY_NAME,
-                                             request._query_name)
-            if request._virtual_scan is not None:
-                Proto.write_virtual_scan(ns, request._virtual_scan)
+                                             request.get_query_name())
+            if request.get_virtual_scan() is not None:
+                Proto.write_virtual_scan(ns, request.get_virtual_scan())
 
         Proto.end_map(ns, PAYLOAD)
 
@@ -2131,7 +2131,7 @@ class Proto(object):
             Proto.write_string_map_field(ns, TABLE_NAME,
                                          request.get_table_name())
         Proto.write_int_map_field(ns, OP_CODE, op)
-        Proto.write_int_map_field(ns, TOPO_SEQ_NUM, request._topo_seq_num)
+        Proto.write_int_map_field(ns, TOPO_SEQ_NUM, request.get_topo_seq_num())
         Proto.write_int_map_field(ns, TIMEOUT, request.get_timeout())
 
     @staticmethod
@@ -2707,8 +2707,8 @@ class Proto(object):
         if query_result is not None:
             query_result.set_continuation_key(cont_key)
             query_request.set_cont_key(query_result.get_continuation_key())
-            query_result._set_virtual_scans(virtual_scans)
-            query_result._set_query_traces(query_traces)
+            query_result.set_virtual_scans(virtual_scans)
+            query_result.set_query_traces(query_traces)
 
         # if this was already prepared and is from a query, we are done
         if request_was_prepared:

@@ -892,7 +892,7 @@ class FuncCollectIter(PlanIter):
         if self._is_distinct:
             size = len(val)
             for i in range(size):
-                state._values.add(Hashable(val[i]))
+                state.get_values().add(Hashable(val[i]))
                 sz = self.sizeof(val[i])
                 rcb.inc_memory_consumption(sz)
                 state._memory_consumption += sz
@@ -900,7 +900,7 @@ class FuncCollectIter(PlanIter):
             # add all values from val to state._array
             sz = 0
             for item in val:
-                state._array.append(item)
+                state.get_array().append(item)
                 sz += self.sizeof(item)
             rcb.inc_memory_consumption(sz)
             state._memory_consumption += sz
@@ -910,12 +910,12 @@ class FuncCollectIter(PlanIter):
 
         if self._is_distinct:
             res = list()
-            for item in state._values:
+            for item in state.get_values():
                 res.append(item._value)
 
         else:
             # not a copy, the array must stay valid
-            res = state._array
+            res = state.get_array()
 
         #
         # QTF issue -- qtf wants to compare expected values. While array_collect
@@ -942,6 +942,15 @@ class FuncCollectIter(PlanIter):
             self._array = list()
             self._values = set()
             self._memory_consumption = 0
+
+        def get_values(self):
+            return self._values
+
+        def get_array(self):
+            return self._array
+
+        def get_memory_consumption(self):
+            return self._memory_consumption
 
         def close(self):
             super(FuncCollectIter.CollectIterState, self).close()
@@ -2024,7 +2033,7 @@ class ReceiveIter(PlanIter):
 
         def fetch(self):
             orig_request = self.rcb.get_request()
-            orig_request._incr_batch_counter()
+            orig_request.incr_batch_counter()
             req = orig_request.copy_internal()
             req.set_cont_key(self.continuation_key)
             req.set_shard_id(
@@ -2042,7 +2051,7 @@ class ReceiveIter(PlanIter):
                 req.set_limit(int(num_results))
             if self.rcb.get_trace_level() >= 1:
                 self.rcb.trace('RemoteScanner : executing remote batch. ' +
-                                orig_request._get_batch_counter() +
+                               orig_request.get_batch_counter() +
                                ', spid = ' + str(self.shard_or_part_id))
                 if self.virtual_scan is not None:
                     self.rcb.trace(
@@ -2050,12 +2059,12 @@ class ReceiveIter(PlanIter):
                         str(self.virtual_scan))
                 assert req.has_driver()
             if self.virtual_scan is not None:
-                req._set_virtual_scan(self.virtual_scan)
+                req.set_virtual_scan(self.virtual_scan)
             result = self.rcb.get_client().execute(req)
             if self.virtual_scan is not None:
                 self.virtual_scan['info_sent'] = True
             self.results = result.get_results_internal()
-            self.virtual_scans = result._get_virtual_scans()
+            self.virtual_scans = result.get_virtual_scans()
             self.continuation_key = result.get_continuation_key()
             self.next_result_pos = 0
             self.more_remote_results = self.continuation_key is not None
@@ -2063,7 +2072,7 @@ class ReceiveIter(PlanIter):
             self.rcb.tally_read_units(result.get_read_units())
             self.rcb.tally_write_kb(result.get_write_kb())
             assert result.reached_limit() or not self.more_remote_results
-            orig_request._set_query_traces(result._get_query_traces())
+            orig_request.set_query_traces(result.get_query_traces())
             # For simplicity, if the query is a sorting one, we consider the
             # current batch done as soon as we get the response back from the
             # proxy, even if the batch limit was not reached there.

@@ -424,21 +424,19 @@ class Request(object):
             raise IllegalArgumentException(
                 name + ' requires an instance of RateLimiter as parameter.')
 
-    @abstractmethod
     def get_request_name(self):
         # type () -> str
         pass
 
-    @abstractmethod
-    def _set_query_version(self, version):
+    def set_query_version(self, version):
         pass
 
-    def _set_topo_seq_num(self, num):
+    def set_topo_seq_num(self, num):
         if self._topo_seq_num < 0:
             self._topo_seq_num = num;
         return self
 
-    def _get_topo_seq_num(self):
+    def get_topo_seq_num(self):
         return self._topo_seq_num
 
 
@@ -1745,10 +1743,10 @@ class PrepareRequest(Request):
     def __str__(self):
         return 'PrepareRequest'
 
-    def _set_query_version(self, version):
+    def set_query_version(self, version):
         self._query_version = version
 
-    def _get_query_version(self):
+    def get_query_version(self):
         return self._query_version
 
     def set_namespace(self, namespace):
@@ -2466,7 +2464,7 @@ class QueryRequest(Request):
         internal_req._consistency = self._consistency
         internal_req.set_durability(self._durability)
         internal_req._prepared_statement = self._prepared_statement
-        internal_req._set_query_version(self._query_version)
+        internal_req.set_query_version(self._query_version)
         internal_req.driver = self.driver
         internal_req.is_internal = True
         # new with elasticity
@@ -2512,24 +2510,27 @@ class QueryRequest(Request):
         """
         return self._continuation_key is None
 
-    def _incr_batch_counter(self):
+    def incr_batch_counter(self):
         self._batch_counter += 1
 
-    def _get_batch_counter(self):
+    def get_batch_counter(self):
         return self._batch_counter
 
-    def _set_query_version(self, version):
+    def set_query_version(self, version):
         self._query_version = version
         return self
 
-    def _get_query_version(self):
+    def get_query_name(self):
+        return self._query_name
+
+    def get_query_version(self):
         return self._query_version
 
-    def _set_virtual_scan(self, vs):
+    def set_virtual_scan(self, vs):
         self._virtual_scan = vs
         return self
 
-    def _get_virtual_scan(self):
+    def get_virtual_scan(self):
         self._virtual_scan
 
     def get_table_name(self):
@@ -2537,18 +2538,18 @@ class QueryRequest(Request):
             return None
         return self._prepared_statement.get_table_name()
 
-    def _set_query_traces(self, traces):
+    def set_query_traces(self, traces):
         self._server_query_traces = traces
         return self
 
-    def _get_query_traces(self):
+    def get_query_traces(self):
         return self._server_query_traces
 
-    def _set_log_file_tracing(self, value):
+    def set_log_file_tracing(self, value):
         self._log_file_tracing = value
         return self
 
-    def _get_log_file_tracing(self):
+    def get_log_file_tracing(self):
         return self._log_file_tracing
 
     def set_compartment(self, compartment):
@@ -4511,7 +4512,7 @@ class ReplicaStatsRequest(Request):
         replica (region). The default value is 1000.
 
         :param: limit the limit
-        :type start_time: int
+        :type limit: int
         :returns: self
         """
         CheckValue.check_int_ge_zero(limit, 'limit')
@@ -5404,16 +5405,16 @@ class QueryResult(Result):
         self._results = results
         return self
 
-    def _get_virtual_scans(self):
+    def get_virtual_scans(self):
         return self._virtual_scans
 
-    def _set_virtual_scans(self, vscans):
+    def set_virtual_scans(self, vscans):
         self._virtual_scans = vscans
 
-    def _get_query_traces(self):
+    def get_query_traces(self):
         return self._query_traces
 
-    def _set_query_traces(self, traces):
+    def set_query_traces(self, traces):
         self._query_traces = traces
 
     def get_results(self):

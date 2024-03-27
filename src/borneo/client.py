@@ -218,11 +218,11 @@ class Client(object):
             """
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
-            request._incr_batch_counter()
+            request.incr_batch_counter()
 
         timeout_ms = request.get_timeout()
         if request is QueryRequest or request.is_query_request():
-            request._set_topo_seq_num(self.get_topo_seq_num())
+            request.set_topo_seq_num(self.get_topo_seq_num())
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
@@ -267,7 +267,7 @@ class Client(object):
                                             self._stats_control)
         self._set_topology_info(res.get_topology_info())
         if res is QueryResult and request.is_query_request():
-            request._set_query_traces(res._get_query_traces)
+            request.set_query_traces(res.get_query_traces())
         return res
 
     @synchronized
@@ -577,7 +577,7 @@ class Client(object):
         :rtype: bytearray
         """
         # in case it's a query or prepare
-        request._set_query_version(self.query_version)
+        request.set_query_version(self.query_version)
         content = self._write_content(request)
         headers.update({'Content-Length': str(len(content))})
         return content
