@@ -353,6 +353,10 @@ class SerdeUtil(object):
         elif code == SerdeUtil.THROTTLING_ERROR.WRITE_LIMIT_EXCEEDED:
             return WriteThrottlingException(msg)
         elif code == SerdeUtil.USER_ERROR.BAD_PROTOCOL_MESSAGE:
+            # newer proxies will return USER_ERROR.UNSUPPORTED_QUERY_VERSION
+            # but older ones don't have that error but do have a defined string
+            if 'Invalid query version' in msg:
+                return UnsupportedQueryVersionException(msg)
             # V2 proxy will return this message if V3 is used in the driver
             if "Invalid driver serial version" in msg:
                 return UnsupportedProtocolException(msg)
