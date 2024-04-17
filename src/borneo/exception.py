@@ -301,7 +301,7 @@ class UnsupportedQueryVersionException(NoSQLException):
     """
 
     def __init__(self, message):
-        super(UnauthorizedException, self).__init__(message)
+        super(UnsupportedQueryVersionException, self).__init__(message)
 
 
 class IndexExistsException(ResourceExistsException):

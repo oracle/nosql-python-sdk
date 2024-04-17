@@ -12,6 +12,7 @@
 # format
 #
 ABORT_ON_FAIL = 'a'
+BATCH_COUNTER = 'bc'
 BIND_VARIABLES = 'bv'
 COMPARTMENT_OCID = 'cc'
 CONSISTENCY = 'co'
@@ -57,6 +58,8 @@ PREPARE = 'pp'
 PREPARED_QUERY = 'pq'
 PREPARED_STATEMENT = 'ps'
 QUERY = 'q'
+QUERY_BATCH_TRACES = 'qts',
+QUERY_ID = 'qn'
 QUERY_VERSION = 'qv'
 RANGE = 'rg'
 RANGE_PATH = 'rp'
@@ -75,13 +78,29 @@ TABLE_OCID = 'to'
 TABLE_USAGE = 'u'
 TABLE_USAGE_PERIOD = 'pd'
 TIMEOUT = 't'
+TOPOLOGY_INFO = 'tp'
 TOPO_SEQ_NUM = 'ts'
 TRACE_LEVEL = 'tl'
+TRACE_TO_LOG_FILES = 'tf'
 TTL = 'tt'
 TYPE = 'y'
 UPDATE_TTL = 'ut'
 VALUE = 'l'
 VERSION = 'v'
+# query virtual scan-related fields
+VIRTUAL_SCAN = 'vs',
+VIRTUAL_SCANS = 'vssa',
+VIRTUAL_SCAN_SID = 'vssid',
+VIRTUAL_SCAN_PID = 'vspid',
+VIRTUAL_SCAN_PRIM_KEY = 'vspk',
+VIRTUAL_SCAN_SEC_KEY = 'vssk',
+VIRTUAL_SCAN_MOVE_AFTER = 'vsma',
+VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY = 'vsjdrk',
+VIRTUAL_SCAN_JOIN_PATH_TABLES = 'vsjpt',
+VIRTUAL_SCAN_JOIN_PATH_KEY = 'vsjpk',
+VIRTUAL_SCAN_JOIN_PATH_SEC_KEY = 'vsjpsk',
+VIRTUAL_SCAN_JOIN_PATH_MATCHED = 'vsjpm'
+#
 WRITE_MULTIPLE = 'wm'
 WRITE_THROTTLE_COUNT = 'wt'
 #

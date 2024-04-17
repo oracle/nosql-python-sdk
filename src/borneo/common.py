@@ -1075,7 +1075,7 @@ class PreparedStatement(object):
     """
     OPCODE_SELECT = 5
 
-    def __init__(self, sql_text, query_plan, query_schema, topology_info,
+    def __init__(self, sql_text, query_plan, query_schema,
                  proxy_statement, driver_plan, num_iterators, num_registers,
                  external_vars, namespace, table_name, operation):
         """
@@ -1091,8 +1091,6 @@ class PreparedStatement(object):
         self._sql_text = sql_text
         self._query_plan = query_plan
         self._query_schema = query_schema
-        # Applicable to advanced queries only.
-        self._topology_info = topology_info
         # The serialized PreparedStatement created at the backend store. It is
         # opaque for the driver. It is received from the proxy and sent back to
         # the proxy every time a new batch of results is needed.
@@ -1140,7 +1138,7 @@ class PreparedStatement(object):
         :rtype: PreparedStatement
         """
         return PreparedStatement(
-            self._sql_text, self._query_plan, self._query_schema, self._topology_info,
+            self._sql_text, self._query_plan, self._query_schema,
             self._proxy_statement, self._driver_query_plan, self._num_iterators,
             self._num_registers, self._variables, self._namespace,
             self._table_name, self._operation)
@@ -1227,16 +1225,6 @@ class PreparedStatement(object):
             return self._driver_query_plan.display()
         return None
 
-    @synchronized
-    def set_topology_info(self, topology_info):
-        if topology_info is None:
-            return
-        if self._topology_info is None:
-            self._topology_info = topology_info
-            return
-        if self._topology_info.get_seq_num() < topology_info.get_seq_num():
-            self._topology_info = topology_info
-
     def set_variable(self, variable, value):
         """
         Binds an external variable to a given value. The variable is identified
@@ -1276,14 +1264,6 @@ class PreparedStatement(object):
                     return self.set_variable(k, value)
             raise IllegalArgumentException(
                 'There is no external variable at position ' + str(variable))
-
-    def topology_info(self):
-        return self._topology_info
-
-    @synchronized
-    def topology_seq_num(self):
-        return (-1 if self._topology_info is None else
-                self._topology_info.get_seq_num())
 
 
 class PutOption(object):

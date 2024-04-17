@@ -26,8 +26,8 @@ from .exception import (
     ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
     SecurityInfoNotReadyException, SystemException, TableExistsException,
     TableLimitException, TableNotFoundException, TableNotReadyException,
-    TableSizeException, UnauthorizedException, UnsupportedProtocolException,
-    WriteThrottlingException)
+    TableSizeException, UnauthorizedException, UnsupportedQueryVersionException,
+    UnsupportedProtocolException, WriteThrottlingException)
 
 from .kv.exception import AuthenticationException
 
