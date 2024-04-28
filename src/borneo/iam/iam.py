@@ -449,7 +449,9 @@ class SignatureProvider(AuthorizationProvider):
                     or isinstance(self._provider, EphemeralResourcePrincipalSigner)
                 ):
                     self._provider.refresh_security_token()
-
+                    prov = self._provider
+                    if isinstance(prov, OkeWorkloadIdentityResourcePrincipalSigner):
+                        print(f"refresh security token = {prov.get_security_token()}")
                 self.get_signature_details_internal()
                 return
             except Exception as e:
