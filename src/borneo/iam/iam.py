@@ -23,6 +23,8 @@ try:
     # noinspection PyUnresolvedReferences
     from oci.auth.signers import InstancePrincipalsSecurityTokenSigner
     # noinspection PyUnresolvedReferences
+    from oci.auth.signers import OkeWorkloadIdentityResourcePrincipalSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import get_resource_principals_signer
     # noinspection PyUnresolvedReferences
     from oci.config import from_file
@@ -309,7 +311,6 @@ class SignatureProvider(AuthorizationProvider):
                 'Principal the compartment for the operation must be specified.'
             )
 
-
     def set_service_url(self, config):
         service_url = config.get_service_url()
         if service_url is None:
@@ -440,12 +441,13 @@ class SignatureProvider(AuthorizationProvider):
         while True:
             try:
                 # refresh security token before create new signature
-                if (isinstance(
-                        self._provider,
-                        InstancePrincipalsSecurityTokenSigner) or
-                        isinstance(
-                            self._provider,
-                            EphemeralResourcePrincipalSigner)):
+                if (
+                    isinstance(self._provider, InstancePrincipalsSecurityTokenSigner)
+                    or isinstance(
+                        self._provider, OkeWorkloadIdentityResourcePrincipalSigner
+                    )
+                    or isinstance(self._provider, EphemeralResourcePrincipalSigner)
+                ):
                     self._provider.refresh_security_token()
 
                 self.get_signature_details_internal()
