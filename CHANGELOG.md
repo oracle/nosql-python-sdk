@@ -35,9 +35,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Fixed
 
--   Improved performance of sorted queries, especially generalized sorting, which
+- Improved performance of sorted queries, especially generalized sorting, which
     does not rely on indexes
--   Documentation updates for methods added in release 5.4.0 and 5.4.1
+- Documentation updates for methods added in release 5.4.0 and 5.4.1
+- Cloud only: fixed problem where OKE Workload authentication would time
+   out before refreshing
 
 ## Changed
 
