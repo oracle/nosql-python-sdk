@@ -474,6 +474,8 @@ class Regions(object):
     """Region Location: Seoul, South Korea"""
     AP_SINGAPORE_1 = Region('ap-singapore-1')
     """Region Location: Singapore"""
+    AP_SINGAPORE_2 = Region('ap-singapore-2')
+    """Region Location: Singapore"""
     AP_SYDNEY_1 = Region('ap-sydney-1')
     """Region Location: Sydney, Australia"""
     AP_TOKYO_1 = Region('ap-tokyo-1')
@@ -635,6 +637,8 @@ class Regions(object):
     # OC25
     AP_DCC_TOKYO_1 = Region('ap-dcc-tokyo-1')
     """Region Location: Tokyo, Japan"""
+    AP_DCC_OSAKA_1 = Region('ap-dcc-osaka-1')
+    """Region Location: Osaka, Japan"""
 
     # OC26
     ME_ABUDHABI_3 = Region('me-abudhabi-3')
@@ -664,6 +668,7 @@ class Regions(object):
     OC1_REGIONS[AP_OSAKA_1.get_region_id()] = AP_OSAKA_1
     OC1_REGIONS[AP_SEOUL_1.get_region_id()] = AP_SEOUL_1
     OC1_REGIONS[AP_SINGAPORE_1.get_region_id()] = AP_SINGAPORE_1
+    OC1_REGIONS[AP_SINGAPORE_2.get_region_id()] = AP_SINGAPORE_2
     OC1_REGIONS[AP_SYDNEY_1.get_region_id()] = AP_SYDNEY_1
     OC1_REGIONS[AP_TOKYO_1.get_region_id()] = AP_TOKYO_1
 
@@ -798,6 +803,7 @@ class Regions(object):
     OC25_REGIONS = dict()
     """A dict containing the OC25 regions."""
     OC25_REGIONS[AP_DCC_TOKYO_1.get_region_id()] = AP_DCC_TOKYO_1
+    OC25_REGIONS[AP_DCC_OSAKA_1.get_region_id()] = AP_DCC_OSAKA_1
 
     # OC26
     OC26_REGIONS = dict()

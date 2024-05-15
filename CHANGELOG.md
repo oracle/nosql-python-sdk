@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ====================
 
+# Unreleased
+
+## Added
+
+-   Cloud only: New regions: ap-singapore-2, ap-dcc-osaka-1
+
 # 5.4.2 - 2024-05-13
 
 ## Added
