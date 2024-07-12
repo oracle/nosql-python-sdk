@@ -81,8 +81,8 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
                 self.new_rows[sk].append(new_row)
                 put_request = PutRequest().set_value(row).set_table_name(
                     table_name).set_ttl(ttl)
-                self.versions[sk].append(
-                    self.handle.put(put_request).get_version())
+                ver = self.handle.put(put_request).get_version()
+                self.versions[sk].append(ver)
         self.old_expect_expiration = ttl.to_expiration_time(
             int(round(time() * 1000)))
         self.ttl = TimeToLive.of_hours(1)
@@ -208,19 +208,38 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             int(round(time() * 1000)))
         op_results = self._check_write_multiple_result(result, num_operations)
         for idx in range(result.size()):
+            ex_version = None
+            ex_value = None
+            if (result._get_server_serial_version() >= 5 and
+                    self.requests[idx].get_match_version() is None):
+                # putIfVersion does not return existing info on success
+                ex_version=self.versions[self.ops_sk][idx]
+                ex_value=self.rows[self.ops_sk][idx]
+
             if idx == 1 or idx == 5:
                 # putIfAbsent and deleteIfVersion failed
+                ex_version=self.versions[self.ops_sk][idx]
+                ex_value=self.rows[self.ops_sk][idx]
                 self._check_operation_result(
                     op_results[idx],
-                    existing_version=self.versions[self.ops_sk][idx],
-                    existing_value=self.rows[self.ops_sk][idx])
+                    existing_version=ex_version,
+                    existing_value=ex_value)
             elif idx == 4:
                 # delete succeed
-                self._check_operation_result(op_results[idx], success=True)
+                self._check_operation_result(op_results[idx], success=True,
+                                                 existing_version=ex_version,
+                                                 existing_value=ex_value)
             else:
                 # put, putIfPresent and putIfVersion succeed
-                self._check_operation_result(op_results[idx], True, True)
-        self.check_cost(result, 5, 10, 7, 7)
+                self._check_operation_result(op_results[idx], True, True,
+                                                 existing_version=ex_version,
+                                                 existing_value=ex_value)
+        read_kb = 5
+        read_units = 10
+        if result._get_server_serial_version() >= 5:
+            read_kb = 6
+            read_units = 12
+        self.check_cost(result, read_kb, read_units, 7, 7)
         # check the records after write_multiple request succeed
         for sk in self.shardkeys:
             for i in self.ids:
@@ -281,7 +300,26 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             result = self.handle.write_multiple(wm_req)
             op_results = self._check_write_multiple_result(result, num_operations * 2)
             for idx in range(result.size()):
-                self._check_operation_result(op_results[idx], True, True)
+                ex_version = None
+                ex_value = None
+                # expect return of existing value if:
+                #  o proxy is using serial version 5 or higher
+                #  o row is from the parent (child table is not pre-loaded)
+                #  o operation is not put if version (doesn't return info)
+                # The index into the existing version/value array is the
+                # value of the fld_id key field and the shard key used above
+                # is 1
+                rq = wm_req.get_request(idx)
+                index = rq.get_value()['fld_id']
+                if (result._get_server_serial_version() >= 5 and
+                        rq.get_match_version() is None and
+                        '.' not in rq.get_table_name()):
+                    # shard key for these ops is 1
+                    ex_version = self.versions[1][index]
+                    ex_value = self.rows[1][index]
+                self._check_operation_result(op_results[idx], True, True,
+                                                 existing_version=ex_version,
+                                                 existing_value=ex_value)
 
             for i in range(num_operations):
                 parent_row = dict()
@@ -322,7 +360,14 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
             failed_result,
             existing_version=self.versions[self.ops_sk][failed_idx],
             existing_value=self.rows[self.ops_sk][failed_idx])
-        self.check_cost(result, 1, 2, 2, 2)
+
+        read_kb = 1
+        read_units = 2
+        if result._get_server_serial_version() >= 5:
+            # new return existing row semantics costs more
+            read_kb = 2
+            read_units = 4
+        self.check_cost(result, read_kb, read_units, 2, 2)
         # check the records after multi_delete request failed
         for sk in self.shardkeys:
             for i in self.ids:

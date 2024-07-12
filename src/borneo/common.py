@@ -486,6 +486,9 @@ class HttpConstants(object):
     # Proxy version info
     RESPONSE_PROXY_INFO = 'x-nosql-version'
 
+    # Proxy serial version
+    SERVER_SERIAL_VERSION = 'x-nosql-serial-version'
+
     # For OCI content signing
     X_CONTENT_SHA256 = 'x-content-sha256'
 
