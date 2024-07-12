@@ -295,6 +295,11 @@ class RequestUtils(object):
                         response.headers.get(HttpConstants.RESPONSE_PROXY_INFO))
                     res = self._process_response(
                         self._request, response.content, response.status_code)
+                    # set server's serial version if available
+                    server_version = response.headers.get(
+                        HttpConstants.SERVER_SERIAL_VERSION)
+                    if server_version is not None:
+                        res._set_server_serial_version(int(server_version))
                     if (isinstance(res, operations.TableResult) and
                             self._rate_limiter_map is not None):
                         # Update rate limiter settings for table.

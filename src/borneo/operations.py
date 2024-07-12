@@ -2364,7 +2364,6 @@ class PutRequest(WriteRequest):
         # type: () -> str
         return "Put"
 
-
 class QueryRequest(Request):
     """
     A request that represents a query. A query may be specified as either a
@@ -4611,6 +4610,7 @@ class Result(object):
         self._write_kb = 0
         self._write_units = 0
         self._topology_info = None
+        self._server_serial_version = 0
 
     def get_rate_limit_delayed_ms(self):
         """
@@ -4690,6 +4690,12 @@ class Result(object):
 
     def _get_write_kb(self):
         return self._write_kb
+
+    def _get_server_serial_version(self):
+        return self._server_serial_version
+
+    def _set_server_serial_version(self, version):
+        self._server_serial_version = version
 
 
 class WriteResult(Result):

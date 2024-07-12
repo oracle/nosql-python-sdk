@@ -121,7 +121,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def testDeleteNormal(self):
         self.delete_request.set_return_row(True)
         result = self.handle.delete(self.delete_request)
-        self._check_delete_result(result)
+        if result._get_server_serial_version() <= 4:
+            self._check_delete_result(result)
+        else:
+            self._check_delete_result(result, True, self.row,
+                                        self.version.get_bytes())
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
         self.check_get_result(result)
