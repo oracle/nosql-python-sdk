@@ -111,16 +111,21 @@ class NoSQLHandle(object):
         on whether the :py:class:`Version` of an existing row matches that
         supplied by :py:meth:`DeleteRequest.set_match_version`.
 
-        It is also possible, on failure, to return information about the
-        existing row. The row, including it's :py:class:`Version` can be
-        optionally returned if a delete operation fails because of a Version
-        mismatch. The existing row information will only be returned if
-        :py:meth:`DeleteRequest.set_return_row` is True and the operation fails
-        because :py:meth:`DeleteRequest.set_match_version` is used and the
-        operation fails because the row exists and its version does not match.
+        It is also possible to return information about the existing row.
+        The row, including it's :py:class:`Version` can be optionally
+        returned. The existing row information will only be returned if
+        :py:meth:`DeleteRequest.set_return_row` is True and one of the following
+        occurs:
+
+            :py:meth:`DeleteRequest.set_match_version` is used and the
+            operation fails because the row exists and its version does not
+            match.\n
+            :py:meth:`DeleteRequest.set_match_version` is not used and the
+            operation succeeds provided that the server supports returning the
+            existing row.
+
         Use of :py:meth:`DeleteRequest.set_return_row` may result in additional
-        consumed read capacity. If the operation is successful there will be no
-        information returned about the previous row.
+        consumed read capacity.
 
         :param request: the input parameters for the operation.
         :type request: DeleteRequest
@@ -324,22 +329,23 @@ class NoSQLHandle(object):
             row that matches the primary key and its :py:class:`Version` matches
             that provided.
 
-        It is also possible, on failure, to return information about the
-        existing row. The row, including it's :py:class:`Version` can be
-        optionally returned if a put operation fails because of a Version
-        mismatch or if the operation fails because the row already exists.
-        The existing row information will only be returned if
+        It is also possible to return information about the existing
+        row. The row, including it's :py:class:`Version` can be optionally
+        returned. The existing row information will only be returned if
         :py:meth:`PutRequest.set_return_row` is True and one of the following
         occurs:
 
             The PutOption.IF_ABSENT is used and the operation fails because the
             row already exists.\n
             The PutOption.IF_VERSION is used and the operation fails because the
-            row exists and its version does not match.
+            row exists and its version does not match.\n
+            The PutOption.IF_PRESENT is used and the operation succeeds
+            providing that the server supports returning the existing row\n
+            No option is used and the operation replaces and existing row
+            providing that the server supports returning the existing row
 
         Use of :py:meth:`PutRequest.set_return_row` may result in additional
-        consumed read capacity. If the operation is successful there will be no
-        information returned about the previous row.
+        consumed read capacity.
 
         :param request: the input parameters for the operation.
         :type request: PutRequest
