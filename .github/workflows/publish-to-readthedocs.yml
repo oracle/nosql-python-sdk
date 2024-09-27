@@ -11,7 +11,8 @@ on: push
 
 env:
   RTDS_PROJECT: https://readthedocs.org/api/v2/webhook/nosql-python-sdk/279394
-  RTDS_TOKEN: ${{ secrets.RTD_API }}
+  #RTDS_TOKEN: ${{ secrets.RTD_API }}
+  RTDS_TOKEN: ${{ secrets.RTD_WH }}
 
 jobs:
   build-n-publish:
