@@ -23,4 +23,4 @@ jobs:
         run:  |
            echo "token is $RTDS_TOKEN proj is $RTDS_PROJECT"
            coutput=`curl -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" $RTDS_PROJECT`
-           echo "curl ran: $coutput"
+           echo "curl ran : $coutput"
