@@ -1,0 +1,31 @@
+name: "Publish Docs"
+
+# To run this workflow manually from the Actions tab
+on: push
+
+#on:
+  # Auto-trigger this workflow on tag creation
+#  push:
+#    tags:
+#      - 'v*.*.*'
+
+env:
+  RTDS_PROJECT: https://readthedocs.org/api/v2/webhook/nosql-python-sdk/279394
+  RTDS_TOKEN: ${{ secrets.RTD_API }}
+
+jobs:
+  build-n-publish:
+    name: Build and publish Docs 📖 to Readthedocs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger readthedocs build
+        # if: github.event_name == 'push' && startsWith(github.ref_name, 'v')
+        # trigger build/publish of latest version
+      - run:  curl \
+            -X POST \
+            -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/latest/builds/
+      # trigger build/publish of v*.*.* version
+      - run: curl \
+            -X POST \
+            -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/${{ github.ref_name }}/builds/
