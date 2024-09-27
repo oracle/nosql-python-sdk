@@ -11,8 +11,8 @@ on: push
 
 env:
   RTDS_PROJECT: https://readthedocs.org/api/v2/webhook/nosql-python-sdk/279394
-  #RTDS_TOKEN: ${{ secrets.RTD_API }}
-  RTDS_TOKEN: ${{ secrets.RTD_WH }}
+  RTDS_TOKEN: ${{ secrets.RTD_API }}
+  NO_TOKEN: ${{ secrets.NOT_HERE }}
 
 jobs:
   build-n-publish:
@@ -22,6 +22,6 @@ jobs:
     steps:
       - name: Trigger readthedocs build
         run:  |
-           echo "token is $RTDS_TOKEN proj is $RTDS_PROJECT"
+           echo "token is $RTDS_TOKEN proj is $RTDS_PROJECT no token is $NO_TOKEN"
            coutput=$(curl -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" $RTDS_PROJECT)
            echo "curl ran : $coutput"
