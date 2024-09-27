@@ -20,6 +20,6 @@ jobs:
 
     steps:
       - name: Trigger readthedocs build
-         run:  |
+        run:  |
            curl -X POST  -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/latest/builds/
            curl -X POST  -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/${{ github.ref_name }}/builds/
