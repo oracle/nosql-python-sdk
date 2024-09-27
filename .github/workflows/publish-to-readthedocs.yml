@@ -23,5 +23,5 @@ jobs:
       - name: Trigger readthedocs build
         run:  |
            echo "token is $RTDS_TOKEN proj is $RTDS_PROJECT no token is $NO_TOKEN"
-           coutput=$(curl -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" $RTDS_PROJECT)
+           curl -v -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" $RTDS_PROJECT
            echo "curl ran : $coutput"
