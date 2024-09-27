@@ -1,0 +1,43 @@
+testing: see Yev's comments: nosql-sdk-int\node\test\elasticity_test\README.md
+
+new proto:
+   QUERY_ID 'qn'
+   TRACE_TO_LOG_FILES 'tf'
+   TOPOLOGY_INFO 'tp'
+   QUERY_BATCH_TRACES: 'qts',
+
+    //query virtual scan-related fields
+    VIRTUAL_SCAN: 'vs',
+    VIRTUAL_SCANS: 'vssa',
+    VIRTUAL_SCAN_SID: 'vssid',
+    VIRTUAL_SCAN_PID: 'vspid',
+    VIRTUAL_SCAN_PRIM_KEY: 'vspk',
+    VIRTUAL_SCAN_SEC_KEY: 'vssk',
+    VIRTUAL_SCAN_MOVE_AFTER: 'vsma',
+    VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY: 'vsjdrk',
+    VIRTUAL_SCAN_JOIN_PATH_TABLES: 'vsjpt',
+    VIRTUAL_SCAN_JOIN_PATH_KEY: 'vsjpk',
+    VIRTUAL_SCAN_JOIN_PATH_SEC_KEY: 'vsjpsk',
+    VIRTUAL_SCAN_JOIN_PATH_MATCHED: 'vsjpm'
+
+Java
+
+  Client.java
+    o topo added
+    o query version add
+    o extra query processing and handling of version mismatch
+
+moved TopologyInfo out of PreparedStatement to ... ???
+
+
+
+
+
+Node
+  serialization:
+    o readTopoInfo, validate it after
+    o read/write virtual scan info in query path
+    o read query traces?
+    o extra tracing code
+
+  refactor: create QueryOpBase to be shared by Prepare and Query. It handles query protocol version negotiation

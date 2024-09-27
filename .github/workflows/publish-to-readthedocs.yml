@@ -22,10 +22,6 @@ jobs:
       - name: Trigger readthedocs build
         # if: github.event_name == 'push' && startsWith(github.ref_name, 'v')
         # trigger build/publish of latest version
-      - run:  curl \
-            -X POST \
-            -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/latest/builds/
+      - run:  curl -X POST  -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/latest/builds/
       # trigger build/publish of v*.*.* version
-      - run: curl \
-            -X POST \
-            -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/${{ github.ref_name }}/builds/
+      - run: curl -X POST  -H "Authorization: Token $RTDS_TOKEN" $RTDS_PROJECT/versions/${{ github.ref_name }}/builds/
