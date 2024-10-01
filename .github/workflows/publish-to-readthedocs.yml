@@ -24,7 +24,7 @@ jobs:
         run:  |
            #echo "token is $RTDS_TOKEN proj is $RTDS_PROJECT no token is
            #$NO_TOKEN"
-           code=`curl --write-out '%{http_code}' -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" https://readthedocs.org/api/v2/webhook/nosql-python-sdk/279394/`
+           curl  -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" $RTDS_PROJECT
            #code=`curl --write-out '%{http_code}' -X POST  -d "token=$RTDS_TOKEN" -d "default_branch=main" $RTDS_PROJECT`
            echo $code
            echo "curl ran : $code"
