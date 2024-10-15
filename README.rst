@@ -23,8 +23,7 @@ The on-premise configuration requires a running instance of the Oracle NoSQL
 database. In addition a running proxy service is required. See `Oracle NoSQL
 Database Downloads <https://www.oracle.com/database/technologies/nosql-database-
 server-downloads.html>`_ for downloads, and see `Information about the proxy
-<https://docs.oracle.com/pls/topic/lookup?ctx=en/database/other-databases/nosql-
-database/22.3/admin&id=NSADM-GUID-C110AF57-8B35-4C48-A82E-2621C6A5ED72>`_ for
+<https://docs.oracle.com/en/database/other-databases/nosql-database/24.3/admin/proxy.html>`_ for
 proxy configuration information.
 
 This project is open source and maintained by Oracle Corp. The home page for the
