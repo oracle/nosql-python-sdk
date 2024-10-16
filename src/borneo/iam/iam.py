@@ -1,23 +1,34 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
 
-OCI_PYTHON_SDK_NO_SERVICE_IMPORTS=True
+OCI_PYTHON_SDK_NO_SERVICE_IMPORTS = True
 
 from os import path
-from requests import Request
 from threading import Lock, Timer
 from time import sleep, time
+
+from requests import Request
+
 try:
+    # noinspection PyUnresolvedReferences
     from oci.signer import Signer
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import SecurityTokenSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import EphemeralResourcePrincipalSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import InstancePrincipalsSecurityTokenSigner
+    # noinspection PyUnresolvedReferences
+    from oci.auth.signers import OkeWorkloadIdentityResourcePrincipalSigner
+    # noinspection PyUnresolvedReferences
     from oci.auth.signers import get_resource_principals_signer
+    # noinspection PyUnresolvedReferences
     from oci.config import from_file
+
     oci = 'yes'
 except ImportError:
     oci = None
@@ -144,8 +155,8 @@ class SignatureProvider(AuthorizationProvider):
         self._region = None
         if provider is not None:
             if not isinstance(
-                provider,
-                (Signer, SecurityTokenSigner)):
+                    provider,
+                    (Signer, SecurityTokenSigner)):
                 raise IllegalArgumentException(
                     'provider should be an instance of oci.signer.Signer or ' +
                     'oci.auth.signers.SecurityTokenSigner.')
@@ -269,14 +280,22 @@ class SignatureProvider(AuthorizationProvider):
         self._logutils = LogUtils(logger)
         return self
 
-    def set_required_headers(self, request, auth_string, headers):
-        sig_details = self._get_signature_details()
+    def set_required_headers(self, request, auth_string, headers,
+                                 content = None):
+        sig_details = self._get_signature_details(content, headers)
         if sig_details is None:
             return
+        # choose headers from signature:
+        #   authorization, date
+        #   optionally: opc-obo-token, x-content-sha256
+
         headers[HttpConstants.AUTHORIZATION] = sig_details['authorization']
         headers[HttpConstants.DATE] = sig_details['date']
         if sig_details.get(HttpConstants.OPC_OBO_TOKEN) is not None:
             headers[HttpConstants.OPC_OBO_TOKEN] = sig_details['opc-obo-token']
+        if content is not None:
+            headers[HttpConstants.X_CONTENT_SHA256] = \
+                       sig_details['x-content-sha256']
         compartment = request.get_compartment()
         if compartment is None:
             # If request doesn't has compartment, set the tenant id as the
@@ -374,13 +393,22 @@ class SignatureProvider(AuthorizationProvider):
                 signature_provider.set_logger(logger))
 
     @synchronized
-    def get_signature_details_internal(self):
-        # Visible for testing.
-        request = Request(method='post', url=self._service_url)
-        request = self._provider.without_content_headers(request.prepare())
+    def get_signature_details_internal(self, content=None, headers=None):
+        # Visible for testing
+        # the OCI signing code uses a Request instance even though that
+        # is not what we send (see caller in http.py). The signing ends
+        # up putting the required signature in the headers
+        # NOTE: Signer in OCI is callable object
+        request = Request(method='post', url=self._service_url, data=content, headers=headers)
+        if content is None:
+            request = self._provider.without_content_headers(request.prepare())
+        else:
+            request = self._provider(request.prepare())
         sig_details = request.headers
-        self._signature_cache.set(SignatureProvider.CACHE_KEY, sig_details)
-        self._schedule_refresh()
+        # don't cache content-signed requests (TableRequest, Add/Drop Replica)
+        if content is None:
+            self._signature_cache.set(SignatureProvider.CACHE_KEY, sig_details)
+            self._schedule_refresh()
         return sig_details
 
     @staticmethod
@@ -388,11 +416,13 @@ class SignatureProvider(AuthorizationProvider):
         if oci is None:
             raise ImportError('Package "oci" is required; please install.')
 
-    def _get_signature_details(self):
-        sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
-        if sig_details is not None:
-            return sig_details
-        return self.get_signature_details_internal()
+    def _get_signature_details(self, content=None, headers=None):
+        # don't use cache if signing content
+        if content is None:
+            sig_details = self._signature_cache.get(SignatureProvider.CACHE_KEY)
+            if sig_details is not None:
+                return sig_details
+        return self.get_signature_details_internal(content, headers)
 
     def _get_tenant_ocid(self):
         """
@@ -405,18 +435,19 @@ class SignatureProvider(AuthorizationProvider):
             return self._provider.api_key.split('/')[0]
 
     def _refresh_task(self):
-        timeout =  self._refresh_ahead
+        timeout = self._refresh_ahead
         start_ms = int(round(time() * 1000))
         error_logged = False
         while True:
             try:
                 # refresh security token before create new signature
-                if (isinstance(
-                    self._provider,
-                    InstancePrincipalsSecurityTokenSigner) or
-                    isinstance(
-                    self._provider,
-                    EphemeralResourcePrincipalSigner)):
+                if (
+                    isinstance(self._provider, InstancePrincipalsSecurityTokenSigner)
+                    or isinstance(
+                        self._provider, OkeWorkloadIdentityResourcePrincipalSigner
+                    )
+                    or isinstance(self._provider, EphemeralResourcePrincipalSigner)
+                ):
                     self._provider.refresh_security_token()
 
                 self.get_signature_details_internal()
@@ -434,7 +465,7 @@ class SignatureProvider(AuthorizationProvider):
                     error_logged = True
 
             # check for timeout in the loop
-            if (int(round(time() * 1000)) - start_ms >= timeout):
+            if int(round(time() * 1000)) - start_ms >= timeout:
                 self._logutils.log_error(
                     'Request signature refresh timed out after ' + str(timeout))
                 break

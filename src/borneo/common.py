@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -10,7 +10,6 @@ from decimal import Decimal
 from functools import wraps
 from logging import Logger
 from struct import pack, unpack
-from sys import version_info
 from threading import Lock
 from time import time
 from warnings import simplefilter, warn
@@ -54,6 +53,9 @@ class ByteInputStream(object):
     def __init__(self, content):
         self._content = content
         self._offset = 0
+
+    def get_content(self):
+        return self._content
 
     def get_offset(self):
         return self._offset
@@ -104,6 +106,9 @@ class ByteInputStream(object):
     def set_offset(self, offset):
         self._offset = offset
 
+    def skip(self, length):
+        self._offset += length
+
 
 class ByteOutputStream(object):
     """
@@ -113,6 +118,9 @@ class ByteOutputStream(object):
 
     def __init__(self, content):
         self._content = content
+
+    def get_content(self):
+        return self._content
 
     def get_offset(self):
         return len(self._content)
@@ -126,6 +134,11 @@ class ByteOutputStream(object):
         self.write_value(val_s)
 
     def write_bytearray(self, value, start=0, end=None):
+        # optimize (?) full concatenate
+        if start == 0 and end is None:
+            self._content.extend(value)
+            return
+
         if end is None:
             end = len(value)
         for index in range(start, end):
@@ -141,7 +154,7 @@ class ByteOutputStream(object):
 
     def write_int_at_offset(self, offset, value):
         val_s = pack('>i', value)
-        val_b = bytearray(val_s)
+        val_b = bytes(val_s)
         for index in range(len(val_b)):
             self._content[offset + index] = val_b[index]
 
@@ -150,8 +163,14 @@ class ByteOutputStream(object):
         self.write_value(val_s)
 
     def write_value(self, value):
-        val_b = bytearray(value)
-        self.write_bytearray(val_b)
+        val_b = bytes(value)
+        self._content.extend(val_b)
+
+    def get_byte_at(self, index):
+        return self._content[index]
+
+    def get_last_byte(self):
+        return self._content[-1]
 
 
 class CheckValue(object):
@@ -174,22 +193,20 @@ class CheckValue(object):
 
     @staticmethod
     def check_int(data, name):
-        if not (CheckValue.is_int(data) or CheckValue.is_long(data)):
+        if not isinstance(data, int):
             raise IllegalArgumentException(
                 name + ' must be an integer. Got:' + str(data))
 
     @staticmethod
     def check_int_ge_zero(data, name):
-        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
-                data < 0):
+        if not isinstance(data, int) or data < 0:
             raise IllegalArgumentException(
                 name + ' must be an integer that is not negative. Got:' +
                 str(data))
 
     @staticmethod
     def check_int_gt_zero(data, name):
-        if (not (CheckValue.is_int(data) or CheckValue.is_long(data)) or
-                data <= 0):
+        if not isinstance(data, int) or data <= 0:
             raise IllegalArgumentException(
                 name + ' must be an positive integer. Got:' + str(data))
 
@@ -217,42 +234,42 @@ class CheckValue(object):
 
     @staticmethod
     def is_digit(data):
-        if (CheckValue.is_int(data) or CheckValue.is_long(data) or
+        if (isinstance(data, int) or
                 isinstance(data, float) or isinstance(data, Decimal)):
             return True
         return False
 
+    # returns True if the data is of type int and its value is in the
+    # range of a 32-bit integer
     @staticmethod
-    def is_int(data):
-        if ((version_info.major == 2 and isinstance(data, int) or
-             version_info.major == 3 and isinstance(data, int)) and
+    def is_int_value(data):
+        if (isinstance(data, int) and
                 -pow(2, 31) <= data < pow(2, 31)):
             return True
         return False
 
+    # returns True if the data is of type int and its value is larger than
+    # that of a 32-bit integer and in the range of a 64-bit integer
+    #
+    # NOTE: It is sufficient to just validate that it's an int and
+    # is out of range for a 32-bit integer value
     @staticmethod
-    def is_long(data):
-        if ((version_info.major == 2 and isinstance(data, (int, long)) or
-             version_info.major == 3 and isinstance(data, int)) and
-                not CheckValue.is_int(data) and
-                -pow(2, 63) <= data < pow(2, 63)):
+    def is_long_value(data):
+        if (isinstance(data, int) and
+                not CheckValue.is_int_value(data)):
             return True
         return False
 
     @staticmethod
     def is_overlong(data):
-        if ((version_info.major == 2 and isinstance(data, long) or
-             version_info.major == 3 and isinstance(data, int)) and
+        if (isinstance(data, int) and
                 (data < -pow(2, 63) or data >= pow(2, 63))):
             return True
         return False
 
     @staticmethod
     def is_str(data):
-        if (version_info.major == 2 and isinstance(data, (str, unicode)) or
-                version_info.major == 3 and isinstance(data, str)):
-            return True
-        return False
+        return isinstance(data, str)
 
 
 class Consistency(object):
@@ -463,6 +480,18 @@ class HttpConstants(object):
     # The name of the (request-target) header.
     REQUEST_TARGET = '(request-target)'
 
+    # Default namespace header
+    REQUEST_NAMESPACE_HEADER = 'x-nosql-default-ns'
+
+    # Proxy version info
+    RESPONSE_PROXY_INFO = 'x-nosql-version'
+
+    # Proxy serial version
+    SERVER_SERIAL_VERSION = 'x-nosql-serial-version'
+
+    # For OCI content signing
+    X_CONTENT_SHA256 = 'x-content-sha256'
+
     # Creates a URI path from the arguments
     def _make_path(*args):
         path = args[0]
@@ -470,7 +499,7 @@ class HttpConstants(object):
             path += '/' + args[index]
         return path
 
-    # The base path to the on-premise security services. All users need a
+    # The base path to the on-premises security services. All users need a
     # leading "/" so add it here.
     KV_SECURITY_PATH = _make_path('/' + NOSQL_VERSION, 'nosql/security')
 
@@ -480,14 +509,15 @@ class HttpConstants(object):
 
 class IndexInfo(object):
     """
-    IndexInfo represents the information about a single index including its name
-    and field names. Instances of this class are returned in
+    IndexInfo represents the information about a single index including its
+    name, field names and field types. Instances of this class are returned in
     :py:class:`GetIndexesResult`.
     """
 
-    def __init__(self, index_name, field_names):
+    def __init__(self, index_name, field_names, field_types=None):
         self._index_name = index_name
         self._field_names = field_names
+        self._field_types = field_types
 
     def __str__(self):
         return ('IndexInfo [indexName=' + self._index_name + ', fields=[' +
@@ -507,9 +537,19 @@ class IndexInfo(object):
         Returns the list of field names that define the index.
 
         :returns: the field names.
-        :rtype: list(str)
+        :rtype: list[str]
         """
         return self._field_names
+
+    def get_field_types(self):
+        """
+        Returns the list of types of fields that define the index.
+
+        :returns: the field types.
+        :rtype: list[str]
+        :versionadded:: 5.4.0
+        """
+        return self._field_types
 
 
 class JsonNone(object):
@@ -717,7 +757,7 @@ class PackedInteger(object):
         :param offset: the offset in the buffer at which to start writing.
         :type offset: int
         :param value: the long integer to be written.
-        :type value: int for python 3 and long for python 2
+        :type value: int
         :returns: the offset past the bytes written.
         :rtype: int
 
@@ -962,7 +1002,7 @@ class PackedInteger(object):
         :param offset: the offset in the buffer at which to start reading.
         :type offset: int
         :returns: the long integer that was read.
-        :rtype: int for python 3 and long for python 2
+        :rtype: int
         """
         # The first byte of the buf stores the length of the value part.
         b1 = buf[offset] & 0xff
@@ -975,10 +1015,7 @@ class PackedInteger(object):
             byte_len = b1 - 0xf7
             negative = False
         else:
-            try:
-                return long(b1 - 127)
-            except NameError:
-                return b1 - 127
+            return b1 - 127
 
         """
         The following bytes on the buf store the value as a big endian integer.
@@ -1020,10 +1057,7 @@ class PackedInteger(object):
             value -= 119
         else:
             value += 121
-        try:
-            return long(value)
-        except NameError:
-            return value
+        return value
 
 
 class PreparedStatement(object):
@@ -1044,9 +1078,9 @@ class PreparedStatement(object):
     """
     OPCODE_SELECT = 5
 
-    def __init__(self, sql_text, query_plan, topology_info, proxy_statement,
-                 driver_plan, num_iterators, num_registers, external_vars,
-                 namespace, table_name, operation):
+    def __init__(self, sql_text, query_plan, query_schema,
+                 proxy_statement, driver_plan, num_iterators, num_registers,
+                 external_vars, namespace, table_name, operation):
         """
         Constructs a PreparedStatement. Construction is hidden to eliminate
         application access to the underlying statement, reducing the chance of
@@ -1059,8 +1093,7 @@ class PreparedStatement(object):
 
         self._sql_text = sql_text
         self._query_plan = query_plan
-        # Applicable to advanced queries only.
-        self._topology_info = topology_info
+        self._query_schema = query_schema
         # The serialized PreparedStatement created at the backend store. It is
         # opaque for the driver. It is received from the proxy and sent back to
         # the proxy every time a new batch of results is needed.
@@ -1108,7 +1141,7 @@ class PreparedStatement(object):
         :rtype: PreparedStatement
         """
         return PreparedStatement(
-            self._sql_text, self._query_plan, self._topology_info,
+            self._sql_text, self._query_plan, self._query_schema,
             self._proxy_statement, self._driver_query_plan, self._num_iterators,
             self._num_registers, self._variables, self._namespace,
             self._table_name, self._operation)
@@ -1130,9 +1163,20 @@ class PreparedStatement(object):
         requested in the :py:class:`PrepareRequest`; None otherwise.
 
         :returns: the string representation of the query execution plan.
-        :rtype: bool
+        :rtype: str
         """
         return self._query_plan
+
+    def get_query_schema(self):
+        """
+        Returns a string representation of the query schema if it was
+        requested in the :py:class:`PrepareRequest`; None otherwise.
+
+        :returns: the string representation of the query schema.
+        :rtype: str
+        :versionadded:: 5.4.0
+        """
+        return self._query_schema
 
     def get_sql_text(self):
         """
@@ -1184,16 +1228,6 @@ class PreparedStatement(object):
             return self._driver_query_plan.display()
         return None
 
-    @synchronized
-    def set_topology_info(self, topology_info):
-        if topology_info is None:
-            return
-        if self._topology_info is None:
-            self._topology_info = topology_info
-            return
-        if self._topology_info.get_seq_num() < topology_info.get_seq_num():
-            self._topology_info = topology_info
-
     def set_variable(self, variable, value):
         """
         Binds an external variable to a given value. The variable is identified
@@ -1209,8 +1243,9 @@ class PreparedStatement(object):
         :raises IllegalArgumentException: raises the exception if variable is
             not a string or positive integer.
         """
-        if (not (CheckValue.is_str(variable) or CheckValue.is_int(variable)) or
-                CheckValue.is_int(variable) and variable <= 0):
+        if (not (CheckValue.is_str(variable) or
+                 CheckValue.is_int_value(variable)) or
+                CheckValue.is_int_value(variable) and variable <= 0):
             raise IllegalArgumentException(
                 'variable must be a string or positive integer.')
         if isinstance(variable, str):
@@ -1233,14 +1268,6 @@ class PreparedStatement(object):
             raise IllegalArgumentException(
                 'There is no external variable at position ' + str(variable))
 
-    def topology_info(self):
-        return self._topology_info
-
-    @synchronized
-    def topology_seq_num(self):
-        return (-1 if self._topology_info is None else
-                self._topology_info.get_seq_num())
-
 
 class PutOption(object):
     """
@@ -1252,6 +1279,136 @@ class PutOption(object):
     """Set PutOption.IF_PRESENT to perform put if present operation."""
     IF_VERSION = 2
     """Set PutOption.IF_VERSION to perform put if version operation."""
+
+
+class Replica(object):
+    """
+    Cloud service only
+
+    Information representing a single replica. One or more of these
+    is returned in :py:class:`TableResult` for tables that have
+    replicas
+    """
+    def __init__(self):
+        self._replica_name = None
+        self._replica_ocid = None
+        self._write_units = 0
+        self._replica_state = None
+        self._capacity_mode = 0
+
+    def get_state(self):
+        """
+        Returns the state of the replica
+
+        :returns: the state
+        :rtype: State
+        """
+        return self._replica_state
+
+    def get_name(self):
+        """
+        Returns the name of the replica
+
+        :returns: the name
+        :rtype: str
+        """
+        return self._replica_name
+
+    def get_ocid(self):
+        """
+        Returns the OCID of the replica table
+
+        :returns: the OCID
+        :rtype: str
+        """
+        return self._replica_ocid
+
+    def get_write_units(self):
+        """
+        Returns the value of write units for the replica table
+
+        :returns: the units
+        :rtype: int
+        """
+        return self._write_units
+
+    def get_capacity_mode(self):
+        """
+        Returns the :py:class:`TableLimits.CAPACITY_MODE`
+        of the replica table
+
+        :returns: the mode
+        :rtype: :py:class:`TableLimits.CAPACITY_MODE`
+        """
+        if self._capacity_mode == 1:
+            return TableLimits.CAPACITY_MODE.PROVISIONED
+        return TableLimits.CAPACITY_MODE.ON_DEMAND
+
+    def __str__(self):
+        return 'Replica [name=' + str(self.get_name()) + ', ocid=' + \
+          str(self.get_ocid()) + ',state=' + \
+          str(self.get_state()) \
+          + ',mode=' + str(self.get_capacity_mode()) + ',write_units=' + \
+          str(self.get_write_units()) + ']'
+
+
+class ReplicaStats(object):
+    """
+    ReplicaStats contains information about replica lag for a specific
+    replica.
+
+    Replica lag is a measure of how current this table is relative to
+    the remote replica and indicates that this table has not yet received
+    updates that happened within the lag period.
+
+    For example, if the replica lag is 5,000 milliseconds(5 seconds),
+    then this table will have all updates that occurred at the remote
+    replica that are more than 5 seconds old.
+
+    Replica lag is calculated based on how long it took for the latest
+    operation from the table at the remote replica to be replayed at this
+    table. If there have been no application writes for the table at the
+    remote replica, the service uses other mechanisms to calculate an
+    approximation of the lag, and the lag statistic will still be available.
+    """
+    def __init__(self):
+        self._collection_time_millis = 0
+        self._replica_lag = 0
+
+    def get_collection_time(self):
+        """
+        Returns the time the replica lag collection was performed. The value
+        is a time stamp in milliseconds since the Epoch
+
+        :returns: the time
+        :rtype: int
+        """
+        return self._collection_time_millis
+
+    def get_collection_time_str(self):
+        """
+        Returns the collection time as an ISO 8601 formatted string
+
+        :returns: the time
+        :rtype: str
+        """
+        return datetime.fromtimestamp(
+            float(self._collection_time_millis) / 1000). \
+                replace(tzinfo=tz.UTC).isoformat()
+
+    def get_replica_lag(self):
+        """
+        Returns the replica lag collected at the specified time in
+        milliseconds
+
+        :returns: the lag
+        :rtype: int
+        """
+        return self._replica_lag
+
+    def __str__(self):
+        return '[time=' + self.get_collection_time_str() + ',' \
+          'lag=' + str(self._replica_lag) + ']'
 
 
 class ResourcePrincipalClaimKeys(object):
@@ -1316,7 +1473,7 @@ class State(object):
 
 class SystemState(object):
     """
-    On-premise only.
+    On-premises only.
 
     The current state of the system request.
     """
@@ -1334,7 +1491,7 @@ class Durability(object):
     Durability defines the durability characteristics associated with a standalone write
     (put or update) operation.
 
-    This is currently only supported in On-Prem installations. It is ignored
+    This is currently only supported in on-premises installations. It is ignored
     in the cloud service.
 
     The overall durability is a function of the SYNC_POLICY and
@@ -1496,7 +1653,7 @@ class TableLimits(object):
     """
     TableLimits includes an optional mode
 
-    :versionadded: 5.3.0
+    :versionadded:: 5.3.0
     """
     CAPACITY_MODE = enum(PROVISIONED=1,
                          ON_DEMAND=2)
@@ -1623,7 +1780,7 @@ class TableLimits(object):
         :returns: self.
         :raises IllegalArgumentException: raises the exception if mode is
             invalid.
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         if (mode != TableLimits.CAPACITY_MODE.PROVISIONED and
                 mode != TableLimits.CAPACITY_MODE.ON_DEMAND):
@@ -1636,7 +1793,7 @@ class TableLimits(object):
         Returns the capacity mode of the table.
 
         :returns: mode: PROVISIONED or ON_DEMAND
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._mode
 
@@ -1661,7 +1818,8 @@ class TableUsage(object):
 
     def __init__(self, start_time_ms, seconds_in_period, read_units,
                  write_units, storage_gb, read_throttle_count,
-                 write_throttle_count, storage_throttle_count):
+                 write_throttle_count, storage_throttle_count,
+                 max_shard_usage_percent):
         # Internal use only.
         self._start_time_ms = start_time_ms
         self._seconds_in_period = seconds_in_period
@@ -1671,6 +1829,7 @@ class TableUsage(object):
         self._read_throttle_count = read_throttle_count
         self._write_throttle_count = write_throttle_count
         self._storage_throttle_count = storage_throttle_count
+        self._max_shard_usage_percent = max_shard_usage_percent
 
     def __str__(self):
         return ('TableUsage [start_time_ms=' + str(self._start_time_ms) +
@@ -1680,7 +1839,9 @@ class TableUsage(object):
                 str(self._storage_gb) + ', read_throttle_count=' +
                 str(self._read_throttle_count) + ', write_throttle_count=' +
                 str(self._write_throttle_count) + ', storage_throttle_count=' +
-                str(self._storage_throttle_count) + ']')
+                str(self._storage_throttle_count) +
+                ', max_shard_usage_percent=' +
+                str(self._max_shard_usage_percent) + ']')
 
     def get_start_time(self):
         """
@@ -1772,6 +1933,17 @@ class TableUsage(object):
         :rtype: int
         """
         return self._storage_throttle_count
+
+    def get_max_shard_usage_percent(self):
+        """
+        Returns the percentage of allowed storage usage for the shard with the
+        highest usage percentage across all table shards. This can be used as a
+        gauge of toal storage available as well as a hint for key distribution.
+        :returns: the percentage
+        :rtype: int
+        :versionadded:: 5.4.0
+        """
+        return self._max_shard_usage_percent
 
 
 class TimeUnit(object):
@@ -1923,7 +2095,7 @@ class TimeToLive(object):
 
 class UserInfo(object):
     """
-    On-premise only.
+    On-premises only.
 
     A class that encapsulates the information associated with a user including
     the user id and name in the system.

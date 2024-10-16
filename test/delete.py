@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -15,15 +15,17 @@ from test_base import TestBase
 from testutils import get_row
 from time import time
 
+table_ttl = TimeToLive.of_days(2)
+serial_version = 0
 
+
+# noinspection PyArgumentEqualDefault
 class TestDelete(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
-        global table_ttl
-        table_ttl = TimeToLive.of_days(2)
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
+                'CREATE TABLE ' + table_name + '(fld_id INTEGER, fld_long LONG, \
 fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, fld_str STRING, \
 fld_bin BINARY, fld_time TIMESTAMP(6), fld_num NUMBER, fld_json JSON, \
 fld_arr ARRAY(STRING), fld_map MAP(STRING), \
@@ -119,7 +121,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def testDeleteNormal(self):
         self.delete_request.set_return_row(True)
         result = self.handle.delete(self.delete_request)
-        self._check_delete_result(result)
+        if result._get_server_serial_version() <= 4:
+            self._check_delete_result(result)
+        else:
+            self._check_delete_result(result, True, self.row,
+                                        self.version.get_bytes())
         self.check_cost(result, 1, 2, 1, 1)
         result = self.handle.get(self.get_request)
         self.check_get_result(result)

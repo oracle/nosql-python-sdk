@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -13,13 +13,12 @@ from time import sleep, time
 
 from requests import ConnectionError, Timeout, codes
 
-from .common import ByteInputStream, CheckValue, synchronized
+from .common import ByteInputStream, CheckValue, HttpConstants, synchronized
 from .exception import (
     IllegalStateException, NoSQLException,
     ReadThrottlingException, RequestTimeoutException, RetryableException,
-    SecurityInfoNotReadyException, UnsupportedProtocolException,
-    WriteThrottlingException)
-
+    SecurityInfoNotReadyException, UnsupportedQueryVersionException,
+    UnsupportedProtocolException, WriteThrottlingException)
 from .serdeutil import SerdeUtil
 
 try:
@@ -143,6 +142,7 @@ class RequestUtils(object):
         :type payload: bytearray
         :param timeout_ms: request timeout in milliseconds.
         :type timeout_ms: int
+        :param stats_config: configuration for stats usage
         :returns: HTTP response, a object encapsulate status code and response.
         :rtype: HttpResponse or Result
         """
@@ -250,11 +250,12 @@ class RequestUtils(object):
                 if self._timeout_request(start_ms, timeout_ms):
                     break
                 if self._auth_provider is not None:
+                    content = payload if self.require_content_signed() else None
                     auth_string = self._auth_provider.get_authorization_string(
                         self._request)
                     self._auth_provider.validate_auth_string(auth_string)
                     self._auth_provider.set_required_headers(
-                        self._request, auth_string, headers)
+                        self._request, auth_string, headers, content)
                 num_retried = self._request.get_num_retries()
             if num_retried > 0:
                 self._log_retried(num_retried, exception)
@@ -290,8 +291,15 @@ class RequestUtils(object):
                         'Response: ' + self._request.__class__.__name__ +
                         ', status: ' + str(response.status_code))
                 if self._request is not None:
+                    self._client.set_proxy_info(
+                        response.headers.get(HttpConstants.RESPONSE_PROXY_INFO))
                     res = self._process_response(
                         self._request, response.content, response.status_code)
+                    # set server's serial version if available
+                    server_version = response.headers.get(
+                        HttpConstants.SERVER_SERIAL_VERSION)
+                    if server_version is not None:
+                        res._set_server_serial_version(int(server_version))
                     if (isinstance(res, operations.TableResult) and
                             self._rate_limiter_map is not None):
                         # Update rate limiter settings for table.
@@ -320,7 +328,6 @@ class RequestUtils(object):
                         stats_config.observe(self._request, req_size,
                                              len(response.content),
                                              network_time)
-
                     # check for a Set-Cookie header
                     cookie = response.headers.get('Set-Cookie', None)
                     if cookie is not None and cookie.startswith('session='):
@@ -402,13 +409,27 @@ class RequestUtils(object):
                 self._request.increment_retries()
                 exception = re
                 continue
+            except UnsupportedQueryVersionException as uqve:
+                if self._client.decrement_query_version():
+                    if self._request is not None:
+                        payload = self._client.serialize_request(self._request,
+                                                                 headers)
+                    self._request.increment_retries()
+                    # don't set exception for this case -- it is misleading
+                    # exception = uqve
+                    continue
+                self._logutils.log_error(
+                    'Client execution UnsupportedQueryVersionException: ' +
+                    str(uqve))
+                raise uqve
             except UnsupportedProtocolException as upe:
                 if self._client.decrement_serial_version():
                     if self._request is not None:
                         payload = self._client.serialize_request(self._request,
                                                                  headers)
                     self._request.increment_retries()
-                    exception = upe
+                    # don't set exception for this case -- it is misleading
+                    # exception = upe
                     continue
                 self._logutils.log_error(
                     'Client execution UnsupportedProtocolException: ' + str(upe))
@@ -453,6 +474,16 @@ class RequestUtils(object):
             'Request timed out after ' + str(num_retried) +
             (' retry.' if num_retried == 0 or num_retried == 1
              else ' retries. ') + str(retry_stats), timeout_ms, exception)
+
+    def require_content_signed(self):
+        """
+        This is only needed for the cloud for cross-region request for
+        Global Active Tables that may need an OBO token. The requests
+        include add/drop replica as well as some DDL requests (indexes)
+        """
+        return isinstance(self._request, operations.AddReplicaRequest) or \
+            isinstance(self._request, operations.DropReplicaRequest) or \
+            isinstance(self._request, operations.TableRequest)
 
     @staticmethod
     def _consume_limiter_units(rl, units, timeout_ms):
@@ -528,7 +559,7 @@ class RequestUtils(object):
         :param request: the request executed by the server.
         :type request: Request
         :param content: the content of the response from the server.
-        :type content: bytes for python 3 and str for python 2
+        :type content: bytes
         :param status: the status code of the response from the server.
         :type status: int
         :returns: the programmatic response object.
@@ -553,10 +584,22 @@ class RequestUtils(object):
         :returns: the result of processing the successful request.
         :rtype: Result
         """
-        code = bis.read_byte()
+        #
+        # this call gives the Request an opinion on which serial version
+        # to use
+        #
+        version = request.get_serial_version(self._client.serial_version)
+        if version <= 3:
+            # V3 and earlier protocols start with an error byte (0 is no error)
+            code = bis.read_byte()
+        else:
+            # V4 starts with an NSON MAP. If the type is correct then treat it
+            # as a V4 response. If it's not correct then it's a V3
+            # error code from a V3 proxy. If it's a V4 map, code will be 0
+            code = SerdeUtil.check_for_map(bis)
         if code == 0:
-            res = request.create_serializer().deserialize(
-                request, bis, self._client.serial_version)
+            res = request.create_serializer(version).deserialize(
+                request, bis, version)
             if request.is_query_request():
                 if not request.is_simple_query():
                     request.get_driver().set_client(self._client)
@@ -590,8 +633,8 @@ class RequestUtils(object):
         """
         if code != SerdeUtil.USER_ERROR.TABLE_NOT_FOUND or \
                 wm_request.is_single_table() or \
-                err.index(",") < 0 or \
-                err.index("[") >= 0:
+                err.find(",") < 0 or \
+                err.find("[") >= 0:
             raise SerdeUtil.map_exception(code, err)
         raise UnsupportedProtocolException(
             "WriteMultiple requests " +
@@ -607,7 +650,7 @@ class RequestUtils(object):
         action.
 
         :param content: content of the response from the server.
-        :type content: bytes for python 3 and str for python 2
+        :type content: bytes
         :param status: the status code of the response from the server.
         :type status: int
         """

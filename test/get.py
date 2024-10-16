@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -15,14 +15,20 @@ from parameters import table_name, timeout
 from test_base import TestBase
 from testutils import get_row
 
+row = None
+tb_expect_expiration = None
+version = None
+serial_version = 0
 
+
+# noinspection PyArgumentEqualDefault
 class TestGet(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
         table_ttl = TimeToLive.of_hours(16)
         create_statement = (
-            'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
+                'CREATE TABLE ' + table_name + '(fld_sid INTEGER, fld_id INTEGER, \
 fld_long LONG, fld_float FLOAT, fld_double DOUBLE, fld_bool BOOLEAN, \
 fld_str STRING, fld_bin BINARY, fld_time TIMESTAMP(7), fld_num NUMBER, \
 fld_json JSON, fld_arr ARRAY(STRING), fld_map MAP(STRING), \

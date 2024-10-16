@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -13,17 +13,18 @@ from borneo import (
 from parameters import index_name, is_minicloud, table_name, timeout
 from test_base import TestBase
 
+table_names = list()
+index_names = list()
+num_indexes = 1
+index_fields = list()
+
 
 class TestGetIndexes(unittest.TestCase, TestBase):
     @classmethod
     def setUpClass(cls):
         cls.set_up_class()
         global table_names, index_names, num_indexes, index_fields
-        table_names = list()
         num_tables = 2
-        index_names = list()
-        num_indexes = 1
-        index_fields = list()
         for index in range(2):
             index_fields.append(list())
         index_fields[0].append('fld_double')
@@ -47,8 +48,8 @@ PRIMARY KEY(fld_id)) USING TTL 2 DAYS')
                 idx_name = index_name + str(index)
                 index_names[table].append(idx_name)
                 create_index_statement = (
-                    'CREATE INDEX ' + idx_name + ' ON ' + tb_name +
-                    '(' + ','.join(index_fields[index]) + ')')
+                        'CREATE INDEX ' + idx_name + ' ON ' + tb_name +
+                        '(' + ','.join(index_fields[index]) + ')')
                 create_index_request = TableRequest().set_statement(
                     create_index_statement)
                 cls.table_request(create_index_request)

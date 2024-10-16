@@ -1,43 +1,44 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
 
-from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from datetime import datetime
-from dateutil import parser, tz
 from decimal import (
     Context, Decimal, ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR,
     ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, ROUND_UP)
-from sys import version_info
 
 from .common import (
-    CheckValue, Empty, IndexInfo, JsonNone, PackedInteger, PreparedStatement,
-    PutOption, State, SystemState, TableLimits, TableUsage, TimeUnit, Version,
-    enum)
-from .exception import (
-    BatchOperationNumberLimitException, DeploymentException,
-    EvolutionLimitException, IllegalArgumentException, IllegalStateException,
-    IndexExistsException, IndexLimitException, IndexNotFoundException,
-    InvalidAuthorizationException, KeySizeLimitException, NoSQLException,
-    OperationNotSupportedException, OperationThrottlingException,
-    ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
-    ResourceExistsException, ResourceNotFoundException, RowSizeLimitException,
-    SecurityInfoNotReadyException, SystemException, TableExistsException,
-    TableLimitException, TableNotFoundException, TableSizeException,
-    UnauthorizedException, UnsupportedProtocolException,
-    WriteThrottlingException)
-from .kv import AuthenticationException
+    CheckValue, Empty, IndexInfo, JsonNone, PreparedStatement,
+    TableLimits, TableUsage, TimeUnit, Version)
+from .exception import IllegalStateException
 from .query import PlanIter, QueryDriver, TopologyInfo
-from .serdeutil import SerdeUtil
+from .serdeutil import (SerdeUtil, RequestSerializer)
 
 try:
     from . import operations
 except ImportError:
     import operations
+
+math_name_to_value = {ROUND_UP: 0,
+                      ROUND_DOWN: 1,
+                      ROUND_CEILING: 2,
+                      ROUND_FLOOR: 3,
+                      ROUND_HALF_UP: 4,
+                      ROUND_HALF_DOWN: 5,
+                      ROUND_HALF_EVEN: 6,
+                      ROUND_05UP: 8}
+math_value_to_name = {0: ROUND_UP,
+                      1: ROUND_DOWN,
+                      2: ROUND_CEILING,
+                      3: ROUND_FLOOR,
+                      4: ROUND_HALF_UP,
+                      5: ROUND_HALF_DOWN,
+                      6: ROUND_HALF_EVEN,
+                      8: ROUND_05UP}
 
 
 class BinaryProtocol(object):
@@ -77,7 +78,7 @@ class BinaryProtocol(object):
             result.set_compartment_id(SerdeUtil.read_string(bis))
             result.set_table_name(SerdeUtil.read_string(bis))
             result.set_state(
-                SerdeUtil._get_table_state(bis.read_byte()))
+                SerdeUtil.get_table_state(bis.read_byte()))
             has_static_state = bis.read_boolean()
             if has_static_state:
                 read_kb = SerdeUtil.read_packed_int(bis)
@@ -170,14 +171,6 @@ class BinaryProtocol(object):
 
     @staticmethod
     def read_math_context(bis):
-        value_to_name = {0: ROUND_UP,
-                         1: ROUND_DOWN,
-                         2: ROUND_CEILING,
-                         3: ROUND_FLOOR,
-                         4: ROUND_HALF_UP,
-                         5: ROUND_HALF_DOWN,
-                         6: ROUND_HALF_EVEN,
-                         8: ROUND_05UP}
         code = bis.read_byte()
         if code == 0:
             return None
@@ -191,7 +184,7 @@ class BinaryProtocol(object):
             return Context(prec=0, rounding=ROUND_HALF_UP)
         elif code == 5:
             precision = bis.read_int()
-            rounding_mode = value_to_name.get(bis.read_int())
+            rounding_mode = math_value_to_name.get(bis.read_int())
             return Context(prec=precision, rounding=rounding_mode)
         else:
             raise IOError('Unknown MathContext code.')
@@ -282,7 +275,7 @@ class BinaryProtocol(object):
     @staticmethod
     def write_field_value(bos, value):
         # Serialize a generic field value.
-        bos.write_byte(SerdeUtil._get_type(value))
+        bos.write_byte(SerdeUtil.get_type(value))
         if value is not None:
             if isinstance(value, list):
                 BinaryProtocol.write_list(bos, value)
@@ -292,9 +285,9 @@ class BinaryProtocol(object):
                 bos.write_boolean(value)
             elif isinstance(value, float):
                 bos.write_float(value)
-            elif CheckValue.is_int(value):
+            elif CheckValue.is_int_value(value):
                 SerdeUtil.write_packed_int(bos, value)
-            elif CheckValue.is_long(value):
+            elif CheckValue.is_long_value(value):
                 SerdeUtil.write_packed_long(bos, value)
             elif isinstance(value, dict):
                 BinaryProtocol.write_dict(bos, value)
@@ -323,20 +316,12 @@ class BinaryProtocol(object):
 
     @staticmethod
     def write_math_context(bos, math_context):
-        name_to_value = {ROUND_UP: 0,
-                         ROUND_DOWN: 1,
-                         ROUND_CEILING: 2,
-                         ROUND_FLOOR: 3,
-                         ROUND_HALF_UP: 4,
-                         ROUND_HALF_DOWN: 5,
-                         ROUND_HALF_EVEN: 6,
-                         ROUND_05UP: 8}
         if math_context is None:
             bos.write_byte(0)
         else:
             bos.write_byte(5)
             bos.write_int(math_context.prec)
-            bos.write_int(name_to_value.get(math_context.rounding))
+            bos.write_int(math_name_to_value.get(math_context.rounding))
 
     @staticmethod
     def write_op_code(bos, op):
@@ -372,27 +357,6 @@ class BinaryProtocol(object):
         SerdeUtil.write_bytearray(bos, version.get_bytes())
 
 
-class RequestSerializer(object):
-    """
-    Base class of different kinds of RequestSerializer.
-    """
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def serialize(self, request, bos, serial_version):
-        """
-        Method used to serialize the request.
-        """
-        pass
-
-    @abstractmethod
-    def deserialize(self, request, bis, serial_version):
-        """
-        Method used to deserialize the request.
-        """
-        pass
-
-
 class DeleteRequestSerializer(RequestSerializer):
     """
     The flag indicates if the serializer is used for a standalone request or a
@@ -424,6 +388,7 @@ class DeleteRequestSerializer(RequestSerializer):
         result.set_success(bis.read_boolean())
         BinaryProtocol.deserialize_write_response(bis, result, serial_version)
         return result
+
 
 class GetIndexesRequestSerializer(RequestSerializer):
 
@@ -547,19 +512,18 @@ class PrepareRequestSerializer(RequestSerializer):
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.PREPARE)
         BinaryProtocol.serialize_request(request, bos)
         SerdeUtil.write_string(bos, request.get_statement())
-        bos.write_short_int(QueryDriver.QUERY_VERSION)
+        bos.write_short_int(request.get_query_version())
         bos.write_boolean(request.get_query_plan())
 
     def deserialize(self, request, bis, serial_version):
         result = operations.PrepareResult()
         BinaryProtocol.deserialize_consumed_capacity(bis, result)
         prep_stmt = PrepareRequestSerializer.deserialize_internal(
-            request.get_statement(), request.get_query_plan(), bis)
-        result.set_prepared_statement(prep_stmt)
+            request.get_statement(), request.get_query_plan(), result, bis)
         return result
 
     @staticmethod
-    def deserialize_internal(sql_text, get_query_plan, bis):
+    def deserialize_internal(sql_text, get_query_plan, prep_result, bis):
         """
         Extract the table name and namespace from the prepared query. This dips
         into the portion of the prepared query that is normally opaque.
@@ -600,10 +564,15 @@ class PrepareRequestSerializer(RequestSerializer):
                     var_id = bis.read_int()
                     external_vars[var_name] = var_id
             topology_info = BinaryProtocol.read_topology_info(bis)
-        return PreparedStatement(
-            sql_text, query_plan, topology_info, proxy_statement, driver_plan,
-            num_iterators, num_registers, external_vars,
+        prep = PreparedStatement(
+            sql_text, query_plan, None, proxy_statement,
+            driver_plan, num_iterators, num_registers, external_vars,
             namespace, table_name, operation)
+        # NOTE: topo info is no longer in the PreparedStatement, it's in
+        # the result
+        prep_result.set_topology_info_object(topology_info)
+        prep_result.set_prepared_statement(prep)
+        return prep
 
 
 class PutRequestSerializer(RequestSerializer):
@@ -619,7 +588,7 @@ class PutRequestSerializer(RequestSerializer):
         self._is_sub_request = is_sub_request
 
     def serialize(self, request, bos, serial_version):
-        op = SerdeUtil._get_op_code(request)
+        op = SerdeUtil.get_put_op_code(request)
         BinaryProtocol.write_op_code(bos, op)
         if self._is_sub_request:
             bos.write_boolean(request.get_return_row())
@@ -645,9 +614,14 @@ class PutRequestSerializer(RequestSerializer):
         BinaryProtocol.deserialize_generated_value(bis, result)
         return result
 
+
 class QueryRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
+        if request.get_query_version() >= QueryDriver.QUERY_V4:
+            raise UnsupportedQueryVersionException(
+                'Query version ' + str(request.get_query_version()) +
+                ' is not supported by the V3 protocol')
         # write unconditional state first.
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.QUERY)
         BinaryProtocol.serialize_request(request, bos)
@@ -657,11 +631,11 @@ class QueryRequestSerializer(RequestSerializer):
         SerdeUtil.write_bytearray(bos, request.get_cont_key())
         bos.write_boolean(request.is_prepared())
         # The following 7 fields were added in V2.
-        bos.write_short_int(QueryDriver.QUERY_VERSION)
+        bos.write_short_int(request.get_query_version())
         bos.write_byte(request.get_trace_level())
         SerdeUtil.write_packed_int(bos, request.get_max_write_kb())
         BinaryProtocol.write_math_context(bos, request.get_math_context())
-        SerdeUtil.write_packed_int(bos, request.topology_seq_num())
+        SerdeUtil.write_packed_int(bos, request.get_topo_seq_num())
         SerdeUtil.write_packed_int(bos, request.get_shard_id())
         bos.write_boolean(request.is_prepared() and request.is_simple_query())
         if request.is_prepared():
@@ -707,25 +681,24 @@ class QueryRequestSerializer(RequestSerializer):
         # statement created at the proxy is returned back along with the query
         # results, so that the preparation does not need to be done during each
         # query batch.
+        prep_result = None
         if not is_prepared:
+            prep_result = operations.PrepareResult()
             prep = PrepareRequestSerializer.deserialize_internal(
-                request.get_statement(), False, bis)
+                request.get_statement(), False, prep_result, bis)
             request.set_prepared_statement(prep)
         if prep is not None and not prep.is_simple_query():
             if not is_prepared:
                 assert num_rows == 0
                 driver = QueryDriver(request)
-                driver.set_topology_info(prep.topology_info())
                 driver.set_prep_cost(result.get_read_kb())
                 result.set_computed(False)
+                result.set_topology_info_object(prep_result.get_topology_info())
             else:
                 # In this case, the QueryRequest is an "internal" one.
                 result.set_reached_limit(bis.read_boolean())
                 topology_info = BinaryProtocol.read_topology_info(bis)
-                driver = request.get_driver()
-                if topology_info is not None:
-                    prep.set_topology_info(topology_info)
-                    driver.set_topology_info(topology_info)
+                result.set_topology_info_object(topology_info)
         else:
             results = SerdeUtil.convert_value_to_none(results)
         result.set_results(results)
@@ -822,7 +795,7 @@ class TableUsageRequestSerializer(RequestSerializer):
         storage_throttle_count = SerdeUtil.read_packed_int(bis)
         usage = TableUsage(start_time_ms, seconds_in_period, read_units,
                            write_units, storage_gb, read_throttle_count,
-                           write_throttle_count, storage_throttle_count)
+                           write_throttle_count, storage_throttle_count, 0)
         return usage
 
 
@@ -861,7 +834,6 @@ class WriteMultipleRequestSerializer(RequestSerializer):
 
         # Operations
         for op in request.get_operations():
-            start = bos.get_offset()
 
             # Abort if successful flag
             bos.write_boolean(op.is_abort_if_unsuccessful())

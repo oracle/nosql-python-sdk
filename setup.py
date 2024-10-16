@@ -27,7 +27,7 @@ with open_relative('src', 'borneo', 'version.py') as fd:
     if not version:
         raise RuntimeError('Cannot find version information')
 
-with open_relative('README.rst') as f:
+with open_relative('README.md') as f:
     readme = f.read()
 
 requires = [
@@ -43,10 +43,10 @@ setup(
 
     # Version should match the system release, but may vary as patches
     # are created.
-    version=version,
+    version=str(version),
     description='Oracle NoSQL Database Python SDK',
-    long_description=readme,
-    long_description_content_type='text/x-rst',
+    long_description=str(readme),
+    long_description_content_type='text/markdown',
 
     author='Oracle',
     author_email='george.feinberg@oracle.com',
@@ -73,7 +73,6 @@ setup(
         'License :: OSI Approved :: Universal Permissive License (UPL)',
 
         # Supported Python versions
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -79,7 +79,16 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             self.assertRaises(IllegalArgumentException,
                               self.handle.system_status, 'IllegalRequest')
 
+        # noinspection PyBroadException
         def testSystemStatusRequestNormal(self):
+            # cleanup -- drop namespace, don't wait
+            # noinspection PyBroadException
+            try:
+                self.sys_request.set_statement(self.drop)
+                self.handle.system_request(self.sys_request)
+            except:
+                pass
+
             # execute create namespace system request.
             self.sys_request.set_statement(self.create)
             result = self.handle.system_request(self.sys_request)
@@ -88,6 +97,7 @@ class TestSystemStatusRequest(unittest.TestCase, TestBase):
             result = self.handle.system_status(self.sys_status)
             result.wait_for_completion(self.handle, wait_timeout, 1000)
             self.check_system_result(result, SystemState.COMPLETE, True)
+
             # execute drop namespace system request.
             self.sys_request.set_statement(self.drop)
             result = self.handle.system_request(self.sys_request)

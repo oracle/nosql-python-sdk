@@ -1,41 +1,50 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
 from abc import abstractmethod
 from datetime import datetime
-from dateutil import parser, tz
 from decimal import Context, ROUND_HALF_EVEN
 from json import loads
-from time import mktime, sleep, time
+from time import sleep, time
+
+from dateutil import tz
 
 from .common import (
     CheckValue, Consistency, Durability, FieldRange, PreparedStatement,
-    PutOption, State, SystemState, TableLimits, TimeToLive, Version,
-    deprecated)
+    PutOption, ReplicaStats, State, SystemState, TableLimits, TableUsage,
+    TimeToLive, Version, deprecated)
 from .exception import (
     IllegalArgumentException, RequestTimeoutException)
 from .http import RateLimiter
 from .serde import (
-    BinaryProtocol, DeleteRequestSerializer, GetIndexesRequestSerializer,
-    GetRequestSerializer, GetTableRequestSerializer,
-    ListTablesRequestSerializer, MultiDeleteRequestSerializer,
+    DeleteRequestSerializer, GetIndexesRequestSerializer,
+    GetRequestSerializer, GetTableRequestSerializer, ListTablesRequestSerializer,
+    MultiDeleteRequestSerializer,
     PrepareRequestSerializer, PutRequestSerializer, QueryRequestSerializer,
     SystemRequestSerializer, SystemStatusRequestSerializer,
     TableRequestSerializer, TableUsageRequestSerializer,
     WriteMultipleRequestSerializer)
+from .query import TopologyInfo
+from .serdeutil import SerdeUtil
+
 try:
     from . import config
+    from . import serdeutil
 except ImportError:
     import config
+    import serdeutil
+
+import borneo.nson
 
 
 class Request(object):
     """
     A request is a class used as a base for all requests types. Public state and
-    methods are implemented by extending classes.
+    methods are implemented by extending classes. This pattern is used so that
+    fluent construction works properly for the extending classes
     """
 
     def __init__(self):
@@ -48,6 +57,8 @@ class Request(object):
         self._timeout_ms = 0
         self._write_rate_limiter = None
         self._rate_limit_delayed_ms = 0
+        self._namespace = None
+        self._topo_seq_num = -1
 
     def add_retry_delay_ms(self, millis):
         """
@@ -97,9 +108,9 @@ class Request(object):
 
     def get_compartment(self):
         """
-        Cloud service only.
-
         Get the compartment id or name if set for the request.
+
+        Cloud service only.
 
         :returns: compartment id or name if set for the request, otherwise None
             if not set.
@@ -120,8 +131,6 @@ class Request(object):
 
     def get_read_rate_limiter(self):
         """
-        Cloud service only.
-
         Returns the read rate limiter instance used during this request.
 
         This will be the value supplied via :py:meth:`set_read_rate_limiter`, or
@@ -130,6 +139,8 @@ class Request(object):
 
         This is supplied for stats and tracing/debugging only. The returned
         limiter should be treated as read-only.
+
+        Cloud service only.
 
         :returns: the rate limiter instance used for read operations, or None if
             no limiter was used.
@@ -179,12 +190,17 @@ class Request(object):
         return self._table_name
 
     def get_timeout(self):
+        """
+        Returns the timeout to use for the operation, in milliseconds. A value
+        of 0 indicates that the timeout has not been set.
+
+        :returns: the timeout value.
+        :rtype: int
+        """
         return self._timeout_ms
 
     def get_write_rate_limiter(self):
         """
-        Cloud service only.
-
         Returns the write rate limiter instance used during this request.
 
         This will be the value supplied via :py:meth:`set_write_rate_limiter`,
@@ -193,6 +209,8 @@ class Request(object):
 
         This is supplied for stats and tracing/debugging only. The returned
         limiter should be treated as read-only.
+
+        Cloud service only.
 
         :returns: the rate limiter instance used for write operations, or None
             if no limiter was used.
@@ -247,13 +265,13 @@ class Request(object):
 
     def set_read_rate_limiter(self, rate_limiter):
         """
-        Cloud service only.
-
         Sets a read rate limiter to use for this request.
 
         This will override any internal rate limiter that may have otherwise
         been used during request processing, and it will be used regardless of
         any rate limiter config.
+
+        Cloud service only.
 
         :param rate_limiter: the rate limiter instance to use for read
             operations.
@@ -298,13 +316,13 @@ class Request(object):
 
     def set_write_rate_limiter(self, rate_limiter):
         """
-        Cloud service only.
-
         Sets a write rate limiter to use for this request.
 
         This will override any internal rate limiter that may have otherwise
         been used during request processing, and it will be used regardless of
         any rate limiter config.
+
+        Cloud service only.
 
         :param rate_limiter: the rate limiter instance to use for write
             operations.
@@ -334,6 +352,37 @@ class Request(object):
         """
         CheckValue.check_str(table_name, 'table_name', True)
         self._table_name = table_name
+
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        Internal use only
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        CheckValue.check_str(namespace, 'namespace', True)
+        self._namespace = namespace
+
+    def get_namespace(self):
+        """
+        Returns the namespace to use for the operation or None if not
+        set.
+
+        On-premises only
+
+        :returns: namespace, or None if not set.
+        :rtype: str
+        :versionadded:: 5.4.0
+        """
+        return self._namespace
 
     def _set_timeout(self, timeout_ms):
         CheckValue.check_int_gt_zero(timeout_ms, 'timeout_ms')
@@ -375,10 +424,20 @@ class Request(object):
             raise IllegalArgumentException(
                 name + ' requires an instance of RateLimiter as parameter.')
 
-    @abstractmethod
     def get_request_name(self):
         # type () -> str
         pass
+
+    def set_query_version(self, version):
+        pass
+
+    def set_topo_seq_num(self, num):
+        if self._topo_seq_num < 0:
+            self._topo_seq_num = num;
+        return self
+
+    def get_topo_seq_num(self):
+        return self._topo_seq_num
 
 
 class WriteRequest(Request):
@@ -396,9 +455,6 @@ class WriteRequest(Request):
         super(WriteRequest, self).__init__()
         self._return_row = False
         self._durability = None
-
-    def __str__(self):
-        return 'WriteRequest'
 
     def __str__(self):
         return 'WriteRequest'
@@ -429,7 +485,7 @@ class WriteRequest(Request):
     def _validate_write_request(self, request_name):
         if self.get_table_name() is None:
             raise IllegalArgumentException(
-                 "{} requires table name".format(request_name))
+                "{} requires table name".format(request_name))
 
     def get_durability(self):
         pass
@@ -438,7 +494,8 @@ class WriteRequest(Request):
         # type: () -> str
         return "Write"
 
-    def get_type_name(self):
+    @staticmethod
+    def get_type_name():
         # type: () -> str
         return "Write"
 
@@ -491,6 +548,7 @@ class ReadRequest(Request):
         return "Read"
 
 
+# noinspection PyUnusedLocal
 class DeleteRequest(WriteRequest):
     """
     Represents the input to a :py:meth:`NoSQLHandle.delete` operation.
@@ -561,8 +619,6 @@ class DeleteRequest(WriteRequest):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -572,6 +628,8 @@ class DeleteRequest(WriteRequest):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -656,10 +714,16 @@ class DeleteRequest(WriteRequest):
 
     def set_return_row(self, return_row):
         """
-        Sets whether information about the existing row should be returned on
-        failure because of a version mismatch. If a match version has not been
-        set via :py:meth:`set_match_version` this parameter is ignored and there
-        will be no return information. This parameter is optional and defaults
+        Sets whether information about the existing row should be returned.
+        If set to true existing row information is returned if one of the
+        following occurs:
+
+            PutOption.IF_VERSION is used and the operation fails because
+            the row exists and its version does not match.\n
+            PutOption.IF_VERSION is not used and the operation succeeds
+            provided that the server supports providing the existing row.
+
+        This parameter is optional and defaults
         to False. It's use may incur additional cost.
 
         :param return_row: set to True if information should be returned.
@@ -683,24 +747,28 @@ class DeleteRequest(WriteRequest):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         self._set_durability(durability)
         return self
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or
+        None if not set.
+
+        On-premises only
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_durability()
 
@@ -714,7 +782,13 @@ class DeleteRequest(WriteRequest):
             raise IllegalArgumentException('DeleteRequest requires a key.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.DeleteRequestSerializer()
         return DeleteRequestSerializer()
 
     def get_request_name(self):
@@ -722,6 +796,7 @@ class DeleteRequest(WriteRequest):
         return "Delete"
 
 
+# noinspection PyUnusedLocal
 class GetIndexesRequest(Request):
     """
     Represents the argument of a :py:meth:`NoSQLHandle.get_indexes` operation
@@ -753,8 +828,6 @@ class GetIndexesRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -764,6 +837,8 @@ class GetIndexesRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -836,7 +911,13 @@ class GetIndexesRequest(Request):
                 'GetIndexesRequest requires a table name.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.GetIndexesRequestSerializer()
         return GetIndexesRequestSerializer()
 
     def get_request_name(self):
@@ -844,6 +925,7 @@ class GetIndexesRequest(Request):
         return "GetIndexes"
 
 
+# noinspection PyUnusedLocal
 class GetRequest(ReadRequest):
     """
     Represents the input to a :py:meth:`NoSQLHandle.get` operation which returns
@@ -898,6 +980,22 @@ class GetRequest(ReadRequest):
         """
         return self._key
 
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(GetRequest, self).set_namespace(namespace)
+        return self
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the operation. This is a required
@@ -914,8 +1012,6 @@ class GetRequest(ReadRequest):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -925,6 +1021,8 @@ class GetRequest(ReadRequest):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -994,7 +1092,13 @@ class GetRequest(ReadRequest):
             raise IllegalArgumentException('GetRequest requires a key.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.GetRequestSerializer()
         return GetRequestSerializer()
 
     def get_request_name(self):
@@ -1002,6 +1106,7 @@ class GetRequest(ReadRequest):
         return "Get"
 
 
+# noinspection PyUnusedLocal
 class GetTableRequest(Request):
     """
     Represents the argument of a :py:meth:`NoSQLHandle.get_table` operation
@@ -1020,6 +1125,22 @@ class GetTableRequest(Request):
     def __str__(self):
         return 'GetTableRequest'
 
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(GetTableRequest, self).set_namespace(namespace)
+        return self
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the request.
@@ -1035,8 +1156,6 @@ class GetTableRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1046,6 +1165,8 @@ class GetTableRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1126,7 +1247,13 @@ class GetTableRequest(Request):
                 'GetTableRequest requires a table name.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.GetTableRequestSerializer()
         return GetTableRequestSerializer()
 
     def get_request_name(self):
@@ -1155,8 +1282,6 @@ class ListTablesRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1166,6 +1291,8 @@ class ListTablesRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1235,11 +1362,11 @@ class ListTablesRequest(Request):
 
     def set_namespace(self, namespace):
         """
-        On-premise only.
-
         Sets the namespace to use for the list. If not set, all tables
         accessible to the user will be returned. If set, only tables in the
         namespace provided are returned.
+
+        On-premise only.
 
         :param namespace: the namespace to use.
         :type namespace: str
@@ -1253,9 +1380,9 @@ class ListTablesRequest(Request):
 
     def get_namespace(self):
         """
-        On-premise only.
-
         Returns the namespace to use for the list or None if not set.
+
+        On-premise only.
 
         :returns: the namespace.
         :rtype: str
@@ -1298,7 +1425,13 @@ class ListTablesRequest(Request):
                 'non-negative.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.ListTablesRequestSerializer()
         return ListTablesRequestSerializer()
 
     def get_request_name(self):
@@ -1340,8 +1473,21 @@ class MultiDeleteRequest(Request):
     def __str__(self):
         return 'MultiDeleteRequest'
 
-    def __str__(self):
-        return 'MultiDeleteRequest'
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(MultiDeleteRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -1383,8 +1529,6 @@ class MultiDeleteRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1394,6 +1538,8 @@ class MultiDeleteRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1516,14 +1662,16 @@ class MultiDeleteRequest(Request):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         if durability is None:
             self._durability = None
@@ -1537,10 +1685,12 @@ class MultiDeleteRequest(Request):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._durability
 
@@ -1561,7 +1711,13 @@ class MultiDeleteRequest(Request):
             self._range.validate()
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.MultiDeleteRequestSerializer()
         return MultiDeleteRequestSerializer()
 
     def get_request_name(self):
@@ -1587,9 +1743,33 @@ class PrepareRequest(Request):
         super(PrepareRequest, self).__init__()
         self._statement = None
         self._get_query_plan = False
+        self._get_query_schema = False
+        self._query_version = 0
 
     def __str__(self):
         return 'PrepareRequest'
+
+    def set_query_version(self, version):
+        self._query_version = version
+
+    def get_query_version(self):
+        return self._query_version
+
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(PrepareRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -1630,8 +1810,6 @@ class PrepareRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1641,6 +1819,8 @@ class PrepareRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -1656,11 +1836,11 @@ class PrepareRequest(Request):
 
     def set_get_query_plan(self, get_query_plan):
         """
-        Sets whether a printout of the query execution plan should be included
-        in the :py:class:`PrepareResult`.
+        Sets whether a JSON representation of the query execution plan should
+        be included in the :py:class:`PreparedStatement`.
 
-        :param get_query_plan: True if a printout of the query execution plan
-            should be included in the :py:class:`PrepareResult`. False
+        :param get_query_plan: True if a the query execution plan
+            should be included in the :py:class:`PreparedStatement`. False
             otherwise.
         :type get_query_plan: bool
         :returns: self.
@@ -1673,14 +1853,43 @@ class PrepareRequest(Request):
 
     def get_query_plan(self):
         """
-        Returns whether a printout of the query execution plan should be include
-        in the :py:class:`PrepareResult`.
+        Returns whether a JSON representation of the query execution plan should
+        be included in the :py:class:`PreparedStatement`.
 
-        :returns: whether a printout of the query execution plan should be
-            include in the :py:class:`PrepareResult`.
+        :returns: whether the the query execution plan should be
+            included in the :py:class:`PreparedStatement`.
         :rtype: bool
         """
         return self._get_query_plan
+
+    def set_get_query_schema(self, get_query_schema):
+        """
+        Sets whether a JSON representation of the schema of the query should
+        be included in the :py:class:`PreparedStatement`.
+
+        :param: get_query_schema: True if a JSON representation of the schema
+        of the query should be included in the :py:class:`PreparedStatement`.
+        :type get_query_schema: bool
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if get_query_schema
+            is not a boolean.
+        :versionadded:: 5.4.0
+        """
+        CheckValue.check_boolean(get_query_schema, 'get_query_schema')
+        self._get_query_schema = get_query_schema
+        return self
+
+    def get_query_schema(self):
+        """
+        Returns whether a JSON representation of the schema of the query should
+        be included in the :py:class:`PreparedStatement`.
+
+        :returns: True if a JSON representation of the schema
+        of the query should be included in the :py:class:`PreparedStatement`.
+        :rtype: bool
+        :versionadded:: 5.4.0
+        """
+        return self._get_query_schema
 
     def set_timeout(self, timeout_ms):
         """
@@ -1713,7 +1922,13 @@ class PrepareRequest(Request):
                 'PrepareRequest requires a statement.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.PrepareRequestSerializer()
         return PrepareRequestSerializer()
 
     def get_request_name(self):
@@ -1736,9 +1951,17 @@ class PutRequest(WriteRequest):
         specific :py:class:`Version`. Use PutOption.IF_VERSION for this case and
         :py:meth:`set_match_version` to specify the version to match.
 
-    Information about the existing row can be returned on failure of a put
-    operation using PutOption.IF_VERSION or PutOption.IF_ABSENT by using
-    :py:meth:`set_return_row`. Requesting this information incurs additional
+    Information about the existing row can be optionally returned if
+    :py:meth:`set_return_row` is set to true and one of the following occurs:
+
+        PutOption.IF_ABSENT is used and the operation fails because
+        the row already exists.\n
+        PutOption.IF_VERSION is used and the operation fails because
+        the row exists and its version does not match.\n
+        PutOption.IF_PRESENT is used and the operation succeeds
+        provided that the server supports providing the existing row.
+
+    Requesting this information incurs additional
     cost and may affect operation latency.
 
     On a successful operation the :py:class:`Version` returned by
@@ -1805,8 +2028,6 @@ class PutRequest(WriteRequest):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -1816,6 +2037,8 @@ class PutRequest(WriteRequest):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -2028,6 +2251,22 @@ class PutRequest(WriteRequest):
         """
         return super(PutRequest, self).get_timeout()
 
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(PutRequest, self).set_namespace(namespace)
+        return self
+
     def set_table_name(self, table_name):
         """
         Sets the table name to use for the operation.
@@ -2044,9 +2283,19 @@ class PutRequest(WriteRequest):
 
     def set_return_row(self, return_row):
         """
-        Sets whether information about the exist row should be returned on
-        failure because of a version mismatch or failure of an "if absent"
-        operation.
+        Sets whether information about the exist row should be returned.
+        If set to true, information about the existing row will be returned
+        if one of the following occurs:
+
+            PutOption.IF_ABSENT is used and the operation fails because
+            the row already exists.\n
+            PutOption.IF_VERSION is used and the operation fails because
+            the row exists and its version does not match.\n
+            PutOption.IF_PRESENT is used and the operation succeeds
+            provided that the server supports providing the existing row.
+
+        Requesting this information incurs additional
+        cost and may affect operation latency.
 
         :param return_row: set to True if information should be returned.
         :type return_row: bool
@@ -2059,11 +2308,7 @@ class PutRequest(WriteRequest):
 
     def get_return_row(self):
         """
-        Returns whether information about the exist row should be returned on
-        failure because of a version mismatch or failure of an "if absent"
-        operation. If no option is set via :py:meth:`set_option` or the option
-        is PutOption.IF_PRESENT the value of this parameter is ignored and there
-        will not be any return information.
+        Returns whether information about the exist row should be returned.
 
         :returns: True if information should be returned.
         :rtype: bool
@@ -2072,24 +2317,28 @@ class PutRequest(WriteRequest):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         self._set_durability(durability)
         return self
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_durability()
 
@@ -2122,13 +2371,18 @@ class PutRequest(WriteRequest):
                 ' may be specified')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.PutRequestSerializer()
         return PutRequestSerializer()
 
     def get_request_name(self):
         # type: () -> str
         return "Put"
-
 
 class QueryRequest(Request):
     """
@@ -2185,6 +2439,7 @@ class QueryRequest(Request):
         self._max_memory_consumption = 1024 * 1024 * 1024
         self._math_context = Context(prec=7, rounding=ROUND_HALF_EVEN)
         self._consistency = None
+        self._durability = None
         self._statement = None
         self._prepared_statement = None
         self._continuation_key = None
@@ -2197,6 +2452,16 @@ class QueryRequest(Request):
         # An "internal" request is one created and submitted for execution by
         # the ReceiveIter.
         self.is_internal = False
+        # test mode used for query testing
+        self._in_test_mode = False
+        # new with elasticity changes
+        self._query_version = 0
+        self._query_name = None
+        self._virtual_scan = None # a dict if set
+        self._log_file_tracing = False
+        self._driver_query_trace = None
+        self._server_query_traces = None # dict if set
+        self._batch_counter = 0
 
     def __str__(self):
         return 'QueryRequest'
@@ -2207,47 +2472,42 @@ class QueryRequest(Request):
         internal_req = QueryRequest()
         internal_req.set_compartment(self.get_compartment())
         internal_req.set_table_name(self.get_table_name())
-        internal_req.set_timeout(self.get_timeout())
+        # avoid check on timeout value
+        internal_req._timeout_ms = self._timeout_ms
         internal_req.set_trace_level(self._trace_level)
         internal_req.set_limit(self._limit)
         internal_req.set_max_read_kb(self._max_read_kb)
         internal_req.set_max_write_kb(self._max_write_kb)
         internal_req.set_max_memory_consumption(self._max_memory_consumption)
         internal_req.set_math_context(self._math_context)
-        internal_req.set_consistency(self._consistency)
-        internal_req.set_prepared_statement(self._prepared_statement)
+        internal_req._consistency = self._consistency
+        internal_req.set_durability(self._durability)
+        internal_req._prepared_statement = self._prepared_statement
+        internal_req.set_query_version(self._query_version)
         internal_req.driver = self.driver
         internal_req.is_internal = True
+        # new with elasticity
+        internal_req._log_file_tracing = self._log_file_tracing
+        internal_req._query_name = self._query_name
+        internal_req._batch_counter = self._batch_counter
+        internal_req._driver_query_trace = self._driver_query_trace
+        internal_req._topo_seq_num = self._topo_seq_num
+        internal_req._in_test_mode = self._in_test_mode
         return internal_req
 
     def copy(self):
         """
         Copies the query request to start query results from the beginning.
 
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
-        copy = QueryRequest()
-        copy._compartment = self.get_compartment()
-        copy._prepared_statement = self.get_table_name()
-        timeout = self.get_timeout()
-        if timeout > 0:
-            copy.set_timeout(timeout)
-        copy.set_trace_level(self._trace_level)
-        copy.set_limit(self._limit)
-        copy.set_max_read_kb(self._max_read_kb)
-        copy.set_max_write_kb(self._max_write_kb)
-        copy.set_max_memory_consumption(self._max_memory_consumption)
-        copy.set_math_context(self._math_context)
-        if self._consistency is not None:
-            copy.set_consistency(self._consistency)
-        if self._prepared_statement is not None:
-            copy.set_prepared_statement(self._prepared_statement)
+        copy = self.copy_internal()
         copy._statement = self._statement
-        # leave continuationKey null to start from the beginning
-        # copy._continuation_key = self._continuation_key
-        self.is_internal = False
-        self._shard_id = -1
-        self.driver = None
+        copy.is_internal = False
+        copy.driver = None
+        copy.shard_id = -1
+        self._driver_query_trace = None
+        self._batch_counter = 0
 
         return copy
 
@@ -2269,15 +2529,50 @@ class QueryRequest(Request):
         """
         return self._continuation_key is None
 
+    def incr_batch_counter(self):
+        self._batch_counter += 1
+
+    def get_batch_counter(self):
+        return self._batch_counter
+
+    def set_query_version(self, version):
+        self._query_version = version
+        return self
+
+    def get_query_name(self):
+        return self._query_name
+
+    def get_query_version(self):
+        return self._query_version
+
+    def set_virtual_scan(self, vs):
+        self._virtual_scan = vs
+        return self
+
+    def get_virtual_scan(self):
+        self._virtual_scan
+
     def get_table_name(self):
         if self._prepared_statement is None:
             return None
         return self._prepared_statement.get_table_name()
 
+    def set_query_traces(self, traces):
+        self._server_query_traces = traces
+        return self
+
+    def get_query_traces(self):
+        return self._server_query_traces
+
+    def set_log_file_tracing(self, value):
+        self._log_file_tracing = value
+        return self
+
+    def get_log_file_tracing(self):
+        return self._log_file_tracing
+
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -2287,6 +2582,8 @@ class QueryRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -2309,6 +2606,12 @@ class QueryRequest(Request):
 
     def get_trace_level(self):
         return self._trace_level
+
+    def set_in_test_mode(self, value):
+        self._in_test_mode = value
+
+    def get_in_test_mode(self):
+        return self._in_test_mode
 
     def set_limit(self, limit):
         """
@@ -2482,6 +2785,34 @@ class QueryRequest(Request):
         :rtype: Consistency
         """
         return self._consistency
+
+    def set_durability(self, durability):
+        """
+        Sets the durability to use for the operation. Only
+        used for queries that do writes or deletes.
+
+        On-premises only
+
+        :param durability: the Durability to use
+        :type durability: Durability
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if Durability
+            is not valid
+        :versionadded:: 5.4.0
+        """
+        self._durability = durability
+        return self
+
+    def get_durability(self):
+        """
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
+        :returns: the Durability
+        :versionadded:: 5.4.0
+        """
+        return self._durability
 
     @deprecated
     def set_continuation_key(self, continuation_key):
@@ -2661,17 +2992,19 @@ class QueryRequest(Request):
         return (None if self._prepared_statement is None else
                 self._prepared_statement.topology_info())
 
-    def topology_seq_num(self):
-        return (-1 if self._prepared_statement is None else
-                self._prepared_statement.topology_seq_num())
-
     def validate(self):
         if self._statement is None and self._prepared_statement is None:
             raise IllegalArgumentException(
                 'Either statement or prepared statement should be set.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.QueryRequestSerializer()
         return QueryRequestSerializer()
 
     def get_request_name(self):
@@ -2681,9 +3014,9 @@ class QueryRequest(Request):
 
 class SystemRequest(Request):
     """
-    On-premise only.
+    On-premises only.
 
-    SystemRequest is an on-premise-only request used to perform any
+    SystemRequest is an on-premises only request used to perform any
     table-independent administrative operation such as create/drop of namespaces
     and security-relevant operations (create/drop users and roles). These
     operations are asynchronous and completion needs to be checked.
@@ -2772,7 +3105,13 @@ class SystemRequest(Request):
                 'SystemRequest requires a statement.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.SystemRequestSerializer()
         return SystemRequestSerializer()
 
     def get_request_name(self):
@@ -2782,9 +3121,9 @@ class SystemRequest(Request):
 
 class SystemStatusRequest(Request):
     """
-    On-premise only.
+    On-premises only.
 
-    SystemStatusRequest is an on-premise-only request used to check the status
+    SystemStatusRequest is an on-premises only request used to check the status
     of an operation started using a :py:class:`SystemRequest`.
     """
 
@@ -2894,7 +3233,13 @@ class SystemStatusRequest(Request):
                 'SystemStatusRequest requires an operation id.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.SystemStatusRequestSerializer()
         return SystemStatusRequestSerializer()
 
     def get_request_name(self):
@@ -2923,13 +3268,16 @@ class TableRequest(Request):
     :py:meth:`NoSQLHandle.table_request` returns a :py:class:`TableResult`
     instance that can be used to poll until the table reaches the desired state.
 
-    The statement is required parameter.
+    The statement is required parameter unless modifying limits.
     """
 
     def __init__(self):
         super(TableRequest, self).__init__()
         self._statement = None
         self._limits = None
+        self._defined_tags = None  # a dict, with str values
+        self._match_etag = None
+        self._free_form_tags = None  # a dict, wih str values
 
     def __str__(self):
         return ('TableRequest: [name=' + str(self.get_table_name()) +
@@ -2963,8 +3311,6 @@ class TableRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -2974,6 +3320,8 @@ class TableRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -2989,13 +3337,13 @@ class TableRequest(Request):
 
     def set_table_limits(self, table_limits):
         """
-        Cloud service only.
-
         Sets the table limits to use for the operation. Limits are used in only
         2 cases -- table creation statements and limits modification operations.
         It is not used for other DDL operations.
 
-        If limits are set for an on-premise service they are silently ignored.
+        If limits are set for an on-premises service they are silently ignored.
+
+        Cloud service only.
 
         :param table_limits: the limits.
         :type table_limits: TableLimits
@@ -3018,6 +3366,96 @@ class TableRequest(Request):
         :rtype: TableLimits
         """
         return self._limits
+
+    def set_defined_tags(self, tags):
+        """
+        Sets defined tags
+
+        Cloud service only.
+
+        :param tags the tags
+        :type tags: dict[str, dict[str, object]]
+        :versionadded:: 5.4.0
+        """
+        self._defined_tags = tags
+
+    def get_defined_tags(self):
+        """
+        Returns the defined tags or None if not set
+
+        Cloud service only.
+
+        :returns: the defined tags.
+        :rtype: dict[str, dict[str, object]]
+        :versionadded:: 5.4.0
+        """
+        return self._defined_tags
+
+    def set_free_form_tags(self, tags):
+        """
+        Sets free_form tags
+
+        Cloud service only.
+
+        :param tags the tags
+        :type tags: dict[str, str]
+        :versionadded:: 5.4.0
+        """
+        self._free_form_tags = tags
+
+    def get_free_form_tags(self):
+        """
+        Returns the free_form tags or None if not set
+
+        :returns: the free_form tags.
+        :rtype: dict[str, str]
+        :versionadded:: 5.4.0
+        """
+        return self._free_form_tags
+
+    def set_match_etag(self, etag):
+        """
+        Sets a ETag to match for the operation to proceed. The ETag must be
+        non-null and have been previously returned in :py:class:`TableResult`.
+        The ETag is a form of optimistic concurrency control allowing an
+        application to ensure no unexpected modifications have been made to the
+        table.
+
+        Cloud service only.
+
+        :param etag the tag
+        :type etag: str
+        :versionadded:: 5.4.0
+        """
+        self._match_etag = etag
+
+    def get_match_etag(self):
+        """
+        Returns the match etag or None if not set
+
+        Cloud service only.
+
+        :returns: the match etag or None if not set
+        :rtype: str
+        :versionadded:: 5.4.0
+        """
+        return self._match_etag
+
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(TableRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -3090,7 +3528,13 @@ class TableRequest(Request):
             self._limits.validate()
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.TableRequestSerializer()
         return TableRequestSerializer()
 
     def get_request_name(self):
@@ -3123,6 +3567,23 @@ class TableUsageRequest(Request):
         self._start_time = 0
         self._end_time = 0
         self._limit = 0
+        self._start_index = 0
+
+    def set_namespace(self, namespace):
+        """
+        Sets the namespace to use for the operation. This will override
+        any configured default value.
+
+        On-premises only
+
+        :param namespace: the namespace
+        :type namespace: str
+        :raises IllegalArgumentException: raises the exception if namespace is
+            not a string.
+        :versionadded:: 5.4.0
+        """
+        super(TableUsageRequest, self).set_namespace(namespace)
+        return self
 
     def set_table_name(self, table_name):
         """
@@ -3140,8 +3601,6 @@ class TableUsageRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -3151,6 +3610,8 @@ class TableUsageRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -3181,7 +3642,7 @@ class TableUsageRequest(Request):
         """
         self._check_time(start_time)
         if isinstance(start_time, str):
-            start_time = self._iso_time_to_timestamp(start_time)
+            start_time = SerdeUtil.iso_time_to_ms(start_time)
         self._start_time = start_time
         return self
 
@@ -3226,7 +3687,7 @@ class TableUsageRequest(Request):
         """
         self._check_time(end_time)
         if isinstance(end_time, str):
-            end_time = self._iso_time_to_timestamp(end_time)
+            end_time = SerdeUtil.iso_time_to_ms(end_time)
         self._end_time = end_time
         return self
 
@@ -3278,6 +3739,33 @@ class TableUsageRequest(Request):
         """
         return self._limit
 
+    def set_start_index(self, start_index):
+        """
+        Sets the index to use to start returning usage records within the
+        specified range. This is related to the last_returned_index from a
+        previous request and can be used to page usage records. If not set
+        the list starts a 0
+        :param start_index: the numeric index.
+        :type start_index: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if start_index
+        is a negative number.
+        :versionadded:: 5.4.0
+        """
+        CheckValue.check_int_ge_zero(start_index, 'start_index')
+        self._start_index = start_index
+        return self
+
+    def get_start_index(self):
+        """
+        Returns the start_index for usage records desired.
+
+        :returns: the numeric start_index.
+        :rtype: int
+        :versionadded:: 5.4.0
+        """
+        return self._start_index
+
     def set_timeout(self, timeout_ms):
         """
         Sets the request timeout value, in milliseconds. This overrides any
@@ -3316,24 +3804,22 @@ class TableUsageRequest(Request):
                 'TableUsageRequest: end time must be greater than start time.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.TableUsageRequestSerializer()
         return TableUsageRequestSerializer()
 
     @staticmethod
     def _check_time(dt):
-        if (not (CheckValue.is_int(dt) or CheckValue.is_long(dt) or
-                 CheckValue.is_str(dt)) or
+        if (not (isinstance(dt, int) or CheckValue.is_str(dt)) or
                 not CheckValue.is_str(dt) and dt < 0):
             raise IllegalArgumentException(
                 'dt must be an integer that is not negative or an ISO ' +
                 '8601 formatted string. Got:' + str(dt))
-
-    @staticmethod
-    def _iso_time_to_timestamp(dt):
-        dt = parser.parse(dt)
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(tz.UTC)
-        return int(mktime(dt.timetuple()) * 1000) + dt.microsecond // 1000
 
     def get_request_name(self):
         # type: () -> str
@@ -3398,8 +3884,9 @@ class WriteMultipleRequest(Request):
         if table_name is None:
             self.set_table_name(request.get_table_name())
         else:
-            if self.get_top_table_name(request.get_table_name().lower()) \
-                    != table_name.lower():
+            if (WriteMultipleRequest.get_top_table_name(
+                    request.get_table_name().lower())
+                    != table_name.lower()):
                 raise IllegalArgumentException(
                     'The parent table_name used for the operation is '
                     'different from that of others: ' + table_name)
@@ -3407,7 +3894,8 @@ class WriteMultipleRequest(Request):
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self
 
-    def get_top_table_name(self, table_name: str):
+    @staticmethod
+    def get_top_table_name(table_name):
         pos = table_name.find('.')
         if pos == -1:
             return table_name
@@ -3424,8 +3912,6 @@ class WriteMultipleRequest(Request):
 
     def set_compartment(self, compartment):
         """
-        Cloud service only.
-
         Sets the name or id of a compartment to be used for this operation.
 
         The compartment may be specified as either a name (or path for nested
@@ -3435,6 +3921,8 @@ class WriteMultipleRequest(Request):
         the service from a compute instance in the Oracle Cloud Infrastructure.
         See
         :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        Cloud service only.
 
         :param compartment: the compartment name or id. If using a nested
             compartment, specify the full compartment path
@@ -3512,14 +4000,16 @@ class WriteMultipleRequest(Request):
 
     def set_durability(self, durability):
         """
-        On-premise only. Sets the durability to use for the operation.
+        Sets the durability to use for the operation.
+
+        On-premises only
 
         :param durability: the Durability to use
         :type durability: Durability
         :returns: self.
         :raises IllegalArgumentException: raises the exception if Durability
             is not valid
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         if durability is None:
             self._durability = None
@@ -3533,10 +4023,12 @@ class WriteMultipleRequest(Request):
 
     def get_durability(self):
         """
-        On-premise only. Gets the durability to use for the operation or
-        None if not set
+        Gets the durability to use for the operation or None if not set
+
+        On-premises only
+
         :returns: the Durability
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._durability
 
@@ -3555,7 +4047,13 @@ class WriteMultipleRequest(Request):
             raise IllegalArgumentException('The requests list is empty.')
 
     @staticmethod
-    def create_serializer():
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.WriteMultipleRequestSerializer()
         return WriteMultipleRequestSerializer()
 
     class OperationRequest(object):
@@ -3577,6 +4075,543 @@ class WriteMultipleRequest(Request):
         return "WriteMultiple"
 
 
+class AddReplicaRequest(Request):
+    """
+    Cloud service only
+
+    AddReplicaRequest is used to add a new replica (region) to a table
+    """
+
+    def __init__(self):
+        super(AddReplicaRequest, self).__init__()
+        self._replica_name = None
+        self._read_units = 0
+        self._write_units = 0
+        self._match_etag = None
+
+    def __str__(self):
+        return ('AddReplicaRequest: [name=' + str(self.get_table_name()) +
+                ', replica_name=' + str(self._replica_name) + ', read_units=' +
+                str(self._read_units) + ', write_units=' +
+                str(self._write_units) +
+                ', match_etag=' + str(self._match_etag) + ']')
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name to replicate.
+
+        :param table_name: the name of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(AddReplicaRequest, self).set_table_name(table_name)
+        return self
+
+    def set_replica_name(self, replica_name):
+        """
+        Sets the replica name(region) to be added.
+
+        :param replica_name: the name of the replica.
+        :type replica_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if replica_name
+            is not a string.
+        """
+        CheckValue.check_str(replica_name, 'statement')
+        self._replica_name = replica_name
+        return self
+
+    def get_replica_name(self):
+        """
+        Returns the replica name.
+
+        :returns: the replica name, or None if not set.
+        :returns: str
+        """
+        return self._replica_name
+
+    def set_read_units(self, read_units):
+        """
+        Sets the read units for the replica table. This defaults to the units
+        set on the existing table.
+
+        :param read_units: the read units to use, in read units.
+        :type read_units: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if read_units is
+            not a integer.
+        """
+        CheckValue.check_int(read_units, 'read_units')
+        self._read_units = read_units
+        return self
+
+    def get_read_units(self):
+        """
+        Returns the read units to use for the replica table. 0 if not set
+
+        :returns: the read units.
+        :rtype: int
+        """
+        return self._read_units
+
+    def set_write_units(self, write_units):
+        """
+        Sets the write units for the replica table. This defaults to the units
+        set on the existing table.
+
+        :param write_units: the write units to use, in write units.
+        :type write_units: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if write_units is
+            not a integer.
+        """
+        CheckValue.check_int(write_units, 'write_units')
+        self._write_units = write_units
+        return self
+
+    def get_write_units(self):
+        """
+        Returns the write units to use on the replica table. 0 if not set.
+
+        :returns: the write units.
+        :rtype: int
+        """
+        return self._write_units
+
+    def set_match_etag(self, etag):
+        """
+        Sets a ETag to match for the operation to proceed. The ETag must be
+        non-null and have been previously returned in :py:class:`TableResult`.
+        The ETag is a form of optimistic concurrency control allowing an
+        application to ensure no unexpected modifications have been made to the
+        table.
+
+        :param etag the tag
+        :type etag: str
+        """
+        self._match_etag = etag
+
+    def get_match_etag(self):
+        """
+        Gets the match etag or None if not set
+
+        :returns: the match etag or None if not set
+        :rtype: str
+        """
+        return self._match_etag
+
+    def set_compartment(self, compartment):
+        """
+        Sets the name or id of a compartment to be used for this operation.
+
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
+        :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
+        """
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        self._set_timeout(timeout_ms)
+        return self
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self.get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
+        return self
+
+    def validate(self):
+        if self.get_table_name() is None or self._replica_name is None:
+            raise IllegalArgumentException(
+                'AddReplicaRequest requires a table name and replica name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "AddReplica"
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.AddReplicaRequestSerializer()
+        pass
+
+class DropReplicaRequest(Request):
+    """
+    Cloud service only
+
+    DropReplicaRequest is used to drop a replica (region) from a table
+    """
+
+    def __init__(self):
+        super(DropReplicaRequest, self).__init__()
+        self._replica_name = None
+        self._match_etag = None
+
+    def __str__(self):
+        return ('DropReplicaRequest: [name=' + str(self.get_table_name()) +
+                ', replica_name=' + str(self._replica_name) +
+                ', match_etag=' + str(self._match_etag) + ']')
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name to use for the operation.
+
+        :param table_name: the name of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(DropReplicaRequest, self).set_table_name(table_name)
+        return self
+
+    def set_replica_name(self, replica_name):
+        """
+        Sets the replica name(region) to be dropped.
+
+        :param replica_name: the name of the replica.
+        :type replica_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if replica_name
+            is not a string.
+        """
+        CheckValue.check_str(replica_name, 'statement')
+        self._replica_name = replica_name
+        return self
+
+    def get_replica_name(self):
+        """
+        Returns the replica name.
+
+        :returns: the replica name, or None if not set.
+        :returns: str
+        """
+        return self._replica_name
+
+    def set_match_etag(self, etag):
+        """
+        Sets a ETag to match for the operation to proceed. The ETag must be
+        non-null and have been previously returned in :py:class:`TableResult`.
+        The ETag is a form of optimistic concurrency control allowing an
+        application to ensure no unexpected modifications have been made to the
+        table.
+
+        :param etag the tag
+        :type etag: str
+        :returns: self
+        """
+        self._match_etag = etag
+        return self
+
+    def get_match_etag(self):
+        """
+        Gets the match etag or None if not set
+
+        :returns: the match etag or None if not set
+        :rtype: str
+        """
+        return self._match_etag
+
+    def set_compartment(self, compartment):
+        """
+        Sets the name or id of a compartment to be used for this operation.
+
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
+        :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
+        """
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        self._set_timeout(timeout_ms)
+        return self
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self.get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
+        return self
+
+    def validate(self):
+        if self.get_table_name() is None or self._replica_name is None:
+            raise IllegalArgumentException(
+                'DropReplicaRequest requires a table name and replica name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "DropReplica"
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.DropReplicaRequestSerializer()
+        pass
+
+class ReplicaStatsRequest(Request):
+    """
+    Cloud service only
+
+    Represents the argument of a :py:meth:`NoSQLHandle.get_replica_stats`.
+    operation which returns stats information for one, or all replicas of
+    a replicated table, returned in :py:class:`ReplicaStatsResult`.
+    This information includes a time series of replica stats, as found in
+    :py:class:`ReplicaStatsResult.ReplicaStats`.
+
+    It is possible to return a range of stats records or, by default, only the
+    most recent stats records if start_time is not specified. Replica stats
+    records are created on a regular basis and maintained for a period of time.
+    Only records for time periods that have completed are returned so that a
+    user never sees changing data for a specific range.
+    """
+
+    def __init__(self):
+        super(ReplicaStatsRequest, self).__init__()
+        self._replica_name = None
+        self._start_time = 0
+        self._limit = 0
+
+    def __str__(self):
+        return ('ReplicaStatsRequest: [name=' + str(self.get_table_name()) +
+                ', replica_name=' + str(self._replica_name) +
+                ', start_time=' + str(self._start_time) +
+                ', limit=' + str(self._limit) + ']')
+
+    def set_table_name(self, table_name):
+        """
+        Sets the table name to use for the operation.
+
+        :param table_name: the name of the table.
+        :type table_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if table_name is
+            not a string.
+        """
+        super(ReplicaStatsRequest, self).set_table_name(table_name)
+        return self
+
+    def set_replica_name(self, replica_name):
+        """
+        Sets the replica name(region) to be used to query for stats
+        information. If not set information for all replicas is returned.
+
+        :param replica_name: the name of the replica.
+        :type replica_name: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if replica_name
+            is not a string.
+        """
+        CheckValue.check_str(replica_name, 'statement')
+        self._replica_name = replica_name
+        return self
+
+    def get_replica_name(self):
+        """
+        Returns the replica name.
+
+        :returns: the replica name, or None if not set.
+        :returns: str
+        """
+        return self._replica_name
+
+    def set_start_time(self, start_time):
+        """
+        Sets the start time to use for the request in milliseconds since the
+        Epoch in UTC time. If no start time is set for this request the most
+        recent complete stats records are returned, the number of records is
+        up to limit set by :py:meth:`ReplicaStatsRequest.set_limit`
+
+        :param start_time the start_time
+        :type start_time: int
+        :returns: self.
+        """
+        self._start_time = start_time
+        return self
+
+    def set_start_time_str(self, start_time):
+        """
+        Sets the start time to use for the request from an ISO 8601 formatted
+        string. If timzone is not specified UTC is used.
+
+        :param start_time the start_time
+        :type start_time: str
+        :returns: self
+        :raises IllegalArgumentException: raises the exception if the
+            start_time string is not a valid format.
+        """
+        self._check_time(start_time)
+        self._start_time = SerdeUtil.iso_time_to_ms(start_time)
+        return self
+
+    def get_start_time(self):
+        """
+        Get the start time to use for the request in milliseconds since
+        the epoch in UTC time
+
+        :returns: the start_time
+        :rtype: int
+        """
+        return self._start_time
+
+    def get_start_time_str(self):
+        """
+        Get the start time to use for the request as an ISO 8601 formatted
+        string. If the start_time is not set, None is returned
+
+        :returns: the start_time or None
+        :rtype: str
+        """
+        if self._start_time == 0:
+            return None
+        return datetime.fromtimestamp(
+            float(self._start_time) / 1000).replace(tzinfo=tz.UTC).isoformat()
+
+    def set_limit(self, limit):
+        """
+        Sets the limit to the number of replica stats records returned per
+        replica (region). The default value is 1000.
+
+        :param: limit the limit
+        :type limit: int
+        :returns: self
+        """
+        CheckValue.check_int_ge_zero(limit, 'limit')
+        self._limit = limit
+        return self
+
+    def get_limit(self):
+        """
+        Gets the limit to the number of replica stats records returned per
+        replica (region). Returns 0 if not set.
+
+        :returns: the limit
+        :rtype: int
+        """
+        return self._limit
+
+    def set_compartment(self, compartment):
+        """
+        Sets the name or id of a compartment to be used for this operation.
+
+        The compartment may be specified as either a name (or path for nested
+        compartments) or as an id (OCID). A name (vs id) can only be used when
+        authenticated using a specific user identity. It is *not* available if
+        authenticated as an Instance Principal which can be done when calling
+        the service from a compute instance in the Oracle Cloud Infrastructure.
+        See
+        :py:meth:`borneo.iam.SignatureProvider.create_with_instance_principal`.
+
+        :param compartment: the compartment name or id. If using a nested
+            compartment, specify the full compartment path
+            compartmentA.compartmentB, but exclude the name of the root
+            compartment (tenant).
+        :type compartment: str
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if compartment
+            is not a str.
+        """
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        """
+        Sets the request timeout value, in milliseconds. This overrides any
+        default value set in :py:class:`NoSQLHandleConfig`. The value must be
+        positive.
+
+        :param timeout_ms: the timeout value, in milliseconds.
+        :type timeout_ms: int
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if the timeout
+            value is less than or equal to 0.
+        """
+        self._set_timeout(timeout_ms)
+        return self
+
+    def set_defaults(self, cfg):
+        # Use the default request timeout if not set.
+        self._check_config(cfg)
+        if self.get_timeout() == 0:
+            self._set_timeout(cfg.get_default_table_request_timeout())
+        return self
+
+    def validate(self):
+        if self.get_table_name() is None:
+            raise IllegalArgumentException(
+                'ReplicaStatsRequest requires a table name.')
+
+    def get_request_name(self):
+        # type: () -> str
+        return "ReplicaStatsRequest"
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        return borneo.nson.ReplicaStatsRequestSerializer()
+        pass
+
 class Result(object):
     """
     Result is a base class for result classes for all supported operations.
@@ -3594,6 +4629,8 @@ class Result(object):
         self._retry_stats = None
         self._write_kb = 0
         self._write_units = 0
+        self._topology_info = None
+        self._server_serial_version = 0
 
     def get_rate_limit_delayed_ms(self):
         """
@@ -3619,6 +4656,9 @@ class Result(object):
             were performed.
         """
         return self._retry_stats
+
+    def get_topology_info(self):
+        return self._topology_info
 
     def get_write_units(self):
         # Internal use only.
@@ -3650,6 +4690,12 @@ class Result(object):
         """
         self._retry_stats = retry_stats
 
+    def set_topology_info(self, proxy_topo_seqnum, shard_ids):
+        self._topology_info = TopologyInfo(proxy_topo_seqnum, shard_ids)
+
+    def set_topology_info_object(self, info):
+        self._topology_info = info
+
     def set_write_kb(self, write_kb):
         self._write_kb = write_kb
         return self
@@ -3664,6 +4710,12 @@ class Result(object):
 
     def _get_write_kb(self):
         return self._write_kb
+
+    def _get_server_serial_version(self):
+        return self._server_serial_version
+
+    def _set_server_serial_version(self, version):
+        self._server_serial_version = version
 
 
 class WriteResult(Result):
@@ -3706,7 +4758,8 @@ class DeleteResult(WriteResult):
 
     If the delete succeeded :py:meth:`get_success` returns True. Information
     about the existing row on failure may be available using
-    :py:meth:`get_existing_value` and :py:meth:`get_existing_version`, depending
+    :py:meth:`get_existing_value`, :py:meth:`get_existing_version` and
+    :py:meth:`get_existing_modification_time`, depending
     on the use of :py:meth:`DeleteRequest.set_return_row`.
     """
 
@@ -3732,11 +4785,9 @@ class DeleteResult(WriteResult):
 
     def get_existing_value(self):
         """
-        Returns the existing row value if available. It will be available if the
-        target row exists and the operation failed because of a
-        :py:class:`Version` mismatch and the corresponding
-        :py:class:`DeleteRequest` the method
-        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+        Returns the existing row value if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the value.
         :rtype: dict
@@ -3745,11 +4796,9 @@ class DeleteResult(WriteResult):
 
     def get_existing_version(self):
         """
-        Returns the existing row :py:class:`Version` if available. It will be
-        available if the target row exists and the operation failed because of a
-        :py:class:`Version` mismatch and the corresponding
-        :py:class:`DeleteRequest` the method
-        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+        Returns the existing row :py:class:`Version` if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the version.
         :rtype: Version
@@ -3758,15 +4807,13 @@ class DeleteResult(WriteResult):
 
     def get_existing_modification_time(self):
         """
-        Returns the existing row modification time if available. It will be
-        available if the target row exists and the operation failed because of a
-        :py:class:`Version` mismatch and the corresponding
-        :py:class:`DeleteRequest` the method
-        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+        Returns the existing row modification time if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
 
@@ -4012,6 +5059,7 @@ class ListTablesResult(Result):
 
         :returns: the index.
         :rtype: int
+        :versionadded:: 5.4.0
         """
         return self._last_index_returned
 
@@ -4177,10 +5225,18 @@ class PutResult(WriteResult):
 
     On a successful operation the value returned by :py:meth:`get_version`
     is non-none. On failure that value is None. Information about the existing
-    row on failure may be available using :py:meth:`get_existing_value` and
-    :py:meth:`get_existing_version`, depending on the use of
-    :py:meth:`PutRequest.set_return_row` and whether the put had an option set
-    using :py:meth:`PutRequest.set_option`.
+    row may be available if :py:meth:`PutRequest.set_return_row` is set to
+    true and one of the following occurs:
+
+        PutOption.IF_ABSENT is used and the operation fails because
+        the row already exists.\n
+        PutOption.IF_VERSION is used and the operation fails because
+        the row exists and its version does not match.\n
+        PutOption.IF_PRESENT is used and the operation succeeds
+        provided that the server supports providing the existing row.\n
+        PutOption is not used and put operation replaces the
+        existing row provided that the server supports providing the existing
+        row.
     """
 
     def __init__(self):
@@ -4223,10 +5279,9 @@ class PutResult(WriteResult):
 
     def get_existing_version(self):
         """
-        Returns the existing row :py:class:`Version` if available. This value
-        will only be available if the conditional put operation failed and the
-        request specified that return information be returned using
-        :py:meth:`PutRequest.set_return_row`.
+        Returns the existing row :py:class:`Version` if available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the :py:class:`Version`.
         :rtype: Version
@@ -4235,10 +5290,9 @@ class PutResult(WriteResult):
 
     def get_existing_value(self):
         """
-        Returns the existing row value if available. This value will only be
-        available if the conditional put operation failed and the request
-        specified that return information be returned using
-        :py:meth:`PutRequest.set_return_row`.
+        Returns the existing row value if available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the value.
         :rtype: dict
@@ -4247,15 +5301,13 @@ class PutResult(WriteResult):
 
     def get_existing_modification_time(self):
         """
-        Returns the existing row modification time if available. It will be
-        available if the conditional put operation failed and the request
-        specified that return information be returned using
-        :py:meth:`PutRequest.set_return_row`. A value of -1 indicates this
-        feature is not available at the connected server.
+        Returns the existing row modification timeif available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
 
@@ -4362,6 +5414,8 @@ class QueryResult(Result):
         self._num_results_per_pid = None
         self._continuation_keys = None
         self._pids = None
+        self._virtual_scans = None
+        self._query_traces = None
 
     def __str__(self):
         self._compute()
@@ -4375,6 +5429,18 @@ class QueryResult(Result):
     def set_results(self, results):
         self._results = results
         return self
+
+    def get_virtual_scans(self):
+        return self._virtual_scans
+
+    def set_virtual_scans(self, vscans):
+        self._virtual_scans = vscans
+
+    def get_query_traces(self):
+        return self._query_traces
+
+    def set_query_traces(self, traces):
+        self._query_traces = traces
 
     def get_results(self):
         """
@@ -4545,11 +5611,10 @@ class QueryIterableResult(Result):
     with no RETURNING clause return a dictionary indicating the number of rows
     deleted, for example {'numRowsDeleted': 2}.
 
-    :versionadded: 5.3.6
+    :versionadded:: 5.3.6
     """
 
     def __init__(self, request, handle):
-        # type: (QueryRequest, NoSQLHandle) -> None
         # NoSQLHandle handle
         super(QueryIterableResult, self).__init__()
         self.request = request
@@ -4601,7 +5666,6 @@ class QueryIterableResult(Result):
         return self.writeKB
 
     def __iter__(self):
-        # type: () -> QueryIterator
         return QueryIterator(self)
 
 
@@ -4609,94 +5673,86 @@ class QueryIterator:
     """
     QueryIterator iterates over all results of a query.
 
-    :versionadded: 5.3.6
+    :versionadded:: 5.3.6
     """
+
     def __init__(self, iterable):
-        # type: (QueryIterableResult) -> None
         self._iterable = iterable
         self._internalRequest = iterable.request.copy()
-        self._internalResult = None
+        self._internal_result = None
         self._partialResultList = None
         self._partialResultIter = None
         self._next = None
         self._closed = False
 
     def _compute(self):
-        # type: () -> None
         if self._closed:
             return
         if self._partialResultList is None:
-            self._internalResult = \
-                self._iterable.handle.query(self._internalRequest)
-            self._partialResultList = self._internalResult.get_results()
+            self._internal_result = (
+                self._iterable.handle.query(self._internalRequest))
+            self._partialResultList = self._internal_result.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
             try:
                 self._next = next(self._partialResultIter)
                 return
             except StopIteration:
-                hasNext = False
-            self.set_stats(self._internalResult)
+                has_next = False
+            self.set_stats(self._internal_result)
         else:
             try:
                 self._next = next(self._partialResultIter)
                 return
             except StopIteration:
-                hasNext = False
+                has_next = False
 
-        while not hasNext and not self._internalRequest.is_done():
-            self._internalResult = \
-                self._iterable.handle.query(self._internalRequest)
-            self._partialResultList = self._internalResult.get_results()
+        while not has_next and not self._internalRequest.is_done():
+            self._internal_result = (
+                self._iterable.handle.query(self._internalRequest))
+            self._partialResultList = self._internal_result.get_results()
             self._partialResultIter = self._partialResultList.__iter__()
-            hasNext = True
+            has_next = True
             try:
                 self._next = next(self._partialResultIter)
             except StopIteration:
-                hasNext = False
-            self.set_stats(self._internalResult)
+                has_next = False
+            self.set_stats(self._internal_result)
 
         if self._internalRequest.is_done():
             self._internalRequest.close()
-            if not hasNext:
+            if not has_next:
                 self._closed = True
 
-    def set_stats(self, internalResult):
-        # type: (QueryResult) -> None
-        self._iterable.readKB += internalResult.get_read_kb()
-        self._iterable.readUnits += internalResult.get_read_units()
-        self._iterable.writeKB += internalResult.get_write_kb()
+    def set_stats(self, internal_result):
+        self._iterable.readKB += internal_result.get_read_kb()
+        self._iterable.readUnits += internal_result.get_read_units()
+        self._iterable.writeKB += internal_result.get_write_kb()
         self._iterable.set_rate_limit_delayed_ms(
             self._iterable.get_rate_limit_delayed_ms() +
-            internalResult.get_rate_limit_delayed_ms())
+            internal_result.get_rate_limit_delayed_ms())
         self._iterable.set_read_kb(self._iterable.get_read_kb() +
-                                   internalResult.get_read_kb())
+                                   internal_result.get_read_kb())
         self._iterable.set_read_units(self._iterable.get_read_units() +
-                                      internalResult.get_read_units())
+                                      internal_result.get_read_units())
         self._iterable.set_write_kb(self._iterable.get_write_kb() +
-                                    internalResult.get_write_kb())
+                                    internal_result.get_write_kb())
         self._iterable.set_write_units(self._iterable.get_write_units() +
-                                       internalResult.get_write_units())
-        if internalResult.get_retry_stats() is not None:
+                                       internal_result.get_write_units())
+        if internal_result.get_retry_stats() is not None:
             if self._iterable.get_retry_stats() is None:
                 self._iterable.set_retry_stats(RetryStats())
             self._iterable.get_retry_stats().add_delay_ms(
-                internalResult.get_retry_stats().get_delay_ms())
+                internal_result.get_retry_stats().get_delay_ms())
             self._iterable.get_retry_stats().increment_retries(
-                internalResult.get_retry_stats().get_retries())
+                internal_result.get_retry_stats().get_retries())
             self._iterable.get_retry_stats().add_exceptions(
-                internalResult.get_retry_stats().get_exceptions_map())
+                internal_result.get_retry_stats().get_exceptions_map())
 
     def __next__(self):
-        # type: () -> dict[str, Object]
         self._compute()
         if self._closed:
             raise StopIteration
         return self._next
-
-    # for python2 compatibility
-    def next(self):
-        # type: () -> dict[str, Object]
-        return self.__next__()
 
 
 class SystemResult(Result):
@@ -4736,7 +5792,7 @@ class SystemResult(Result):
 
     def __str__(self):
         return ('SystemResult [statement=' + self._statement + ', state=' +
-                BinaryProtocol.get_operation_state(self._state) +
+                SerdeUtil.get_operation_state(self._state) +
                 ', operation_id=' + self._operation_id + ', result_string=' +
                 self._result_string + ']')
 
@@ -4804,6 +5860,9 @@ class SystemResult(Result):
         :rtype: str
         """
         return self._statement
+
+    def get_state(self):
+        return self._state
 
     def wait_for_completion(self, handle, wait_millis, delay_millis):
         """
@@ -4877,33 +5936,146 @@ class TableResult(Result):
 
     def __init__(self):
         super(TableResult, self).__init__()
-        self._compartment_id = None
+        self._compartment_or_namespace = None
         self._table_name = None
         self._state = None
         self._limits = None
         self._schema = None
         self._operation_id = None
+        self._ocid = None
+        self._ddl = None
+        self._defined_tags = None  # dict(str, dict(str, object))
+        self._match_etag = None  # str
+        self._free_form_tags = None  # dict(str, str)
+        self._schema_frozen = False
+        self._local_replica_initialized = False
+        self._replicas = None
 
     def __str__(self):
-        return ('table ' + str(self._table_name) + '[' + self._state + '] ' +
-                str(self._limits) + ' schema [' + str(self._schema) +
-                '] operation_id = ' + str(self._operation_id))
+        tres = ('table name=' + str(self._table_name) + ', state=' +
+                self._state)
+        if self._limits is not None:
+            tres += ', limits=' + str(self._limits)
+
+        # only print one of DDL or schema, preferring DDL
+        if self._ddl is not None:
+            tres += ', ddl=' + str(self._ddl)
+        elif self._schema is not None:
+            tres += ', schema=[' + str(self._schema) + ']'
+
+        if self._ocid is not None:
+            tres += ', ocid=' + str(self._ocid)
+
+        # TODO: add tags and GAT state
+        return tres
 
     def set_compartment_id(self, compartment_id):
         # Internal use only.
-        self._compartment_id = compartment_id
+        self._compartment_or_namespace = compartment_id
         return self
 
-    def get_compartment_id(self):
-        """
-        Cloud service only.
+    def set_namespace(self, namespace):
+        # Internal use only.
+        self._compartment_or_namespace = namespace
+        return self
 
+    def set_schema_frozen(self, frozen):
+        # Internal use only.
+        self._schema_frozen = frozen
+        return self
+
+    def set_local_replica_initialized(self, replica_initialized):
+        # Internal use only.
+        self._local_replica_initialized = replica_initialized
+        return self
+
+    def set_replicas(self, replicas):
+        # Internal use only.
+        self._replicas = replicas
+        return self
+
+    def get_compartment(self):
+        """
         Returns compartment id of the target table.
+
+        Cloud service only.
 
         :returns: compartment id.
         :rtype: str
         """
-        return self._compartment_id
+        return self._compartment_or_namespace
+
+    def get_compartment_id(self):
+        """
+        Returns compartment id of the target table.
+
+        Cloud service only.
+
+        :returns: compartment id.
+        :rtype: str
+        """
+        return self._compartment_or_namespace
+
+    def is_schema_frozen(self):
+        """
+        Returns True if the schema for this table is frozen.
+
+        Cloud service only.
+
+        :returns: frozen state
+        :rtype: bool
+        :versionadded:: 5.4.2
+        """
+        return self._schema_frozen
+
+    def is_local_replica_initialized(self):
+        """
+        Returns True if the table is a replica and its initialization
+        process has been completed, otherwise False
+
+        Cloud service only.
+
+        :returns: True if is an initialized replica
+        :rtype: bool
+        :versionadded:: 5.4.2
+        """
+        return self._local_replica_initialized
+
+    def is_replicated(self):
+        """
+        Returns True if the table is replicated
+
+        Cloud service only.
+
+        :returns: True if table is replicated
+        :rtype: bool
+        :versionadded:: 5.4.2
+        """
+        return self._replicas is not None
+
+    def get_replicas(self):
+        """
+        Returns a list of :py:class:`Replica` if the table is replicated,
+        otherwise None
+
+        Cloud service only.
+
+        :returns: list of replicas or None
+        :rtype: list[:py:class:`Replica`]
+        :versionadded:: 5.4.2
+        """
+        return self._replicas
+
+    def get_namespace(self):
+        """
+        Returns the namespace of the table or null if it is not in a namespace.
+
+        On-premises only.
+
+        :returns: namespace
+        :rtype: str
+        """
+        return self._compartment_or_namespace
 
     def set_table_name(self, table_name):
         self._table_name = table_name
@@ -4939,7 +6111,7 @@ class TableResult(Result):
     def get_table_limits(self):
         """
         Returns the throughput and capacity limits for the table. Limits from an
-        on-premise service will always be None.
+        on-premises service will always be None.
 
         :returns: the limits.
         :rtype: TableLimits
@@ -4974,6 +6146,85 @@ class TableResult(Result):
         :rtype: str
         """
         return self._operation_id
+
+    def get_ddl(self):
+        """
+        Returns the DDL (create table) statement used to create this table if
+        available. If the table has been altered since initial creation the
+        statement is also altered to reflect the current table schema. This
+        value, when non-null, is functionally equivalent to the schema
+        returned by :py:meth:`set_schema`.
+        table.
+
+        :returns: the ddl statement used to create the table
+        :rtype: str
+        :versionadded:: 5.4.0
+        """
+        return self._ddl
+
+    def get_table_id(self):
+        """
+        Returns the OCID of the table. This value will be null if used with the
+        on-premises service.
+
+        Cloud service only.
+
+        :returns: the table OCID
+        :rtype: str
+        :versionadded:: 5.4.0
+        """
+        return self._ocid
+
+    def get_match_etag(self):
+        """
+        Returns the match etag
+
+        Cloud service only.
+
+        :returns: the tag
+        :rtype: str
+        :versionadded:: 5.4.0
+        """
+        return self._match_etag
+
+    def get_defined_tags(self):
+        """
+        Returns defined tags
+
+        Cloud service only.
+
+        :returns: the tags
+        :rtype: dict[str, dict[str, object]]
+        :versionadded:: 5.4.0
+        """
+        return self._defined_tags
+
+    def get_free_form_tags(self):
+        """
+        Returns free form tags
+
+        Cloud service only.
+
+        :returns: the tags
+        :rtype: dict[str, str]
+        :versionadded:: 5.4.0
+        """
+        return self._free_form_tags
+
+    def set_ddl(self, value):
+        self._ddl = value
+
+    def set_table_id(self, value):
+        self._ocid = value
+
+    def set_match_etag(self, value):
+        self._match_etag = value
+
+    def set_defined_tags(self, value):
+        self._defined_tags = value
+
+    def set_free_form_tags(self, value):
+        self._free_form_tags = value
 
     def wait_for_completion(self, handle, wait_millis, delay_millis):
         """
@@ -5018,7 +6269,7 @@ class TableResult(Result):
         delay_s = float(delay_ms) / 1000
         get_table = GetTableRequest().set_table_name(
             self._table_name).set_operation_id(
-            self._operation_id).set_compartment(self._compartment_id)
+            self._operation_id).set_compartment(self._compartment_or_namespace)
         res = None
         while True:
             cur_time = int(round(time() * 1000))
@@ -5031,9 +6282,13 @@ class TableResult(Result):
             res = handle.get_table(get_table)
             # partial "copy" of possibly modified state. Don't modify
             # operationId as that is what we are waiting to complete.
+            # what about? tags, match etags?
             self._state = res.get_state()
             self._limits = res.get_table_limits()
             self._schema = res.get_schema()
+            self._schema_frozen = res.is_schema_frozen()
+            self._local_replica_initialized = res.is_local_replica_initialized()
+            self._replicas = res.get_replicas()
             if self._state in terminal:
                 break
 
@@ -5048,6 +6303,7 @@ class TableUsageResult(Result):
 
     def __init__(self):
         super(TableUsageResult, self).__init__()
+        self._last_index_returned = 0
         self._table_name = None
         self._usage_records = None
 
@@ -5082,13 +6338,26 @@ class TableUsageResult(Result):
 
     def get_usage_records(self):
         """
-        Returns a list of usage records based on the parameters of the
-        :py:class:`TableUsageRequest` used.
+        Returns a list of :py:class:`TableUsage` records based on the
+        parameters of the :py:class:`TableUsageRequest` used.
 
         :returns: an list of usage records.
         :type: list(TableUsage)
         """
         return self._usage_records
+
+    def set_last_index_returned(self, last_index_returned):
+        self._last_index_returned = last_index_returned
+        return self
+
+    def get_last_index_returned(self):
+        """
+        Returns the index of the last usage record returned
+
+        :returns: the index.
+        :rtype: int
+        """
+        return self._last_index_returned
 
 
 class WriteMultipleResult(Result):
@@ -5299,9 +6568,9 @@ class OperationResult(WriteResult):
 
     def get_existing_value(self):
         """
-        Returns the previous row value associated with the key if available.
+        Returns the existing row value associated with the key if available.
 
-        :returns: the previous row value
+        :returns: the existing row value
         :rtype: dict
         """
         return self._get_existing_value()
@@ -5312,9 +6581,86 @@ class OperationResult(WriteResult):
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
-        :versionadded: 5.3.0
+        :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
+
+
+class ReplicaStatsResult(Result):
+    """
+    Cloud service only
+
+    ReplicaStatsResult is returned from
+    :py:meth:`NoSQLHandle.get_replicat_stats`. It contains replica statistics
+    for the requested table
+    """
+    def __init__(self):
+        super(ReplicaStatsResult, self).__init__()
+        self._table_name = None
+        self._next_start_time = 0
+        self._stats_record = None # dict<string, ReplicaStats array>
+
+    def get_table_name(self):
+        """
+        Returns the table name used by the operation
+
+        :returns the table name
+        :rtype: str
+        """
+        return self._table_name
+
+    def get_next_start_time(self):
+        """
+        Returns the next start time. This can be provided to a
+        :py:class:`ReplicaStatsRequest` to be used as a starting point for
+        listing stats records
+
+        :returns the next start time
+        :rtype: in
+        """
+        return self._next_start_time
+
+    def get_stats_record(self):
+        """
+        Returns replica statistics information based on the arguments of
+        the :py:class:`ReplicaStatsRequest` used for the request.
+        It contains stats for either one replica or all replicas.
+
+        The stats format is a dict where the key is a replica name and the
+        value is a list of :py:class:`ReplicaStats` objects
+
+        :returns: the stats
+        :rtype: dict
+        """
+        return self._stats_record
+
+    def set_table_name(self, table_name):
+        self._table_name = table_name
+        return self
+
+    def set_next_start_time(self, next_start_time):
+        self._next_start_time = next_start_time
+        return self
+
+    def set_stats_records(self, records):
+        self._stats_record = records
+        return self
+
+    def __str__(self):
+        # consider a prettier output format, JSON or pythonic
+        if self._stats_record is None:
+            records_str = 'None'
+        else:
+            records_str = 'ReplicaStatsResult [table=' + self._table_name + '] '
+            for rep_name, stats in self._stats_record.items():
+                records_str += '[Replica [name=' + rep_name + '['
+                for i in range(0, len(stats)):
+                    stat = stats[i]
+                    records_str += str(stat)
+                    if i < len(stats)-1:
+                        records_str += ','
+                records_str += ']]'
+        return records_str
 
 
 class RetryStats(object):
@@ -5363,18 +6709,16 @@ class RetryStats(object):
         self._exception_map[e] = num
 
     def get_exceptions_map(self):
-        # type: () -> dict[Object, int]
         """
         Internal use only.
 
         Returns the map of exceptions.
 
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         return self._exception_map
 
     def add_exceptions(self, ex_map):
-        # type: (dict[Object, int]) -> None
         """
         Internal use only.
 
@@ -5385,7 +6729,7 @@ class RetryStats(object):
 
         :param ex_map: the exceptions map.
         :type ex_map: dict[Exception, int]
-        :versionadded: 5.3.6
+        :versionadded:: 5.3.6
         """
         for k in ex_map.keys():
             num = self.get_num_exceptions(k) + ex_map[k]

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -8,10 +8,11 @@
 from logging import DEBUG
 from multiprocessing import pool
 from platform import python_version
-from requests import Session
 from sys import version_info
 from threading import Lock
 from time import time
+
+from requests import Session
 
 from .common import (
     ByteOutputStream, CheckValue, HttpConstants, LogUtils, SSLAdapter,
@@ -21,11 +22,12 @@ from .exception import (IllegalArgumentException,
                         OperationNotSupportedException, RequestSizeLimitException)
 from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
-from .operations import GetTableRequest, QueryResult, TableRequest, WriteRequest
+from .operations import (
+    GetTableRequest, QueryRequest, QueryResult, TableRequest, WriteRequest)
 from .query import QueryDriver
 from .serdeutil import SerdeUtil
-from .version import __version__
 from .stats import StatsControl
+from .version import __version__
 
 
 class Client(object):
@@ -50,6 +52,8 @@ class Client(object):
         self._proxy_port = config.get_proxy_port()
         self._proxy_username = config.get_proxy_username()
         self._proxy_password = config.get_proxy_password()
+        self._proxy_version = None
+        self._kv_version = None
         self._retry_handler = config.get_retry_handler()
         if self._retry_handler is None:
             self._retry_handler = DefaultRetryHandler()
@@ -91,7 +95,9 @@ class Client(object):
         self._sess.mount(self._url.scheme + '://', adapter)
         if self._proxy_host is not None:
             self._check_and_set_proxy(self._sess)
-        self.serial_version = SerdeUtil.DEFAULT_SERIAL_VERSION
+        self.query_version = QueryDriver.QUERY_VERSION
+        self._topology_info = None
+        self.serial_version = config.get_serial_version()
         # StoreAccessTokenProvider means onprem
         self._is_cloud = not isinstance(self._auth_provider, StoreAccessTokenProvider)
         if config.get_rate_limiting_enabled() and self._is_cloud:
@@ -199,7 +205,6 @@ class Client(object):
                     'QueryRequest has no QueryDriver, but is prepared', 2)
                 driver = QueryDriver(request)
                 driver.set_client(self)
-                driver.set_topology_info(request.topology_info())
                 return QueryResult(request, False)
             """
             If we are here, then this is either (a) a simple query or (b) an
@@ -213,7 +218,11 @@ class Client(object):
             """
             self._trace(
                 'QueryRequest has no QueryDriver and is not prepared', 2)
+            request.incr_batch_counter()
+
         timeout_ms = request.get_timeout()
+        if request is QueryRequest or request.is_query_request():
+            request.set_topo_seq_num(self.get_topo_seq_num())
         headers = {'Host': self._url.hostname,
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'keep-alive',
@@ -223,6 +232,13 @@ class Client(object):
         # set the session cookie if available
         if self._session_cookie is not None:
             headers['Cookie'] = self._session_cookie
+
+        # set namespace if configured
+        namespace = request.get_namespace()
+        if namespace is None:
+            namespace = self._config.get_default_namespace()
+        if namespace is not None:
+            headers[HttpConstants.REQUEST_NAMESPACE_HEADER] = namespace
 
         content = self.serialize_request(request, headers)
         content_len = len(content)
@@ -246,8 +262,27 @@ class Client(object):
         request_utils = RequestUtils(
             self._sess, self._logutils, request, self._retry_handler, self,
             self._rate_limiter_map)
-        return request_utils.do_post_request(self._request_uri, headers,
-            content, timeout_ms, self._stats_control)
+        res = request_utils.do_post_request(self._request_uri, headers,
+                                            content, timeout_ms,
+                                            self._stats_control)
+        self._set_topology_info(res.get_topology_info())
+        if res is QueryResult and request.is_query_request():
+            request.set_query_traces(res.get_query_traces())
+        return res
+
+    @synchronized
+    def _set_topology_info(self, topo):
+        if topo is None:
+            return
+        if self.get_topo_seq_num() < topo.get_seq_num():
+            self._topology_info = topo
+
+    def get_topo_seq_num(self):
+        return -1 if self._topology_info is None else \
+          self._topology_info.get_seq_num()
+
+    def get_topology(self):
+        return self._topology_info
 
     # set the session cookie if in return headers (see RequestUtils in http.py)
     @synchronized
@@ -473,6 +508,24 @@ class Client(object):
                 'Background thread added limiters for table "' + table_name +
                 '"')
 
+    def decrement_query_version(self):
+        """
+        Decrements the query version, if it is greater than the minimum.
+        For internal use only.
+
+        The current minimum value is V3.
+        :returns: true if the version was decremented, false otherwise.
+        :rtype: bool
+        """
+        if self.query_version > QueryDriver.QUERY_V3:
+            self.query_version -= 1
+            msg = ('Unsupported query version error, decrementing ' +
+                   'version to ' + str(self.query_version) +
+                   ' and retrying')
+            self._logutils.log_info(msg)
+            return True
+        return False
+
     def decrement_serial_version(self):
         """
         Decrements the serial version, if it is greater than the minimum.
@@ -484,6 +537,10 @@ class Client(object):
         """
         if self.serial_version > 2:
             self.serial_version -= 1
+            msg = ('Unsupported protocol error, decrementing serial ' +
+                   'version to ' + str(self.serial_version) +
+                   ' and retrying')
+            self._logutils.log_info(msg)
             return True
         return False
 
@@ -498,9 +555,13 @@ class Client(object):
         """
         content = bytearray()
         bos = ByteOutputStream(content)
-        SerdeUtil.write_serial_version(bos, self.serial_version)
-        request.create_serializer().serialize(
-            request, bos, self.serial_version)
+
+        # serial version used is up to the Request, in order to
+        # (1) support multiple protocol versions and
+        # (2) support the version on a per-Request basis
+        version = request.get_serial_version(self.serial_version)
+        SerdeUtil.write_serial_version(bos, version)
+        request.create_serializer(version).serialize(request, bos, version)
         return content
 
     def serialize_request(self, request, headers):
@@ -515,9 +576,25 @@ class Client(object):
         :returns: the bytearray that contains the content.
         :rtype: bytearray
         """
+        # in case it's a query or prepare
+        request.set_query_version(self.query_version)
         content = self._write_content(request)
         headers.update({'Content-Length': str(len(content))})
         return content
 
     def get_stats_control(self):
         return self._stats_control
+
+    def get_proxy_version(self):
+        return self._proxy_version
+
+    def get_kv_version(self):
+        return self._kv_version
+
+    def set_proxy_info(self, proxy_header):
+        if self._proxy_version is None and proxy_header is not None:
+            versions = proxy_header.split()
+            # bail if not of correct format
+            if len(versions) == 2:
+                self._proxy_version = versions[0].split('=')[1]
+                self._kv_version = versions[1].split('=')[1]

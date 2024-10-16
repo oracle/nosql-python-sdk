@@ -17,7 +17,7 @@ Database Python SDK. There are several supported environments:
 
 The Python SDK requires:
 
-* Python version 2.7.5 or 3.5 or later, running on Mac, Windows, or Linux.
+* Python version 3.5 or later, running on Mac, Windows, or Linux.
 * For the Oracle NoSQL Cloud Service:
 
   * An Oracle Cloud Infrastructure account

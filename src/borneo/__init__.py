@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -9,15 +9,16 @@
 # when importing from the OCI SDK. It can greatly speed up
 # program startup
 import os
-os.environ['OCI_PYTHON_SDK_NO_SERVICE_IMPORTS']='1'
+
+os.environ['OCI_PYTHON_SDK_NO_SERVICE_IMPORTS'] = '1'
 
 from . import iam
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (
-    Consistency, Durability, FieldRange, PutOption, ResourcePrincipalClaimKeys, State,
-    SystemState, TableLimits, TimeToLive, TimeUnit, UserInfo, Version,
-    IndexInfo, PreparedStatement)
+    Consistency, Durability, FieldRange, PutOption, Replica, ReplicaStats,
+    ResourcePrincipalClaimKeys, State, SystemState, TableLimits, TableUsage,
+    TimeToLive, TimeUnit, UserInfo, Version, IndexInfo, PreparedStatement)
 from .config import (
     DefaultRetryHandler, NoSQLHandleConfig, Region, Regions, RetryHandler,
     StatsProfile)
@@ -30,25 +31,30 @@ from .exception import (
     ReadThrottlingException, RequestSizeLimitException, RequestTimeoutException,
     ResourceExistsException, ResourceNotFoundException, RetryableException,
     SecurityInfoNotReadyException, SystemException, TableExistsException,
-    TableNotFoundException, ThrottlingException, WriteThrottlingException)
+    TableNotFoundException, TableNotReadyException, ThrottlingException,
+    UnsupportedQueryVersionException, WriteThrottlingException)
 from .operations import (
-    DeleteRequest, DeleteResult, GetIndexesRequest, GetIndexesResult,
-    GetRequest, GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
+    AddReplicaRequest, DeleteRequest, DeleteResult, DropReplicaRequest,
+    GetIndexesRequest, GetIndexesResult, GetRequest,
+    GetResult, GetTableRequest, ListTablesRequest, ListTablesResult,
     MultiDeleteRequest, MultiDeleteResult, OperationResult, PrepareRequest,
     PrepareResult, PutRequest, PutResult, QueryRequest, QueryIterableResult,
-    QueryResult, Request, Result, SystemRequest, SystemResult,
+    QueryResult, ReplicaStatsRequest, ReplicaStatsResult, Request, Result,
+    SystemRequest, SystemResult,
     SystemStatusRequest, TableRequest, TableResult, TableUsageRequest,
     TableUsageResult, WriteMultipleRequest, WriteMultipleResult)
 from .stats import (StatsControl)
 from .version import __version__
 
-__all__ = ['AuthorizationProvider',
+__all__ = ['AddReplicaRequest',
+           'AuthorizationProvider',
            'BatchOperationNumberLimitException',
            'Consistency',
            'Durability',
            'DefaultRetryHandler',
            'DeleteRequest',
            'DeleteResult',
+           'DropReplicaRequest',
            'FieldRange',
            'GetIndexesRequest',
            'GetIndexesResult',
@@ -83,6 +89,10 @@ __all__ = ['AuthorizationProvider',
            'ReadThrottlingException',
            'Region',
            'Regions',
+           'Replica',
+           'ReplicaStats',
+           'ReplicaStatsRequest',
+           'ReplicaStatsResult',
            'Request',
            'RequestSizeLimitException',
            'RequestTimeoutException',
@@ -104,13 +114,16 @@ __all__ = ['AuthorizationProvider',
            'TableExistsException',
            'TableLimits',
            'TableNotFoundException',
+           'TableNotReadyException',
            'TableRequest',
            'TableResult',
+           'TableUsage',
            'TableUsageRequest',
            'TableUsageResult',
            'ThrottlingException',
            'TimeToLive',
            'TimeUnit',
+           'UnsupportedQueryVersionException',
            'UserInfo',
            'Version',
            'WriteMultipleRequest',

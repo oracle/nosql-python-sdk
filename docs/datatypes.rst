@@ -25,7 +25,7 @@ In order to insert rows into such a table your application must create a Python
 dict that corresponds to that schema, for example::
 
    {'id': 1, 'name': 'myname', 'created': datetime.now(),
-    'address' : {'street' : '14 Elm Street', 'city' : "hometown',
+    'address' : {'street' : '14 Elm Street', 'city' : 'hometown',
     'zip' : 00000}}
 
 Similarly, when operating on rows retrieved from the database it is important to
@@ -46,7 +46,7 @@ managed in UTC.
 Database Type             Python Type
 =============    ==============================
 Integer                      int
-Long             int (Python 3), long (Python2)
+Long             int
 Float            float
 Double           float
 Number           decimal.Decimal
@@ -59,7 +59,7 @@ FixedBinary      bytearray
 Array            list
 Map              dict
 Record           dict
-JSON             any valid JSON
+JSON             any Python datatype that can be represented as JSON without data loss
 =============    ==============================
 
 ===================

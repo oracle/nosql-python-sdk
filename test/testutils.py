@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2022 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -69,12 +69,32 @@ pri = prikey.save_pkcs1()
 with open(fake_key_file, 'wb+') as f:
     f.write(pri)
 
+def compare_proxy_versions(v1, v2):
+    p1 = v1.split('.')
+    p2 = v2.split('.')
+    num_fields = min(len(p1), len(p2))
+    for i in range(num_fields):
+        # handle 5.13-main.4 style version
+        i1 = p1[i].split('-')[0]
+        i2 = p2[i].split('-')[0]
+        if int(i1) > int(i2):
+            return 1
+        elif int(i1) < int(i2):
+            return -1
+    # if one version has additional components, call that larger
+    if len(p1) > len(p2):
+        return 1
+    elif len(p1) < len(p2):
+        return -1
+    return 0
 
 def compare_version(specified, internal):
     """
     If the user specified version is newer than internal check version return 1,
     older return -1, same return 0.
     """
+    #if version is a snapshot, strip that portion
+    specified = specified.strip('-SNAPSHOT')
     specified_check = match('\d+(\.\d+){0,2}', specified)
     internal_check = match('\d+(\.\d+){0,2}', internal)
     if (specified_check is None or internal_check is None or
