@@ -81,7 +81,7 @@ that the *borneo* package has been installed.
 ``` python
 
 #
-# Copyright (c) 2018, 2024 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -426,7 +426,7 @@ Please consult the [security guide](./SECURITY.md) for our responsible security 
 
 ## License
 
-Copyright (c) 2018, 2024 Oracle and/or its affiliates.
+Copyright (c) 2018, 2025 Oracle and/or its affiliates.
 
 Released under the Universal Permissive License v1.0 as shown at
 <https://oss.oracle.com/licenses/upl/>.
