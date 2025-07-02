@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ====================
 
+# [Unreleased]
+
+## Fixed
+
+- Cloud only: Fix thread used when rate limiting is enabled. Previously enabling
+  rate limiting might cause a hang
+
 # 5.4.2 - 2024-05-13
 
 ## Added

@@ -5,8 +5,8 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+from concurrent.futures import ThreadPoolExecutor
 from logging import DEBUG
-from multiprocessing import pool
 from platform import python_version
 from sys import version_info
 from threading import Lock
@@ -105,7 +105,7 @@ class Client(object):
                 'Starting client with rate limiting enabled')
             self._rate_limiter_map = RateLimiterMap()
             self._table_limit_update_map = dict()
-            self._threadpool = pool.ThreadPool(1)
+            self._threadpool = ThreadPoolExecutor(max_workers=1)
         else:
             self._logutils.log_debug('Starting client with no rate limiting')
             self._rate_limiter_map = None
@@ -126,7 +126,7 @@ class Client(object):
             return
         self._set_table_needs_refresh(table_name, False)
         try:
-            self._threadpool.map(self._update_table_limiters, ['table_name'])
+            self._threadpool.submit(self._update_table_limiters, ['table_name'])
         except RuntimeError:
             self._set_table_needs_refresh(table_name, True)
 
@@ -142,14 +142,14 @@ class Client(object):
         if enable and self._rate_limiter_map is None:
             self._rate_limiter_map = RateLimiterMap()
             self._table_limit_update_map = dict()
-            self._threadpool = pool.ThreadPool(1)
+            self._threadpool = ThreadPoolExecutor(max_workers=1)
         elif not enable and self._rate_limiter_map is not None:
             self._rate_limiter_map.clear()
             self._rate_limiter_map = None
             self._table_limit_update_map.clear()
             self._table_limit_update_map = None
             if self._threadpool is not None:
-                self._threadpool.close()
+                self._threadpool.shutdown()
                 self._threadpool = None
 
     def execute(self, request):
@@ -363,7 +363,7 @@ class Client(object):
         if self._sess is not None:
             self._sess.close()
         if self._threadpool is not None:
-            self._threadpool.close()
+            self._threadpool.shutdown()
         if self._stats_control is not None:
             self._stats_control.shutdown()
 
