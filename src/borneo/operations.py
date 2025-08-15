@@ -3884,12 +3884,13 @@ class WriteMultipleRequest(Request):
         if table_name is None:
             self.set_table_name(request.get_table_name())
         else:
+            top_table = WriteMultipleRequest.get_top_table_name(table_name)
             if (WriteMultipleRequest.get_top_table_name(
                     request.get_table_name().lower())
-                    != table_name.lower()):
+                    != top_table.lower()):
                 raise IllegalArgumentException(
                     'The parent table_name used for the operation is '
-                    'different from that of others: ' + table_name)
+                    'different from that of others: ' + top_table)
         request.validate()
         self._ops.append(self.OperationRequest(request, abort_if_unsuccessful))
         return self

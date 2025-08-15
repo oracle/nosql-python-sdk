@@ -344,6 +344,46 @@ PRIMARY KEY(SHARD(fld_sid), fld_id))')
         except UnsupportedProtocolException:
             self.assertTrue(serial_version < 4)
 
+    def testWriteMultipleChildrenOnly(self):
+        num_operations = 6
+        wm_req = WriteMultipleRequest()
+        for i in range(num_operations):
+            child_row = dict()
+            child_row['fld_sid'] = 1
+            child_row['fld_id'] = i
+            child_row['childid'] = i
+            child_row['childname'] = 'name_' + str(i)
+            child_row['childdata'] = 'data_' + str(i)
+
+            request = PutRequest()
+            request.set_value(child_row)
+            request.set_table_name(self.child_table_name)
+            request.set_ttl(self.ttl)
+            request.set_return_row(True)
+            wm_req.add(request, True)
+
+        # put this test in try/except to handle versions of the server
+        # that cannot handle multiple table names. Technically the
+        # change happened mid-V3 so the check for serial_version < 4 isn't
+        # perfect, but it's good enough
+        try:
+            result = self.handle.write_multiple(wm_req)
+            op_results = self._check_write_multiple_result(result, num_operations)
+
+            for i in range(num_operations):
+                child_row = dict()
+                child_row['fld_sid'] = 1
+                child_row['fld_id'] = i
+                child_row['childid'] = i
+                request = GetRequest()
+                request.set_key(child_row)
+                request.set_table_name(self.child_table_name)
+                result = self.handle.get(request)
+                self.assertEqual('name_' + str(i), result.get_value()['childname'])
+                self.assertEqual('data_' + str(i), result.get_value()['childdata'])
+        except UnsupportedProtocolException:
+            self.assertTrue(serial_version < 4)
+
     def testWriteMultipleAbortIfUnsuccessful(self):
         failed_idx = 1
         for request in self.requests:

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 - Cloud only: Fix thread used when rate limiting is enabled. Previously enabling
   rate limiting might cause a hang
+- Fixed error in WriteMultiple with multiple children-only requests
 
 # 5.4.2 - 2024-05-13
 
