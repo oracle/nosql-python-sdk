@@ -714,10 +714,16 @@ class DeleteRequest(WriteRequest):
 
     def set_return_row(self, return_row):
         """
-        Sets whether information about the existing row should be returned on
-        failure because of a version mismatch. If a match version has not been
-        set via :py:meth:`set_match_version` this parameter is ignored and there
-        will be no return information. This parameter is optional and defaults
+        Sets whether information about the existing row should be returned.
+        If set to true existing row information is returned if one of the
+        following occurs:
+
+            PutOption.IF_VERSION is used and the operation fails because
+            the row exists and its version does not match.\n
+            PutOption.IF_VERSION is not used and the operation succeeds
+            provided that the server supports providing the existing row.
+
+        This parameter is optional and defaults
         to False. It's use may incur additional cost.
 
         :param return_row: set to True if information should be returned.
@@ -1945,9 +1951,17 @@ class PutRequest(WriteRequest):
         specific :py:class:`Version`. Use PutOption.IF_VERSION for this case and
         :py:meth:`set_match_version` to specify the version to match.
 
-    Information about the existing row can be returned on failure of a put
-    operation using PutOption.IF_VERSION or PutOption.IF_ABSENT by using
-    :py:meth:`set_return_row`. Requesting this information incurs additional
+    Information about the existing row can be optionally returned if
+    :py:meth:`set_return_row` is set to true and one of the following occurs:
+
+        PutOption.IF_ABSENT is used and the operation fails because
+        the row already exists.\n
+        PutOption.IF_VERSION is used and the operation fails because
+        the row exists and its version does not match.\n
+        PutOption.IF_PRESENT is used and the operation succeeds
+        provided that the server supports providing the existing row.
+
+    Requesting this information incurs additional
     cost and may affect operation latency.
 
     On a successful operation the :py:class:`Version` returned by
@@ -2269,9 +2283,19 @@ class PutRequest(WriteRequest):
 
     def set_return_row(self, return_row):
         """
-        Sets whether information about the exist row should be returned on
-        failure because of a version mismatch or failure of an "if absent"
-        operation.
+        Sets whether information about the exist row should be returned.
+        If set to true, information about the existing row will be returned
+        if one of the following occurs:
+
+            PutOption.IF_ABSENT is used and the operation fails because
+            the row already exists.\n
+            PutOption.IF_VERSION is used and the operation fails because
+            the row exists and its version does not match.\n
+            PutOption.IF_PRESENT is used and the operation succeeds
+            provided that the server supports providing the existing row.
+
+        Requesting this information incurs additional
+        cost and may affect operation latency.
 
         :param return_row: set to True if information should be returned.
         :type return_row: bool
@@ -2284,11 +2308,7 @@ class PutRequest(WriteRequest):
 
     def get_return_row(self):
         """
-        Returns whether information about the exist row should be returned on
-        failure because of a version mismatch or failure of an "if absent"
-        operation. If no option is set via :py:meth:`set_option` or the option
-        is PutOption.IF_PRESENT the value of this parameter is ignored and there
-        will not be any return information.
+        Returns whether information about the exist row should be returned.
 
         :returns: True if information should be returned.
         :rtype: bool
@@ -2363,7 +2383,6 @@ class PutRequest(WriteRequest):
     def get_request_name(self):
         # type: () -> str
         return "Put"
-
 
 class QueryRequest(Request):
     """
@@ -4611,6 +4630,7 @@ class Result(object):
         self._write_kb = 0
         self._write_units = 0
         self._topology_info = None
+        self._server_serial_version = 0
 
     def get_rate_limit_delayed_ms(self):
         """
@@ -4691,6 +4711,12 @@ class Result(object):
     def _get_write_kb(self):
         return self._write_kb
 
+    def _get_server_serial_version(self):
+        return self._server_serial_version
+
+    def _set_server_serial_version(self, version):
+        self._server_serial_version = version
+
 
 class WriteResult(Result):
     """
@@ -4732,7 +4758,8 @@ class DeleteResult(WriteResult):
 
     If the delete succeeded :py:meth:`get_success` returns True. Information
     about the existing row on failure may be available using
-    :py:meth:`get_existing_value` and :py:meth:`get_existing_version`, depending
+    :py:meth:`get_existing_value`, :py:meth:`get_existing_version` and
+    :py:meth:`get_existing_modification_time`, depending
     on the use of :py:meth:`DeleteRequest.set_return_row`.
     """
 
@@ -4758,11 +4785,9 @@ class DeleteResult(WriteResult):
 
     def get_existing_value(self):
         """
-        Returns the existing row value if available. It will be available if the
-        target row exists and the operation failed because of a
-        :py:class:`Version` mismatch and the corresponding
-        :py:class:`DeleteRequest` the method
-        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+        Returns the existing row value if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the value.
         :rtype: dict
@@ -4771,11 +4796,9 @@ class DeleteResult(WriteResult):
 
     def get_existing_version(self):
         """
-        Returns the existing row :py:class:`Version` if available. It will be
-        available if the target row exists and the operation failed because of a
-        :py:class:`Version` mismatch and the corresponding
-        :py:class:`DeleteRequest` the method
-        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+        Returns the existing row :py:class:`Version` if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the version.
         :rtype: Version
@@ -4784,11 +4807,9 @@ class DeleteResult(WriteResult):
 
     def get_existing_modification_time(self):
         """
-        Returns the existing row modification time if available. It will be
-        available if the target row exists and the operation failed because of a
-        :py:class:`Version` mismatch and the corresponding
-        :py:class:`DeleteRequest` the method
-        :py:meth:`DeleteRequest.set_return_row` was called with a True value.
+        Returns the existing row modification time if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
@@ -5204,10 +5225,18 @@ class PutResult(WriteResult):
 
     On a successful operation the value returned by :py:meth:`get_version`
     is non-none. On failure that value is None. Information about the existing
-    row on failure may be available using :py:meth:`get_existing_value` and
-    :py:meth:`get_existing_version`, depending on the use of
-    :py:meth:`PutRequest.set_return_row` and whether the put had an option set
-    using :py:meth:`PutRequest.set_option`.
+    row may be available if :py:meth:`PutRequest.set_return_row` is set to
+    true and one of the following occurs:
+
+        PutOption.IF_ABSENT is used and the operation fails because
+        the row already exists.\n
+        PutOption.IF_VERSION is used and the operation fails because
+        the row exists and its version does not match.\n
+        PutOption.IF_PRESENT is used and the operation succeeds
+        provided that the server supports providing the existing row.\n
+        PutOption is not used and put operation replaces the
+        existing row provided that the server supports providing the existing
+        row.
     """
 
     def __init__(self):
@@ -5250,10 +5279,9 @@ class PutResult(WriteResult):
 
     def get_existing_version(self):
         """
-        Returns the existing row :py:class:`Version` if available. This value
-        will only be available if the conditional put operation failed and the
-        request specified that return information be returned using
-        :py:meth:`PutRequest.set_return_row`.
+        Returns the existing row :py:class:`Version` if available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the :py:class:`Version`.
         :rtype: Version
@@ -5262,10 +5290,9 @@ class PutResult(WriteResult):
 
     def get_existing_value(self):
         """
-        Returns the existing row value if available. This value will only be
-        available if the conditional put operation failed and the request
-        specified that return information be returned using
-        :py:meth:`PutRequest.set_return_row`.
+        Returns the existing row value if available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the value.
         :rtype: dict
@@ -5274,11 +5301,9 @@ class PutResult(WriteResult):
 
     def get_existing_modification_time(self):
         """
-        Returns the existing row modification time if available. It will be
-        available if the conditional put operation failed and the request
-        specified that return information be returned using
-        :py:meth:`PutRequest.set_return_row`. A value of -1 indicates this
-        feature is not available at the connected server.
+        Returns the existing row modification timeif available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
 
         :returns: the modification time in milliseconds since January 1, 1970
         :rtype: int
@@ -6543,9 +6568,9 @@ class OperationResult(WriteResult):
 
     def get_existing_value(self):
         """
-        Returns the previous row value associated with the key if available.
+        Returns the existing row value associated with the key if available.
 
-        :returns: the previous row value
+        :returns: the existing row value
         :rtype: dict
         """
         return self._get_existing_value()

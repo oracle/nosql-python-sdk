@@ -5,6 +5,7 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+import copy
 import unittest
 from collections import OrderedDict
 from copy import deepcopy
@@ -259,7 +260,9 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.check_cost(result, 1, 2, 0, 0)
         # insert a row
         self.put_request.set_option(PutOption.IF_ABSENT).set_ttl(self.ttl)
-        self.handle.put(self.put_request)
+        result = self.handle.put(self.put_request)
+        existing_version = result.get_version()
+        existing_row = copy.deepcopy(self.row)
         expect_expiration = self.ttl.to_expiration_time(
             int(round(time() * 1000)))
         # test PutIfPresent with normal values, operation should succeed
@@ -268,12 +271,19 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             PutOption.IF_PRESENT).set_return_row(True)
         result = self.handle.put(self.put_request)
         version = result.get_version()
-        self._check_put_result(result)
+        if result._get_server_serial_version() <= 4:
+            self._check_put_result(result)
+        else:
+            self._check_put_result(result, True, False,
+                                       existing_version, existing_row)
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, expect_expiration,
                               TimeUnit.HOURS, True, (serial_version > 2))
         self.check_cost(result, 1, 2, 0, 0)
+        existing_version = result.get_version()
+        existing_row = copy.deepcopy(result.get_value())
+
         # test PutIfPresent with normal values, update the ttl with table
         # default ttl
         self.put_request.set_ttl(None).set_use_table_default_ttl(True)
@@ -281,7 +291,11 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         tb_expect_expiration = table_ttl.to_expiration_time(
             int(round(time() * 1000)))
         version = result.get_version()
-        self._check_put_result(result)
+        if result._get_server_serial_version() <= 4:
+            self._check_put_result(result)
+        else:
+            self._check_put_result(result, True, False,
+                                       existing_version, existing_row)
         self.check_cost(result, 1, 2, 2, 2)
         result = self.handle.get(self.get_request)
         self.check_get_result(result, self.row, version, tb_expect_expiration,
