@@ -14,9 +14,11 @@ from parameters import table_prefix
 from time import time
 
 from borneo import (
-    DeleteRequest, Durability, GetRequest, IllegalArgumentException, IllegalStateException,
+    DeleteRequest, Durability, GetRequest, IllegalArgumentException,
+    IllegalStateException,
     PutOption, PutRequest, RequestSizeLimitException, TableLimits,
-    TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
+    TableNotFoundException, TableRequest, TimeToLive, TimeUnit, PutResult,
+    GetResult)
 from parameters import is_onprem, table_name, tenant_id, timeout
 from test_base import TestBase
 from testutils import get_row
@@ -26,6 +28,10 @@ serial_version = 0
 
 
 class TestPut(unittest.TestCase, TestBase):
+
+    def __init__(self, methodName='runTest'):
+        unittest.TestCase.__init__(self, methodName)
+        TestBase.__init__(self)
 
     @classmethod
     def setUpClass(cls):
@@ -166,10 +172,13 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def testPutGets(self):
         identity_cache_size = 5
         version = self.handle.put(self.put_request).get_version()
-        self.put_request.set_option(PutOption.IF_ABSENT).set_match_version(
-            version).set_ttl(self.ttl).set_use_table_default_ttl(
-            True).set_exact_match(True).set_identity_cache_size(
-            identity_cache_size).set_return_row(True)
+        self.put_request.set_option(PutOption.IF_ABSENT)\
+            .set_match_version(version)\
+            .set_ttl(self.ttl)\
+            .set_use_table_default_ttl(True)\
+            .set_exact_match(True)\
+            .set_identity_cache_size(identity_cache_size)\
+            .set_return_row(True)
         self.assertEqual(self.put_request.get_value(), self.row)
         self.assertEqual(self.put_request.get_compartment(), tenant_id)
         self.assertEqual(self.put_request.get_option(), PutOption.IF_ABSENT)
@@ -183,6 +192,51 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(self.put_request.get_identity_cache_size(),
                          identity_cache_size)
         self.assertTrue(self.put_request.get_return_row())
+
+    def testPutLastWriteMetadataAndCreationTime(self):
+        last_write_meta = {'a':1, 'b':[0, "str", None, [], {}, True, False]}
+        self.put_request.set_return_row(True)\
+            .set_last_write_metadata(last_write_meta)
+
+        self.assertEqual(self.put_request.get_last_write_metadata(), last_write_meta)
+
+        result = None
+
+        if not self.feature_last_write_metadata_is_enabled:
+            try:
+                result = self.handle.put(self.put_request)
+                self.fail("handle.put(last_write_metadata) should have failed")
+            except IllegalArgumentException:
+                self.assertTrue(True)
+        else:
+            result = self.handle.put(self.put_request)
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result.get_existing_last_write_metadata(), None)
+            self.assertEqual(result.get_existing_creation_time(), 0)
+
+            result = self.handle.get(self.get_request)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.get_last_write_metadata(), last_write_meta)
+
+            last_write_meta2 = {'abc': 123}
+            self.put_request.set_return_row(True) \
+                .set_last_write_metadata(last_write_meta2)
+            result = self.handle.put(self.put_request)
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result.get_existing_last_write_metadata(),
+                 last_write_meta)
+
+            result = self.handle.get(self.get_request)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.get_last_write_metadata(), last_write_meta2)
+
+        # check creation time too
+        if not self.feature_creation_time_is_enabled:
+            self.assertEqual(result.get_creation_time(), 0)
+        else:
+            self.assertGreater(result.get_creation_time(), 1)
 
     def testPutIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.put,

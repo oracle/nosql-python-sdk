@@ -233,6 +233,14 @@ class CheckValue(object):
                 name + ' must be a string that is not empty.')
 
     @staticmethod
+    def check_json_construct(data, name):
+        if not(data is None or isinstance(data, dict) or isinstance(data, list)
+               or isinstance(data, str) or isinstance(data, int) or
+               isinstance(data, float) or isinstance(data, Decimal) or
+               isinstance(data, bool)):
+            raise IllegalArgumentException(name + ' must be a jason construct.')
+
+    @staticmethod
     def is_digit(data):
         if (isinstance(data, int) or
                 isinstance(data, float) or isinstance(data, Decimal)):

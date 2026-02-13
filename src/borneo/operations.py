@@ -447,7 +447,7 @@ class WriteRequest(Request):
 
     This class encapsulates the common parameters of table name and the return
     row boolean, which allows applications to get information about the existing
-    value of the target row on failure. By default no previous information is
+    value of the target row on failure. By default, no previous information is
     returned.
     """
 
@@ -455,6 +455,7 @@ class WriteRequest(Request):
         super(WriteRequest, self).__init__()
         self._return_row = False
         self._durability = None
+        self._last_write_metadata = None
 
     def __str__(self):
         return 'WriteRequest'
@@ -499,6 +500,49 @@ class WriteRequest(Request):
         # type: () -> str
         return "Write"
 
+    def get_last_write_metadata(self):
+        """
+        Returns the last write metadata to be used for this request or None if
+        not set.
+
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._last_write_metadata
+
+    def set_last_write_metadata(self, last_write_metadata):
+        """
+        Sets the write metadata to use for this request.
+
+        This is an optional parameter.
+
+        Last write metadata is associated to a certain version of a row. Any
+        subsequent write operation will use its own write metadata value. If not
+        specified null will be used by default.
+        NOTE that if you have previously written a record with metadata and a
+        subsequent write does not supply metadata, the metadata associated with
+        the row will be null. Therefore, if you wish to have metadata
+        associated with every write operation, you must supply a valid JSON
+        construct to this method.
+
+        :param last_write_metadata: the write metadata, must be None or a valid
+            JSON construct: object, array, string, number, true, false or None,
+            otherwise an IllegalArgumentException is thrown.
+        :type last_write_metadata: int | float | str | bool | dict | list | None
+        :return: self
+        :raises IllegalArgumentException: if last_write_metadata not None nor
+            JSON construct
+        :versionadded:: 5.5.0
+        """
+        if last_write_metadata is None:
+            self._last_write_metadata = None
+            return self
+
+
+        CheckValue.check_json_construct(last_write_metadata, "last_write_metadata")
+        self._last_write_metadata = last_write_metadata
+        return self
+
 
 class ReadRequest(Request):
     """
@@ -506,7 +550,7 @@ class ReadRequest(Request):
     :py:meth:`NoSQLHandle.get`.
 
     This class encapsulates the common parameters of table name and consistency.
-    By default read operations use Consistency.EVENTUAL. Use of
+    By default, read operations use Consistency.EVENTUAL. Use of
     Consistency.ABSOLUTE should be used only when required as it incurs
     additional cost.
     """
@@ -1469,6 +1513,7 @@ class MultiDeleteRequest(Request):
         self._range = None
         self._max_write_kb = 0
         self._durability = None
+        self._last_write_metadata = None
 
     def __str__(self):
         return 'MultiDeleteRequest'
@@ -1723,6 +1768,49 @@ class MultiDeleteRequest(Request):
     def get_request_name(self):
         # type: () -> str
         return "MultiDelete"
+
+    def get_last_write_metadata(self):
+        """
+        Returns the last write metadata to be used for this request or None if
+        not set.
+
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._last_write_metadata
+
+    def set_last_write_metadata(self, last_write_metadata):
+        """
+        Sets the write metadata to use for this request.
+
+        This is an optional parameter.
+
+        Last write metadata is associated to a certain version of a row. Any
+        subsequent write operation will use its own write metadata value. If not
+        specified null will be used by default.
+        NOTE that if you have previously written a record with metadata and a
+        subsequent write does not supply metadata, the metadata associated with
+        the row will be null. Therefore, if you wish to have metadata
+        associated with every write operation, you must supply a valid JSON
+        construct to this method.
+
+        :param last_write_metadata: the write metadata, must be None or a valid
+            JSON construct: object, array, string, number, true, false or None,
+            otherwise an IllegalArgumentException is thrown.
+        :type last_write_metadata: int | float | str | bool | dict | list | None
+        :return: self
+        :raises IllegalArgumentException: if last_write_metadata not None nor
+            JSON construct
+        :versionadded:: 5.5.0
+        """
+        if last_write_metadata is None:
+            self._last_write_metadata = None
+            return self
+
+
+        CheckValue.check_json_construct(last_write_metadata, "last_write_metadata")
+        self._last_write_metadata = last_write_metadata
+        return self
 
 
 class PrepareRequest(Request):
@@ -2462,6 +2550,7 @@ class QueryRequest(Request):
         self._driver_query_trace = None
         self._server_query_traces = None # dict if set
         self._batch_counter = 0
+        self._last_write_metadata = None # dict, list, string, number, bool or None
 
     def __str__(self):
         return 'QueryRequest'
@@ -3010,6 +3099,45 @@ class QueryRequest(Request):
     def get_request_name(self):
         # type: () -> str
         return "Query"
+
+    def get_last_write_metadata(self):
+        """
+        Returns the last write metadata to be used for this request or None if
+        not set.
+
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._last_write_metadata
+
+    def set_last_write_metadata(self, last_write_metadata):
+        """
+        Sets the write metadata to use for the operation. This setting is
+        optional and only applies if the query modifies or deletes any rows
+        using an INSERT, UPDATE, UPSERT or DELETE statement. If the query is
+        read-only this setting is ignored. This is an optional parameter.
+
+        Write metadata is associated to a certain version of a row. Any
+        subsequent write operation will use its own write metadata value. If not
+        specified null will be used by default.
+        NOTE that if you have previously written a record with metadata and a
+        subsequent write does not supply metadata, the metadata associated with
+        the row will be null. Therefore, if you wish to have metadata
+        associated with every write operation, you must supply a valid JSON
+        construct to this method.
+
+        :param last_write_metadata: the write metadata, must be None or a valid
+            JSON construct: object, array, string, number, true, false or None,
+            otherwise an IllegalArgumentException is thrown.
+        :type last_write_metadata: int | float | str | bool | dict | list | None
+        :return: self
+        :raises IllegalArgumentException: if last_write_metadata not None nor
+            JSON construct
+        :versionadded:: 5.5.0
+        """
+        if last_write_metadata is None:
+            self._last_write_metadata = None
+            return self
 
 
 class SystemRequest(Request):
@@ -4729,7 +4857,9 @@ class WriteResult(Result):
         super(WriteResult, self).__init__()
         self._existing_version = None
         self._existing_value = None
+        self._existing_creation_time = 0
         self._existing_modification_time = 0
+        self._existing_last_write_metadata = None
 
     def set_existing_value(self, existing_value):
         self._existing_value = existing_value
@@ -4739,8 +4869,16 @@ class WriteResult(Result):
         self._existing_version = existing_version
         return self
 
+    def set_existing_creation_time(self, existing_creation_time):
+        self._existing_creation_time = existing_creation_time
+        return self
+
     def set_existing_modification_time(self, existing_modification_time):
         self._existing_modification_time = existing_modification_time
+        return self
+
+    def set_existing_last_write_metadata(self, existing_last_write_metadata):
+        self._existing_last_write_metadata = existing_last_write_metadata
         return self
 
     def _get_existing_value(self):
@@ -4749,19 +4887,29 @@ class WriteResult(Result):
     def _get_existing_version(self):
         return self._existing_version
 
+    def _get_existing_creation_time(self):
+        return self._existing_creation_time
+
     def _get_existing_modification_time(self):
         return self._existing_modification_time
 
+    def _get_existing_last_write_metadata(self):
+        return self._existing_last_write_metadata
+
+    def _set_existing_last_write_metadata(self, value):
+        self._existing_last_write_metadata = value
 
 class DeleteResult(WriteResult):
     """
     Represents the result of a :py:meth:`NoSQLHandle.delete` operation.
 
-    If the delete succeeded :py:meth:`get_success` returns True. Information
-    about the existing row on failure may be available using
-    :py:meth:`get_existing_value`, :py:meth:`get_existing_version` and
-    :py:meth:`get_existing_modification_time`, depending
-    on the use of :py:meth:`DeleteRequest.set_return_row`.
+    If the delete operation succeeded :py:meth:`get_success` returns True.
+    Information about the existing row on failure may be available using
+    :py:meth:`get_existing_value`, :py:meth:`get_existing_version`,
+    :py:meth:`get_existing_creation_time`,
+    :py:meth:`get_existing_modification_time` and
+    :py:meth:`get_existing_last_write_metadata`, depending on the use of
+    :py:meth:`DeleteRequest.set_return_row`.
     """
 
     def __init__(self):
@@ -4806,17 +4954,41 @@ class DeleteResult(WriteResult):
         """
         return self._get_existing_version()
 
+    def get_existing_creation_time(self):
+        """
+        Returns the existing row creation time if available. See
+        :py:meth:`DeleteRequest.set_return_row` for conditions under which
+        the information is available.
+
+        :returns: the creation time in milliseconds since January 1, 1970, UTC
+        :rtype: int
+        :versionadded:: 5.5.0
+        """
+        return self._get_existing_creation_time()
+
     def get_existing_modification_time(self):
         """
         Returns the existing row modification time if available. See
         :py:meth:`DeleteRequest.set_return_row` for conditions under which
         the information is available.
 
-        :returns: the modification time in milliseconds since January 1, 1970
+        :returns: the modification time in milliseconds since January 1, 1970, UTC
         :rtype: int
         :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
+
+    def get_existing_last_write_metadata(self):
+        """
+        Returns the existing last write metadata of the returned row if
+        available. See :py:meth:`DeleteRequest.set_return_row` for conditions
+        under which the information is available.
+
+        :returns: the last write metadata.
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._get_existing_last_write_metadata()
 
     def get_read_kb(self):
         """
@@ -4875,7 +5047,9 @@ class GetResult(Result):
         self._value = None
         self._version = None
         self._expiration_time = 0
+        self._creation_time = 0
         self._modification_time = 0
+        self._last_write_metadata = None
 
     def __str__(self):
         return 'None' if self._value is None else str(self._value)
@@ -4921,11 +5095,27 @@ class GetResult(Result):
         row does not expire. This value is valid only if the operation
         successfully returned a row (:py:meth:`get_value` returns non-none).
 
-        :returns: the expiration time in milliseconds since January 1, 1970, or
-            zero if the row never expires or the row does not exist.
+        :returns: the expiration time in milliseconds since January 1, 1970, UTC,
+            or zero if the row never expires or the row does not exist.
         :rtype: int
         """
         return self._expiration_time
+
+    def set_creation_time(self, creation_time):
+        # Sets the creation time, internal
+        self._creation_time = creation_time
+        return self
+
+    def get_creation_time(self):
+        """
+        Returns the creation time of the row. This value is valid only if
+        the operation successfully returned a row (:py:meth:`get_value` returns non-none).
+
+        :returns: the creation time in milliseconds since January 1, 1970, UTC
+        :rtype: int
+        :versionadded: 5.5.0
+        """
+        return self._creation_time
 
     def set_modification_time(self, modification_time):
         # Sets the modification time, internal
@@ -4937,8 +5127,9 @@ class GetResult(Result):
         Returns the modification time of the row. This value is valid only if
         the operation successfully returned a row (:py:meth:`get_value` returns non-none).
 
-        :returns: the modification time in milliseconds since January 1, 1970
+        :returns: the modification time in milliseconds since January 1, 1970, UTC
         :rtype: int
+        :versionadded: 5.5.0
         """
         return self._modification_time
 
@@ -4982,6 +5173,40 @@ class GetResult(Result):
         :rtype: int
         """
         return super(GetResult, self).get_write_units()
+
+    def get_last_write_metadata(self):
+        """
+        Returns the last write metadata to be used for this request or None if
+        not set.
+
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._last_write_metadata
+
+    def set_last_write_metadata(self, last_write_metadata):
+        """
+        Internal use only.
+
+        Sets the write metadata of this object.
+
+        :param last_write_metadata: the write metadata, must be None or a valid
+            JSON construct: object, array, string, number, true, false or None,
+            otherwise an IllegalArgumentException is thrown.
+        :type last_write_metadata: int | float | str | bool | dict | list | None
+        :return: self
+        :raises IllegalArgumentException: if last_write_metadata not None nor
+            JSON construct
+        :versionadded:: 5.5.0
+        """
+        if last_write_metadata is None:
+            self._last_write_metadata = None
+            return self
+
+
+        CheckValue.check_json_construct(last_write_metadata, "last_write_metadata")
+        self._last_write_metadata = last_write_metadata
+        return self
 
 
 class GetIndexesResult(Result):
@@ -5300,13 +5525,25 @@ class PutResult(WriteResult):
         """
         return self._get_existing_value()
 
-    def get_existing_modification_time(self):
+    def get_existing_creation_time(self):
         """
-        Returns the existing row modification timeif available. See
+        Returns the existing row creation time if available. See
         :py:meth:`PutRequest.set_return_row` for conditions under which
         the information is available.
 
-        :returns: the modification time in milliseconds since January 1, 1970
+        :returns: the creation time in milliseconds since January 1, 1970 UTC
+        :rtype: int
+        :versionadded:: 5.5.0
+        """
+        return self._get_existing_creation_time()
+
+    def get_existing_modification_time(self):
+        """
+        Returns the existing row modification time if available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
+
+        :returns: the modification time in milliseconds since January 1, 1970 UTC
         :rtype: int
         :versionadded:: 5.3.0
         """
@@ -5352,6 +5589,18 @@ class PutResult(WriteResult):
         :rtype: int
         """
         return super(PutResult, self).get_write_units()
+
+    def get_existing_last_write_metadata(self):
+        """
+        Returns the existing row last write metadata if available. See
+        :py:meth:`PutRequest.set_return_row` for conditions under which
+        the information is available.
+
+        :returns: the last write metadata
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._get_existing_last_write_metadata()
 
 
 class QueryResult(Result):
@@ -6576,16 +6825,36 @@ class OperationResult(WriteResult):
         """
         return self._get_existing_value()
 
+    def get_existing_creation_time(self):
+        """
+        Returns the existing row creation time if available.
+
+        :returns: the creation time in milliseconds since January 1, 1970, UTC
+        :rtype: int
+        :versionadded:: 5.5.0
+        """
+        return self._get_existing_creation_time()
+
     def get_existing_modification_time(self):
         """
         Returns the existing row modification time if available.
 
-        :returns: the modification time in milliseconds since January 1, 1970
+        :returns: the modification time in milliseconds since January 1, 1970, UTC
         :rtype: int
         :versionadded:: 5.3.0
         """
         return self._get_existing_modification_time()
 
+    def get_existing_last_write_metadata(self):
+        """
+        Returns the existing row last write metadata if available or None
+        otherwise.
+
+        :returns: the last write metadata
+        :rtype: int | float | str | bool | dict | list | None
+        :versionadded:: 5.5.0
+        """
+        return self._get_existing_last_write_metadata()
 
 class ReplicaStatsResult(Result):
     """

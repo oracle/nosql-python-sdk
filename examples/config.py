@@ -19,7 +19,7 @@
 
 # The endpoint to use to connect to the service. This endpoint is for a Cloud
 # Simulator running on its default port (8080) on the local machine.
-endpoint = 'localhost:8080'
+endpoint = 'http://localhost:8080'
 
 # The server type.
-server_type = 'cloudsim'
+server_type = 'onprem'

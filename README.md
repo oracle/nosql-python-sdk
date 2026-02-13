@@ -405,7 +405,7 @@ operate correctly. A secure configuration requires a secure proxy and more
 complex configuration.
 
 1. Start the Oracle NoSQL Database and proxy server based on instructions above.
-   Note the HTTP port used. By default the endpoint is *localhost:80*.
+   Note the HTTP port used. By default, the endpoint is *localhost:80*.
 
 2. The *quickstart.py* program defaults to *localhost:80*. If the proxy was
    started using a different host or port edit the settings accordingly.

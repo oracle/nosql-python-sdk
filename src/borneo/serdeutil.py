@@ -147,7 +147,7 @@ class NsonEventHandler:
 # noinspection PyTypeChecker
 class SerdeUtil(object):
     """
-    A class to encapsulte static methods used by serialization and
+    A class to encapsulate static methods used by serialization and
     deserialization of requests. These utility methods can be used by
     multiple protocols. It also includes constants that are shared across
     protocols.

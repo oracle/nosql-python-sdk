@@ -29,6 +29,8 @@ class TestBase(object):
 
     def __init__(self):
         self.handle = None
+        self.feature_creation_time_is_enabled = True
+        self.feature_last_write_metadata_is_enabled = True
 
     def check_cost(self, result, read_kb, read_units, write_kb, write_units,
                    advance=False, multi_shards=False):
@@ -58,7 +60,7 @@ class TestBase(object):
 
     def check_get_result(self, result, value=None, exp_version=None,
                          expect_expiration=0, timeunit=None, ver_eq=True,
-                         mod_time_recent=False):
+                         mod_time_recent=False, serial_version=0):
         assert isinstance(self, TestCase)
         # check value
         self.assertEqual(result.get_value(), value)
@@ -70,6 +72,7 @@ class TestBase(object):
             self.assertEqual(ver.get_bytes(), exp_version.get_bytes())
         else:
             self.assertNotEqual(ver.get_bytes(), exp_version.get_bytes())
+
         # check expiration time
         if expect_expiration == 0:
             self.assertEqual(result.get_expiration_time(), 0)
@@ -81,6 +84,8 @@ class TestBase(object):
                 self.assertLess(actual_expect_diff, TestBase.HOUR_IN_MILLIS)
             else:
                 self.assertLess(actual_expect_diff, TestBase.DAY_IN_MILLIS)
+
+        # check modification time
         modtime = result.get_modification_time()
         if mod_time_recent:
             now = round(time() * 1000)
