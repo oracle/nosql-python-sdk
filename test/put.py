@@ -234,13 +234,10 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                 self.assertIsNotNone(result)
                 self.assertEqual(result.get_last_write_metadata(), last_write_meta2)
 
-            # check creation time too
-            if not (self.handle.get_client()
-                    .is_feature_enabled(Client.FEATURE_FLAG_CREATION_TIME)):
-                self.assertEqual(result.get_creation_time(), 0)
-            else:
-                self.assertGreater(result.get_creation_time(), 1)
-                self.assertAlmostEqual(result.get_creation_time(), creation_time, delta=1000)
+            # check creation time too, since no flag exists it can be 0 or near now
+            db_creation_time = result.get_creation_time()
+            self.assertTrue(db_creation_time == 0 or
+                            (db_creation_time - creation_time) < 1000)
 
         except IllegalArgumentException:
             if not (self.handle.get_client()

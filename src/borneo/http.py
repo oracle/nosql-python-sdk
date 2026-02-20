@@ -312,9 +312,10 @@ class RequestUtils(object):
                     self._logutils.log_debug(
                         'Response: ' + self._request.__class__.__name__ +
                         ', status: ' + str(response.status_code))
-                if self._request is not None:
+                if self._client is not None:
                     self._client.set_proxy_info(
                         response.headers.get(HttpConstants.RESPONSE_PROXY_INFO))
+                if self._request is not None:
                     res = self._process_response(
                         self._request, response.content, response.status_code)
                     # set server's serial version if available

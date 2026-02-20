@@ -37,7 +37,6 @@ class Client(object):
 
     # features flag bits
     FEATURE_FLAG_LAST_WRITE_METADATA = 1 << 0;
-    FEATURE_FLAG_CREATION_TIME       = 1 << 1;
 
     # The HTTP driver client.
     def __init__(self, config, logger):
@@ -601,7 +600,7 @@ class Client(object):
         Format of the server version header string:
            proxy=X.Y.Z kv=X.Y.Z[ features=XX]
 
-        If "features" exists, its value is a long.
+        If "features" exists, its value is a long in hex.
         """
         if self._proxy_version is None and proxy_header is not None:
             versions = proxy_header.split()
@@ -614,8 +613,8 @@ class Client(object):
                         len(versions[2].split('=')[1]) <= 16 ):
                     feat_str = versions[2].split('=')[1]
                     try:
-                        self._features = int(feat_str)
-                    except ValueError as e:
+                        self._features = int(feat_str, base=16)
+                    except ValueError:
                         self._logutils.log_info(
                             f"Received invalid features flag from server: {feat_str}")
 
