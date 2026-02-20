@@ -10,6 +10,8 @@ import unittest
 from collections import OrderedDict
 from copy import deepcopy
 from dateutil import tz
+
+from borneo.client import Client
 from parameters import table_prefix
 from time import time
 
@@ -193,6 +195,7 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                          identity_cache_size)
         self.assertTrue(self.put_request.get_return_row())
 
+
     def testPutLastWriteMetadataAndCreationTime(self):
         last_write_meta = {'a':1, 'b':[0, "str", None, [], {}, True, False]}
         self.put_request.set_return_row(True)\
@@ -200,43 +203,55 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
 
         self.assertEqual(self.put_request.get_last_write_metadata(), last_write_meta)
 
-        result = None
+        creation_time = time() * 1000
 
-        if not self.feature_last_write_metadata_is_enabled:
-            try:
-                result = self.handle.put(self.put_request)
+        try:
+            result = self.handle.put(self.put_request)
+            if not (self.handle.get_client()
+                    .is_feature_enabled(
+                Client.FEATURE_FLAG_LAST_WRITE_METADATA)):
                 self.fail("handle.put(last_write_metadata) should have failed")
-            except IllegalArgumentException:
+
+            else:
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_existing_last_write_metadata(), None)
+                self.assertEqual(result.get_existing_creation_time(), 0)
+
+                result = self.handle.get(self.get_request)
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_last_write_metadata(), last_write_meta)
+
+                last_write_meta2 = {'abc': 123}
+                self.put_request.set_return_row(True) \
+                    .set_last_write_metadata(last_write_meta2)
+                result = self.handle.put(self.put_request)
+
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_existing_last_write_metadata(),
+                     last_write_meta)
+
+                result = self.handle.get(self.get_request)
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_last_write_metadata(), last_write_meta2)
+
+            # check creation time too
+            if not (self.handle.get_client()
+                    .is_feature_enabled(Client.FEATURE_FLAG_CREATION_TIME)):
+                self.assertEqual(result.get_creation_time(), 0)
+            else:
+                self.assertGreater(result.get_creation_time(), 1)
+                self.assertAlmostEqual(result.get_creation_time(), creation_time, delta=1000)
+
+        except IllegalArgumentException:
+            if not (self.handle.get_client()
+                    .is_feature_enabled(
+                Client.FEATURE_FLAG_LAST_WRITE_METADATA)):
+                # feature was not enabled so the put should have thrown
                 self.assertTrue(True)
-        else:
-            result = self.handle.put(self.put_request)
+            else:
+                # feature was not enabled so the put should have NOT thrown
+                self.assertTrue(False)
 
-            self.assertIsNotNone(result)
-            self.assertEqual(result.get_existing_last_write_metadata(), None)
-            self.assertEqual(result.get_existing_creation_time(), 0)
-
-            result = self.handle.get(self.get_request)
-            self.assertIsNotNone(result)
-            self.assertEqual(result.get_last_write_metadata(), last_write_meta)
-
-            last_write_meta2 = {'abc': 123}
-            self.put_request.set_return_row(True) \
-                .set_last_write_metadata(last_write_meta2)
-            result = self.handle.put(self.put_request)
-
-            self.assertIsNotNone(result)
-            self.assertEqual(result.get_existing_last_write_metadata(),
-                 last_write_meta)
-
-            result = self.handle.get(self.get_request)
-            self.assertIsNotNone(result)
-            self.assertEqual(result.get_last_write_metadata(), last_write_meta2)
-
-        # check creation time too
-        if not self.feature_creation_time_is_enabled:
-            self.assertEqual(result.get_creation_time(), 0)
-        else:
-            self.assertGreater(result.get_creation_time(), 1)
 
     def testPutIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.put,

@@ -34,7 +34,7 @@ install the oci package::
 
     pip install oci
 
-See [the installation guide](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html) for additional requirements and and alternative install
+See [the installation guide](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html) for additional requirements and alternative install
 methods.
 
 ## Examples

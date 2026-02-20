@@ -172,6 +172,28 @@ class RequestUtils(object):
         """
         return self._do_request('PUT', uri, headers, payload, timeout_ms, None)
 
+    def do_head_request(self, uri, headers, timeout_ms):
+        """
+        Issue HTTP HEAD request with retries and general error handling.
+
+        It retries upon seeing following exceptions and response codes:
+
+            HTTP response with status code larger than 500\n
+            Other throwable excluding RuntimeException, InterruptedException,
+            ExecutionException and TimeoutException
+
+        :param uri: the request URI.
+        :type uri: str
+        :param headers: HTTP headers of this request.
+        :type headers: dict
+        :param timeout_ms: request timeout in milliseconds.
+        :type timeout_ms: int
+        :returns: HTTP response, a object encapsulate status code and response.
+        :rtype: HttpResponse or Result
+        """
+        return self._do_request('HEAD', uri, headers, None, timeout_ms, None)
+
+
     def _do_request(self, method, uri, headers, payload, timeout_ms,
                     stats_config):
         exception = None

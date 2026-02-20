@@ -35,6 +35,10 @@ class Client(object):
     LIMITER_REFRESH_NANOS = 600000000000
     TRACE_LEVEL = 0
 
+    # features flag bits
+    FEATURE_FLAG_LAST_WRITE_METADATA = 1 << 0;
+    FEATURE_FLAG_CREATION_TIME       = 1 << 1;
+
     # The HTTP driver client.
     def __init__(self, config, logger):
         self._logutils = LogUtils(logger)
@@ -117,6 +121,7 @@ class Client(object):
         self._stats_control = StatsControl(config,
                                            logger,
                                            config.get_rate_limiting_enabled())
+        self._features = 0
 
     @synchronized
     def background_update_limiters(self, table_name):
@@ -592,9 +597,35 @@ class Client(object):
         return self._kv_version
 
     def set_proxy_info(self, proxy_header):
+        """
+        Format of the server version header string:
+           proxy=X.Y.Z kv=X.Y.Z[ features=XX]
+
+        If "features" exists, its value is a long.
+        """
         if self._proxy_version is None and proxy_header is not None:
             versions = proxy_header.split()
             # bail if not of correct format
-            if len(versions) == 2:
+            if len(versions) >= 2:
                 self._proxy_version = versions[0].split('=')[1]
                 self._kv_version = versions[1].split('=')[1]
+                if (len(versions) >= 3 and
+                        versions[2].split('=')[0] == 'features' and
+                        len(versions[2].split('=')[1]) <= 16 ):
+                    feat_str = versions[2].split('=')[1]
+                    try:
+                        self._features = int(feat_str)
+                    except ValueError as e:
+                        self._logutils.log_info(
+                            f"Received invalid features flag from server: {feat_str}")
+
+    def is_feature_enabled(self, feature_flag):
+        if self._proxy_version is None:
+            # there were no requests until now
+            request_utils = RequestUtils(
+                self._sess, self._logutils, None, self._retry_handler,
+                self, self._rate_limiter_map)
+            request_utils.do_head_request(self._request_uri, {},
+                self._config.get_default_timeout())
+
+        return (self._features & feature_flag) != 0
