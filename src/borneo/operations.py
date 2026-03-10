@@ -439,6 +439,12 @@ class Request(object):
     def get_topo_seq_num(self):
         return self._topo_seq_num
 
+    def get_last_write_metadata(self):
+        """
+        Internal use only.
+        """
+        return None
+
 
 class WriteRequest(Request):
     """

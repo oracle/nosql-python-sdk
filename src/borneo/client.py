@@ -22,6 +22,7 @@ from .exception import (IllegalArgumentException,
                         OperationNotSupportedException, RequestSizeLimitException)
 from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
+from .nson_protocol import LAST_WRITE_METADATA
 from .operations import (
     GetTableRequest, QueryRequest, QueryResult, TableRequest, WriteRequest)
 from .query import QueryDriver
@@ -35,8 +36,9 @@ class Client(object):
     LIMITER_REFRESH_NANOS = 600000000000
     TRACE_LEVEL = 0
 
-    # features flag bits
-    FEATURE_FLAG_LAST_WRITE_METADATA = 1 << 0;
+    # proxy enabled features flag bits, works on this._features
+    # Features: added in KV 26.1, SDK 5.4.4
+    FEATURE_FLAG_LAST_WRITE_METADATA = 1 << 0
 
     # The HTTP driver client.
     def __init__(self, config, logger):
@@ -120,6 +122,8 @@ class Client(object):
         self._stats_control = StatsControl(config,
                                            logger,
                                            config.get_rate_limiting_enabled())
+        # Keeps a set of bits each one corresponding to an enabled feature
+        # signaled by the httpproxy. See FEATURE_FLAG_LAST_WRITE_METADATA.
         self._features = 0
 
     @synchronized
@@ -182,6 +186,13 @@ class Client(object):
         CheckValue.check_not_none(request, 'request')
         request.set_defaults(self._config)
         request.validate()
+
+        if (request.get_last_write_metadata() is not None) and \
+                (not self.is_feature_enabled(
+                    self.FEATURE_FLAG_LAST_WRITE_METADATA)):
+            raise OperationNotSupportedException('Last Write Metadata is not' +
+                                                 'supported on this server')
+
         if request.is_query_request():
             self._stats_control.observe_query(request)
 

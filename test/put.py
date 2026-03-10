@@ -196,14 +196,12 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertTrue(self.put_request.get_return_row())
 
 
-    def testPutLastWriteMetadataAndCreationTime(self):
+    def testPutLastWriteMetadata(self):
         last_write_meta = {'a':1, 'b':[0, "str", None, [], {}, True, False]}
         self.put_request.set_return_row(True)\
             .set_last_write_metadata(last_write_meta)
 
         self.assertEqual(self.put_request.get_last_write_metadata(), last_write_meta)
-
-        creation_time = time() * 1000
 
         try:
             result = self.handle.put(self.put_request)
@@ -215,7 +213,6 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             else:
                 self.assertIsNotNone(result)
                 self.assertEqual(result.get_existing_last_write_metadata(), None)
-                self.assertEqual(result.get_existing_creation_time(), 0)
 
                 result = self.handle.get(self.get_request)
                 self.assertIsNotNone(result)
@@ -234,11 +231,6 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                 self.assertIsNotNone(result)
                 self.assertEqual(result.get_last_write_metadata(), last_write_meta2)
 
-            # check creation time too, since no flag exists it can be 0 or near now
-            db_creation_time = result.get_creation_time()
-            self.assertTrue(db_creation_time == 0 or
-                            (db_creation_time - creation_time) < 1000)
-
         except IllegalArgumentException:
             if not (self.handle.get_client()
                     .is_feature_enabled(
@@ -248,6 +240,35 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
             else:
                 # feature was not enabled so the put should have NOT thrown
                 self.assertTrue(False)
+
+
+    def testPutCreationTime(self):
+        self.put_request.set_return_row(True)
+
+        creation_time = time() * 1000
+
+        result = self.handle.put(self.put_request)
+        self.assertIsNotNone(result)
+
+        # check creation time, since no flag exists it can be 0 or near now
+        self.assertTrue(result.get_existing_creation_time() == 0 or
+            result.get_existing_creation_time() - creation_time < 1000)
+
+        result = self.handle.get(self.get_request)
+        self.assertIsNotNone(result)
+
+        self.put_request.set_return_row(True)
+        result = self.handle.put(self.put_request)
+
+        self.assertIsNotNone(result)
+
+        result = self.handle.get(self.get_request)
+        self.assertIsNotNone(result)
+
+        # check creation time, since no flag exists it can be 0 or near now
+        db_creation_time = result.get_creation_time()
+        self.assertTrue(db_creation_time == 0 or
+            (db_creation_time - creation_time) < 1000)
 
 
     def testPutIllegalRequest(self):
