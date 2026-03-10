@@ -842,11 +842,13 @@ class GetTableRequestSerializer(RequestSerializer):
 #      "READ_KV" : <int>
 #      "WRITE_UNITS" : <int>
 #   }
-#   "ROW" : {                  # the row plus metadata
-#     "MODIFIED" : <long>      # last modified
-#     "EXPIRATION" : <long>    # expiration if using TTL
-#     "ROW_VERSION" : <binary> # kv version
-#     "VALUE" : {              # the row's value in NSON
+#   "ROW" : {                           # the row plus metadata
+#     "CREATION_TIME" : <long>          # creation time
+#     "LAST_WRITE_METADATA" : <string>  # last write metadata
+#     "MODIFIED" : <long>               # last modified
+#     "EXPIRATION" : <long>             # expiration if using TTL
+#     "ROW_VERSION" : <binary>          # kv version
+#     "VALUE" : {                       # the row's value in NSON
 #     }
 #   }
 # }
@@ -989,6 +991,9 @@ class PutRequestSerializer(RequestSerializer):
         if request.get_match_version() is not None:
             Proto.write_bin_map_field(
                 ns, ROW_VERSION, request.get_match_version().get_bytes())
+        if request.get_last_write_metadata() is not None:
+            Proto.write_string_map_field(ns, LAST_WRITE_METADATA,
+                json.dumps(request.get_last_write_metadata()))
         Proto.write_value(ns, request.get_value())
 
 
@@ -1067,6 +1072,9 @@ class DeleteRequestSerializer(RequestSerializer):
         if request.get_match_version() is not None:
             Proto.write_bin_map_field(
                 ns, ROW_VERSION, request.get_match_version().get_bytes())
+        if request.get_last_write_metadata() is not None:
+            Proto.write_string_map_field(ns, LAST_WRITE_METADATA,
+                json.dumps(request.get_last_write_metadata()))
         Proto.write_key(ns, request.get_key())
 
 
@@ -1530,6 +1538,9 @@ class MultiDeleteRequestSerializer(RequestSerializer):
         Proto.write_bin_map_field(ns, CONTINUATION_KEY,
                                   request.get_continuation_key())
         Proto.write_durability(ns, request)
+        if request.get_last_write_metadata() is not None:
+            Proto.write_string_map_field(ns, LAST_WRITE_METADATA,
+                json.dumps(request.get_last_write_metadata()))
         self._write_field_range(ns, request.get_range())
         Proto.write_key(ns, request.get_key())
 
@@ -1892,6 +1903,9 @@ class QueryRequestSerializer(RequestSerializer):
                                              request.get_query_name())
             if request.get_virtual_scan() is not None:
                 Proto.write_virtual_scan(ns, request.get_virtual_scan())
+            if request.get_last_write_metadata() is not None:
+                Proto.write_string_map_field(ns, LAST_WRITE_METADATA,
+                     json.dumps(request.get_last_write_metadata()))
 
         Proto.end_map(ns, PAYLOAD)
 
@@ -2497,7 +2511,9 @@ class Proto(object):
         while walker.has_next():
             walker.next()
             name = walker.get_current_name()
-            if name == MODIFIED:
+            if name == CREATION_TIME:
+                result.set_creation_time(Nson.read_long(bis))
+            elif name == MODIFIED:
                 result.set_modification_time(Nson.read_long(bis))
             elif name == EXPIRATION:
                 result.set_expiration_time(Nson.read_long(bis))
@@ -2506,6 +2522,8 @@ class Proto(object):
                     Version.create_version(Nson.read_binary(bis)))
             elif name == VALUE:
                 result.set_value(Proto.nson_to_value(bis))
+            elif name == LAST_WRITE_METADATA:
+                result.set_last_write_metadata(json.loads(Nson.read_string(bis)))
             else:
                 walker.skip()
 
@@ -2588,13 +2606,17 @@ class Proto(object):
         while walker.has_next():
             walker.next()
             name = walker.get_current_name()
-            if name == EXISTING_MOD_TIME:
+            if name == CREATION_TIME:
+                result.set_existing_creation_time(Nson.read_long(bis))
+            elif name == EXISTING_MOD_TIME:
                 result.set_existing_modification_time(Nson.read_long(bis))
             elif name == EXISTING_VERSION:
                 result.set_existing_version(Version.create_version(
                     Nson.read_binary(bis)))
             elif name == EXISTING_VALUE:
                 result.set_existing_value(Proto.nson_to_value(bis))
+            elif name == EXISTING_LAST_WRITE_METADATA:
+                result.set_existing_last_write_metadata(json.loads(Nson.read_string(bis)))
             else:
                 walker.skip()
 

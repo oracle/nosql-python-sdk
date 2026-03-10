@@ -34,7 +34,7 @@ install the oci package::
 
     pip install oci
 
-See [the installation guide](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html) for additional requirements and and alternative install
+See [the installation guide](https://nosql-python-sdk.readthedocs.io/en/stable/installation.html) for additional requirements and alternative install
 methods.
 
 ## Examples
@@ -81,7 +81,7 @@ that the *borneo* package has been installed.
 ``` python
 
 #
-# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -405,7 +405,7 @@ operate correctly. A secure configuration requires a secure proxy and more
 complex configuration.
 
 1. Start the Oracle NoSQL Database and proxy server based on instructions above.
-   Note the HTTP port used. By default the endpoint is *localhost:80*.
+   Note the HTTP port used. By default, the endpoint is *localhost:80*.
 
 2. The *quickstart.py* program defaults to *localhost:80*. If the proxy was
    started using a different host or port edit the settings accordingly.
@@ -426,7 +426,7 @@ Please consult the [security guide](./SECURITY.md) for our responsible security 
 
 ## License
 
-Copyright (c) 2018, 2025 Oracle and/or its affiliates.
+Copyright (c) 2018, 2026 Oracle and/or its affiliates.
 
 Released under the Universal Permissive License v1.0 as shown at
 <https://oss.oracle.com/licenses/upl/>.

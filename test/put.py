@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -10,13 +10,17 @@ import unittest
 from collections import OrderedDict
 from copy import deepcopy
 from dateutil import tz
+
+from borneo.client import Client
 from parameters import table_prefix
 from time import time
 
 from borneo import (
-    DeleteRequest, Durability, GetRequest, IllegalArgumentException, IllegalStateException,
+    DeleteRequest, Durability, GetRequest, IllegalArgumentException,
+    IllegalStateException,
     PutOption, PutRequest, RequestSizeLimitException, TableLimits,
-    TableNotFoundException, TableRequest, TimeToLive, TimeUnit)
+    TableNotFoundException, TableRequest, TimeToLive, TimeUnit, PutResult,
+    GetResult)
 from parameters import is_onprem, table_name, tenant_id, timeout
 from test_base import TestBase
 from testutils import get_row
@@ -26,6 +30,10 @@ serial_version = 0
 
 
 class TestPut(unittest.TestCase, TestBase):
+
+    def __init__(self, methodName='runTest'):
+        unittest.TestCase.__init__(self, methodName)
+        TestBase.__init__(self)
 
     @classmethod
     def setUpClass(cls):
@@ -166,10 +174,13 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
     def testPutGets(self):
         identity_cache_size = 5
         version = self.handle.put(self.put_request).get_version()
-        self.put_request.set_option(PutOption.IF_ABSENT).set_match_version(
-            version).set_ttl(self.ttl).set_use_table_default_ttl(
-            True).set_exact_match(True).set_identity_cache_size(
-            identity_cache_size).set_return_row(True)
+        self.put_request.set_option(PutOption.IF_ABSENT)\
+            .set_match_version(version)\
+            .set_ttl(self.ttl)\
+            .set_use_table_default_ttl(True)\
+            .set_exact_match(True)\
+            .set_identity_cache_size(identity_cache_size)\
+            .set_return_row(True)
         self.assertEqual(self.put_request.get_value(), self.row)
         self.assertEqual(self.put_request.get_compartment(), tenant_id)
         self.assertEqual(self.put_request.get_option(), PutOption.IF_ABSENT)
@@ -183,6 +194,82 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
         self.assertEqual(self.put_request.get_identity_cache_size(),
                          identity_cache_size)
         self.assertTrue(self.put_request.get_return_row())
+
+
+    def testPutLastWriteMetadata(self):
+        last_write_meta = {'a':1, 'b':[0, "str", None, [], {}, True, False]}
+        self.put_request.set_return_row(True)\
+            .set_last_write_metadata(last_write_meta)
+
+        self.assertEqual(self.put_request.get_last_write_metadata(), last_write_meta)
+
+        try:
+            result = self.handle.put(self.put_request)
+            if not (self.handle.get_client()
+                    .is_feature_enabled(
+                Client.FEATURE_FLAG_LAST_WRITE_METADATA)):
+                self.fail("handle.put(last_write_metadata) should have failed")
+
+            else:
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_existing_last_write_metadata(), None)
+
+                result = self.handle.get(self.get_request)
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_last_write_metadata(), last_write_meta)
+
+                last_write_meta2 = {'abc': 123}
+                self.put_request.set_return_row(True) \
+                    .set_last_write_metadata(last_write_meta2)
+                result = self.handle.put(self.put_request)
+
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_existing_last_write_metadata(),
+                     last_write_meta)
+
+                result = self.handle.get(self.get_request)
+                self.assertIsNotNone(result)
+                self.assertEqual(result.get_last_write_metadata(), last_write_meta2)
+
+        except IllegalArgumentException:
+            if not (self.handle.get_client()
+                    .is_feature_enabled(
+                Client.FEATURE_FLAG_LAST_WRITE_METADATA)):
+                # feature was not enabled so the put should have thrown
+                self.assertTrue(True)
+            else:
+                # feature was not enabled so the put should have NOT thrown
+                self.assertTrue(False)
+
+
+    def testPutCreationTime(self):
+        self.put_request.set_return_row(True)
+
+        creation_time = time() * 1000
+
+        result = self.handle.put(self.put_request)
+        self.assertIsNotNone(result)
+
+        # check creation time, since no flag exists it can be 0 or near now
+        self.assertTrue(result.get_existing_creation_time() == 0 or
+            result.get_existing_creation_time() - creation_time < 1000)
+
+        result = self.handle.get(self.get_request)
+        self.assertIsNotNone(result)
+
+        self.put_request.set_return_row(True)
+        result = self.handle.put(self.put_request)
+
+        self.assertIsNotNone(result)
+
+        result = self.handle.get(self.get_request)
+        self.assertIsNotNone(result)
+
+        # check creation time, since no flag exists it can be 0 or near now
+        db_creation_time = result.get_creation_time()
+        self.assertTrue(db_creation_time == 0 or
+            (db_creation_time - creation_time) < 1000)
+
 
     def testPutIllegalRequest(self):
         self.assertRaises(IllegalArgumentException, self.handle.put,

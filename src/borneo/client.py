@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -22,6 +22,7 @@ from .exception import (IllegalArgumentException,
                         OperationNotSupportedException, RequestSizeLimitException)
 from .http import RateLimiterMap, RequestUtils
 from .kv import StoreAccessTokenProvider
+from .nson_protocol import LAST_WRITE_METADATA
 from .operations import (
     GetTableRequest, QueryRequest, QueryResult, TableRequest, WriteRequest)
 from .query import QueryDriver
@@ -34,6 +35,10 @@ class Client(object):
     DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024
     LIMITER_REFRESH_NANOS = 600000000000
     TRACE_LEVEL = 0
+
+    # proxy enabled features flag bits, works on this._features
+    # Features: added in KV 26.1, SDK 5.4.4
+    FEATURE_FLAG_LAST_WRITE_METADATA = 1 << 0
 
     # The HTTP driver client.
     def __init__(self, config, logger):
@@ -117,6 +122,9 @@ class Client(object):
         self._stats_control = StatsControl(config,
                                            logger,
                                            config.get_rate_limiting_enabled())
+        # Keeps a set of bits each one corresponding to an enabled feature
+        # signaled by the httpproxy. See FEATURE_FLAG_LAST_WRITE_METADATA.
+        self._features = 0
 
     @synchronized
     def background_update_limiters(self, table_name):
@@ -178,6 +186,13 @@ class Client(object):
         CheckValue.check_not_none(request, 'request')
         request.set_defaults(self._config)
         request.validate()
+
+        if (request.get_last_write_metadata() is not None) and \
+                (not self.is_feature_enabled(
+                    self.FEATURE_FLAG_LAST_WRITE_METADATA)):
+            raise OperationNotSupportedException('Last Write Metadata is not' +
+                                                 'supported on this server')
+
         if request.is_query_request():
             self._stats_control.observe_query(request)
 
@@ -592,9 +607,35 @@ class Client(object):
         return self._kv_version
 
     def set_proxy_info(self, proxy_header):
+        """
+        Format of the server version header string:
+           proxy=X.Y.Z kv=X.Y.Z[ features=XX]
+
+        If "features" exists, its value is a long in hex.
+        """
         if self._proxy_version is None and proxy_header is not None:
             versions = proxy_header.split()
             # bail if not of correct format
-            if len(versions) == 2:
+            if len(versions) >= 2:
                 self._proxy_version = versions[0].split('=')[1]
                 self._kv_version = versions[1].split('=')[1]
+                if (len(versions) >= 3 and
+                        versions[2].split('=')[0] == 'features' and
+                        len(versions[2].split('=')[1]) <= 16 ):
+                    feat_str = versions[2].split('=')[1]
+                    try:
+                        self._features = int(feat_str, base=16)
+                    except ValueError:
+                        self._logutils.log_info(
+                            f"Received invalid features flag from server: {feat_str}")
+
+    def is_feature_enabled(self, feature_flag):
+        if self._proxy_version is None:
+            # there were no requests until now
+            request_utils = RequestUtils(
+                self._sess, self._logutils, None, self._retry_handler,
+                self, self._rate_limiter_map)
+            request_utils.do_head_request(self._request_uri, {},
+                self._config.get_default_timeout())
+
+        return (self._features & feature_flag) != 0

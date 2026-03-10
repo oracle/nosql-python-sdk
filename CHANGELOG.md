@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ====================
 
+# 5.5.0 - 2026-02-06
+
+## Added
+
+- support for row creation time
+- support for last write metadata of a row
+
 # 5.4.3 - 2025-08-15
 
 ## Fixed

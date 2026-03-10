@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -172,6 +172,28 @@ class RequestUtils(object):
         """
         return self._do_request('PUT', uri, headers, payload, timeout_ms, None)
 
+    def do_head_request(self, uri, headers, timeout_ms):
+        """
+        Issue HTTP HEAD request with retries and general error handling.
+
+        It retries upon seeing following exceptions and response codes:
+
+            HTTP response with status code larger than 500\n
+            Other throwable excluding RuntimeException, InterruptedException,
+            ExecutionException and TimeoutException
+
+        :param uri: the request URI.
+        :type uri: str
+        :param headers: HTTP headers of this request.
+        :type headers: dict
+        :param timeout_ms: request timeout in milliseconds.
+        :type timeout_ms: int
+        :returns: HTTP response, a object encapsulate status code and response.
+        :rtype: HttpResponse or Result
+        """
+        return self._do_request('HEAD', uri, headers, None, timeout_ms, None)
+
+
     def _do_request(self, method, uri, headers, payload, timeout_ms,
                     stats_config):
         exception = None
@@ -290,9 +312,10 @@ class RequestUtils(object):
                     self._logutils.log_debug(
                         'Response: ' + self._request.__class__.__name__ +
                         ', status: ' + str(response.status_code))
-                if self._request is not None:
+                if self._client is not None:
                     self._client.set_proxy_info(
                         response.headers.get(HttpConstants.RESPONSE_PROXY_INFO))
+                if self._request is not None:
                     res = self._process_response(
                         self._request, response.content, response.status_code)
                     # set server's serial version if available

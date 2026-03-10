@@ -142,13 +142,16 @@ WRITE_UNITS = 'wu'
 #
 # row metadata
 #
+CREATION_TIME = 'ct'
 EXPIRATION = 'xp'
+LAST_WRITE_METADATA = 'mt'
 MODIFIED = 'md'
 ROW = 'r'
 ROW_VERSION = 'rv'
 #
 # operation metadata
 #
+EXISTING_LAST_WRITE_METADATA = 'ed'
 EXISTING_MOD_TIME = 'em'
 EXISTING_VALUE = 'el'
 EXISTING_VERSION = 'ev'
@@ -164,6 +167,7 @@ MATH_CONTEXT_PRECISION = 'cp'
 NOT_TARGET_TABLES = 'nt'
 NUM_RESULTS = 'nr'
 PROXY_TOPO_SEQNUM = 'pn'
+QUERY_NAME = 'qn'
 QUERY_OPERATION = 'qo'
 QUERY_PLAN_STRING = 'qs'
 QUERY_RESULTS = 'qr'

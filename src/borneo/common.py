@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -231,6 +231,14 @@ class CheckValue(object):
                 (not CheckValue.is_str(data) or len(data) == 0)):
             raise IllegalArgumentException(
                 name + ' must be a string that is not empty.')
+
+    @staticmethod
+    def check_json_construct(data, name):
+        if not(data is None or isinstance(data, dict) or isinstance(data, list)
+               or isinstance(data, str) or isinstance(data, int) or
+               isinstance(data, float) or isinstance(data, Decimal) or
+               isinstance(data, bool)):
+            raise IllegalArgumentException(name + ' must be a jason construct.')
 
     @staticmethod
     def is_digit(data):

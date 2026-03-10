@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, 2025 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026 Oracle and/or its affiliates. All rights reserved.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
@@ -147,7 +147,7 @@ class NsonEventHandler:
 # noinspection PyTypeChecker
 class SerdeUtil(object):
     """
-    A class to encapsulte static methods used by serialization and
+    A class to encapsulate static methods used by serialization and
     deserialization of requests. These utility methods can be used by
     multiple protocols. It also includes constants that are shared across
     protocols.
