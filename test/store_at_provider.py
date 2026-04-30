@@ -6,6 +6,7 @@
 #
 import sys
 import unittest
+from urllib.parse import urlparse
 from requests import codes
 from socket import error
 from threading import Thread
@@ -128,10 +129,14 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
         self.assertEqual(self.token_provider.get_endpoint(), base)
         self.assertIsNone(self.token_provider.get_logger())
 
+    @staticmethod
+    def _set_url_for_test(token_provider):
+        token_provider._url = urlparse(token_provider._url.geturl().replace('https', 'http'))
+
     def testAccessTokenProviderGetAuthorizationString(self):
         self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
         self.token_provider.set_endpoint(self.base)
-        self.token_provider.set_url_for_test()
+        self._set_url_for_test(self.token_provider)
         # get authorization string.
         result = self.token_provider.get_authorization_string()
         self.assertIsNotNone(result)
@@ -147,7 +152,7 @@ class TestStoreAccessTokenProvider(unittest.TestCase):
     def testAccessTokenProviderMultiThreads(self):
         self.token_provider = StoreAccessTokenProvider(USER_NAME, PASSWORD)
         self.token_provider.set_endpoint(self.base)
-        self.token_provider.set_url_for_test()
+        self._set_url_for_test(self.token_provider)
         threads = list()
         for i in range(5):
             t = Thread(target=self._run)

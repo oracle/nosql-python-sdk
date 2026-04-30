@@ -85,7 +85,7 @@ class SignatureProvider(AuthorizationProvider):
     When using a specific user's identity there are 3 options for providing the
     required information:
 
-    1. Using a instance of oci.signer.Signer or
+    1. Using an instance of oci.signer.Signer or
        oci.auth.signers.SecurityTokenSigner
     2. Directly providing the credentials via parameters
     3. Using a configuration file
