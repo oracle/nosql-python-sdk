@@ -4,7 +4,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
-
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from logging import DEBUG
 from platform import python_version
@@ -440,14 +440,31 @@ class Client(object):
                 'password are required')
         if self._proxy_host is not None:
             if self._proxy_username is None:
-                proxy_url = (
-                        'http://' + self._proxy_host + ':' + str(self._proxy_port))
+                proxy_url = urllib.parse.urlunparse(
+                    (
+                        'http',
+                        self._proxy_host + ':' +
+                        str(self._proxy_port),
+                        '',
+                        '',
+                        '',
+                        ''
+                    ))
             else:
                 assert self._proxy_password is not None
-                proxy_url = (
-                        'http://' + self._proxy_username + ':' +
-                        self._proxy_password + '@' + self._proxy_host + ':' +
-                        str(self._proxy_port))
+                proxy_url = urllib.parse.urlunparse(
+                    (
+                        'http',
+                        urllib.parse.quote(self._proxy_username, safe='') +
+                        ':' + urllib.parse.quote(
+                            self._proxy_password, safe='') +
+                        '@' + self._proxy_host + ':' +
+                        str(self._proxy_port),
+                        '',
+                        '',
+                        '',
+                        ''
+                    ))
             sess.proxies = {'http': proxy_url, 'https': proxy_url}
 
     @staticmethod
@@ -615,7 +632,7 @@ class Client(object):
         """
         if self._proxy_version is None and proxy_header is not None:
             versions = proxy_header.split()
-            # bail if not of correct format
+            # bail if not of the correct format
             if len(versions) >= 2:
                 self._proxy_version = versions[0].split('=')[1]
                 self._kv_version = versions[1].split('=')[1]

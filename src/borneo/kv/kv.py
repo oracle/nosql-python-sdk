@@ -278,10 +278,6 @@ class StoreAccessTokenProvider(AuthorizationProvider):
         adapter = SSLAdapter(ssl_ctx)
         self._sess.mount(self._url.scheme + '://', adapter)
 
-    def set_url_for_test(self):
-        self._url = urlparse(self._url.geturl().replace('https', 'http'))
-        return self
-
     def validate_auth_string(self, auth_string):
         if self._is_secure and auth_string is None:
             raise IllegalArgumentException(

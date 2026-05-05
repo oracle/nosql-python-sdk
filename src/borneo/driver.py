@@ -4,7 +4,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 #  https://oss.oracle.com/licenses/upl/
 #
-
+import ssl
 from json import loads
 from logging import FileHandler, Formatter, WARNING, getLogger
 from os import mkdir, path
@@ -812,6 +812,9 @@ class NoSQLHandle(object):
                     ctx = create_default_context()
                 else:
                     ctx = SSLContext(config.get_ssl_protocol())
+                    ctx.load_default_certs()
+                    ctx.verify_mode = ssl.CERT_REQUIRED
+                    ctx.check_hostname = True
                 if config.get_ssl_cipher_suites() is not None:
                     ctx.set_ciphers(config.get_ssl_cipher_suites())
                 if config.get_ssl_ca_certs() is not None:
