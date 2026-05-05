@@ -812,8 +812,9 @@ class NoSQLHandle(object):
                     ctx = create_default_context()
                 else:
                     ctx = SSLContext(config.get_ssl_protocol())
-                    ctx.check_hostname = True
+                    ctx.load_default_certs()
                     ctx.verify_mode = ssl.CERT_REQUIRED
+                    ctx.check_hostname = True
                 if config.get_ssl_cipher_suites() is not None:
                     ctx.set_ciphers(config.get_ssl_cipher_suites())
                 if config.get_ssl_ca_certs() is not None:
