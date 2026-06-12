@@ -13,6 +13,7 @@ import os
 os.environ['OCI_PYTHON_SDK_NO_SERVICE_IMPORTS'] = '1'
 
 from . import iam
+from . import changestream
 from . import kv
 from .auth import AuthorizationProvider
 from .common import (

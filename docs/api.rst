@@ -9,5 +9,8 @@ API Reference
 .. automodapi:: borneo.iam
    :no-inheritance-diagram:
 
+.. automodapi:: borneo.changestream
+   :no-inheritance-diagram:
+
 .. automodapi:: borneo.kv
    :no-inheritance-diagram:

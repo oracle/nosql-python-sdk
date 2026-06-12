@@ -14,6 +14,7 @@ https://www.oracle.com/database/technologies/related/nosql.html
 
    installation
    tables
+   changestream
    datatypes
    api
    stats

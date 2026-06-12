@@ -16,6 +16,7 @@ NoSQLHandle
       ~NoSQLHandle.drop_replica
       ~NoSQLHandle.do_system_request
       ~NoSQLHandle.do_table_request
+      ~NoSQLHandle.enable_change_streaming
       ~NoSQLHandle.get
       ~NoSQLHandle.get_client
       ~NoSQLHandle.get_indexes
@@ -45,6 +46,7 @@ NoSQLHandle
    .. automethod:: do_system_request
    .. automethod:: do_table_request
    .. automethod:: drop_replica
+   .. automethod:: enable_change_streaming
    .. automethod:: get
    .. automethod:: get_client
    .. automethod:: get_indexes

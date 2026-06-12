@@ -14,7 +14,9 @@ from sys import argv
 from .client import Client
 from .common import CheckValue, UserInfo
 from .config import NoSQLHandleConfig
-from .exception import IllegalArgumentException, IllegalStateException
+from .exception import (
+    IllegalArgumentException, IllegalStateException,
+    OperationNotSupportedException)
 from .iam import SignatureProvider
 from .kv import StoreAccessTokenProvider
 from .operations import (
@@ -22,6 +24,21 @@ from .operations import (
     ListTablesRequest, MultiDeleteRequest, PrepareRequest, PutRequest,
     QueryRequest, SystemRequest, SystemStatusRequest, TableRequest,
     TableUsageRequest, WriteMultipleRequest, QueryIterableResult)
+
+
+_CHANGE_STREAM_NOT_SUPPORTED = 'Change Streams not supported by server'
+
+
+def _raise_if_change_stream_not_supported(exc):
+    msg = str(exc)
+    lower_msg = msg.lower() if msg is not None else ''
+    if ('must have either statement or limits' in lower_msg or
+            'unknown opcode' in lower_msg or
+            'unknown operation' in lower_msg):
+        raise OperationNotSupportedException(_CHANGE_STREAM_NOT_SUPPORTED)
+    if (isinstance(exc, OperationNotSupportedException) and
+            'change stream' in lower_msg):
+        raise OperationNotSupportedException(_CHANGE_STREAM_NOT_SUPPORTED)
 
 
 class NoSQLHandle(object):
@@ -624,6 +641,54 @@ class NoSQLHandle(object):
         res = self.table_request(request)
         res.wait_for_completion(self, timeout_ms, poll_interval_ms)
         return res
+
+    def enable_change_streaming(self, table_name, compartment=None,
+                                enabled=True, timeout_ms=30000,
+                                poll_interval_ms=1000):
+        """
+        Enables or disables Change Streams for a table and waits for the table
+        operation to complete.
+
+        Cloud service only.
+
+        :param table_name: the table name.
+        :type table_name: str
+        :param compartment: the compartment name or id. If not set, the
+            configured default compartment is used.
+        :type compartment: str
+        :param enabled: True to enable Change Streams, False to disable it.
+        :type enabled: bool
+        :param timeout_ms: the amount of time to wait for completion, in
+            milliseconds.
+        :type timeout_ms: int
+        :param poll_interval_ms: the polling interval for the wait operation.
+        :type poll_interval_ms: int
+        :returns: the result of the table request.
+        :rtype: TableResult
+        :raises IllegalArgumentException: raises the exception if any of the
+            parameters are invalid or required parameters are missing.
+        :raises OperationNotSupportedException: raises the exception if the
+            server does not support Change Streams.
+        :raises RequestTimeoutException: raises the exception if the operation
+            times out.
+        :raises NoSQLException: raises the exception if the operation cannot be
+            performed for any other reason.
+        """
+        request = TableRequest().set_table_name(
+            table_name).set_change_streaming_enabled(enabled)
+        if compartment is not None:
+            request.set_compartment(compartment)
+
+        try:
+            res = self.table_request(request)
+            if res is None:
+                raise IllegalStateException(
+                    'No response from server for Change Streams operation.')
+            res.wait_for_completion(self, timeout_ms, poll_interval_ms)
+            return res
+        except Exception as exc:
+            _raise_if_change_stream_not_supported(exc)
+            raise
 
     def list_namespaces(self):
         """

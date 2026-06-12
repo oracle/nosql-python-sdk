@@ -14,7 +14,7 @@ from decimal import (
 from .common import (
     CheckValue, Empty, IndexInfo, JsonNone, PreparedStatement,
     TableLimits, TableUsage, TimeUnit, Version)
-from .exception import IllegalStateException
+from .exception import IllegalStateException, OperationNotSupportedException
 from .query import PlanIter, QueryDriver, TopologyInfo
 from .serdeutil import (SerdeUtil, RequestSerializer)
 
@@ -733,6 +733,10 @@ class SystemStatusRequestSerializer(RequestSerializer):
 class TableRequestSerializer(RequestSerializer):
 
     def serialize(self, request, bos, serial_version):
+        if request.get_change_streaming_enablement() is not None:
+            raise OperationNotSupportedException(
+                'Change Streams is not supported with serial version: ' +
+                str(serial_version))
         BinaryProtocol.write_op_code(bos, SerdeUtil.OP_CODE.TABLE_REQUEST)
         BinaryProtocol.serialize_request(request, bos)
         SerdeUtil.write_string(bos, request.get_statement())

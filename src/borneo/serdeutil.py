@@ -204,7 +204,10 @@ class SerdeUtil(object):
                    # skip some as unused
                    ADD_REPLICA=33,
                    DROP_REPLICA=34,
-                   GET_REPLICA_STATS=35)
+                   GET_REPLICA_STATS=35,
+                   # skipped opcodes are unused by this SDK.
+                   CHANGE_STREAM_CONSUMER=43,
+                   CHANGE_STREAM_POLL=44)
 
     # System Operation state.
     SYSTEM_STATE = enum(COMPLETE=0,

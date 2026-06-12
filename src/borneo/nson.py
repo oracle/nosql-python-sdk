@@ -1087,6 +1087,7 @@ class DeleteRequestSerializer(RequestSerializer):
 #     "STATEMENT" : <optional, string>
 #     "LIMITS": {<optional limits object>}
 #     "ETAG" : {<optional>}
+#     "CHANGE_STREAM_ENABLED" : <optional, bool>
 #   }
 # }
 #
@@ -1111,12 +1112,256 @@ class TableRequestSerializer(RequestSerializer):
         Proto.write_limits(ns, request.get_table_limits())
         Proto.write_tags(ns, request)
         Proto.write_string_map_field(ns, ETAG, request.get_match_etag())
+        Proto.write_bool_map_field(
+            ns, CHANGE_STREAM_ENABLED,
+            request.get_change_streaming_enablement())
         Proto.end_map(ns, PAYLOAD)
 
         ns.end_map()  # top-level object
 
     def deserialize(self, request, bis, serial_version):
         return Proto.deserialize_table_result(bis)
+
+
+#
+# ChangeStreamConsumerRequest
+#
+class ChangeStreamConsumerRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(
+            ns, SerdeUtil.OP_CODE.CHANGE_STREAM_CONSUMER, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_int_map_field(ns, MODE, request.get_mode())
+        Proto.write_bin_map_field(ns, CURSOR, request.get_cursor())
+
+        builder = request.get_builder()
+        if builder is not None:
+            Proto.write_string_map_field(ns, GROUP_ID, builder.get_group_id())
+            if builder.is_manual_commit():
+                Proto.write_bool_map_field(ns, MANUAL_COMMIT, True)
+            Proto.write_string_map_field(
+                ns, COMPARTMENT_OCID, builder.get_compartment())
+            if builder.get_max_poll_interval() is not None:
+                Proto.write_long_map_field(
+                    ns, MAX_POLL_INTERVAL,
+                    builder.get_max_poll_interval())
+            if builder.get_force_reset():
+                Proto.write_bool_map_field(ns, FORCE_RESET, True)
+            self._write_consumer_tables(ns, builder.get_tables())
+
+        Proto.end_map(ns, PAYLOAD)
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.ChangeStreamConsumerResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CURSOR:
+                result.set_cursor(Nson.read_binary(bis))
+            elif name == CONSUMER_METADATA:
+                result.set_metadata(Proto.nson_to_value(bis))
+            else:
+                walker.skip()
+        return result
+
+    @staticmethod
+    def _write_consumer_tables(ns, tables):
+        if tables is None:
+            return
+        Proto.start_array(ns, CONSUMER_TABLES)
+        for table_config in tables:
+            ns.start_array_field()
+            ns.start_map()
+            table_ocid = table_config.get_table_ocid()
+            if table_ocid is None or len(table_ocid) == 0:
+                raise IllegalArgumentException(
+                    'Consumer builder missing table OCID.')
+            Proto.write_string_map_field(ns, TABLE_OCID, table_ocid)
+            start_location = table_config.get_start_location()
+            if start_location is not None:
+                # The Java serializer writes START_TIME before START_LOCATION.
+                if start_location.get_start_time() > 0:
+                    Proto.write_long_map_field(
+                        ns, START_TIME, start_location.get_start_time())
+                Proto.write_int_map_field(
+                    ns, START_LOCATION,
+                    start_location.get_location_type())
+            if table_config.is_remove():
+                Proto.write_bool_map_field(ns, IS_REMOVE, True)
+            ns.end_map()
+            ns.end_array_field()
+        Proto.end_array(ns, CONSUMER_TABLES)
+
+
+#
+# ChangeStreamPollRequest
+#
+class ChangeStreamPollRequestSerializer(RequestSerializer):
+
+    def serialize(self, request, bos, serial_version):
+        ns = NsonSerializer(bos)
+        ns.start_map()  # top-level object
+
+        Proto.start_map(ns, HEADER)
+        Proto.write_header(ns, SerdeUtil.OP_CODE.CHANGE_STREAM_POLL, request)
+        Proto.end_map(ns, HEADER)
+
+        Proto.start_map(ns, PAYLOAD)
+        Proto.write_int_map_field(ns, MAX_EVENTS, request.get_limit())
+        Proto.write_bin_map_field(ns, CURSOR, request.get_cursor())
+        Proto.end_map(ns, PAYLOAD)
+
+        ns.end_map()  # top-level object
+
+    def deserialize(self, request, bis, serial_version):
+        result = borneo.operations.ChangeStreamPollResult()
+        walker = MapWalker(bis)
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == ERROR_CODE:
+                Proto.handle_error_code(walker)
+            elif name == CURSOR:
+                result.set_cursor(Nson.read_binary(bis))
+            elif name == EVENTS_REMAINING:
+                result.set_events_remaining(Nson.read_long(bis))
+            elif name == EVENT_BUNDLE:
+                result.set_bundle(self._read_message_bundle(bis))
+            else:
+                walker.skip()
+        return result
+
+    @staticmethod
+    def _read_message_bundle(bis):
+        from borneo.changestream.models import Message, MessageBundle
+
+        ChangeStreamPollRequestSerializer._read_array_type(
+            bis, 'message bundle')
+        num_elements = SerdeUtil.read_full_int(bis)
+        messages = list()
+        for _ in range(num_elements):
+            walker = MapWalker(bis)
+            message = Message()
+            while walker.has_next():
+                walker.next()
+                name = walker.get_current_name()
+                if name == TABLE_OCID:
+                    message._set_table_ocid(Nson.read_string(bis))
+                elif name == TABLE_NAME:
+                    message._set_table_name(Nson.read_string(bis))
+                elif name == COMPARTMENT_OCID:
+                    message._set_compartment_ocid(Nson.read_string(bis))
+                elif name == EVENT_EVENTS:
+                    message._set_events(
+                        ChangeStreamPollRequestSerializer._read_events(bis))
+                else:
+                    walker.skip()
+            if message.get_events() is None:
+                raise IllegalArgumentException(
+                    'Missing EVENTS in message bundle.')
+            messages.append(message)
+        return MessageBundle(messages)
+
+    @staticmethod
+    def _read_events(bis):
+        ChangeStreamPollRequestSerializer._read_array_type(
+            bis, 'message events')
+        num_elements = SerdeUtil.read_full_int(bis)
+        events = list()
+        for _ in range(num_elements):
+            events.append(ChangeStreamPollRequestSerializer._read_event(bis))
+        return events
+
+    @staticmethod
+    def _read_event(bis):
+        from borneo.changestream.models import Event
+
+        event_bis = ByteInputStream(Nson.read_binary(bis))
+        walker = MapWalker(event_bis)
+        event = None
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == EVENT_VERSION:
+                # Java currently ignores event format version.
+                Nson.read_int(event_bis)
+            elif name == EVENT_TYPE:
+                # Java currently ignores single/group event type.
+                Nson.read_int(event_bis)
+            elif name == EVENT_EVENTS:
+                ChangeStreamPollRequestSerializer._read_array_type(
+                    event_bis, 'events')
+                num_elements = SerdeUtil.read_full_int(event_bis)
+                records = list()
+                for _ in range(num_elements):
+                    records.append(
+                        ChangeStreamPollRequestSerializer._read_record(
+                            event_bis))
+                event = Event(records)
+            else:
+                walker.skip()
+        if event is None:
+            raise IllegalArgumentException('Missing events in message.')
+        return event
+
+    @staticmethod
+    def _read_record(bis):
+        from borneo.changestream.models import Image, Record
+
+        walker = MapWalker(bis)
+        record = Record()
+        current_image = Image()
+        before_image = Image()
+        while walker.has_next():
+            walker.next()
+            name = walker.get_current_name()
+            if name == EVENT_MODIFICATION_TIME:
+                record._set_modification_time(Nson.read_long(bis))
+            elif name == EVENT_EXPIRATION_TIME:
+                record._set_expiration_time(Nson.read_long(bis))
+            elif name == EVENT_ID:
+                record._set_event_id(Nson.read_string(bis))
+            elif name == EVENT_PARTITION_ID:
+                record._set_partition_id(Nson.read_int(bis))
+            elif name == EVENT_REGION_ID:
+                record._set_region_id(Nson.read_int(bis))
+            elif name == EVENT_RECORD_KEY:
+                record._set_record_key(Proto.nson_to_value(bis))
+            elif name == EVENT_RECORD_VALUE:
+                current_image._set_value(Proto.nson_to_value(bis))
+            elif name == EVENT_RECORD_METADATA:
+                current_image._set_metadata(Proto.nson_to_value(bis))
+            elif name == EVENT_PREV_VALUE:
+                before_image._set_value(Proto.nson_to_value(bis))
+            elif name == EVENT_PREV_METADATA:
+                before_image._set_metadata(Proto.nson_to_value(bis))
+            else:
+                walker.skip()
+        if not current_image.is_empty():
+            record._set_current_image(current_image)
+        if not before_image.is_empty():
+            record._set_before_image(before_image)
+        return record
+
+    @staticmethod
+    def _read_array_type(bis, context):
+        t = bis.read_byte()
+        if t != SerdeUtil.FIELD_VALUE_TYPE.ARRAY:
+            raise IllegalArgumentException(
+                'Bad type in ' + context + ': ' + str(t) +
+                ' should be ARRAY')
+        SerdeUtil.read_full_int(bis)  # total length in bytes
 
 
 #
@@ -2236,6 +2481,12 @@ class Proto(object):
     def write_int_map_field(ns, name, value):
         ns.start_map_field(name)
         ns.integer_value(value)
+        ns.end_map_field(name)
+
+    @staticmethod
+    def write_long_map_field(ns, name, value):
+        ns.start_map_field(name)
+        ns.long_value(value)
         ns.end_map_field(name)
 
     @staticmethod

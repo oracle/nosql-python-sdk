@@ -17,7 +17,8 @@ from .common import (
     PutOption, ReplicaStats, State, SystemState, TableLimits, TableUsage,
     TimeToLive, Version, deprecated)
 from .exception import (
-    IllegalArgumentException, RequestTimeoutException)
+    IllegalArgumentException, OperationNotSupportedException,
+    RequestTimeoutException)
 from .http import RateLimiter
 from .serde import (
     DeleteRequestSerializer, GetIndexesRequestSerializer,
@@ -3412,6 +3413,7 @@ class TableRequest(Request):
         self._defined_tags = None  # a dict, with str values
         self._match_etag = None
         self._free_form_tags = None  # a dict, wih str values
+        self._change_stream_enabled = None
 
     def __str__(self):
         return ('TableRequest: [name=' + str(self.get_table_name()) +
@@ -3500,6 +3502,32 @@ class TableRequest(Request):
         :rtype: TableLimits
         """
         return self._limits
+
+    def set_change_streaming_enabled(self, enabled):
+        """
+        Sets Change Streams enabled or disabled for this table.
+
+        Cloud service only.
+
+        :param enabled: True to enable Change Streams for the table, False to
+            disable it.
+        :type enabled: bool
+        :returns: self.
+        :raises IllegalArgumentException: raises the exception if enabled is
+            not True or False.
+        """
+        CheckValue.check_boolean(enabled, 'enabled')
+        self._change_stream_enabled = enabled
+        return self
+
+    def get_change_streaming_enablement(self):
+        """
+        Returns the requested Change Streams enablement, or None if unset.
+
+        :returns: True, False, or None.
+        :rtype: bool
+        """
+        return self._change_stream_enabled
 
     def set_defined_tags(self, tags):
         """
@@ -4747,6 +4775,163 @@ class ReplicaStatsRequest(Request):
         return borneo.nson.ReplicaStatsRequestSerializer()
         pass
 
+
+class ChangeStreamConsumerRequest(Request):
+    """
+    Internal use only.
+
+    Request used for Change Streams consumer lifecycle operations.
+    """
+
+    class RequestMode(object):
+        UNINITIALIZED = 0
+        CREATE = 1
+        UPDATE = 2
+        CLOSE = 3
+        DELETE = 4
+        COMMIT = 5
+        RESET = 6
+
+    def __init__(self, mode):
+        super(ChangeStreamConsumerRequest, self).__init__()
+        self._builder = None
+        self._cursor = None
+        self._mode = mode
+
+    def set_builder(self, builder):
+        # Internal use only.
+        self._builder = builder
+        return self
+
+    def get_builder(self):
+        # Internal use only.
+        return self._builder
+
+    def set_cursor(self, cursor):
+        # Internal use only.
+        self._cursor = cursor
+        return self
+
+    def get_cursor(self):
+        # Internal use only.
+        return self._cursor
+
+    def get_mode(self):
+        # Internal use only.
+        return self._mode
+
+    def set_compartment(self, compartment):
+        # Internal use only.
+        self.set_compartment_internal(compartment)
+        return self
+
+    def set_timeout(self, timeout_ms):
+        # Internal use only.
+        self._set_timeout(timeout_ms)
+        return self
+
+    def validate(self):
+        valid_modes = (
+            self.RequestMode.CREATE,
+            self.RequestMode.UPDATE,
+            self.RequestMode.CLOSE,
+            self.RequestMode.DELETE,
+            self.RequestMode.COMMIT,
+            self.RequestMode.RESET)
+        if self._mode not in valid_modes:
+            raise IllegalArgumentException(
+                'Invalid Change Streams consumer request mode: ' +
+                str(self._mode))
+        if (self._mode in (self.RequestMode.CREATE,
+                           self.RequestMode.UPDATE) and
+                self._builder is None):
+            raise IllegalArgumentException(
+                'ChangeStreamConsumerRequest requires a builder.')
+        if (self._mode in (self.RequestMode.CLOSE,
+                           self.RequestMode.UPDATE,
+                           self.RequestMode.COMMIT,
+                           self.RequestMode.RESET) and
+                self._cursor is None):
+            raise IllegalArgumentException(
+                'ChangeStreamConsumerRequest requires a cursor.')
+        if self._mode == self.RequestMode.DELETE and self._builder is None:
+            raise IllegalArgumentException(
+                'ChangeStreamConsumerRequest requires a builder.')
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.ChangeStreamConsumerRequestSerializer()
+        raise OperationNotSupportedException(
+            'Change Streams is not supported with serial version: ' +
+            str(serial_version))
+
+    def get_request_name(self):
+        # type: () -> str
+        return 'ChangeStreamConsumer'
+
+    def should_retry(self):
+        # Returns True if this request should be retried.
+        return True
+
+
+class ChangeStreamPollRequest(Request):
+    """
+    Internal use only.
+
+    Request used for Change Streams poll operations.
+    """
+
+    def __init__(self, cursor, limit):
+        super(ChangeStreamPollRequest, self).__init__()
+        self._cursor = cursor
+        self._limit = limit
+
+    def get_cursor(self):
+        # Internal use only.
+        return self._cursor
+
+    def get_limit(self):
+        # Internal use only.
+        return self._limit
+
+    def set_timeout(self, timeout_ms):
+        # Internal use only.
+        self._set_timeout(timeout_ms)
+        return self
+
+    def validate(self):
+        CheckValue.check_int_ge_zero(self._limit, 'limit')
+        if self._cursor is None:
+            raise IllegalArgumentException(
+                'ChangeStreamPollRequest requires a cursor.')
+
+    @staticmethod
+    def get_serial_version(serial_version):
+        return serial_version
+
+    @staticmethod
+    def create_serializer(serial_version):
+        if serial_version >= SerdeUtil.SERIAL_VERSION_4:
+            return borneo.nson.ChangeStreamPollRequestSerializer()
+        raise OperationNotSupportedException(
+            'Change Streams is not supported with serial version: ' +
+            str(serial_version))
+
+    def get_request_name(self):
+        # type: () -> str
+        return 'ChangeStreamPoll'
+
+    def should_retry(self):
+        # Poll requests are not retryable because a retry could duplicate
+        # delivery semantics for a returned bundle.
+        return False
+
+
 class Result(object):
     """
     Result is a base class for result classes for all supported operations.
@@ -4851,6 +5036,68 @@ class Result(object):
 
     def _set_server_serial_version(self, version):
         self._server_serial_version = version
+
+
+class ChangeStreamConsumerResult(Result):
+    """
+    Internal use only.
+
+    Result for Change Streams consumer lifecycle operations.
+    """
+
+    def __init__(self):
+        super(ChangeStreamConsumerResult, self).__init__()
+        self._cursor = None
+        self._metadata = None
+
+    def set_cursor(self, cursor):
+        self._cursor = cursor
+        return self
+
+    def get_cursor(self):
+        return self._cursor
+
+    def set_metadata(self, metadata):
+        self._metadata = metadata
+        return self
+
+    def get_metadata(self):
+        return self._metadata
+
+
+class ChangeStreamPollResult(Result):
+    """
+    Internal use only.
+
+    Result for Change Streams poll operations.
+    """
+
+    def __init__(self):
+        super(ChangeStreamPollResult, self).__init__()
+        self._bundle = None
+        self._cursor = None
+        self._events_remaining = 0
+
+    def set_bundle(self, bundle):
+        self._bundle = bundle
+        return self
+
+    def get_bundle(self):
+        return self._bundle
+
+    def set_cursor(self, cursor):
+        self._cursor = cursor
+        return self
+
+    def get_cursor(self):
+        return self._cursor
+
+    def set_events_remaining(self, events_remaining):
+        self._events_remaining = events_remaining
+        return self
+
+    def get_events_remaining(self):
+        return self._events_remaining
 
 
 class WriteResult(Result):

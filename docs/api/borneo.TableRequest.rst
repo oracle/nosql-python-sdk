@@ -11,6 +11,7 @@ TableRequest
    .. autosummary::
 
       ~TableRequest.get_compartment
+      ~TableRequest.get_change_streaming_enablement
       ~TableRequest.get_defined_tags
       ~TableRequest.get_free_form_tags
       ~TableRequest.get_match_etag
@@ -20,6 +21,7 @@ TableRequest
       ~TableRequest.get_table_name
       ~TableRequest.get_timeout
       ~TableRequest.set_compartment
+      ~TableRequest.set_change_streaming_enabled
       ~TableRequest.set_defined_tags
       ~TableRequest.set_free_form_tags
       ~TableRequest.set_match_etag
@@ -32,6 +34,7 @@ TableRequest
    .. rubric:: Methods Documentation
 
    .. automethod:: get_compartment
+   .. automethod:: get_change_streaming_enablement
    .. automethod:: get_defined_tags
    .. automethod:: get_free_form_tags
    .. automethod:: get_match_etag
@@ -41,6 +44,7 @@ TableRequest
    .. automethod:: get_table_name
    .. automethod:: get_timeout
    .. automethod:: set_compartment
+   .. automethod:: set_change_streaming_enabled
    .. automethod:: set_defined_tags
    .. automethod:: set_free_form_tags
    .. automethod:: set_match_etag
