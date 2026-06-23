@@ -238,7 +238,7 @@ class CheckValue(object):
                or isinstance(data, str) or isinstance(data, int) or
                isinstance(data, float) or isinstance(data, Decimal) or
                isinstance(data, bool)):
-            raise IllegalArgumentException(name + ' must be a jason construct.')
+            raise IllegalArgumentException(name + ' must be a JSON construct.')
 
     @staticmethod
     def is_digit(data):
