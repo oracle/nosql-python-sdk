@@ -7,7 +7,7 @@
 
 import unittest
 from requests import ConnectionError
-from ssl import PROTOCOL_SSLv23, PROTOCOL_TLSv1_2
+import ssl
 
 from borneo import (
     GetRequest, IllegalArgumentException, OperationThrottlingException,
@@ -222,16 +222,29 @@ class TestNoSQLHandleConfig(unittest.TestCase):
             # use default protocol
             config = get_simple_handle_config(tenant_id)
             handle = NoSQLHandle(config)
-            self.assertEqual(
-                config.get_ssl_context().protocol, PROTOCOL_SSLv23)
+            self.assertTrue(
+                self.is_ssl_tls_protocol(config.get_ssl_context().protocol))
             handle.close()
             # set PROTOCOL_TLSv1_2 as ssl protocol
             config = get_simple_handle_config(tenant_id).set_ssl_protocol(
-                PROTOCOL_TLSv1_2)
+                ssl.PROTOCOL_TLSv1_2)
             handle = NoSQLHandle(config)
             self.assertEqual(
-                config.get_ssl_context().protocol, PROTOCOL_TLSv1_2)
+                config.get_ssl_context().protocol, ssl.PROTOCOL_TLSv1_2)
             handle.close()
+
+    _SSL_TLS_PROTOCOLS = {
+        getattr(ssl, name)
+        for name in (
+            "PROTOCOL_SSLv23",
+            "PROTOCOL_TLS",
+            "PROTOCOL_TLS_CLIENT",
+        )
+            if hasattr(ssl, name)
+    }
+
+    def is_ssl_tls_protocol(self, protocol):
+        return protocol in self._SSL_TLS_PROTOCOLS
 
     def testNoSQLHandleEndpointConfig(self):
         # set only the host as endpoint

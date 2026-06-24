@@ -20,7 +20,7 @@ from borneo import (
     IllegalStateException,
     PutOption, PutRequest, RequestSizeLimitException, TableLimits,
     TableNotFoundException, TableRequest, TimeToLive, TimeUnit, PutResult,
-    GetResult)
+    GetResult, OperationNotSupportedException)
 from parameters import is_onprem, table_name, tenant_id, timeout
 from test_base import TestBase
 from testutils import get_row
@@ -238,7 +238,18 @@ PRIMARY KEY(fld_id)) USING TTL ' + str(table_ttl))
                 # feature was not enabled so the put should have thrown
                 self.assertTrue(True)
             else:
-                # feature was not enabled so the put should have NOT thrown
+                # feature was enabled so the put should have NOT thrown
+                self.assertTrue(False)
+
+        # this is thrown by Python SDK when Httpproxy doesn't have the feature enabled.
+        except OperationNotSupportedException:
+            if not (self.handle.get_client()
+                    .is_feature_enabled(
+                Client.FEATURE_FLAG_LAST_WRITE_METADATA)):
+                # feature was not enabled so the put should have thrown
+                self.assertTrue(True)
+            else:
+                # feature was enabled so the put should have NOT thrown
                 self.assertTrue(False)
 
 
