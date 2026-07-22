@@ -1149,7 +1149,7 @@ class ChangeStreamConsumerRequestSerializer(RequestSerializer):
             Proto.write_string_map_field(
                 ns, COMPARTMENT_OCID, builder.get_compartment())
             if builder.get_max_poll_interval() is not None:
-                Proto.write_long_map_field(
+                Proto.write_int_map_field(
                     ns, MAX_POLL_INTERVAL,
                     builder.get_max_poll_interval())
             if builder.get_force_reset():

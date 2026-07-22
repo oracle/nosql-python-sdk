@@ -68,10 +68,10 @@ OCID can also be supplied directly.
         'users-group').set_compartment('groupcompartment').add_table(
         'users',
         compartment='tablecompartment',
-        start_location=StartLocation.first_uncommitted()).build()
+        start_location=StartLocation.earliest()).build()
 
 If no start location is supplied for a table, the default is
-:func:`borneo.changestream.StartLocation.first_uncommitted`.
+:func:`borneo.changestream.StartLocation.earliest`.
 
 The builder compartment is the compartment used for the consumer group. Table
 names are resolved using the compartment supplied to
@@ -86,16 +86,18 @@ Start Locations
 ---------------
 
 Start locations control where the consumer starts reading when a table is added
-to a group.
+to a group. If the table is already being consumed by the group, the consumer
+starts from the group's existing position and the supplied start location is
+ignored unless the group is reset with
+:func:`borneo.changestream.ConsumerBuilder.set_force_reset_start_location`.
 
-* :func:`borneo.changestream.StartLocation.first_uncommitted` starts at the
-  first uncommitted message for the group.
 * :func:`borneo.changestream.StartLocation.earliest` starts at the earliest
   available message in the stream.
 * :func:`borneo.changestream.StartLocation.latest` starts with messages
   published after the consumer starts.
 * :func:`borneo.changestream.StartLocation.at_time` starts at a time in
-  milliseconds since the Epoch.
+  milliseconds since the Epoch, from a ``datetime`` object, or from an ISO 8601
+  timestamp string. If no time zone is supplied, UTC is used.
 
 .. code-block:: pycon
 

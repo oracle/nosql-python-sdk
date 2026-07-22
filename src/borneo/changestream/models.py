@@ -5,6 +5,11 @@
 #  https://oss.oracle.com/licenses/upl/
 #
 
+from calendar import timegm
+from datetime import datetime
+
+from dateutil import parser, tz
+
 from ..common import CheckValue
 from ..exception import IllegalArgumentException, IllegalStateException
 
@@ -19,7 +24,6 @@ class StartLocation(object):
         Internal values used by the Change Streams protocol.
         """
         UNINITIALIZED = 0
-        FIRST_UNCOMMITTED = 1
         EARLIEST = 2
         LATEST = 3
         AT_TIME = 4
@@ -28,7 +32,6 @@ class StartLocation(object):
         CheckValue.check_int(location_type, 'location_type')
         CheckValue.check_int_ge_zero(start_time_ms, 'start_time_ms')
         if location_type not in (
-                self.LocationType.FIRST_UNCOMMITTED,
                 self.LocationType.EARLIEST,
                 self.LocationType.LATEST,
                 self.LocationType.AT_TIME):
@@ -40,13 +43,6 @@ class StartLocation(object):
                 'start_time_ms can only be set for AT_TIME start locations.')
         self._location_type = location_type
         self._start_time_ms = start_time_ms
-
-    @staticmethod
-    def first_uncommitted():
-        """
-        Start consuming at the first uncommitted message in the stream.
-        """
-        return StartLocation(StartLocation.LocationType.FIRST_UNCOMMITTED)
 
     @staticmethod
     def earliest():
@@ -63,11 +59,25 @@ class StartLocation(object):
         return StartLocation(StartLocation.LocationType.LATEST)
 
     @staticmethod
-    def at_time(start_time_ms):
+    def at_time(start_time, pattern=None, use_utc=True):
         """
-        Start consuming from the specified time in milliseconds since the Epoch.
+        Start consuming from the specified time.
+
+        The start time may be milliseconds since the Epoch, a datetime object,
+        or a timestamp string. Timestamp strings are parsed as ISO 8601 by
+        default. If a pattern is supplied, it is interpreted using Python
+        datetime.strptime() format codes. If no time zone is supplied in a
+        string or datetime, UTC is used by default; if use_utc is False, the
+        local time zone is used by default instead.
         """
-        return StartLocation(StartLocation.LocationType.AT_TIME, start_time_ms)
+        CheckValue.check_str(pattern, 'pattern', True)
+        CheckValue.check_boolean(use_utc, 'use_utc')
+        if isinstance(start_time, datetime):
+            start_time = StartLocation._datetime_to_ms(start_time, use_utc)
+        elif CheckValue.is_str(start_time):
+            start_time = StartLocation._string_to_ms(
+                start_time, pattern, use_utc)
+        return StartLocation(StartLocation.LocationType.AT_TIME, start_time)
 
     def get_location_type(self):
         """
@@ -84,6 +94,34 @@ class StartLocation(object):
     def __str__(self):
         return ('StartLocation [location_type=' + str(self._location_type) +
                 ', start_time_ms=' + str(self._start_time_ms) + ']')
+
+    @staticmethod
+    def _datetime_to_ms(start_time, use_utc):
+        if (start_time.tzinfo is None or
+                start_time.tzinfo.utcoffset(start_time) is None):
+            if use_utc:
+                start_time = start_time.replace(tzinfo=tz.UTC)
+            else:
+                start_time = start_time.replace(tzinfo=tz.tzlocal())
+        else:
+            start_time = start_time.astimezone(tz.UTC)
+        return (timegm(start_time.utctimetuple()) * 1000 +
+                start_time.microsecond // 1000)
+
+    @staticmethod
+    def _string_to_ms(start_time, pattern, use_utc):
+        try:
+            if pattern is None:
+                dt = parser.parse(start_time)
+            else:
+                dt = datetime.strptime(start_time, pattern)
+        except (TypeError, ValueError, OverflowError) as exc:
+            pattern_desc = (
+                'default pattern' if pattern is None else 'pattern ' + pattern)
+            raise IllegalArgumentException(
+                "Failed to parse the timestamp string '" + start_time +
+                "' with " + pattern_desc + ": " + str(exc), exc)
+        return StartLocation._datetime_to_ms(dt, use_utc)
 
 
 class Image(object):

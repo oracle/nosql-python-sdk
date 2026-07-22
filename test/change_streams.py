@@ -6,6 +6,7 @@
 #
 
 import unittest
+from datetime import datetime
 
 
 try:
@@ -23,7 +24,7 @@ from borneo.changestream import (
     Consumer, ConsumerBuilder, Event, Image, Message, MessageBundle, Record,
     StartLocation)
 from borneo.common import ByteInputStream, ByteOutputStream
-from borneo.nson import NsonSerializer, Proto
+from borneo.nson import MapWalker, NsonSerializer, Proto
 from borneo.nson_protocol import (
     CHANGE_STREAM_ENABLED, COMPARTMENT_OCID, CONSUMER_TABLES, CURSOR,
     EVENT_BUNDLE, EVENT_EVENTS, EVENT_EXPIRATION_TIME, EVENT_ID,
@@ -58,11 +59,33 @@ class FakeHandle(object):
 
 
 def _serialize_request(request):
+    return Proto.nson_to_value(ByteInputStream(_serialize_request_content(
+        request)))
+
+
+def _serialize_request_content(request):
     content = bytearray()
     bos = ByteOutputStream(content)
     serializer = request.create_serializer(SerdeUtil.SERIAL_VERSION_4)
     serializer.serialize(request, bos, SerdeUtil.SERIAL_VERSION_4)
-    return Proto.nson_to_value(ByteInputStream(content))
+    return content
+
+
+def _payload_field_type(request, field_name):
+    bis = ByteInputStream(_serialize_request_content(request))
+    top_walker = MapWalker(bis)
+    while top_walker.has_next():
+        top_walker.next()
+        if top_walker.get_current_name() == PAYLOAD:
+            payload_walker = MapWalker(bis)
+            while payload_walker.has_next():
+                payload_walker.next()
+                if payload_walker.get_current_name() == field_name:
+                    return bis.read_byte()
+                payload_walker.skip()
+            return None
+        top_walker.skip()
+    return None
 
 
 def _new_nson_serializer():
@@ -73,12 +96,6 @@ def _new_nson_serializer():
 class TestChangeStreamsModels(unittest.TestCase):
 
     def test_start_location_factories(self):
-        first = StartLocation.first_uncommitted()
-        self.assertEqual(
-            first.get_location_type(),
-            StartLocation.LocationType.FIRST_UNCOMMITTED)
-        self.assertEqual(first.get_start_time(), 0)
-
         earliest = StartLocation.earliest()
         self.assertEqual(
             earliest.get_location_type(), StartLocation.LocationType.EARLIEST)
@@ -92,9 +109,38 @@ class TestChangeStreamsModels(unittest.TestCase):
             at_time.get_location_type(), StartLocation.LocationType.AT_TIME)
         self.assertEqual(at_time.get_start_time(), 123456789)
 
+        at_time_str = StartLocation.at_time('1970-01-01T00:00:01.250')
+        self.assertEqual(at_time_str.get_start_time(), 1250)
+
+        at_time_with_zone = StartLocation.at_time(
+            '1970-01-01T01:00:00+01:00')
+        self.assertEqual(at_time_with_zone.get_start_time(), 0)
+
+        at_time_pattern = StartLocation.at_time(
+            '1970/01/01 00:00:02', '%Y/%m/%d %H:%M:%S')
+        self.assertEqual(at_time_pattern.get_start_time(), 2000)
+
+        at_time_dt = StartLocation.at_time(
+            datetime(1970, 1, 1, 0, 0, 3, 4000))
+        self.assertEqual(at_time_dt.get_start_time(), 3004)
+
     def test_start_location_validation(self):
         self.assertRaises(IllegalArgumentException, StartLocation, 0)
+        self.assertRaises(IllegalArgumentException, StartLocation, 1)
         self.assertRaises(IllegalArgumentException, StartLocation.at_time, -1)
+        with self.assertRaises(IllegalArgumentException) as default_cm:
+            StartLocation.at_time('not-a-time')
+        self.assertTrue(str(default_cm.exception).startswith(
+            "Failed to parse the timestamp string 'not-a-time' with default "
+            "pattern: "))
+        self.assertIsInstance(default_cm.exception.get_cause(), ValueError)
+
+        with self.assertRaises(IllegalArgumentException) as pattern_cm:
+            StartLocation.at_time('not-a-time', '%Y-%m-%d')
+        self.assertTrue(str(pattern_cm.exception).startswith(
+            "Failed to parse the timestamp string 'not-a-time' with pattern "
+            "%Y-%m-%d: "))
+        self.assertIsInstance(pattern_cm.exception.get_cause(), ValueError)
         self.assertRaises(
             IllegalArgumentException, StartLocation,
             StartLocation.LocationType.EARLIEST, 1)
@@ -163,7 +209,7 @@ class TestChangeStreamsBuilderAndRequests(unittest.TestCase):
             'ocid1.nosqltable.oc1..resolved')
         self.assertEqual(
             builder.get_tables()[0].get_start_location().get_location_type(),
-            StartLocation.LocationType.FIRST_UNCOMMITTED)
+            StartLocation.LocationType.EARLIEST)
         self.assertEqual(
             builder.get_tables()[1].get_start_location().get_location_type(),
             StartLocation.LocationType.LATEST)
@@ -181,6 +227,12 @@ class TestChangeStreamsBuilderAndRequests(unittest.TestCase):
         self.assertEqual(builder.get_tables()[0].get_table_ocid(), table_ocid)
         self.assertFalse(builder.get_tables()[0].is_remove())
         self.assertTrue(builder.get_tables()[1].is_remove())
+
+    def test_builder_rejects_max_poll_interval_outside_protocol_range(self):
+        builder = ConsumerBuilder()
+        self.assertRaises(
+            IllegalArgumentException, builder.set_max_poll_interval,
+            2147483648)
 
     def test_consumer_request_modes_and_retry_behavior(self):
         builder = ConsumerBuilder().set_group_id('group')
@@ -297,6 +349,9 @@ class TestChangeStreamsSerialization(unittest.TestCase):
         self.assertTrue(payload[MANUAL_COMMIT])
         self.assertEqual(payload[COMPARTMENT_OCID], 'compartment1')
         self.assertEqual(payload[MAX_POLL_INTERVAL], 12345)
+        self.assertEqual(
+            _payload_field_type(request, MAX_POLL_INTERVAL),
+            SerdeUtil.FIELD_VALUE_TYPE.INTEGER)
         self.assertTrue(payload[FORCE_RESET])
         self.assertEqual(table[TABLE_OCID], table_ocid)
         self.assertEqual(table[START_TIME], 999)

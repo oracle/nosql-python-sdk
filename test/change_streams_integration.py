@@ -136,14 +136,14 @@ else:
                 consumer, self.table_name, {3, 4, 5})
             self.assertEqual(set(records.keys()), {3, 4, 5})
 
-        def test_first_uncommitted_close_reopen_and_manual_reset(self):
+        def test_close_reopen_and_manual_reset(self):
             self._create_table(self.table_name)
             self._enable_change_streaming_or_skip(self.table_name)
 
             group_id = self._group_id('manual')
             consumer = self._consumer(
                 'manual',
-                [(self.table_name, StartLocation.first_uncommitted())],
+                [(self.table_name, StartLocation.earliest())],
                 group_id=group_id)
 
             self._put_range(self.table_name, 0, 3)
@@ -156,7 +156,7 @@ else:
 
             consumer = self._consumer(
                 'manual-reopen',
-                [(self.table_name, StartLocation.first_uncommitted())],
+                [(self.table_name, StartLocation.earliest())],
                 group_id=group_id)
 
             reopened_records = self._poll_for_ids(
@@ -175,7 +175,7 @@ else:
 
             consumer = self._consumer(
                 'automatic',
-                [(self.table_name, StartLocation.first_uncommitted())],
+                [(self.table_name, StartLocation.earliest())],
                 manual=False)
 
             self._put_range(self.table_name, 0, 3)

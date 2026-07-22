@@ -66,7 +66,7 @@ class ConsumerBuilder(object):
 
             self._compartment = compartment
             if start_location is None:
-                self._start_location = StartLocation.first_uncommitted()
+                self._start_location = StartLocation.earliest()
             else:
                 self._start_location = start_location
             self._is_remove = is_remove
@@ -126,6 +126,11 @@ class ConsumerBuilder(object):
         The table name may be a table OCID. The compartment is used to resolve
         the table name to a table OCID. If compartment is not set, the
         configured default compartment is used for that table lookup.
+
+        If start_location is None, StartLocation.earliest() is used. If the
+        table is already being consumed by this group, the consumer starts from
+        the group's existing position and this start location is ignored unless
+        set_force_reset_start_location() is used.
         """
         if self._table_index(table_name, compartment) >= 0:
             return self
@@ -199,6 +204,9 @@ class ConsumerBuilder(object):
         """
         CheckValue.check_int_gt_zero(
             max_poll_interval_ms, 'max_poll_interval_ms')
+        if not CheckValue.is_int_value(max_poll_interval_ms):
+            raise IllegalArgumentException(
+                'max_poll_interval_ms must fit in a 32-bit integer.')
         self._max_poll_interval_ms = max_poll_interval_ms
         return self
 
@@ -208,6 +216,9 @@ class ConsumerBuilder(object):
     def set_force_reset_start_location(self):
         """
         Forces existing consumer-group start locations to be reset.
+
+        This is typically used only when a consumer group is stopped and a new
+        group with the same ID must be started at a supplied start location.
         """
         self._force_reset = True
         return self
