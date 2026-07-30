@@ -25,7 +25,7 @@
 # has a number of additional operations.
 #
 # Requirements:
-#  1. Python 3.5+
+#  1. Python 3.12+
 #  2. Python dependencies (install using pip or other mechanism):
 #   o requests
 #  3. If running against the Cloud Simulator, it can be downloaded from here:

@@ -8,7 +8,7 @@
 import pprint
 import sys
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from logging import INFO
 from threading import Timer, Lock
 from time import localtime
@@ -772,7 +772,7 @@ class Stats:
 
         self._timer = RepeatedTimer(delay, interval, self.log_client_stats)
 
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(UTC)
         self._end_time = self._start_time
         self._extra_query_stats = None
         profile = self._stats_control.get_profile()
@@ -809,7 +809,7 @@ class Stats:
                                                       stats_str)
 
     def __generate_stats(self):
-        self._end_time = datetime.utcnow()
+        self._end_time = datetime.now(UTC)
         root = {
             "startTime": self._start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "endTime": self._end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -827,7 +827,7 @@ class Stats:
         return root
 
     def clear(self):
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(UTC)
         self._end_time = self._start_time
         if self._extra_query_stats is not None:
             self._extra_query_stats.clear()
