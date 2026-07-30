@@ -32,9 +32,9 @@ with open_relative('README.md') as f:
 
 requires = [
     'python-dateutil>=2.7.0',
-    'requests>=2.12.0'
+    'requests>=2.34.2'
     # don't install oci by default, it's only used for the cloud
-    # 'oci>=2.2.18'
+    # 'oci>=2.183.0'
 ]
 
 setup(
@@ -73,15 +73,9 @@ setup(
         'License :: OSI Approved :: Universal Permissive License (UPL)',
 
         # Supported Python versions
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
 
     # What does your project relate to?
