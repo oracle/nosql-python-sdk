@@ -14,7 +14,7 @@ Getting Started
 ===============
 Clone the repository and Install dependencies.
 
-1. Make sure that Python is installed on your system, at least version 3.12+.
+1. Make sure that Python is installed on your system, at least version 3.12.
 2. Install pip if it is not installed, follow the `pip installation instructions
    <https://pip.pypa.io/en/stable/installing>`_.
 3. Clone the repository and install development dependencies::
