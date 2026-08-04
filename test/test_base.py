@@ -7,7 +7,6 @@
 
 from random import choice
 from string import ascii_letters, digits
-from sys import version_info
 from time import sleep, time
 from unittest import TestCase
 
@@ -117,12 +116,8 @@ class TestBase(object):
         # check result string
         result_string = result.get_result_string()
         if has_result_string:
-            if version_info.major == 2:
-                self.assertRegexpMatches(
-                    result_string, '^{"namespaces" : \[("\w*"[, ]*)+\]}$')
-            else:
-                self.assertRegex(
-                    result_string, '^{"namespaces" : \[("\w*"[, ]*)+\]}$')
+            self.assertRegex(
+                result_string, r'^{"namespaces" : \[("\w*"[, ]*)+\]}$')
         else:
             self.assertIsNone(result_string)
         # check statement

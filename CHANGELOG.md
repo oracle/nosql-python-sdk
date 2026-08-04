@@ -7,18 +7,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ====================
 
-# Unreleased
-
-## Added
-
-- new OCI region codes
-
-# 5.5.0 - 2026-02-06
+# 5.5.0 - 2026-08-01
 
 ## Added
 
 - support for row creation time
 - support for last write metadata of a row
+- new OCI region codes
+
+## Changed
+
+- IMPORTANT: This release drops support for older Python versions, it supports 
+  only Python 3.12 and higher
+
+## Fixed
+
+- Security fix: enabling check_hostname and requiring cert verification
+- Security fix: moved test only code under test
+- Security fix: safely creating a proxy URL.
+- Security Fix: Fix for checking if ssl protocol is enabled.
 
 # 5.4.3 - 2025-08-15
 
