@@ -235,14 +235,18 @@ class Region(object):
     The class represents a region of Oracle NoSQL Database Cloud.
     """
 
+    OC0_EP_BASE = 'https://nosql.{0}.oci.oraclecloud0.com'
     OC1_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.com'
     OC2_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.com'
     OC3_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.com'
     OC4_EP_BASE = 'https://nosql.{0}.oci.oraclegovcloud.uk'
     OC5_EP_BASE = 'https://nosql.{0}.oci.oraclecloud5.com'
+    OC6_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.ic.gov'
     OC8_EP_BASE = 'https://nosql.{0}.oci.oraclecloud8.com'
     OC9_EP_BASE = 'https://nosql.{0}.oci.oraclecloud9.com'
     OC10_EP_BASE = 'https://nosql.{0}.oci.oraclecloud10.com'
+    OC11_EP_BASE = 'https://nosql.{0}.oci.oraclecloud.smil.mil'
+    OC12_EP_BASE = 'https://nosql.{0}.oci.oracledodcloud.ic.gov'
     OC14_EP_BASE = 'https://nosql.{0}.oci.oraclecloud14.com'
     OC15_EP_BASE = 'https://nosql.{0}.oci.oraclecloud15.com'
     OC16_EP_BASE = 'https://nosql.{0}.oci.oraclecloud16.com'
@@ -259,6 +263,7 @@ class Region(object):
     OC28_EP_BASE = 'https://nosql.{0}.oci.oraclecloud28.com'
     OC29_EP_BASE = 'https://nosql.{0}.oci.oraclecloud29.com'
     OC31_EP_BASE = 'https://nosql.{0}.oci.sovereigncloud.nz'
+    OC32_EP_BASE = 'https://nosql.{0}.oci.oraclecloud32.com'
     OC35_EP_BASE = 'https://nosql.{0}.oci.oraclecloud35.com'
     OC36_EP_BASE = 'https://nosql.{0}.oci.stccloud.com'
     OC39_EP_BASE = 'https://nosql.{0}.oci.oraclecloud39.com'
@@ -266,12 +271,20 @@ class Region(object):
     OC41_EP_BASE = 'https://nosql.{0}.oci.dutechcloud.ae'
     OC42_EP_BASE = 'https://nosql.{0}.oci.oraclecloud42.com'
     OC43_EP_BASE = 'https://nosql.{0}.oci.thaiaiscloud.com'
+    OC45_EP_BASE = 'https://nosql.{0}.oci.q8-onecloud.com'
     OC46_EP_BASE = 'https://nosql.{0}.oci.oraclecloud46.com'
     OC47_EP_BASE = 'https://nosql.{0}.oci.oraclecloud47.com'
+    OC50_EP_BASE = 'https://nosql.{0}.oci.opencanvas.jp'
     OC51_EP_BASE = 'https://nosql.{0}.oci.oraclecloud51.com'
     OC52_EP_BASE = 'https://nosql.{0}.oci.oraclecloud52.com'
+    OC54_EP_BASE = 'https://nosql.{0}.oci.portalclarocco.com.br'
     OC55_EP_BASE = 'https://nosql.{0}.oci.svcl.jp'
     OC57_EP_BASE = 'https://nosql.{0}.oci.eonecloud.com'
+    OC60_EP_BASE = 'https://nosql.{0}.oci.oraclecloud60.com'
+    OC61_EP_BASE = 'https://nosql.{0}.oci.oraclecloud61.com'
+    OC62_EP_BASE = 'https://nosql.{0}.oci.oraclecloud62.com'
+    OC64_EP_BASE = 'https://nosql.{0}.oci.absonne4cloud.com'
+    OC88_EP_BASE = 'https://nosql.{0}.oci.oraclecloud88.com'
 
 
     def __init__(self, region_id):
@@ -287,6 +300,8 @@ class Region(object):
         :raises IllegalArgumentException: raises the exception if region_id is
             unknown.
         """
+        if self._is_oc0_region():
+            return str.format(Region.OC0_EP_BASE, self._region_id)
         if self._is_oc1_region():
             return str.format(Region.OC1_EP_BASE, self._region_id)
         if self._is_oc2_region():
@@ -297,12 +312,18 @@ class Region(object):
             return str.format(Region.OC4_EP_BASE, self._region_id)
         if self._is_oc5_region():
             return str.format(Region.OC5_EP_BASE, self._region_id)
+        if self._is_oc6_region():
+            return str.format(Region.OC6_EP_BASE, self._region_id)
         if self._is_oc8_region():
             return str.format(Region.OC8_EP_BASE, self._region_id)
         if self._is_oc9_region():
             return str.format(Region.OC9_EP_BASE, self._region_id)
         if self._is_oc10_region():
             return str.format(Region.OC10_EP_BASE, self._region_id)
+        if self._is_oc11_region():
+            return str.format(Region.OC11_EP_BASE, self._region_id)
+        if self._is_oc12_region():
+            return str.format(Region.OC12_EP_BASE, self._region_id)
         if self._is_oc14_region():
             return str.format(Region.OC14_EP_BASE, self._region_id)
         if self._is_oc15_region():
@@ -335,6 +356,8 @@ class Region(object):
             return str.format(Region.OC29_EP_BASE, self._region_id)
         if self._is_oc31_region():
             return str.format(Region.OC31_EP_BASE, self._region_id)
+        if self._is_oc32_region():
+            return str.format(Region.OC32_EP_BASE, self._region_id)
         if self._is_oc35_region():
             return str.format(Region.OC35_EP_BASE, self._region_id)
         if self._is_oc36_region():
@@ -349,18 +372,34 @@ class Region(object):
             return str.format(Region.OC42_EP_BASE, self._region_id)
         if self._is_oc43_region():
             return str.format(Region.OC43_EP_BASE, self._region_id)
+        if self._is_oc45_region():
+            return str.format(Region.OC45_EP_BASE, self._region_id)
         if self._is_oc46_region():
             return str.format(Region.OC46_EP_BASE, self._region_id)
         if self._is_oc47_region():
             return str.format(Region.OC47_EP_BASE, self._region_id)
+        if self._is_oc50_region():
+            return str.format(Region.OC50_EP_BASE, self._region_id)
         if self._is_oc51_region():
             return str.format(Region.OC51_EP_BASE, self._region_id)
         if self._is_oc52_region():
             return str.format(Region.OC52_EP_BASE, self._region_id)
+        if self._is_oc54_region():
+            return str.format(Region.OC54_EP_BASE, self._region_id)
         if self._is_oc55_region():
             return str.format(Region.OC55_EP_BASE, self._region_id)
         if self._is_oc57_region():
             return str.format(Region.OC57_EP_BASE, self._region_id)
+        if self._is_oc60_region():
+            return str.format(Region.OC60_EP_BASE, self._region_id)
+        if self._is_oc61_region():
+            return str.format(Region.OC61_EP_BASE, self._region_id)
+        if self._is_oc62_region():
+            return str.format(Region.OC62_EP_BASE, self._region_id)
+        if self._is_oc64_region():
+            return str.format(Region.OC64_EP_BASE, self._region_id)
+        if self._is_oc88_region():
+            return str.format(Region.OC88_EP_BASE, self._region_id)
         raise IllegalArgumentException(
             'Unable to find endpoint for unknown region ' + self._region_id)
 
@@ -374,6 +413,10 @@ class Region(object):
         :rtype: str
         """
         return self._region_id
+
+    def _is_oc0_region(self):
+        # Internal use only
+        return Regions.OC0_REGIONS.get(self._region_id) is not None
 
     def _is_oc1_region(self):
         # Internal use only
@@ -395,6 +438,10 @@ class Region(object):
         # Internal use only
         return Regions.OC5_REGIONS.get(self._region_id) is not None
 
+    def _is_oc6_region(self):
+        # Internal use only
+        return Regions.OC6_REGIONS.get(self._region_id) is not None
+
     def _is_oc8_region(self):
         # Internal use only
         return Regions.OC8_REGIONS.get(self._region_id) is not None
@@ -406,6 +453,14 @@ class Region(object):
     def _is_oc10_region(self):
         # Internal use only
         return Regions.OC10_REGIONS.get(self._region_id) is not None
+
+    def _is_oc11_region(self):
+        # Internal use only
+        return Regions.OC11_REGIONS.get(self._region_id) is not None
+
+    def _is_oc12_region(self):
+        # Internal use only
+        return Regions.OC12_REGIONS.get(self._region_id) is not None
 
     def _is_oc14_region(self):
         # Internal use only
@@ -471,6 +526,10 @@ class Region(object):
         # Internal use only
         return Regions.OC31_REGIONS.get(self._region_id) is not None
 
+    def _is_oc32_region(self):
+        # Internal use only
+        return Regions.OC32_REGIONS.get(self._region_id) is not None
+
     def _is_oc35_region(self):
         # Internal use only
         return Regions.OC35_REGIONS.get(self._region_id) is not None
@@ -499,6 +558,10 @@ class Region(object):
         # Internal use only
         return Regions.OC43_REGIONS.get(self._region_id) is not None
 
+    def _is_oc45_region(self):
+        # Internal use only
+        return Regions.OC45_REGIONS.get(self._region_id) is not None
+
     def _is_oc46_region(self):
         # Internal use only
         return Regions.OC46_REGIONS.get(self._region_id) is not None
@@ -506,6 +569,10 @@ class Region(object):
     def _is_oc47_region(self):
         # Internal use only
         return Regions.OC47_REGIONS.get(self._region_id) is not None
+
+    def _is_oc50_region(self):
+        # Internal use only
+        return Regions.OC50_REGIONS.get(self._region_id) is not None
 
     def _is_oc51_region(self):
         # Internal use only
@@ -515,6 +582,10 @@ class Region(object):
         # Internal use only
         return Regions.OC52_REGIONS.get(self._region_id) is not None
 
+    def _is_oc54_region(self):
+        # Internal use only
+        return Regions.OC54_REGIONS.get(self._region_id) is not None
+
     def _is_oc55_region(self):
         # Internal use only
         return Regions.OC55_REGIONS.get(self._region_id) is not None
@@ -522,6 +593,26 @@ class Region(object):
     def _is_oc57_region(self):
         # Internal use only
         return Regions.OC57_REGIONS.get(self._region_id) is not None
+
+    def _is_oc60_region(self):
+        # Internal use only
+        return Regions.OC60_REGIONS.get(self._region_id) is not None
+
+    def _is_oc61_region(self):
+        # Internal use only
+        return Regions.OC61_REGIONS.get(self._region_id) is not None
+
+    def _is_oc62_region(self):
+        # Internal use only
+        return Regions.OC62_REGIONS.get(self._region_id) is not None
+
+    def _is_oc64_region(self):
+        # Internal use only
+        return Regions.OC64_REGIONS.get(self._region_id) is not None
+
+    def _is_oc88_region(self):
+        # Internal use only
+        return Regions.OC88_REGIONS.get(self._region_id) is not None
 
 class Regions(object):
     """
@@ -561,364 +652,327 @@ class Regions(object):
     and Availability Domains <https://docs.cloud.oracle.com/en-us/iaas/Content/
     General/Concepts/regions.htm>`_.
     """
+    UK_LONDON_9 = Region('uk-london-9')
+
+    US_RENTON_1 = Region('us-renton-1')
+
+    US_SCOTTSDALE_1 = Region('us-scottsdale-1')
+
+    AF_CASABLANCA_1 = Region('af-casablanca-1')
+
     AF_JOHANNESBURG_1 = Region('af-johannesburg-1')
-    """Realm: OC1, South Africa (Johannesburg)"""
+
+    AF_NAIROBI_1 = Region('af-nairobi-1')
 
     AP_BATAM_1 = Region('ap-batam-1')
-    """Realm: OC1, Indonesia North (Batam)"""
 
     AP_CHENNAI_1 = Region('ap-chennai-1')
-    """India South (Chennai)"""
 
     AP_CHUNCHEON_1 = Region('ap-chuncheon-1')
-    """Realm: OC1, South Korea North (Chuncheon)"""
+
+    AP_DELHI_1 = Region('ap-delhi-1')
 
     AP_HYDERABAD_1 = Region('ap-hyderabad-1')
-    """Realm: OC1, India South (Hyderabad)"""
 
     AP_KULAI_1 = Region('ap-kulai-1')
-    """Malaysia West (Kulai)"""
+
+    AP_KULAI_2 = Region('ap-kulai-2')
 
     AP_MELBOURNE_1 = Region('ap-melbourne-1')
-    """Realm: OC1, Australia Southeast (Melbourne)"""
 
     AP_MUMBAI_1 = Region('ap-mumbai-1')
-    """Realm: OC1, India West (Mumbai)"""
 
     AP_OSAKA_1 = Region('ap-osaka-1')
-    """Realm: OC1, Japan Central (Osaka)"""
 
     AP_SEOUL_1 = Region('ap-seoul-1')
-    """Realm: OC1, South Korea Central (Seoul)"""
 
     AP_SINGAPORE_1 = Region('ap-singapore-1')
-    """Realm: OC1, Singapore (Singapore)"""
 
     AP_SINGAPORE_2 = Region('ap-singapore-2')
-    """Realm: OC1, Singapore2 (Singapore)"""
 
     AP_SYDNEY_1 = Region('ap-sydney-1')
-    """Realm: OC1, Australia East (Sydney)"""
 
     AP_TOKYO_1 = Region('ap-tokyo-1')
-    """Realm: OC1, Japan East (Tokyo)"""
 
     CA_MONTREAL_1 = Region('ca-montreal-1')
-    """Realm: OC1, Canada Southeast (Montreal)"""
 
     CA_TORONTO_1 = Region('ca-toronto-1')
-    """Realm: OC1, Canada Southeast (Toronto)"""
 
     EU_AMSTERDAM_1 = Region('eu-amsterdam-1')
-    """Realm: OC1, Netherlands Northwest (Amsterdam)"""
 
     EU_DUBLIN_3 = Region('eu-dublin-3')
-    """Ireland East (Dublin)"""
 
     EU_FRANKFURT_1 = Region('eu-frankfurt-1')
-    """Realm: OC1, Germany Central (Frankfurt)"""
 
     EU_MADRID_1 = Region('eu-madrid-1')
-    """Realm: OC1, Spain (Madrid)"""
 
     EU_MADRID_3 = Region('eu-madrid-3')
-    """Spain Central (Madrid 3)"""
 
     EU_MARSEILLE_1 = Region('eu-marseille-1')
-    """Realm: OC1, France (Marseille)"""
 
     EU_MILAN_1 = Region('eu-milan-1')
-    """Realm: OC1, Italy (Milan)"""
 
     EU_PARIS_1 = Region('eu-paris-1')
-    """Realm: OC1, France (Paris)"""
 
     EU_STOCKHOLM_1 = Region('eu-stockholm-1')
-    """Realm: OC1, Sweden (Stockholm)"""
 
     EU_TURIN_1 = Region('eu-turin-1')
-    """Italy North (Turin)"""
 
     EU_ZURICH_1 = Region('eu-zurich-1')
-    """Realm: OC1, Switzerland North (Zurich)"""
 
     IL_JERUSALEM_1 = Region('il-jerusalem-1')
-    """Realm: OC1, Israel (Jerusalem)"""
 
     ME_ABUDHABI_1 = Region('me-abudhabi-1')
-    """Realm: OC1, UAE (Abu Dhabi)"""
 
     ME_DUBAI_1 = Region('me-dubai-1')
-    """Realm: OC1, UAE East (Dubai)"""
 
     ME_JEDDAH_1 = Region('me-jeddah-1')
-    """Realm: OC1, Saudi Arabia West (Jeddah)"""
 
     ME_RIYADH_1 = Region('me-riyadh-1')
 
     MX_MONTERREY_1 = Region('mx-monterrey-1')
-    """Realm: OC1, Mexico (Monterrey)"""
 
     MX_QUERETARO_1 = Region('mx-queretaro-1')
-    """Realm: OC1, Mexico (Queretaro)"""
 
     SA_BOGOTA_1 = Region('sa-bogota-1')
-    """Realm: OC1, Colombia (Bogota)"""
+
+    SA_RIODEJANEIRO_2 = Region('sa-riodejaneiro-2')
 
     SA_SANTIAGO_1 = Region('sa-santiago-1')
-    """Realm: OC1, Chile (Santiago)"""
 
     SA_SAOPAULO_1 = Region('sa-saopaulo-1')
-    """Realm: OC1, Brazil East (Sao Paulo)"""
 
     SA_VALPARAISO_1 = Region('sa-valparaiso-1')
-    """Realm: OC1, Chile (Valparaiso)"""
 
     SA_VINHEDO_1 = Region('sa-vinhedo-1')
-    """Realm: OC1, Brazil (Vinhedo)"""
-
-    UK_LONDON_1 = Region('uk-london-1')
-    """Realm: OC1, UK South (London)"""
 
     UK_CARDIFF_1 = Region('uk-cardiff-1')
-    """Realm: OC1, UK West (Newport)"""
+
+    UK_LONDON_1 = Region('uk-london-1')
 
     US_ABILENE_1 = Region('us-abilene-1')
-    """Realm: OC1, US South Central (Abilene)"""
-
-    US_COLUMBUS_1 = Region('us-columbus-1')
-    """US Central (Columbus)"""
-
-    US_QUINCY_1 = Region('us-quincy-1')
-    """US West (Quincy)"""
-
-    US_BOARDMAN_1 = Region('us-boardman-1')
-    """US West (Boardman)"""
-
-    US_DALLAS_1 = Region('us-dallas-1')
-    """Realm: OC1, US South (Dallas)"""
-
-    US_DESMOINES_1 = Region('us-desmoines-1')
-    """US Midwest (Des Moines)"""
-
-    US_PHOENIX_1 = Region('us-phoenix-1')
-    """Realm: OC1, US West (Phoenix)"""
 
     US_ASHBURN_1 = Region('us-ashburn-1')
-    """Realm: OC1, US East (Ashburn)"""
 
-    US_SALTLAKE_2 = Region('us-saltlake-2')
-    """Realm: OC1, US West (Salt Lake)"""
-
-    US_SANJOSE_1 = Region('us-sanjose-1')
-    """Realm: OC1, US West (San Jose)"""
-
-    US_SHAWNEE_1 = Region('us-shawnee-1')
-    """US Mid West (Shawnee)"""
+    US_BOARDMAN_1 = Region('us-boardman-1')
 
     US_CHICAGO_1 = Region('us-chicago-1')
-    """Realm: OC1, US Central (Chicago)"""
 
-    AP_KULAI_2 = Region('ap-kulai-2')
-    """Realm: OC1, Kulai 2"""
+    US_COLUMBUS_1 = Region('us-columbus-1')
 
-    AP_DELHI_1 = Region('ap-delhi-1')
-    """Realm: OC1, Delhi 1"""
+    US_DALLAS_1 = Region('us-dallas-1')
+
+    US_DESMOINES_1 = Region('us-desmoines-1')
+
+    US_LENEXA_1 = Region('us-lenexa-1')
+
+    US_PHOENIX_1 = Region('us-phoenix-1')
+
+    US_QUINCY_1 = Region('us-quincy-1')
+
+    US_SALTLAKE_2 = Region('us-saltlake-2')
+
+    US_SANANTONIO_1 = Region('us-sanantonio-1')
+
+    US_SANJOSE_1 = Region('us-sanjose-1')
+
+    US_SHAWNEE_1 = Region('us-shawnee-1')
 
     US_LANGLEY_1 = Region('us-langley-1')
-    """Realm: OC2, US Gov East (Ashburn)"""
 
     US_LUKE_1 = Region('us-luke-1')
-    """Realm: OC2, US Gov West (Phoenix)"""
 
     US_GOV_ASHBURN_1 = Region('us-gov-ashburn-1')
-    """Realm: OC3, US DoD East (Ashburn)"""
 
     US_GOV_CHICAGO_1 = Region('us-gov-chicago-1')
-    """Realm: OC3, US DoD North (Chicago)"""
 
     US_GOV_PHOENIX_1 = Region('us-gov-phoenix-1')
-    """Realm: OC3, US DoD West (Phoenix)"""
-
-    UK_GOV_LONDON_1 = Region('uk-gov-london-1')
-    """Realm: OC4, UK Gov South (London)"""
 
     UK_GOV_CARDIFF_1 = Region('uk-gov-cardiff-1')
-    """Realm: OC4, UK Gov West (Cardiff)"""
+
+    UK_GOV_LONDON_1 = Region('uk-gov-london-1')
 
     US_TACOMA_1 = Region('us-tacoma-1')
-    """Realm: OC5, US West (Tacoma)"""
+
+    US_GOV_FORTWORTH_1 = Region('us-gov-fortworth-1')
+
+    US_GOV_STERLING_2 = Region('us-gov-sterling-2')
 
     AP_CHIYODA_1 = Region('ap-chiyoda-1')
-    """Realm: OC8, Japan East (Chiyoda)"""
 
     AP_IBARAKI_1 = Region('ap-ibaraki-1')
-    """Realm: OC8, Japan East (Ibaraki) (Note: OCI uses 'ukb' instead of 'ibr')"""
 
     ME_DCC_MUSCAT_1 = Region('me-dcc-muscat-1')
-    """Realm: OC9, Muscat (Dedicated DataCenter)"""
 
     ME_IBRI_1 = Region('me-ibri-1')
-    """Realm: OC9, Ibri 1"""
 
     AP_DCC_CANBERRA_1 = Region('ap-dcc-canberra-1')
-    """Realm: OC10, Canberra (Dedicated DataCenter)"""
+
+    US_GOV_FORTWORTH_3 = Region('us-gov-fortworth-3')
+
+    US_GOV_PHOENIX_3 = Region('us-gov-phoenix-3')
+
+    US_GOV_STERLING_3 = Region('us-gov-sterling-3')
+
+    US_GOV_ASHBURN_2 = Region('us-gov-ashburn-2')
+
+    US_GOV_PHOENIX_2 = Region('us-gov-phoenix-2')
+
+    US_GOV_SALTLAKE_1 = Region('us-gov-saltlake-1')
 
     EU_DCC_DUBLIN_1 = Region('eu-dcc-dublin-1')
-    """Realm: OC14, Dublin 1 (Dedicated DataCenter)"""
 
     EU_DCC_DUBLIN_2 = Region('eu-dcc-dublin-2')
-    """Realm: OC14, Dublin 2 (Dedicated DataCenter)"""
 
     EU_DCC_MILAN_1 = Region('eu-dcc-milan-1')
-    """Realm: OC14, Milan 1 (Dedicated DataCenter)"""
 
     EU_DCC_MILAN_2 = Region('eu-dcc-milan-2')
-    """Realm: OC14, Milan 2 (Dedicated DataCenter)"""
 
     EU_DCC_RATING_1 = Region('eu-dcc-rating-1')
-    """Realm: OC14, Rating 1 (Dedicated DataCenter)"""
 
     EU_DCC_RATING_2 = Region('eu-dcc-rating-2')
-    """Realm: OC14, Rating 2 (Dedicated DataCenter)"""
 
     AP_DCC_GAZIPUR_1 = Region('ap-dcc-gazipur-1')
-    """Realm: OC15, Bangladesh"""
+
+    US_SANJOSE_2 = Region('us-sanjose-2')
 
     US_WESTJORDAN_1 = Region('us-westjordan-1')
-    """Realm: OC16, US West (Utah)"""
 
     US_DCC_PHOENIX_1 = Region('us-dcc-phoenix-1')
-    """Realm: OC17, Phoenix 1 (Dedicated DataCenter)"""
 
     US_DCC_PHOENIX_2 = Region('us-dcc-phoenix-2')
-    """Realm: OC17, Phoenix 2 (Dedicated DataCenter)"""
 
     US_DCC_PHOENIX_4 = Region('us-dcc-phoenix-4')
-    """Realm: OC17, Phoenix 4 (Dedicated DataCenter)"""
 
     EU_FRANKFURT_2 = Region('eu-frankfurt-2')
-    """Realm: OC19, Frankfurt (Germany)"""
 
     EU_MADRID_2 = Region('eu-madrid-2')
-    """Realm: OC19, Madrid (Spain)"""
 
     EU_JOVANOVAC_1 = Region('eu-jovanovac-1')
-    """Realm: OC20, Jovanovac (Serbia)"""
+
+    ME_ALRAYYAN_1 = Region('me-alrayyan-1')
 
     ME_DCC_DOHA_1 = Region('me-dcc-doha-1')
-    """Realm: OC21, Doha (Qatar)"""
 
     EU_DCC_ROME_1 = Region('eu-dcc-rome-1')
-    """Realm: OC22, PSN Region Rome"""
 
     EU_MILAN_2 = Region('eu-milan-2')
-    """Realm: OC22, PSN Region Milan"""
 
     US_SOMERSET_1 = Region('us-somerset-1')
 
     US_THAMES_1 = Region('us-thames-1')
 
-    EU_DCC_ZURICH_1 = Region('eu-dcc-zurich-1')
-    """Realm: OC24, Switzerland dedicated (Zurich)"""
-
     EU_CRISSIER_1 = Region('eu-crissier-1')
 
+    EU_DCC_ZURICH_1 = Region('eu-dcc-zurich-1')
+
     AP_DCC_OSAKA_1 = Region('ap-dcc-osaka-1')
-    """Realm: OC25, Japan dedicated (Osaka)"""
 
     AP_DCC_TOKYO_1 = Region('ap-dcc-tokyo-1')
-    """Realm: OC25, Japan dedicated (Tokyo)"""
 
     ME_ABUDHABI_3 = Region('me-abudhabi-3')
-    """Realm: OC26, Abudhabi"""
 
     ME_ALAIN_1 = Region('me-alain-1')
 
     US_DCC_SWJORDAN_1 = Region('us-dcc-swjordan-1')
-    """Realm: OC27, SWJordan dedicated (Utah USA)"""
 
     US_DCC_SWJORDAN_2 = Region('us-dcc-swjordan-2')
-    """Realm: OC28, SWJordan dedicated (Utah USA)"""
 
     ME_ABUDHABI_2 = Region('me-abudhabi-2')
-    """Realm: OC29, Abudhabi 2"""
 
     ME_ABUDHABI_4 = Region('me-abudhabi-4')
-    """Realm: OC29, Abudhabi 4"""
 
     AP_HOBSONVILLE_1 = Region('ap-hobsonville-1')
-    """Realm: OC31, Hobsonville dedicated (New Zealand)"""
 
     AP_SILVERDALE_1 = Region('ap-silverdale-1')
-    """Realm: OC31, Silverdale dedicated (New Zealand)"""
 
-    AP_SUWON_1 = Region('ap-suwon-1')
-    """Realm: OC35, South Korea North (Suwon)"""
-
-    AP_SEOUL_2 = Region('ap-seoul-2')
-    """Realm: OC35, South Korea North (Seoul)"""
+    AP_OLYMPIC_1 = Region('ap-olympic-1')
 
     AP_CHUNCHEON_2 = Region('ap-chuncheon-2')
-    """Realm: OC35, South Korea North (Chuncheon)"""
+
+    AP_SEOUL_2 = Region('ap-seoul-2')
+
+    AP_SUWON_1 = Region('ap-suwon-1')
+
+    ME_ALKHOBAR_1 = Region('me-alkhobar-1')
 
     ME_RIYADH_2 = Region('me-riyadh-2')
-    """Riyadh 2 Alloy"""
 
     US_TUKWILA_3 = Region('us-tukwila-3')
-    """Realm: OC39, Butterfly Stable"""
 
     AP_OSAKA_2 = Region('ap-osaka-2')
-    """Realm: OC40, Sovereign Cloud (Japan West)"""
 
     AP_TATEBAYASHI_1 = Region('ap-tatebayashi-1')
-    """Realm: OC40, Sovereign Cloud"""
+
+    ME_DUBAI_2 = Region('me-dubai-2')
 
     ME_DUBAI_3 = Region('me-dubai-3')
-    """Realm: OC41, UAE North 1"""
+
+    US_ASHBURN_2 = Region('us-ashburn-2')
 
     US_NEWARK_1 = Region('us-newark-1')
-    """Newark 1 DRCC"""
 
     AP_PATHUMTHANI_1 = Region('ap-pathumthani-1')
-    """Realm: OC43, Thailand 1 (AIS)"""
 
     AP_SAMUTPRAKAN_1 = Region('ap-samutprakan-1')
-    """Thailand 2 (AIS)"""
+
+    ME_SABAHIYA_1 = Region('me-sabahiya-1')
 
     UK_LONDON_2 = Region('uk-london-2')
-    """Realm: OC46, Butterfly Lab 1"""
 
     UK_LONDON_3 = Region('uk-london-3')
-    """Realm: OC47, Butterfly Lab 2"""
 
     UK_LONDON_4 = Region('uk-london-4')
-    """Realm: OC47, London 4"""
+
+    AP_KYOTO_1 = Region('ap-kyoto-1')
+
+    AP_MITAKA_1 = Region('ap-mitaka-1')
 
     EU_BUDAPEST_1 = Region('eu-budapest-1')
-    """Realm: OC51, Budapest"""
 
     SA_RIODEJANEIRO_1 = Region('sa-riodejaneiro-1')
-    """Realm: OC52, Rio De Janeiro"""
+
+    SA_BELENZINHO_1 = Region('sa-belenzinho-1')
+
+    SA_SAOPAULO_3 = Region('sa-saopaulo-3')
+
+    AP_EASTOSAKA_1 = Region('ap-eastosaka-1')
 
     AP_WESTTOKYO_1 = Region('ap-westtokyo-1')
-    """WestTokyo 1 Alloy"""
 
     ME_ABUDHABI_5 = Region('me-abudhabi-5')
-    """Realm: OC57, Abu Dhabi 5"""
 
     ME_DUBAI_4 = Region('me-dubai-4')
-    """Realm: OC57, Dubai 4"""
 
+    US_TUKWILA_5 = Region('us-tukwila-5')
+
+    US_TUKWILA_6 = Region('us-tukwila-6')
+
+    US_TUKWILA_7 = Region('us-tukwila-7')
+
+    AP_TOKYO_2 = Region('ap-tokyo-2')
+
+    AP_OLYMPIC_2 = Region('ap-olympic-2')
+
+
+    # OC0
+    OC0_REGIONS = dict()
+    OC0_REGIONS[UK_LONDON_9.get_region_id()] = UK_LONDON_9
+    OC0_REGIONS[US_RENTON_1.get_region_id()] = US_RENTON_1
+    OC0_REGIONS[US_SCOTTSDALE_1.get_region_id()] = US_SCOTTSDALE_1
 
     # OC1
     OC1_REGIONS = dict()
+    OC1_REGIONS[AF_CASABLANCA_1.get_region_id()] = AF_CASABLANCA_1
     OC1_REGIONS[AF_JOHANNESBURG_1.get_region_id()] = AF_JOHANNESBURG_1
+    OC1_REGIONS[AF_NAIROBI_1.get_region_id()] = AF_NAIROBI_1
     OC1_REGIONS[AP_BATAM_1.get_region_id()] = AP_BATAM_1
     OC1_REGIONS[AP_CHENNAI_1.get_region_id()] = AP_CHENNAI_1
     OC1_REGIONS[AP_CHUNCHEON_1.get_region_id()] = AP_CHUNCHEON_1
+    OC1_REGIONS[AP_DELHI_1.get_region_id()] = AP_DELHI_1
     OC1_REGIONS[AP_HYDERABAD_1.get_region_id()] = AP_HYDERABAD_1
     OC1_REGIONS[AP_KULAI_1.get_region_id()] = AP_KULAI_1
+    OC1_REGIONS[AP_KULAI_2.get_region_id()] = AP_KULAI_2
     OC1_REGIONS[AP_MELBOURNE_1.get_region_id()] = AP_MELBOURNE_1
     OC1_REGIONS[AP_MUMBAI_1.get_region_id()] = AP_MUMBAI_1
     OC1_REGIONS[AP_OSAKA_1.get_region_id()] = AP_OSAKA_1
@@ -948,26 +1002,27 @@ class Regions(object):
     OC1_REGIONS[MX_MONTERREY_1.get_region_id()] = MX_MONTERREY_1
     OC1_REGIONS[MX_QUERETARO_1.get_region_id()] = MX_QUERETARO_1
     OC1_REGIONS[SA_BOGOTA_1.get_region_id()] = SA_BOGOTA_1
+    OC1_REGIONS[SA_RIODEJANEIRO_2.get_region_id()] = SA_RIODEJANEIRO_2
     OC1_REGIONS[SA_SANTIAGO_1.get_region_id()] = SA_SANTIAGO_1
     OC1_REGIONS[SA_SAOPAULO_1.get_region_id()] = SA_SAOPAULO_1
     OC1_REGIONS[SA_VALPARAISO_1.get_region_id()] = SA_VALPARAISO_1
     OC1_REGIONS[SA_VINHEDO_1.get_region_id()] = SA_VINHEDO_1
-    OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
     OC1_REGIONS[UK_CARDIFF_1.get_region_id()] = UK_CARDIFF_1
+    OC1_REGIONS[UK_LONDON_1.get_region_id()] = UK_LONDON_1
     OC1_REGIONS[US_ABILENE_1.get_region_id()] = US_ABILENE_1
-    OC1_REGIONS[US_COLUMBUS_1.get_region_id()] = US_COLUMBUS_1
-    OC1_REGIONS[US_QUINCY_1.get_region_id()] = US_QUINCY_1
+    OC1_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
     OC1_REGIONS[US_BOARDMAN_1.get_region_id()] = US_BOARDMAN_1
+    OC1_REGIONS[US_CHICAGO_1.get_region_id()] = US_CHICAGO_1
+    OC1_REGIONS[US_COLUMBUS_1.get_region_id()] = US_COLUMBUS_1
     OC1_REGIONS[US_DALLAS_1.get_region_id()] = US_DALLAS_1
     OC1_REGIONS[US_DESMOINES_1.get_region_id()] = US_DESMOINES_1
+    OC1_REGIONS[US_LENEXA_1.get_region_id()] = US_LENEXA_1
     OC1_REGIONS[US_PHOENIX_1.get_region_id()] = US_PHOENIX_1
-    OC1_REGIONS[US_ASHBURN_1.get_region_id()] = US_ASHBURN_1
+    OC1_REGIONS[US_QUINCY_1.get_region_id()] = US_QUINCY_1
     OC1_REGIONS[US_SALTLAKE_2.get_region_id()] = US_SALTLAKE_2
+    OC1_REGIONS[US_SANANTONIO_1.get_region_id()] = US_SANANTONIO_1
     OC1_REGIONS[US_SANJOSE_1.get_region_id()] = US_SANJOSE_1
     OC1_REGIONS[US_SHAWNEE_1.get_region_id()] = US_SHAWNEE_1
-    OC1_REGIONS[US_CHICAGO_1.get_region_id()] = US_CHICAGO_1
-    OC1_REGIONS[AP_KULAI_2.get_region_id()] = AP_KULAI_2
-    OC1_REGIONS[AP_DELHI_1.get_region_id()] = AP_DELHI_1
 
     # OC2
     OC2_REGIONS = dict()
@@ -982,12 +1037,17 @@ class Regions(object):
 
     # OC4
     OC4_REGIONS = dict()
-    OC4_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
     OC4_REGIONS[UK_GOV_CARDIFF_1.get_region_id()] = UK_GOV_CARDIFF_1
+    OC4_REGIONS[UK_GOV_LONDON_1.get_region_id()] = UK_GOV_LONDON_1
 
     # OC5
     OC5_REGIONS = dict()
     OC5_REGIONS[US_TACOMA_1.get_region_id()] = US_TACOMA_1
+
+    # OC6
+    OC6_REGIONS = dict()
+    OC6_REGIONS[US_GOV_FORTWORTH_1.get_region_id()] = US_GOV_FORTWORTH_1
+    OC6_REGIONS[US_GOV_STERLING_2.get_region_id()] = US_GOV_STERLING_2
 
     # OC8
     OC8_REGIONS = dict()
@@ -1002,6 +1062,18 @@ class Regions(object):
     # OC10
     OC10_REGIONS = dict()
     OC10_REGIONS[AP_DCC_CANBERRA_1.get_region_id()] = AP_DCC_CANBERRA_1
+
+    # OC11
+    OC11_REGIONS = dict()
+    OC11_REGIONS[US_GOV_FORTWORTH_3.get_region_id()] = US_GOV_FORTWORTH_3
+    OC11_REGIONS[US_GOV_PHOENIX_3.get_region_id()] = US_GOV_PHOENIX_3
+    OC11_REGIONS[US_GOV_STERLING_3.get_region_id()] = US_GOV_STERLING_3
+
+    # OC12
+    OC12_REGIONS = dict()
+    OC12_REGIONS[US_GOV_ASHBURN_2.get_region_id()] = US_GOV_ASHBURN_2
+    OC12_REGIONS[US_GOV_PHOENIX_2.get_region_id()] = US_GOV_PHOENIX_2
+    OC12_REGIONS[US_GOV_SALTLAKE_1.get_region_id()] = US_GOV_SALTLAKE_1
 
     # OC14
     OC14_REGIONS = dict()
@@ -1018,6 +1090,7 @@ class Regions(object):
 
     # OC16
     OC16_REGIONS = dict()
+    OC16_REGIONS[US_SANJOSE_2.get_region_id()] = US_SANJOSE_2
     OC16_REGIONS[US_WESTJORDAN_1.get_region_id()] = US_WESTJORDAN_1
 
     # OC17
@@ -1037,6 +1110,7 @@ class Regions(object):
 
     # OC21
     OC21_REGIONS = dict()
+    OC21_REGIONS[ME_ALRAYYAN_1.get_region_id()] = ME_ALRAYYAN_1
     OC21_REGIONS[ME_DCC_DOHA_1.get_region_id()] = ME_DCC_DOHA_1
 
     # OC22
@@ -1051,8 +1125,8 @@ class Regions(object):
 
     # OC24
     OC24_REGIONS = dict()
-    OC24_REGIONS[EU_DCC_ZURICH_1.get_region_id()] = EU_DCC_ZURICH_1
     OC24_REGIONS[EU_CRISSIER_1.get_region_id()] = EU_CRISSIER_1
+    OC24_REGIONS[EU_DCC_ZURICH_1.get_region_id()] = EU_DCC_ZURICH_1
 
     # OC25
     OC25_REGIONS = dict()
@@ -1082,14 +1156,19 @@ class Regions(object):
     OC31_REGIONS[AP_HOBSONVILLE_1.get_region_id()] = AP_HOBSONVILLE_1
     OC31_REGIONS[AP_SILVERDALE_1.get_region_id()] = AP_SILVERDALE_1
 
+    # OC32
+    OC32_REGIONS = dict()
+    OC32_REGIONS[AP_OLYMPIC_1.get_region_id()] = AP_OLYMPIC_1
+
     # OC35
     OC35_REGIONS = dict()
-    OC35_REGIONS[AP_SUWON_1.get_region_id()] = AP_SUWON_1
-    OC35_REGIONS[AP_SEOUL_2.get_region_id()] = AP_SEOUL_2
     OC35_REGIONS[AP_CHUNCHEON_2.get_region_id()] = AP_CHUNCHEON_2
+    OC35_REGIONS[AP_SEOUL_2.get_region_id()] = AP_SEOUL_2
+    OC35_REGIONS[AP_SUWON_1.get_region_id()] = AP_SUWON_1
 
     # OC36
     OC36_REGIONS = dict()
+    OC36_REGIONS[ME_ALKHOBAR_1.get_region_id()] = ME_ALKHOBAR_1
     OC36_REGIONS[ME_RIYADH_2.get_region_id()] = ME_RIYADH_2
 
     # OC39
@@ -1103,16 +1182,22 @@ class Regions(object):
 
     # OC41
     OC41_REGIONS = dict()
+    OC41_REGIONS[ME_DUBAI_2.get_region_id()] = ME_DUBAI_2
     OC41_REGIONS[ME_DUBAI_3.get_region_id()] = ME_DUBAI_3
 
     # OC42
     OC42_REGIONS = dict()
+    OC42_REGIONS[US_ASHBURN_2.get_region_id()] = US_ASHBURN_2
     OC42_REGIONS[US_NEWARK_1.get_region_id()] = US_NEWARK_1
 
     # OC43
     OC43_REGIONS = dict()
     OC43_REGIONS[AP_PATHUMTHANI_1.get_region_id()] = AP_PATHUMTHANI_1
     OC43_REGIONS[AP_SAMUTPRAKAN_1.get_region_id()] = AP_SAMUTPRAKAN_1
+
+    # OC45
+    OC45_REGIONS = dict()
+    OC45_REGIONS[ME_SABAHIYA_1.get_region_id()] = ME_SABAHIYA_1
 
     # OC46
     OC46_REGIONS = dict()
@@ -1123,6 +1208,11 @@ class Regions(object):
     OC47_REGIONS[UK_LONDON_3.get_region_id()] = UK_LONDON_3
     OC47_REGIONS[UK_LONDON_4.get_region_id()] = UK_LONDON_4
 
+    # OC50
+    OC50_REGIONS = dict()
+    OC50_REGIONS[AP_KYOTO_1.get_region_id()] = AP_KYOTO_1
+    OC50_REGIONS[AP_MITAKA_1.get_region_id()] = AP_MITAKA_1
+
     # OC51
     OC51_REGIONS = dict()
     OC51_REGIONS[EU_BUDAPEST_1.get_region_id()] = EU_BUDAPEST_1
@@ -1131,14 +1221,45 @@ class Regions(object):
     OC52_REGIONS = dict()
     OC52_REGIONS[SA_RIODEJANEIRO_1.get_region_id()] = SA_RIODEJANEIRO_1
 
+    # OC54
+    OC54_REGIONS = dict()
+    OC54_REGIONS[SA_BELENZINHO_1.get_region_id()] = SA_BELENZINHO_1
+    OC54_REGIONS[SA_SAOPAULO_3.get_region_id()] = SA_SAOPAULO_3
+
     # OC55
     OC55_REGIONS = dict()
+    OC55_REGIONS[AP_EASTOSAKA_1.get_region_id()] = AP_EASTOSAKA_1
     OC55_REGIONS[AP_WESTTOKYO_1.get_region_id()] = AP_WESTTOKYO_1
 
     # OC57
     OC57_REGIONS = dict()
     OC57_REGIONS[ME_ABUDHABI_5.get_region_id()] = ME_ABUDHABI_5
     OC57_REGIONS[ME_DUBAI_4.get_region_id()] = ME_DUBAI_4
+
+    # OC60
+    OC60_REGIONS = dict()
+    OC60_REGIONS[US_TUKWILA_5.get_region_id()] = US_TUKWILA_5
+
+    # OC61
+    OC61_REGIONS = dict()
+    OC61_REGIONS[US_TUKWILA_6.get_region_id()] = US_TUKWILA_6
+
+    # OC62
+    OC62_REGIONS = dict()
+    OC62_REGIONS[US_TUKWILA_7.get_region_id()] = US_TUKWILA_7
+
+    # OC64
+    OC64_REGIONS = dict()
+    OC64_REGIONS[AP_TOKYO_2.get_region_id()] = AP_TOKYO_2
+
+    # OC88
+    OC88_REGIONS = dict()
+    OC88_REGIONS[AP_OLYMPIC_2.get_region_id()] = AP_OLYMPIC_2
+
+    @staticmethod
+    def get_oc0_regions():
+        # Internal use only
+        return Regions.OC0_REGIONS.values()
 
     @staticmethod
     def get_oc1_regions():
@@ -1166,6 +1287,11 @@ class Regions(object):
         return Regions.OC5_REGIONS.values()
 
     @staticmethod
+    def get_oc6_regions():
+        # Internal use only
+        return Regions.OC6_REGIONS.values()
+
+    @staticmethod
     def get_oc8_regions():
         # Internal use only
         return Regions.OC8_REGIONS.values()
@@ -1179,6 +1305,16 @@ class Regions(object):
     def get_oc10_regions():
         # Internal use only
         return Regions.OC10_REGIONS.values()
+
+    @staticmethod
+    def get_oc11_regions():
+        # Internal use only
+        return Regions.OC11_REGIONS.values()
+
+    @staticmethod
+    def get_oc12_regions():
+        # Internal use only
+        return Regions.OC12_REGIONS.values()
 
     @staticmethod
     def get_oc14_regions():
@@ -1261,6 +1397,11 @@ class Regions(object):
         return Regions.OC31_REGIONS.values()
 
     @staticmethod
+    def get_oc32_regions():
+        # Internal use only
+        return Regions.OC32_REGIONS.values()
+
+    @staticmethod
     def get_oc35_regions():
         # Internal use only
         return Regions.OC35_REGIONS.values()
@@ -1296,6 +1437,11 @@ class Regions(object):
         return Regions.OC43_REGIONS.values()
 
     @staticmethod
+    def get_oc45_regions():
+        # Internal use only
+        return Regions.OC45_REGIONS.values()
+
+    @staticmethod
     def get_oc46_regions():
         # Internal use only
         return Regions.OC46_REGIONS.values()
@@ -1304,6 +1450,11 @@ class Regions(object):
     def get_oc47_regions():
         # Internal use only
         return Regions.OC47_REGIONS.values()
+
+    @staticmethod
+    def get_oc50_regions():
+        # Internal use only
+        return Regions.OC50_REGIONS.values()
 
     @staticmethod
     def get_oc51_regions():
@@ -1316,6 +1467,11 @@ class Regions(object):
         return Regions.OC52_REGIONS.values()
 
     @staticmethod
+    def get_oc54_regions():
+        # Internal use only
+        return Regions.OC54_REGIONS.values()
+
+    @staticmethod
     def get_oc55_regions():
         # Internal use only
         return Regions.OC55_REGIONS.values()
@@ -1324,6 +1480,31 @@ class Regions(object):
     def get_oc57_regions():
         # Internal use only
         return Regions.OC57_REGIONS.values()
+
+    @staticmethod
+    def get_oc60_regions():
+        # Internal use only
+        return Regions.OC60_REGIONS.values()
+
+    @staticmethod
+    def get_oc61_regions():
+        # Internal use only
+        return Regions.OC61_REGIONS.values()
+
+    @staticmethod
+    def get_oc62_regions():
+        # Internal use only
+        return Regions.OC62_REGIONS.values()
+
+    @staticmethod
+    def get_oc64_regions():
+        # Internal use only
+        return Regions.OC64_REGIONS.values()
+
+    @staticmethod
+    def get_oc88_regions():
+        # Internal use only
+        return Regions.OC88_REGIONS.values()
 
     @staticmethod
     def from_region_id(region_id):
@@ -1342,6 +1523,8 @@ class Regions(object):
         region_id = region_id.lower()
         region = Regions.OC1_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC0_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC2_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC3_REGIONS.get(region_id)
@@ -1350,11 +1533,17 @@ class Regions(object):
         if region is None:
             region = Regions.OC5_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC6_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC8_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC9_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC10_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC11_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC12_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC14_REGIONS.get(region_id)
         if region is None:
@@ -1388,6 +1577,8 @@ class Regions(object):
         if region is None:
             region = Regions.OC31_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC32_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC35_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC36_REGIONS.get(region_id)
@@ -1402,17 +1593,33 @@ class Regions(object):
         if region is None:
             region = Regions.OC43_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC45_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC46_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC47_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC50_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC51_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC52_REGIONS.get(region_id)
         if region is None:
+            region = Regions.OC54_REGIONS.get(region_id)
+        if region is None:
             region = Regions.OC55_REGIONS.get(region_id)
         if region is None:
             region = Regions.OC57_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC60_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC61_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC62_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC64_REGIONS.get(region_id)
+        if region is None:
+            region = Regions.OC88_REGIONS.get(region_id)
         return region
 
 # === End autogenerated regions ===
