@@ -27,9 +27,9 @@
 #        Open the navigation menu, under Governance and Administration, go to
 #        Administration and click Tenancy Details. The tenancy OCID is shown
 #        under Tenancy Information.
-# Step4: Get the user's OCID from OCI Console on User Settings page. Open the
-#        Profile menu (User menu icon) and click User Settings. You can find the
-#        user's OCID is shown under User Information.
+# Step4: Get the user's OCID from the OCI Console on the User Settings page.
+#        Open the Profile menu (User menu icon) and click User Settings. You
+#        can find the user's OCID is shown under User Information.
 #
 # Create ~/.oci/config, open the file in your text editor, add the following
 # information obtained from the previous steps. This file should be secured so
@@ -58,7 +58,7 @@
 
 from os import path
 
-# A endpoint string, a region id or a Region, for example:
+# An endpoint string, a region id or a Region, for example:
 #  'nosql.us-ashburn-1.oci.oraclecloud.com', 'us-ashburn-1' or
 #  Regions.US_ASHBURN_1
 endpoint = 'us-ashburn-1'
@@ -66,9 +66,9 @@ endpoint = 'us-ashburn-1'
 # The server type, please don't change it.
 server_type = 'cloud'
 
-# Please use one of 'user principal', 'instance principal' or
-# 'resource principal'.
+# Please use one of 'user principal', 'instance principal',
+# 'resource principal' or 'oke workload'.
 principal = 'user principal'
 
-# Absolute path to credentials file, default path is "~/.oci/config"
+# Absolute path to the credentials file, a default path is "~/.oci/config"
 credentials_file = path.join(path.expanduser('~'), '.oci', 'config')
