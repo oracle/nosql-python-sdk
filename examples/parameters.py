@@ -26,6 +26,10 @@ try:
     from config import user_password
 except ImportError:
     user_password = None
+try:
+    from config import compartment_id
+except ImportError:
+    compartment_id = None
 
 #
 # These variables control whether the program uses the Cloud Simulator or the
@@ -34,7 +38,12 @@ except ImportError:
 #
 # Cloud Simulator/Service: a tenant id -- simple string
 # On-premise: not used
-if credentials_file is None:
+if server_type == 'cloud' and principal == 'oke workload':
+    if not isinstance(compartment_id, str) or not compartment_id.strip():
+        raise ValueError(
+            'Set compartment_id to a compartment OCID for oke workload.')
+    tenant_id = compartment_id.strip()
+elif credentials_file is None:
     tenant_id = 'pythontenant'
 else:
     assert isinstance(credentials_file, str)

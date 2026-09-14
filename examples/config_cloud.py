@@ -72,3 +72,13 @@ principal = 'user principal'
 
 # Absolute path to the credentials file, a default path is "~/.oci/config"
 credentials_file = path.join(path.expanduser('~'), '.oci', 'config')
+
+
+#
+# For an OKE workload, use the following parameters.
+#
+#server_type = 'cloud'
+#principal = 'oke workload'
+#credentials_file = None
+# Must specify a compartment OCID.
+#compartment_id = 'ocid1.compartment.oc1..YOUR_COMPARTMENT'
