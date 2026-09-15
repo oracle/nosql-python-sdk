@@ -53,6 +53,8 @@ def generate_authorization_provider(tenant_id):
                 region=region)
         elif principal == 'resource principal':
             provider = SignatureProvider.create_with_resource_principal()
+        elif principal == 'oke workload':
+            provider = SignatureProvider.create_with_oke_workload_identity_resource_principal()
         else:
             raise IllegalArgumentException('Must specify the principal.')
     elif using_on_prem:

@@ -27,6 +27,8 @@ try:
     # noinspection PyUnresolvedReferences
     from oci.auth.signers import get_resource_principals_signer
     # noinspection PyUnresolvedReferences
+    from oci.auth.signers import get_oke_workload_identity_resource_principal_signer
+    # noinspection PyUnresolvedReferences
     from oci.config import from_file
 
     oci = 'yes'
@@ -366,15 +368,15 @@ class SignatureProvider(AuthorizationProvider):
     def create_with_resource_principal(logger=None):
         """
         Creates a SignatureProvider using a resource principal. This method may
-        be used when calling the Oracle NoSQL Database Cloud Service from other
+        be used when calling the Oracle NoSQL Database Cloud Service from another
         Oracle Cloud service resource such as Functions. It uses a resource
         provider session token (RPST) that enables the resource such as function
         to authenticate itself.
 
-        When using an resource principal the compartment id (OCID) must be
+        When using a resource principal, the compartment id (OCID) must be
         specified on each request or defaulted by using
         :py:meth:`borneo.NoSQLHandleConfig.set_default_compartment`. If the
-        compartment id is not specified for an operation an exception will be
+        compartment id is not specified for an operation, an exception will be
         thrown.
 
         See `Accessing Other Oracle Cloud Infrastructure Resources from Running
@@ -389,6 +391,35 @@ class SignatureProvider(AuthorizationProvider):
         SignatureProvider._check_oci()
         signature_provider = SignatureProvider(
             get_resource_principals_signer())
+        return (signature_provider if logger is None else
+                signature_provider.set_logger(logger))
+
+    @staticmethod
+    def create_with_oke_workload_identity_resource_principal(logger=None):
+        """
+        Creates a SignatureProvider using a Container Engine for Kubernetes
+        (OKE) workload identity resource principal. This method may be used when
+        calling the Oracle NoSQL Database Cloud Service from an OKE cluster
+        workload. It uses a resource provider session token (RPST) that enables
+        the workload to authenticate itself. This can only be used inside
+        Kubernetes pods.
+
+        When using a resource principal, the compartment id (OCID) must be
+        specified on each request or defaulted by using
+        :py:meth:`borneo.NoSQLHandleConfig.set_default_compartment`. If the
+        compartment id is not specified for an operation, an exception will be
+        thrown.
+
+        See `Granting Workloads Access to OCI Resources <https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm>`_.
+
+        :param logger: the logger used by the SignatureProvider, it is optional.
+        :type logger: Logger
+        :returns: a SignatureProvider.
+        :rtype: SignatureProvider
+        """
+        SignatureProvider._check_oci()
+        signature_provider = SignatureProvider(
+            get_oke_workload_identity_resource_principal_signer())
         return (signature_provider if logger is None else
                 signature_provider.set_logger(logger))
 

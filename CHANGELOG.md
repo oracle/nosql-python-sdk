@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Added
 - Added latest OCI region codes
+- Added support for Container Engine for Kubernetes (OKE) workload identity resource principal
 
 # 5.5.0 - 2026-08-01
 
