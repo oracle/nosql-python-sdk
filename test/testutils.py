@@ -95,8 +95,8 @@ def compare_version(specified, internal):
     """
     #if version is a snapshot, strip that portion
     specified = specified.strip('-SNAPSHOT')
-    specified_check = match('\d+(\.\d+){0,2}', specified)
-    internal_check = match('\d+(\.\d+){0,2}', internal)
+    specified_check = match(r'\d+(\.\d+){0,2}', specified)
+    internal_check = match(r'\d+(\.\d+){0,2}', internal)
     if (specified_check is None or internal_check is None or
             specified_check.group() != specified or
             internal_check.group() != internal):
