@@ -49,13 +49,19 @@ setup(
     long_description_content_type='text/markdown',
 
     author='Oracle',
-    author_email='george.feinberg@oracle.com',
+    author_email='michael.brey@oracle.com',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     include_package_data=True,
+    license_files=[
+        'LICENSE.txt',
+        'THIRD_PARTY_LICENSES.txt',
+    ],
 
     # License is UPL, Version 1.0
-    license='Universal Permissive License 1.0',
+    license='UPL-1.0',
+    # Minimum supported Python version
+    python_requires='>=3.12',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -68,9 +74,6 @@ setup(
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
         'Topic :: Database :: Front-Ends',
-
-        # License -- must match "license" above
-        'License :: OSI Approved :: Universal Permissive License (UPL)',
 
         # Supported Python versions
         'Programming Language :: Python :: 3.12',

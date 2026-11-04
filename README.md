@@ -8,6 +8,13 @@ develop Python applications that connect to the Oracle NoSQL Database Cloud
 Service, Oracle NoSQL Database and to the Oracle NoSQL Cloud Simulator (which
 runs on a local machine).
 
+We strongly recommend using this as your minimal versions: Python 3.12.16,
+3.13.18, 3.14.10, 3.15.2, or a later patched release within the corresponding
+Python version line.
+
+ML-KEM support has been validated against Oracle NoSQL Database 26.3 using
+Python 3.14 linked against OpenSSL 3.5 or later.
+
 In order to run the Oracle NoSQL Cloud Simulator, a separate download is
 necessary from the Oracle NoSQL OTN download page. Throughout the documentation,
 the Oracle NoSQL Database Cloud Service and Cloud Simulator are referred to as
