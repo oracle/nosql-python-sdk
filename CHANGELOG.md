@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ====================
 
-# Unreleased
+# 5.6.0 - 2026-11-24
 
 ## Added
 - Added latest OCI region codes
