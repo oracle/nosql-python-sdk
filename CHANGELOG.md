@@ -7,11 +7,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ====================
 
+# 5.6.1 - 2026-11-24
+
+## Fixed
+
+- Lowered the minimum required Sphinx version to restore Python 3.12
+  compatibility for documentation generation and installation of development
+  dependencies from requirements.txt
+
 # 5.6.0 - 2026-11-24
 
 ## Added
+
 - Added latest OCI region codes
-- Added support for Container Engine for Kubernetes (OKE) workload identity resource principal
+- Added support for Container Engine for Kubernetes (OKE) workload identity
+  resource principal
 
 # 5.5.0 - 2026-08-01
 
@@ -23,7 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Changed
 
-- IMPORTANT: This release drops support for older Python versions, it supports 
+- IMPORTANT: This release drops support for older Python versions, it supports
   only Python 3.12 and higher
 
 ## Fixed
